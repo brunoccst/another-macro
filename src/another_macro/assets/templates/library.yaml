@@ -1,0 +1,38 @@
+# Shared templates and screens used by every scenario.
+#
+# Entries without `ref` have not been captured yet: cut them from a screenshot of
+# YOUR phone with `another-macro capture-template <name> ...` (see
+# docs/writing-scenarios.md), which saves the PNG next to this file and fills in
+# `file`, `ref` and `region`. `notes` says what to cut.
+
+templates:
+  field_menu_button:
+    notes: The "Menu" button shown on the field/map screen (bottom-left).
+    region: [0.0, 0.75, 0.3, 0.25]
+  battle_attack_button:
+    notes: The "Attack" button shown while the battle waits for your command (bottom-right).
+    region: [0.7, 0.55, 0.3, 0.45]
+  battle_auto_button:
+    notes: The "Auto" battle button (as shown while auto is OFF).
+    region: [0.0, 0.5, 0.35, 0.5]
+  battle_hud:
+    notes: Something visible during the WHOLE battle, including attack animations (e.g. the escape/flee button or the turn counter). Lets the macro know a battle is still running.
+    region: [0.0, 0.0, 1.0, 0.3]
+  result_banner:
+    notes: The header of the battle results screen (EXP / Git gained).
+    region: [0.0, 0.0, 1.0, 0.4]
+  defeat_banner:
+    notes: Text/banner of the party-wiped screen.
+    region: [0.0, 0.0, 1.0, 0.6]
+
+screens:
+  field:
+    require: [field_menu_button]
+  battle_command:
+    require: [battle_attack_button]
+  battle:
+    require: [battle_hud]
+  battle_result:
+    require: [result_banner]
+  defeat:
+    require: [defeat_banner]
