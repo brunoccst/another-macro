@@ -1,16 +1,19 @@
 #!/data/data/com.termux/files/usr/bin/bash
 # One-time setup inside Termux on the phone. Safe to re-run (it also updates).
 #   curl -fsSL https://raw.githubusercontent.com/brunoccst/another-macro/main/termux/install.sh | bash
+# Set BRANCH=<name> to install a branch other than main (e.g. to try a PR).
 set -euo pipefail
+BRANCH="${BRANCH:-main}"
 
 pkg update -y
 pkg install -y python git android-tools opencv-python
 
 REPO="$HOME/another-macro"
 if [ -d "$REPO/.git" ]; then
-  git -C "$REPO" pull --ff-only
+  git -C "$REPO" fetch origin "$BRANCH"
+  git -C "$REPO" checkout -B "$BRANCH" "origin/$BRANCH"
 else
-  git clone https://github.com/brunoccst/another-macro "$REPO"
+  git clone -b "$BRANCH" https://github.com/brunoccst/another-macro "$REPO"
 fi
 # numpy/OpenCV come from pkg above, so only the pure-Python deps come from pip
 pip install -e "$REPO"
