@@ -102,7 +102,7 @@ class MyScenario(Scenario):
         ctx.tap("popup_ok_button")        # tap a template where it was found
 
     def on_field(self, ctx: Context) -> None:
-        ctx.hold(Point(0.85, 0.5), 1500)  # walk right for ~1.5s
+        ctx.drag(Point(0.5, 0.55), Point(0.56, 0.55), 1500)  # walk right for ~1.5s
         if ctx.stats["runs"] >= ctx.params["runs"]:
             ctx.stop("done")
 
@@ -116,7 +116,8 @@ What `ctx` gives a handler:
 |---|---|
 | `ctx.find(name)` | `Match` (score, region, center) or `None` on the current frame |
 | `ctx.tap(x)` | tap a template name, `Match`, `Region` or `Point` (lands randomly in the middle of a button) |
-| `ctx.hold(x, ms)` | press and hold (walking) |
+| `ctx.hold(x, ms)` | press and hold in place |
+| `ctx.drag(a, b, ms)` | press at `a`, slide to `b`, hold until `ms` is up (walking) |
 | `ctx.device.swipe(a, b, ms)`, `ctx.device.back()` | raw input |
 | `ctx.wait(s)` | sleep (slightly randomised) |
 | `ctx.stats` | counters printed at the end |
@@ -141,3 +142,15 @@ Then add a Termux widget button in `termux/shortcuts/<Name>.sh` (copy
   scenarios.
 - **Agent fallback**: on an unknown screen, ask Claude what to do instead of
   stopping.
+
+## Game input notes (learned on the phone)
+
+- **Walking is a virtual stick.** The party walks in the direction a held finger
+  *slides*, not toward the side of the screen you press. Press mid-screen and slide a
+  little left or right (`ctx.drag`); a hold that drifts the wrong way walks the wrong way.
+- **Battles start with an intro animation** with no HUD; it shows as `unknown` for a
+  second or two before the command screen.
+- **Samsung Game Booster's touch lock** dims the game and swallows every tap while
+  templates still match through the dim. The runner checks for it every 30 s and stops.
+- **The game is landscape-only.** A portrait screenshot means another app (e.g.
+  Termux) is in front; the runner pauses input until the game is back.

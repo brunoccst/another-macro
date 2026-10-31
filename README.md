@@ -31,7 +31,7 @@ template matching, and follows a small per-scenario script.
 
 | Scenario | Start state | What it does | Params |
 |---|---|---|---|
-| `grind-battles` | On a field/dungeon map with random encounters | Walks left/right, auto-battles each encounter, clears results, repeats. Stops on defeat. | `battles` (10, 0 = no limit), `walk_ms` (1500) |
+| `grind-battles` | On a field/dungeon map with random encounters | Walks left/right, fights each encounter, clears results, repeats. Default `skill` mode gives the first front-row character their last skill (e.g. Verdanta → Sprinting Raid) and presses Attack; `mode=auto` uses the Auto button. Resumes from the title screen; stops on defeat, when the party seems stuck, or when Game Booster's touch lock covers the game. | `battles` (10, 0 = no limit), `walk_ms` (1500), `mode` (skill/auto), `slot` (1-4), `skill_x` (0.8075 = last skill), `first_walk` (-1 = left), `stuck_walks` (8) |
 
 `another-macro list` prints them all. To add one, ask Claude to "automate …" in this
 repo (it uses the [`new-scenario`](.claude/skills/new-scenario/SKILL.md) skill), or
