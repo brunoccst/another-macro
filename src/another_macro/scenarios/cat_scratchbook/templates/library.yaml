@@ -1,0 +1,50 @@
+# Templates for cat-scratchbook. Captured on a 2400x1080 phone.
+templates:
+  scratchbook_header:
+    file: scratchbook_header.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.3667
+    - 0.0
+    - 0.2667
+    - 0.0981
+    notes: '"Cat Scratchbook" title bar of the Diary screen.'
+  riddle_round_door:
+    file: riddle_round_door.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.33
+    - 0.15
+    - 0.34
+    - 0.5
+    notes: First line of a Cat Scratchbook riddle (any of the three rows).
+  riddle_bench_town_air:
+    file: riddle_bench_town_air.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.33
+    - 0.15
+    - 0.34
+    - 0.5
+    notes: First line of a Cat Scratchbook riddle (any of the three rows).
+  riddle_colorful_country_races:
+    file: riddle_colorful_country_races.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.33
+    - 0.15
+    - 0.34
+    - 0.5
+    notes: First line of a Cat Scratchbook riddle (any of the three rows).
+screens:
+  scratchbook:
+    require:
+    - scratchbook_header
