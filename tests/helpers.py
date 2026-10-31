@@ -23,6 +23,8 @@ ELEMENTS = {
     "battle_hud": (0.45, 0.03, 0.1, 0.08),
     "result_banner": (0.35, 0.1, 0.3, 0.1),
     "defeat_banner": (0.35, 0.3, 0.3, 0.12),
+    "skill_list_open": (0.2, 0.02, 0.1, 0.06),
+    "verdanta_last_skill_selected": (0.1, 0.62, 0.1, 0.05),
 }
 
 

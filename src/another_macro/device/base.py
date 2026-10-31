@@ -38,6 +38,13 @@ class Device(ABC):
     def start_app(self, package: str) -> None:  # optional
         raise NotImplementedError
 
+    def wake(self) -> None:  # optional
+        """Turn the screen on if it is off."""
+
+    def blocking_overlay(self) -> str | None:  # optional
+        """Name of a system window covering the game and eating input, if any."""
+        return None
+
     # --- normalized helpers used by scenarios -------------------------------
     def tap(self, p: Point) -> None:
         self.tap_px(*p.to_px(*self.size()))
@@ -45,7 +52,10 @@ class Device(ABC):
     def hold(self, p: Point, duration_ms: int) -> None:
         """Press and hold in place (e.g. walking: hold on one side of the field)."""
         x, y = p.to_px(*self.size())
-        self.swipe_px(x, y, x, y, duration_ms)
+        # a zero-length swipe is not a held touch for Another Eden (the party doesn't
+        # move); drifting one pixel makes it one
+        w, _ = self.size()
+        self.swipe_px(x, y, x + 1 if x + 1 < w else x - 1, y, duration_ms)
 
     def swipe(self, a: Point, b: Point, duration_ms: int = 300) -> None:
         w, h = self.size()

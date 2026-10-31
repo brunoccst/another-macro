@@ -122,6 +122,17 @@ class AdbDevice(Device):
         out = run_adb("shell", "pm", "list", "packages", serial=self.serial)
         return [m for m in re.findall(r"package:(\S+)", out) if pattern.lower() in m.lower()]
 
+    def wake(self) -> None:
+        self._send("input keyevent KEYCODE_WAKEUP", wait_s=0.5)
+
+    def blocking_overlay(self) -> str | None:
+        """Samsung Game Booster's touch lock dims the game and swallows every tap."""
+        try:
+            out = run_adb("shell", "dumpsys", "window", "windows", serial=self.serial, timeout=10)
+        except (AdbError, subprocess.TimeoutExpired):
+            return None
+        return find_blocking_overlay(out)
+
     def close(self) -> None:
         if self._shell and self._shell.poll() is None:
             try:
@@ -161,3 +172,19 @@ def _discover_connect_port() -> int:
     if not m:
         raise AdbError("couldn't discover the Wireless debugging port; pass it explicitly: `another-macro connect --port <port>`")
     return int(m.group(1))
+
+
+BLOCKING_WINDOWS = ("GameBooster Lock Screen",)
+
+
+def find_blocking_overlay(dumpsys: str) -> str | None:
+    """Return the first known input-blocking window that `dumpsys window windows` shows as visible."""
+    for name in BLOCKING_WINDOWS:
+        start = dumpsys.find(name + "}")
+        if start < 0:
+            continue
+        nxt = dumpsys.find("Window #", start)
+        block = dumpsys[start : nxt if nxt > 0 else len(dumpsys)]
+        if "isVisible=true" in block or "isOnScreen=true" in block:
+            return name
+    return None
