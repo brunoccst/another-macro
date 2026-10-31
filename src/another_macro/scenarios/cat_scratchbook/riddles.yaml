@@ -1,0 +1,369 @@
+# Cat Scratchbook clues -> where the cat is. Source: Another Eden Wiki, "Cat Scratchbook"
+# (https://anothereden.wiki/w/Cat_Scratchbook, CC BY-SA), page of 2026-10-29.
+# Keys with a template in templates/library.yaml are recognised on screen; capture the
+# first line of a new clue as `riddle_<words>` (the key below) to make it recognisable.
+riddle_a_peaceful_and_lovely_seaside:
+  text: A peaceful and lovely seaside. I guess it's fine if this is the last place ever!
+  location: Last Island
+  era: Future
+  unlocks_with: Main Story 1.0 Maps
+riddle_a_stone_road_over_a:
+  text: A stone road over a lake! How long did that take to build?
+  location: Lake Tiilen
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_a_whole_city_atop_a:
+  text: A whole city atop a lake?! I want to ride a boat around.
+  location: Acteul
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_all_this_grass_is_so:
+  text: All this grass is so soothing! Is that a castle in the distance?
+  location: Nuaru Uplands
+  era: Present
+  unlocks_with: Main Story 1.0 Maps
+riddle_all_this_magma_around_be:
+  text: All this magma around... Be careful not to be roasted!
+  location: Nadara Volcano - Caldera Edge
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_big_mushrooms_big_lizards_these:
+  text: Big mushrooms, big lizards! These fields are just...big!
+  location: Zol Plains
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_books_and_vases_in_the:
+  text: Books and vases in the swamp... Does someone live here ?
+  location: Man-eating Marsh (Enter from Acteul)
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_round_door:
+  text: Colorful cloth on a round door. What a nice find in the plains.
+  location: Sarupa
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_glowing_spores_in_the_sky:
+  text: Glowing spores in the sky... This meadow is very pretty!
+  location: Corinda Plains
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_how_fashionable_the_capital_is:
+  text: How fashionable the capital is! With lovely flowers in front of palace!
+  location: Unigan
+  era: Present
+  unlocks_with: Main Story 1.0 Maps
+riddle_i_saw_a_big_waterfall:
+  text: I saw a big waterfall in the plains! It seems like a fine place for a bath.
+  location: Charol Plains
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_iron_boxes_flying_here_and:
+  text: Iron boxes flying here and there... Humans are always so busy.
+  location: Elzion Airport
+  era: Future
+  unlocks_with: Main Story 1.0 Maps
+riddle_it_gets_hotter_the_higher:
+  text: It gets hotter the higher you go... My throat feels so dry...
+  location: Vasu Mountains
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_it_s_so_sandy_here:
+  text: It's so sandy here...but... The windmills are so fun!
+  location: Zarbo
+  era: Present
+  unlocks_with: Main Story 1.0 Maps
+riddle_lots_of_machines_but_no:
+  text: Lots of machines, but no people... These ruins are so lonely.
+  location: Industrial Ruins (Link Hall)
+  era: Future
+  unlocks_with: Main Story 1.0 Maps
+riddle_nothing_but_sand_sand_sand:
+  text: Nothing but sand, sand, sand...Do watch out for quicksand.
+  location: Rucyana Sands
+  era: Present
+  unlocks_with: Main Story 1.0 Maps
+riddle_nya_the_road_crumbles_away:
+  text: Nya?! The road crumbles away here... Do be careful not to fall!
+  location: Route 99 (Enter from Industrial Ruins)
+  era: Future
+  unlocks_with: Main Story 1.0 Maps
+riddle_oh_no_the_poor_castle:
+  text: Oh no, the poor castle... War is such a terrible thing...
+  location: Miglance Castle 2F
+  era: Present
+  unlocks_with: Main Story 1.0 Maps
+riddle_so_this_is_the_village:
+  text: So this is the village of flame! Eveything's burning hot!
+  location: Ratle
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_the_full_moon_reflected_in:
+  text: The full moon reflected in this pond is always so pretty!
+  location: Moonlight Forest (Forest Edge)
+  era: Present
+  unlocks_with: Main Story 1.0 Maps
+riddle_the_road_is_lined_with:
+  text: The road is lined with candles. Something's creepy about them...
+  location: Keruri Highroad
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_the_tower_s_wall_opens:
+  text: The tower's wall opens and closes. Does that pole do something?
+  location: Tower of Stars
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_there_are_purple_plant_monsters:
+  text: There are purple plant monsters here. Swamplands are so humid!
+  location: Karek Swampland (Enter from Baruoki)
+  era: Present
+  unlocks_with: Main Story 1.0 Maps
+riddle_this_city_is_on_the:
+  text: This city is on the cutting edge! What kind of things are sold here?
+  location: Elzion Gamma District
+  era: Future
+  unlocks_with: Main Story 1.0 Maps
+riddle_this_palace_has_so_many:
+  text: This palace has so many flowers. Will they get mad if you sleep in them?
+  location: Palsifal Palace
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_what_a_fancy_statue_this:
+  text: What a fancy statue this village has! It does seem quite heroic.
+  location: Baruoki
+  era: Present
+  unlocks_with: Main Story 1.0 Maps
+riddle_what_a_splendid_town_and:
+  text: What a splendid town. And such a view of that big floating tree.
+  location: Nilva
+  era: Future
+  unlocks_with: Main Story 1.0 Maps
+riddle_what_an_awful_clock_this:
+  text: What an awful clock this is. I want to knock it over.
+  location: Tower of Time 7F
+  era: Antiquity
+  unlocks_with: Main Story 1.0 Maps
+riddle_what_could_they_be_researching:
+  text: What could they be researching this high up, even above the city.
+  location: Xeno-Domain 2F Research Sector (1F below Xianhua's Lab)
+  era: Future
+  unlocks_with: Main Story 1.0 Maps
+riddle_what_lovely_golden_wheatfields_it:
+  text: What lovely golden wheatfields. It would be fun to hide here.
+  location: Laula Dome
+  era: Future
+  unlocks_with: Main Story 1.0 Maps
+riddle_a_ruined_amewsment_park_it:
+  text: A ruined amewsment park...it's a little sad it's all broken.
+  location: Toto Dreamland ("Toto Dreamland" quick destination)
+  era: Future
+  unlocks_with: Main Story 1.5 Maps
+riddle_a_stone_arch_on_a:
+  text: A stone arch on a big snake's neck. Doesn't it ever fall over?
+  location: Snake Neck Igoma (Enter from Konium)
+  era: Present
+  unlocks_with: Main Story 1.5 Maps
+riddle_boars_run_up_and_down:
+  text: Boars run up and down the snake, be careful not to be trampled.
+  location: Snake Spine Gabaraki
+  era: Present
+  unlocks_with: Main Story 1.5 Maps
+riddle_hehe_they_re_all_so:
+  text: Hehe. They're all so tired after losing in tag.
+  location: Konium
+  era: Present
+  unlocks_with: Main Story 1.5 Maps
+riddle_hurry_and_bring_them_home:
+  text: Hurry and bring them home! I don't think living creatures should be here!
+  location: Purgatory
+  era: Antiquity
+  unlocks_with: Main Story 1.5 Maps
+riddle_nyaa_what_a_sunset:
+  text: Nyaa! What a sunset!
+  location: Snake Skull Mescita
+  era: Present
+  unlocks_with: Main Story 1.5 Maps
+riddle_ooh_stained_glass_i_like:
+  text: Ooh, stained glass! I like this throne! It's mine now. Bring it to me.
+  location: Beast King-s Castle, Throne Room
+  era: Present
+  unlocks_with: Main Story 1.5 Maps
+riddle_there_are_so_many_books:
+  text: There are so many books in this big Museum! I love it here!
+  location: Museum - Library
+  era: Future
+  unlocks_with: Main Story 1.5 Maps
+riddle_was_there_a_battle_here:
+  text: Was there a battle here? I sense the wandering spirits of warriors...
+  location: Ancient Battlefield
+  era: Present
+  unlocks_with: Main Story 1.5 Maps
+riddle_what_a_weird_jewel_this:
+  text: What a weird jewel this is. Nyanya?! The scenery changed!
+  location: Snake Liver Damaku
+  era: Present
+  unlocks_with: Main Story 1.5 Maps
+riddle_down_down_beneath_the_pollution:
+  text: Down, Down, beneath the pollution. What an awful place!
+  location: Contaminated Pit
+  era: Future
+  unlocks_with: Main Story 2.0 Maps
+riddle_i_feel_like_this_is:
+  text: I feel like this is a good shrine! For kitties, obviously!
+  location: Cat Shrine
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_i_heard_there_was_a:
+  text: I heard there was a gate somewhere in this cave. Where is it, though?
+  location: Demon's Den Lv 1
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_i_saw_a_wrecked_ship:
+  text: I saw a wrecked ship near the inlet. It gives me the creeps.
+  location: Kurochi Cove (Enter from Zami)
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_it_s_nice_and_shady:
+  text: It's nice and shady under this big Tree. Good place for a nap.
+  location: Valley of the Ancients
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_it_s_too_cold_in:
+  text: It's too cold in this village! Hurry inside a snow hut!
+  location: Hidden Village Itoise
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_look_at_all_that_food:
+  text: Look at all that food in the village! What a harvest!
+  location: Ikarga
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_look_what_happened_to_that:
+  text: Look what happened to that shrine. The flow of time is so cruel.
+  location: Cat Shrine Remnants
+  era: Future
+  unlocks_with: Main Story 2.0 Maps
+riddle_nya_a_bird_took_off:
+  text: Nya! A bird took off and the road closed up! What a weird lake.
+  location: Dragon God's Swamp
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_nya_is_that_an_eyeball:
+  text: Nya?! Is that an eyeball?! This island is weird.
+  location: Light's Fading, Garulea
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_nyaa_this_cave_is_dark:
+  text: Nyaa! this cave is dark and gross and there are weird dogu everywhere
+  location: Funeral Cavern
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_bench_town_air:
+  text: Sit on a bench and you can see the whole town from the air!
+  location: Sky Fortress Eeza
+  era: Future
+  unlocks_with: Main Story 2.0 Maps
+riddle_so_there_are_people_living:
+  text: So there are people living on the surface even in this time...?
+  location: Angal Settlement
+  era: Future
+  unlocks_with: Main Story 2.0 Maps
+riddle_strange_decorations_on_the_rocks:
+  text: Strange decorations on the rocks here. I suppose that's Eastern culture.
+  location: Talgana Mountain Trail (Enter from Funeral Cavern)
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_straw_dummies_everywhere_this_port:
+  text: Straw dummies everywhere... This port town is weird...
+  location: Zami
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_such_brilliant_red_leaves_i:
+  text: Such brilliant red leaves! I want to play with some!
+  location: Vermillion Road (Enter from Nagsham)
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_the_mountain_breeze_is_so:
+  text: The mountain breeze is so nice. And the pinwheels make a lovely sound.
+  location: Gadaro
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_the_tall_grass_waving_in:
+  text: The tall grass waving in the wind is so pretty here!
+  location: Inanari Plateau
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_the_temple_is_in_ruins:
+  text: The temple is in ruins... I don't like it here!
+  location: Temple Ruins - Main Hall Front
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_there_are_lots_of_big:
+  text: There are lots of BIG people atop these trees here. A whole village!
+  location: Pador
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_there_s_so_much_energy:
+  text: There's so much energy here. And it's a BIG Stadium!
+  location: Satellite Stadium
+  era: Future
+  unlocks_with: Main Story 2.0 Maps
+riddle_colorful_country_races:
+  text: This country is so colorful. And they even have races for us!
+  location: Nagsham
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_this_palace_is_all_frozen:
+  text: This palace is all frozen over. Do you think it ever melts?
+  location: Specter Citadel
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_this_place_is_all_ruined:
+  text: This place is all ruined... The air is stagnant and gross.
+  location: Wasteland
+  era: Future
+  unlocks_with: Main Story 2.0 Maps
+riddle_this_ship_is_pretty_old:
+  text: This ship is pretty old... I hope the deck doesn't give out!
+  location: 'Ship Graveyard - First: Ship Bilge'
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_unparalleled_snowy_scenery_just_don:
+  text: Unparalleled snowy scenery... Just don't fall asleep in the mountains!
+  location: Kunlun Mountains (Enter from Specter Palace)
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_wandering_this_plain_makes_me:
+  text: Wandering this plain makes me wonder what it was like when it was in bloom.
+  location: Wicked Meadow (Enter from Ikarga)
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_what_a_bath_this_is:
+  text: What a bath... This is heavenly...
+  location: Hot Springs
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_what_a_sleepy_city_what:
+  text: What a sleepy city. What are these blue and red blobs?
+  location: Nazrik, City of Shadows
+  era: ???
+  unlocks_with: Main Story 2.0 Maps
+riddle_what_a_strange_place_is:
+  text: What a strange place. Is this shiny stuff falling down snow?
+  location: Zero Point - East
+  era: ???
+  unlocks_with: Main Story 2.0 Maps
+riddle_what_a_vibrant_forest_this:
+  text: What a vibrant forest this is. Anything tasty for me to eat?
+  location: Hokishi Forest
+  era: Antiquity
+  unlocks_with: Main Story 2.0 Maps
+riddle_what_pretty_paper_lanterns_have:
+  text: What pretty paper lanterns. Have a rest looking out over the canal.
+  location: Izana
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
+riddle_who_built_this_mansion_all:
+  text: Who built this mansion all the way up here atop this mountain?!
+  location: Specter Palace
+  era: Present
+  unlocks_with: Main Story 2.0 Maps
