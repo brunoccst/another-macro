@@ -71,7 +71,7 @@ templates:
     - 1.0
     - 0.6
   title_screen:
-    notes: '"The Cat Beyond Time and Space" subtitle on the title screen (the account ID at the top-left must stay out of the crop).'
+    notes: '"The Cat Beyond Time and Space" subtitle on the title screen, middle part only (the account ID at the top-left must stay out of the crop).'
     file: title_screen.png
     ref:
     - 2400

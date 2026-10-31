@@ -57,3 +57,10 @@ def test_no_input_while_another_app_is_in_front(tmp_path, monkeypatch):
     result = base.run(s, device, run_dir=tmp_path / "run", sleep=lambda _: None)
     assert result.reason == "stop requested"
     assert not [a for a in device.actions if a[0] in ("tap", "swipe")]
+
+
+def test_adb_device_implements_guards():
+    from another_macro.device.adb import AdbDevice
+
+    assert "wake" in AdbDevice.__dict__
+    assert "blocking_overlay" in AdbDevice.__dict__
