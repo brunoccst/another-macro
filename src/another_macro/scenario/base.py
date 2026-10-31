@@ -99,10 +99,16 @@ class Context:
     def tap(self, target: Point | Match | Region | str) -> None:
         self.device.tap(self._point(target))
 
-    def hold(self, target: Point | Match | Region | str, duration_ms: int) -> None:
-        if self.jitter:
+    def hold(self, target: Point | Match | Region | str, duration_ms: int, exact: bool = False) -> None:
+        if self.jitter and not exact:
             duration_ms = int(duration_ms * random.uniform(0.9, 1.1))
         self.device.hold(self._point(target), duration_ms)
+
+    def drag(self, start: Point, end: Point, duration_ms: int, exact: bool = False) -> None:
+        """Press at `start`, slide to `end` and keep holding until `duration_ms` is up."""
+        if self.jitter and not exact:
+            duration_ms = int(duration_ms * random.uniform(0.9, 1.1))
+        self.device.swipe(start, end, duration_ms)
 
     def wait(self, seconds: float) -> None:
         if self.jitter:

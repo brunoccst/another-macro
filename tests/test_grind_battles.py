@@ -100,7 +100,8 @@ def test_grinds_until_battle_limit(scenario, tmp_path):
     assert game.battles == 3
     # walking alternates sides of the screen
     holds = [a for a in device.actions if a[0] == "swipe"]
-    assert holds[0][1] > 800 > holds[1][1]
+    # walking slides left, then right (virtual stick), starting left by default
+    assert holds[0][3] < holds[0][1] and holds[1][3] > holds[1][1]
     # it pressed Auto, not Attack, when Auto was available
     w, h = game.size
     taps_in_battle = [a for a in device.actions if a[0] == "tap" and a[2] / h < 0.85 and a[2] / h > 0.7 and a[1] / w < 0.2]
@@ -150,3 +151,14 @@ def test_stop_file_ends_run(scenario, tmp_path):
 
     result = base.run(scenario, FakeDevice(frame), run_dir=tmp_path / "run")
     assert result.reason == "stop requested"
+
+
+def test_stops_when_party_is_stuck(scenario, tmp_path):
+    # the field never changes however much the macro walks
+    frame = render(["field_menu_button"], size=(1600, 720))
+    device = FakeDevice(lambda d: frame)
+    result = base.run(scenario, device, {"stuck_walks": 3}, run_dir=tmp_path / "run")
+    assert result.reason.startswith("party seems stuck")
+    # the first walk only sets the reference view; then 3 walks change nothing
+    assert len([a for a in device.actions if a[0] == "swipe"]) == 4
+    assert list((tmp_path / "run").glob("*-stuck.png"))
