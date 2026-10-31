@@ -8,31 +8,106 @@
 templates:
   field_menu_button:
     notes: The "Menu" button shown on the field/map screen (bottom-left).
-    region: [0.0, 0.75, 0.3, 0.25]
+    region:
+    - 0.075
+    - 0.85
+    - 0.155
+    - 0.15
+    file: field_menu_button.png
+    ref:
+    - 2400
+    - 1080
   battle_attack_button:
     notes: The "Attack" button shown while the battle waits for your command (bottom-right).
-    region: [0.7, 0.55, 0.3, 0.45]
+    region:
+    - 0.7375
+    - 0.7787
+    - 0.1908
+    - 0.1676
+    file: battle_attack_button.png
+    ref:
+    - 2400
+    - 1080
   battle_auto_button:
-    notes: The "Auto" battle button (as shown while auto is OFF).
-    region: [0.0, 0.5, 0.35, 0.5]
+    notes: The ">>" button in the battle's top bar (next to Status). Assumed to be Auto; not verified yet.
+    region:
+    - 0.2225
+    - 0.0
+    - 0.1433
+    - 0.137
+    file: battle_auto_button.png
+    ref:
+    - 2400
+    - 1080
   battle_hud:
-    notes: Something visible during the WHOLE battle, including attack animations (e.g. the escape/flee button or the turn counter). Lets the macro know a battle is still running.
-    region: [0.0, 0.0, 1.0, 0.3]
+    notes: Something visible during the WHOLE battle, including attack animations
+      (e.g. the escape/flee button or the turn counter). Lets the macro know a battle
+      is still running.
+    region:
+    - 0.0633
+    - 0.0
+    - 0.1942
+    - 0.1333
+    file: battle_hud.png
+    ref:
+    - 2400
+    - 1080
   result_banner:
     notes: The header of the battle results screen (EXP / Git gained).
-    region: [0.0, 0.0, 1.0, 0.4]
+    region:
+    - 0.0
+    - 0.0
+    - 0.2267
+    - 0.1519
+    file: result_banner.png
+    ref:
+    - 2400
+    - 1080
   defeat_banner:
     notes: Text/banner of the party-wiped screen.
-    region: [0.0, 0.0, 1.0, 0.6]
-
+    region:
+    - 0.0
+    - 0.0
+    - 1.0
+    - 0.6
+  title_screen:
+    notes: '"The Cat Beyond Time and Space" subtitle on the title screen (the account ID at the top-left must stay out of the crop).'
+    file: title_screen.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.2833
+    - 0.4611
+    - 0.4358
+    - 0.15
+  title_continue:
+    notes: The "Continue" text on the title screen; tap anywhere to resume.
+    file: title_continue.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.4025
+    - 0.6722
+    - 0.1958
+    - 0.1574
 screens:
   field:
-    require: [field_menu_button]
+    require:
+    - field_menu_button
   battle_command:
-    require: [battle_attack_button]
+    require:
+    - battle_attack_button
   battle:
-    require: [battle_hud]
+    require:
+    - battle_hud
   battle_result:
-    require: [result_banner]
+    require:
+    - result_banner
   defeat:
-    require: [defeat_banner]
+    require:
+    - defeat_banner
+  title:
+    require:
+    - title_screen

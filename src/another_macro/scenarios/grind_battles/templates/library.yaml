@@ -1,0 +1,16 @@
+# Templates only grind-battles uses (skill mode). Captured on a 2400x1080 phone.
+templates:
+  verdanta_last_skill_selected:
+    notes: Label above the first front-row portrait once Verdanta's last skill (Sprinting Raid) is chosen. Recapture for another character/skill.
+    file: verdanta_last_skill_selected.png
+    ref: [2400, 1080]
+    region: [0.0642, 0.7148, 0.1958, 0.15]
+  skill_list_open:
+    notes: The "Skill Details" button at the top, shown only while a character's skill list is open.
+    file: skill_list_open.png
+    ref: [2400, 1080]
+    region: [0.1708, 0.0, 0.1967, 0.1333]
+
+screens:
+  skill_list:
+    require: [skill_list_open]

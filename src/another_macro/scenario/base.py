@@ -127,6 +127,8 @@ class Scenario:
     unknown_timeout_s: float = 45
     # pause between ticks
     tick_s: float = 0.4
+    # how often to check for system overlays that block input (e.g. Game Booster's touch lock)
+    overlay_check_s: float = 30
 
     def library_files(self) -> list[Path]:
         """Common templates plus the scenario's own templates/library.yaml, if any."""
@@ -143,6 +145,11 @@ class Scenario:
 
     def summary(self, ctx: Context) -> str:
         return ", ".join(f"{k}={v}" for k, v in sorted(ctx.stats.items())) or "nothing counted"
+
+
+def is_blank(frame: np.ndarray) -> bool:
+    """True for an all-black frame, which is what screencap returns while the screen is off."""
+    return float(frame.max()) < 8
 
 
 @dataclass
@@ -181,6 +188,7 @@ def run(
     unknown_since: float | None = None
     last_screen: str | None = None
     reason = "finished"
+    last_overlay_check = float("-inf")
 
     # every run keeps its own log next to any screenshots it saved
     file_log = logging.FileHandler(run_dir / "log.txt", encoding="utf-8")
@@ -188,6 +196,7 @@ def run(
     log.addHandler(file_log)
     log.info("running %s with %s (run folder: %s)", scenario.name, values, run_dir)
     try:
+        device.wake()
         scenario.setup(ctx)
         while True:
             if stop_file.exists():
@@ -196,7 +205,22 @@ def run(
             if minutes and ctx.elapsed_minutes >= minutes:
                 raise StopScenario(f"time limit ({minutes} min) reached")
 
+            now = time.monotonic()
+            if now - last_overlay_check >= scenario.overlay_check_s:
+                last_overlay_check = now
+                overlay = device.blocking_overlay()
+                if overlay:
+                    raise StopScenario(f"'{overlay}' is covering the game and blocks input; turn it off and run again")
+
             frame = ctx.refresh()
+            if is_blank(frame):
+                # screen off (screencap returns a black frame): wake it instead of counting as unknown
+                if last_screen != "screen off":
+                    log.info("screen: off, waking it")
+                    last_screen = "screen off"
+                device.wake()
+                sleep(1.0)
+                continue
             ctx.screen = ctx.vision.identify(frame, scenario.screens)
             if ctx.screen != last_screen:
                 log.info("screen: %s", ctx.screen or "unknown")
