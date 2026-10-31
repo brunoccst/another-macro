@@ -24,9 +24,12 @@ import numpy as np
 from ...scenario.base import Context, Param, Scenario
 from ...vision.geometry import Point
 
-# where to hold to walk; Another Eden moves the party toward the side you hold
-WALK_RIGHT = Point(0.85, 0.5)
-WALK_LEFT = Point(0.15, 0.5)
+# Walking is a virtual stick: press anywhere, slide, and the party walks in the
+# direction of the slide for as long as the finger stays down. Where you press
+# doesn't matter (a press on the right side that drifts left walks LEFT).
+WALK_FROM = Point(0.5, 0.55)
+WALK_RIGHT = Point(0.56, 0.55)
+WALK_LEFT = Point(0.44, 0.55)
 
 SELECTED_LABEL = "verdanta_last_skill_selected"
 # mean grey-level change (0-255) of the downscaled field view below which a walk "didn't move"
@@ -105,7 +108,7 @@ class GrindBattles(Scenario):
         self._walked = True
         # equal, unjittered walks each way so the party paces around where it started
         # instead of drifting into the next area (or a dead-end ledge)
-        ctx.hold(WALK_RIGHT if self._direction > 0 else WALK_LEFT, ctx.params["walk_ms"], exact=True)
+        ctx.drag(WALK_FROM, WALK_RIGHT if self._direction > 0 else WALK_LEFT, ctx.params["walk_ms"], exact=True)
         self._direction = -self._direction
 
     def on_battle_command(self, ctx: Context) -> None:

@@ -100,7 +100,8 @@ def test_grinds_until_battle_limit(scenario, tmp_path):
     assert game.battles == 3
     # walking alternates sides of the screen
     holds = [a for a in device.actions if a[0] == "swipe"]
-    assert holds[0][1] < 800 < holds[1][1]  # starts left by default
+    # walking slides left, then right (virtual stick), starting left by default
+    assert holds[0][3] < holds[0][1] and holds[1][3] > holds[1][1]
     # it pressed Auto, not Attack, when Auto was available
     w, h = game.size
     taps_in_battle = [a for a in device.actions if a[0] == "tap" and a[2] / h < 0.85 and a[2] / h > 0.7 and a[1] / w < 0.2]
