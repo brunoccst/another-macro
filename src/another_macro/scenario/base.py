@@ -127,6 +127,8 @@ class Scenario:
     unknown_timeout_s: float = 45
     # pause between ticks
     tick_s: float = 0.4
+    # Another Eden only runs in landscape: a portrait frame means another app is in front
+    landscape: bool = True
     # how often to check for system overlays that block input (e.g. Game Booster's touch lock)
     overlay_check_s: float = 30
 
@@ -220,6 +222,14 @@ def run(
                     last_screen = "screen off"
                 device.wake()
                 sleep(1.0)
+                continue
+            if scenario.landscape and frame.shape[0] > frame.shape[1]:
+                # never tap into whatever app is in front; wait for the game to come back
+                if last_screen != "game not in front":
+                    log.info("screen: game not in front (portrait frame), pausing input")
+                    last_screen = "game not in front"
+                unknown_since = None
+                sleep(2.0)
                 continue
             ctx.screen = ctx.vision.identify(frame, scenario.screens)
             if ctx.screen != last_screen:

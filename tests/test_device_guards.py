@@ -33,3 +33,27 @@ def test_ignores_hidden_or_missing_lock():
 def test_black_frame_means_screen_off():
     assert is_blank(np.zeros((1080, 2400, 3), np.uint8))
     assert not is_blank(np.full((1080, 2400, 3), 40, np.uint8))
+
+
+def test_no_input_while_another_app_is_in_front(tmp_path, monkeypatch):
+    from another_macro import config
+    from another_macro.device import FakeDevice
+    from another_macro.scenario import base
+    from another_macro.scenarios.grind_battles import GrindBattles
+
+    monkeypatch.setenv("ANOTHER_MACRO_HOME", str(tmp_path / "home"))
+    portrait = np.full((2400, 1080, 3), 60, np.uint8)
+    calls = {"n": 0}
+
+    def frame(device):
+        calls["n"] += 1
+        if calls["n"] >= 5:
+            config.stop_file().touch()
+        return portrait
+
+    device = FakeDevice(frame)
+    s = GrindBattles()
+    s.unknown_timeout_s = 0
+    result = base.run(s, device, run_dir=tmp_path / "run", sleep=lambda _: None)
+    assert result.reason == "stop requested"
+    assert not [a for a in device.actions if a[0] in ("tap", "swipe")]
