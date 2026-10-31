@@ -10,6 +10,19 @@ the book, and reports. Travelling to each cat comes next, riddle by riddle, as
 the riddle -> location table (riddles.yaml) fills up.
 
 Start state: on any field map (the Diary button is in the field's bottom bar).
+
+Notes for the travel step (learned on the phone, 2026-10-31):
+- World Map -> era -> area -> the free "Travel" dialog takes you to the town.
+- The area map (tap the minimap) marks today's scratchbook cat with a yellow
+  FEATHER icon. Plain cat-head icons are ordinary cats you can take along as a
+  companion ("Take <name> with you?"): never confirm that dialog, it swaps the
+  current companion cat.
+- A cat that can be interacted with shows a paw bubble (`cat_paw_button`) when
+  the party is next to it. Cats wander, so the tap must follow the detection
+  within a fraction of a second; PNG screenshots (~2.4 s) are too slow, raw
+  `screencap` (~0.7 s) works.
+- The field's bottom buttons hide while walking, so `field` can't be used to
+  tell "still on the map" during a walk.
 """
 from __future__ import annotations
 

@@ -44,6 +44,18 @@ templates:
     - 0.34
     - 0.5
     notes: First line of a Cat Scratchbook riddle (any of the three rows).
+  cat_paw_button:
+    file: cat_paw_button.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.0
+    - 0.15
+    - 1.0
+    - 0.6
+    notes: Paw-print bubble over a findable cat when the party is next to it; tap
+      it to find the cat.
 screens:
   scratchbook:
     require:
