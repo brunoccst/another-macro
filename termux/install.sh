@@ -6,7 +6,10 @@ set -euo pipefail
 BRANCH="${BRANCH:-main}"
 
 pkg update -y
-pkg install -y python git android-tools opencv-python
+# Termux ships OpenCV's Python bindings in its x11 repository
+pkg install -y x11-repo
+pkg update -y
+pkg install -y python python-numpy git android-tools opencv-python
 
 REPO="$HOME/another-macro"
 if [ -d "$REPO/.git" ]; then
