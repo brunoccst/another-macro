@@ -184,7 +184,7 @@ def cmd_doctor(args) -> None:
 
         print("opencv", cv2.__version__)
     except ImportError:
-        print("opencv MISSING (on the phone: pkg install opencv-python)")
+        print("opencv MISSING (on the phone: pkg install x11-repo opencv-python)")
     try:
         dev = _device(args)
         w, h = dev.size()
