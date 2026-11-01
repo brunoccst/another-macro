@@ -14,6 +14,8 @@ android {
         targetSdk = 34
         versionCode = (System.getenv("VERSION_CODE") ?: "1").toInt()
         versionName = System.getenv("VERSION_NAME") ?: "0.1.0-dev"
+        // OpenCV ships native code for every ABI (~135 MB); phones that run the game are arm64
+        ndk { abiFilters += listOf("arm64-v8a") }
     }
 
     buildTypes {
