@@ -18,9 +18,28 @@ android {
         ndk { abiFilters += listOf("arm64-v8a") }
     }
 
+    // One permanent signing key, or Android refuses updates (and auto-update can't work).
+    // CI decodes it from the ANDROID_KEYSTORE_B64 / ANDROID_KEYSTORE_PASSWORD secrets;
+    // without them the build falls back to the throwaway debug key.
+    val keystore = System.getenv("ANDROID_KEYSTORE")?.let { file(it) }?.takeIf { it.exists() }
+    signingConfigs {
+        if (keystore != null) {
+            create("permanent") {
+                storeFile = keystore
+                storeType = "PKCS12"
+                storePassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+                keyAlias = "release"
+                keyPassword = System.getenv("ANDROID_KEYSTORE_PASSWORD")
+            }
+        }
+    }
     buildTypes {
+        debug {
+            if (keystore != null) signingConfig = signingConfigs.getByName("permanent")
+        }
         release {
             isMinifyEnabled = false
+            if (keystore != null) signingConfig = signingConfigs.getByName("permanent")
         }
     }
     compileOptions {
