@@ -1,0 +1,79 @@
+# Walk back and forth on the current map, fight every encounter, repeat.
+name: grind-battles
+description: Walk back and forth on the current map, fight every encounter, repeat.
+templates: [grind_battles]
+params:
+  battles: {default: 10, help: "stop after this many battles (0 = no limit)"}
+  walk_ms: {default: 1500, help: "how long each walk in one direction lasts"}
+  first_walk: {default: -1, help: "direction of the first walk: -1 = left, 1 = right"}
+  stuck_walks: {default: 8, help: "stop if this many walks in a row leave the view unchanged (0 = never)"}
+  mode: {default: skill, help: "skill = set one character's skill then Attack; auto = Auto button"}
+  slot: {default: 1, help: "skill mode: front-row position (1-4) of the character whose skill is set"}
+  skill_x: {default: 0.8075, help: "skill mode: x (0..1) of the skill to pick in the skill row"}
+screens: [title, defeat, battle_result, skill_list, battle_command, battle, field]
+
+setup:
+  - set: {dir: first_walk, in_battle: false, skill_set: false, walked: false, still: 0}
+
+handlers:
+  field:
+    # back on the field after a battle: count it
+    - if: in_battle
+      then:
+        - set: {in_battle: false, skill_set: false, walked: false, still: 0}
+        - reset_view: true
+        - count: battles
+        - if: battles > 0 and stats.battles >= battles
+          then: [{stop: "{battles} battles done"}]
+    # stop if walking stopped changing the view (wedged against something)
+    - if: walked and not view_moved()
+      then:
+        - set: {still: still + 1}
+        - if: stuck_walks > 0 and still >= stuck_walks
+          then: [{stop: "party seems stuck: {still} walks without the view changing"}]
+      else:
+        - set: {still: 0}
+    - set: {walked: true}
+    - walk: {dir: dir, ms: walk_ms}
+    - set: {dir: -dir}
+
+  battle_command:
+    - set: {in_battle: true}
+    - if: mode == 'auto'
+      then:
+        - if: found('battle_auto_button')
+          then: [{tap: battle_auto_button}]
+          else: [{tap: battle_attack_button}]
+        - wait: 1
+      else:
+        # the game remembers a chosen skill, so only pick it when its label isn't showing
+        - if: skill_set or (captured('verdanta_last_skill_selected') and found('verdanta_last_skill_selected'))
+          then:
+            - count: turns
+            - tap: battle_attack_button
+            - wait: 1
+          else:
+            - tap: {x: "pick(slot, 0.161, 0.267, 0.373, 0.479)", y: 0.917}
+            - wait: 0.8
+
+  skill_list:
+    - set: {in_battle: true}
+    - tap: {x: skill_x, y: 0.763}
+    - set: {skill_set: "not captured('verdanta_last_skill_selected')"}
+    - wait: 0.8
+
+  battle:
+    - set: {in_battle: true}
+
+  battle_result:
+    - set: {in_battle: true}
+    - tap: [0.5, 0.75]
+    - wait: 0.8
+
+  title:
+    - count: title_resumes
+    - tap: [0.5, 0.75]
+    - wait: 5
+
+  defeat:
+    - stop: party was defeated

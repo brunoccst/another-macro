@@ -43,6 +43,7 @@ class Capture(projection: MediaProjection, val width: Int, val height: Int, dens
     private val display: VirtualDisplay
     private val lock = Object()
     private var latest: Mat? = null
+    private var latestRgba: Mat? = null
     private var frames = 0L
 
     init {
@@ -58,10 +59,11 @@ class Capture(projection: MediaProjection, val width: Int, val height: Int, dens
                 rgba.put(0, 0, bytes)
                 val gray = Mat()
                 Imgproc.cvtColor(rgba.submat(0, image.height, 0, image.width), gray, Imgproc.COLOR_RGBA2GRAY)
-                rgba.release()
                 synchronized(lock) {
                     latest?.release()
                     latest = gray
+                    latestRgba?.release()
+                    latestRgba = rgba // kept (no copy) for the template capture tool
                     frames++
                     lock.notifyAll()
                 }
@@ -91,10 +93,18 @@ class Capture(projection: MediaProjection, val width: Int, val height: Int, dens
         }
     }
 
+    /** The latest screen in colour, as BGR (for saving templates). */
+    fun grabColor(): Mat? = synchronized(lock) {
+        val rgba = latestRgba ?: return null
+        val bgr = Mat()
+        Imgproc.cvtColor(rgba.submat(0, height, 0, width), bgr, Imgproc.COLOR_RGBA2BGR)
+        bgr
+    }
+
     fun release() {
         runCatching { display.release() }
         runCatching { reader.close() }
         thread.quitSafely()
-        synchronized(lock) { latest?.release(); latest = null }
+        synchronized(lock) { latest?.release(); latest = null; latestRgba?.release(); latestRgba = null }
     }
 }

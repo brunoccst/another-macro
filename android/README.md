@@ -45,3 +45,14 @@ and `adb logcat -s AnotherMacro` for the log.
   **Check for updates**), downloads it and hands it to Android's installer. Android asks to
   confirm; the first time it also asks to allow Another Macro to install apps.
 - versionCode is derived from the version (1.2.3 → 10203), so releases always upgrade.
+
+## Macros as data
+Every macro is a `.yaml` file: the built-in ones live in the repo's `macros/` folder (shipped in
+the APK), and users can **Import macro** their own. The format (screens, handlers, actions,
+expressions) is documented at the top of `Flow.kt`; `macros/grind-battles.yaml` is a full example.
+
+## Capturing templates in the app
+With screen capture on, tap 📷 on the floating buttons: the game screen is grabbed (without the
+buttons), drag a box around a stable element (a label or icon, no numbers or moving parts), name
+it, **Save template**. It is matched on the same screen right away. Saved templates live in the
+app's storage and are usable in macros by name: `found('my_button')`, `tap: my_button`.

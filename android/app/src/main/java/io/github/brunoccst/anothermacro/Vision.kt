@@ -87,20 +87,33 @@ class Library private constructor() {
         }
     }
 
-    @Suppress("UNCHECKED_CAST")
+    /** Templates the user captured in the app: a folder on disk with its own library.yaml. */
+    fun addDir(dir: java.io.File) {
+        val yaml = java.io.File(dir, "library.yaml")
+        if (!yaml.isFile) return
+        parse(yaml.readText()) { file -> java.io.File(dir, file).takeIf { it.isFile }?.readBytes() }
+    }
+
+    fun addScreens(defs: Map<String, ScreenDef>) { screens.putAll(defs) }
+
     private fun addFolder(assets: AssetManager, folder: String) {
         val yamlText = try {
             assets.open("$folder/library.yaml").bufferedReader().use { it.readText() }
         } catch (e: java.io.IOException) {
             return
         }
+        parse(yamlText) { file -> try { assets.open("$folder/$file").use { it.readBytes() } } catch (e: java.io.IOException) { null } }
+    }
+
+    @Suppress("UNCHECKED_CAST")
+    private fun parse(yamlText: String, read: (String) -> ByteArray?) {
         val data = Load(LoadSettings.builder().build()).loadFromString(yamlText) as? Map<String, Any?> ?: return
         val tpls = data["templates"] as? Map<String, Any?> ?: emptyMap()
         for ((name, specAny) in tpls) {
             val spec = specAny as? Map<String, Any?> ?: emptyMap()
             val file = spec["file"] as? String ?: "$name.png"
             val ref = (spec["ref"] as? List<*>)?.map { (it as Number).toInt() }?.toIntArray()
-            val image = if (ref != null) readGray(assets, "$folder/$file") else null
+            val image = if (ref != null) read(file)?.let { decodeGray(it) } else null
             templates[name] = Template(
                 name = name,
                 image = image,
@@ -121,12 +134,9 @@ class Library private constructor() {
         }
     }
 
-    private fun readGray(assets: AssetManager, path: String): Mat? = try {
-        val bytes = assets.open(path).use { it.readBytes() }
+    private fun decodeGray(bytes: ByteArray): Mat? {
         val img = Imgcodecs.imdecode(MatOfByte(*bytes), Imgcodecs.IMREAD_GRAYSCALE)
-        if (img.empty()) null else img
-    } catch (e: java.io.IOException) {
-        null
+        return if (img.empty()) null else img
     }
 }
 

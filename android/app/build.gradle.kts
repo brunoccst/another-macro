@@ -69,6 +69,7 @@ val copyMacroAssets by tasks.registering(Copy::class) {
         eachFile { path = "templates/" + path.replace("/templates/", "/") }
         includeEmptyDirs = false
     }
+    from(File(repo, "macros")) { into("macros") }
     into(layout.buildDirectory.dir("generated/macroAssets"))
 }
 tasks.named("preBuild") { dependsOn(copyMacroAssets) }
