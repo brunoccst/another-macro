@@ -15,6 +15,20 @@ import org.opencv.imgproc.Imgproc
 class Frame(val gray: Mat) {
     val width: Int get() = gray.cols()
     val height: Int get() = gray.rows()
+
+    /**
+     * True when a portrait app (home screen, Termux, ...) is in front instead of the
+     * landscape game: the landscape capture then shows it pillar-boxed, with black
+     * bars on both sides.
+     */
+    val portraitAppInFront: Boolean get() {
+        val w = width
+        val left = gray.submat(0, height, 0, w / 5)
+        val right = gray.submat(0, height, w - w / 5, w)
+        val dark = org.opencv.core.Core.mean(left).`val`[0] < 4 && org.opencv.core.Core.mean(right).`val`[0] < 4
+        left.release(); right.release()
+        return dark
+    }
 }
 
 /**

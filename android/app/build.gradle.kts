@@ -65,7 +65,7 @@ val copyMacroAssets by tasks.registering(Copy::class) {
     val repo = rootProject.projectDir.parentFile
     from(File(repo, "src/another_macro/assets/templates")) { into("templates/common") }
     from(File(repo, "src/another_macro/scenarios")) {
-        include("*/templates/**")
+        include("*/templates/**", "*/riddles.yaml")
         eachFile { path = "templates/" + path.replace("/templates/", "/") }
         includeEmptyDirs = false
     }

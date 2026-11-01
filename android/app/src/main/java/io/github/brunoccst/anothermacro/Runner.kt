@@ -12,6 +12,7 @@ data class Param(val default: String, val help: String)
 /** What a handler gets: the current frame, vision, input and helpers. Mirrors the Python tool's Context. */
 class Context(
     private val capture: Capture,
+    private val assetManager: AssetManager,
     val vision: Vision,
     val params: Map<String, String>,
     private val stopRequested: AtomicBoolean,
@@ -65,6 +66,21 @@ class Context(
 
     fun back() { input.back() }
 
+    /** Tap exactly at [p] (no jitter): for moving targets aimed at precisely. */
+    fun tapExact(p: Point) {
+        val (x, y) = px(p)
+        input.tap(x, y)
+    }
+
+    fun launchApp(pkg: String) = input.launchApp(pkg)
+
+    /** Package of the app in front (from accessibility window events), or null if unknown. */
+    val foreground: String? get() = InputService.instance?.foreground
+
+    val assets get() = assetManager
+
+    fun bool(name: String) = params.getValue(name).trim().lowercase() in setOf("1", "true", "yes", "on", "y")
+
     fun wait(seconds: Double) {
         val end = System.currentTimeMillis() + (seconds * Random.nextDouble(0.9, 1.2) * 1000).toLong()
         while (System.currentTimeMillis() < end) {
@@ -98,7 +114,7 @@ abstract class Scenario {
 }
 
 object Scenarios {
-    val all: List<Scenario> get() = listOf(GrindBattles())
+    val all: List<Scenario> get() = listOf(GrindBattles(), StartGame(), StopGame(), CatScratchbook())
     fun get(name: String) = all.firstOrNull { it.name == name } ?: throw IllegalArgumentException("unknown macro '$name'")
 }
 
@@ -141,7 +157,7 @@ object Runner {
         changed()
         val params = scenario.params.mapValues { it.value.default } + given.filterKeys { it in scenario.params }
         val library = Library.load(assets, "templates/common", *scenario.templateFolders.map { "templates/$it" }.toTypedArray())
-        val ctx = Context(capture, Vision(library), params, stopRequested)
+        val ctx = Context(capture, assets, Vision(library), params, stopRequested)
         var reason = "finished"
         InputService.instance?.keepScreenOn(true)
         MacroLog.i("running ${scenario.name} with $params")
