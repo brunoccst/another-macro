@@ -68,6 +68,18 @@ def pick_serial(preferred: str | None = None) -> str:
     return devices[0]
 
 
+def decode_raw_screencap(raw: bytes) -> np.ndarray | None:
+    """`screencap` without -p: a small header (width, height, format[, colorspace]) then RGBA pixels."""
+    if len(raw) < 16:
+        return None
+    w, h = int.from_bytes(raw[0:4], "little"), int.from_bytes(raw[4:8], "little")
+    size = w * h * 4
+    if not (0 < w < 10000 and 0 < h < 10000) or len(raw) < size + 12:
+        return None
+    pixels = np.frombuffer(raw[len(raw) - size :], np.uint8).reshape(h, w, 4)
+    return cv2.cvtColor(pixels, cv2.COLOR_RGBA2BGR)
+
+
 class AdbDevice(Device):
     def __init__(self, serial: str | None = None) -> None:
         self.serial = pick_serial(serial)
@@ -77,8 +89,19 @@ class AdbDevice(Device):
 
     # --- capture -------------------------------------------------------------
     def screenshot(self) -> np.ndarray:
-        png = run_adb("exec-out", "screencap", "-p", serial=self.serial, binary=True)
-        img = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_COLOR)
+        # raw RGBA is ~3x faster than `screencap -p` (no PNG encode on the phone):
+        # ~0.7 s instead of ~2.4 s, which matters for things that move (cats)
+        img = None
+        for attempt in range(3):  # adb over Wireless debugging occasionally stalls
+            try:
+                img = decode_raw_screencap(run_adb("exec-out", "screencap", serial=self.serial, binary=True, timeout=8))
+                break
+            except subprocess.TimeoutExpired:
+                if attempt == 2:
+                    raise AdbError("screencap timed out 3 times; is adb still connected?")
+        if img is None:
+            png = run_adb("exec-out", "screencap", "-p", serial=self.serial, binary=True)
+            img = cv2.imdecode(np.frombuffer(png, np.uint8), cv2.IMREAD_COLOR)
         if img is None:
             raise AdbError("screencap returned no image (is the screen on and unlocked?)")
         h, w = img.shape[:2]

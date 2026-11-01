@@ -54,9 +54,60 @@ templates:
     - 0.15
     - 1.0
     - 0.6
-    notes: Paw-print bubble over a findable cat when the party is next to it; tap
-      it to find the cat.
+    notes: 'Paw bubble over an ordinary companion cat. Tapping asks "Take <name> with
+      you?": never confirm, it swaps the companion cat.'
+  found_obtained:
+    file: found_obtained.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.2667
+    - 0.0889
+    - 0.2
+    - 0.1648
+    notes: '"Obtained" at the start of the reward banner shown over the scratchbook
+      after finding a cat.'
+  riddle_so_there_are_people_living:
+    file: riddle_so_there_are_people_living.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.33
+    - 0.15
+    - 0.34
+    - 0.5
+    notes: First line of a Cat Scratchbook riddle (any of the three rows).
+  cat_feather_bubble:
+    file: cat_feather_bubble.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.0
+    - 0.12
+    - 0.84
+    - 0.62
+    threshold: 0.8
+    notes: Feather bubble over today's scratchbook cat when the party is near it;
+      tap it to find the cat. It follows the cat, which can walk ~300 px/s, so tap
+      from a fresh frame and lead its motion.
+  riddle_what_a_fancy_statue_this:
+    file: riddle_what_a_fancy_statue_this.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.33
+    - 0.15
+    - 0.34
+    - 0.5
+    notes: First line of a Cat Scratchbook riddle (any of the three rows).
 screens:
   scratchbook:
     require:
     - scratchbook_header
+  cat_found:
+    require:
+    - found_obtained
