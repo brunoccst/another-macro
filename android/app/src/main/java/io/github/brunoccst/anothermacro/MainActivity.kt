@@ -11,7 +11,10 @@ import android.os.Bundle
 import android.provider.Settings
 import android.text.InputType
 import android.view.View
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
 import android.widget.Button
+import android.widget.Spinner
 import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -32,7 +35,10 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var log: TextView
     private val paramFields = LinkedHashMap<String, EditText>()
-    private val scenario: Scenario = Scenarios.all.first()
+    private var scenario: Scenario = Scenarios.all.first()
+    private lateinit var paramsBox: LinearLayout
+    private lateinit var macroDescription: TextView
+    private lateinit var runButton: Button
     private val logListener: (String) -> Unit = { text -> if (::log.isInitialized) log.text = text }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -81,18 +87,24 @@ class MainActivity : Activity() {
         column.addView(updateButton)
 
         // --- macro -------------------------------------------------------------
-        column.addView(label("${scenario.name}: ${scenario.description}", bold = true))
-        for ((key, p) in scenario.params) {
-            column.addView(label("$key — ${p.help}"))
-            val field = EditText(this).apply {
-                setText(LastRun.load(this@MainActivity)?.takeIf { it.first == scenario.name }?.second?.get(key) ?: p.default)
-                inputType = InputType.TYPE_CLASS_TEXT
-                setSingleLine()
-            }
-            paramFields[key] = field
-            column.addView(field)
+        column.addView(label("Macro", bold = true))
+        val names = Scenarios.all.map { it.name }
+        val picker = Spinner(this).apply {
+            adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, names)
         }
-        column.addView(button("Run ${scenario.name}") { run(scenario.name, paramFields.mapValues { it.value.text.toString() }) })
+        column.addView(picker)
+        macroDescription = label("")
+        column.addView(macroDescription)
+        paramsBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        column.addView(paramsBox)
+        runButton = button("Run") { run(scenario.name, paramFields.mapValues { it.value.text.toString() }) }
+        column.addView(runButton)
+        picker.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = showMacro(Scenarios.all[position])
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        val last = LastRun.load(this)?.first
+        picker.setSelection(names.indexOf(last).coerceAtLeast(0))
         column.addView(button("Stop") { startService(MacroService.intent(this, MacroService.ACTION_STOP_RUN)) })
         column.addView(button("Turn off screen capture") { startService(MacroService.intent(this, MacroService.ACTION_SHUTDOWN)) })
         column.addView(label("While screen capture is on, floating buttons over the game start ▶, pause ❚❚, stop ■ and restart ↻ the last macro. Drag ≡ to move them, tap it to fold them."))
@@ -108,6 +120,26 @@ class MainActivity : Activity() {
         setContentView(ScrollView(this).apply { addView(column) })
         if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2)
         handleAdbIntent(intent)
+    }
+
+    /** Show [s]'s description and a field per param (prefilled with the last values used). */
+    private fun showMacro(s: Scenario) {
+        scenario = s
+        macroDescription.text = s.description
+        runButton.text = "Run ${s.name}"
+        paramsBox.removeAllViews()
+        paramFields.clear()
+        val last = LastRun.load(this)?.takeIf { it.first == s.name }?.second
+        for ((key, p) in s.params) {
+            paramsBox.addView(TextView(this).apply { text = "$key — ${p.help}"; textSize = 14f })
+            val field = EditText(this).apply {
+                setText(last?.get(key) ?: p.default)
+                inputType = InputType.TYPE_CLASS_TEXT
+                setSingleLine()
+            }
+            paramFields[key] = field
+            paramsBox.addView(field)
+        }
     }
 
     // --- updates ---------------------------------------------------------------

@@ -36,7 +36,25 @@ class InputService : AccessibilityService() {
         super.onDestroy()
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {}
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        // which app is in front (window state changes carry the package name; no screen content is read)
+        if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            event.packageName?.toString()?.let { if (it != packageName) foreground = it }
+        }
+    }
+
+    /** Package of the app in front, as last reported by window changes. */
+    @Volatile
+    var foreground: String? = null
+        private set
+
+    /** Launch (or bring to the front) an app. A bound accessibility service may start activities from the background. */
+    fun launchApp(pkg: String): Boolean {
+        val intent = packageManager.getLaunchIntentForPackage(pkg) ?: return false
+        intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
+        main.post { runCatching { startActivity(intent) }.onFailure { MacroLog.e("could not start $pkg", it) } }
+        return true
+    }
     override fun onInterrupt() {}
 
     /** A stroke from (x1,y1) to (x2,y2) over [durationMs]; blocks until the gesture finishes. */
