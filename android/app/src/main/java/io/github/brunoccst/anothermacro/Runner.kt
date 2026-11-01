@@ -113,9 +113,36 @@ abstract class Scenario {
         if (stats.isEmpty()) "nothing counted" else stats.entries.joinToString(", ") { "${it.key}=${it.value}" }
 }
 
+/**
+ * Macros are .yaml files: the built-in ones shipped in the APK (assets/macros, from the
+ * repo's macros/ folder) and the user's own in the app's storage (files/macros), which
+ * win when a name is used twice.
+ */
 object Scenarios {
-    val all: List<Scenario> get() = listOf(GrindBattles(), StartGame(), StopGame(), CatScratchbook())
-    fun get(name: String) = all.firstOrNull { it.name == name } ?: throw IllegalArgumentException("unknown macro '$name'")
+    fun userDir(context: android.content.Context) = java.io.File(context.filesDir, "macros").apply { mkdirs() }
+    fun userTemplates(context: android.content.Context) = java.io.File(context.filesDir, "templates/user").apply { mkdirs() }
+
+    fun all(context: android.content.Context): List<Scenario> {
+        val found = LinkedHashMap<String, Scenario>()
+        val assets = context.assets
+        for (f in assets.list("macros").orEmpty().filter { it.endsWith(".yaml") }.sorted()) {
+            load({ assets.open("macros/$f").bufferedReader().use { it.readText() } }, "macros/$f")?.let { found[it.name] = it }
+        }
+        for (f in userDir(context).listFiles().orEmpty().filter { it.name.endsWith(".yaml") }.sortedBy { it.name }) {
+            load({ f.readText() }, f.name)?.let { found[it.name] = it }
+        }
+        return found.values.toList()
+    }
+
+    fun get(context: android.content.Context, name: String) =
+        all(context).firstOrNull { it.name == name } ?: throw IllegalArgumentException("unknown macro '$name'")
+
+    private fun load(read: () -> String, source: String): Scenario? = try {
+        FlowScenario.parse(read(), source)
+    } catch (e: Exception) {
+        MacroLog.e("could not load macro $source: ${e.message}")
+        null
+    }
 }
 
 /** The run loop: screenshot, work out the screen, call its handler, repeat. Same design as the Python runner. */
@@ -149,7 +176,7 @@ object Runner {
         }
     }
 
-    fun run(scenario: Scenario, given: Map<String, String>, capture: Capture, assets: AssetManager): String {
+    fun run(scenario: Scenario, given: Map<String, String>, capture: Capture, assets: AssetManager, userTemplates: java.io.File? = null): String {
         if (!running.compareAndSet(false, true)) return "a macro is already running"
         stopRequested.set(false)
         paused.set(false)
@@ -157,6 +184,8 @@ object Runner {
         changed()
         val params = scenario.params.mapValues { it.value.default } + given.filterKeys { it in scenario.params }
         val library = Library.load(assets, "templates/common", *scenario.templateFolders.map { "templates/$it" }.toTypedArray())
+        userTemplates?.let { library.addDir(it) }
+        (scenario as? FlowScenario)?.let { library.addScreens(it.screenDefs) }
         val ctx = Context(capture, assets, Vision(library), params, stopRequested)
         var reason = "finished"
         InputService.instance?.keepScreenOn(true)

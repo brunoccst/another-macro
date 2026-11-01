@@ -37,6 +37,7 @@ class ControlsOverlay(private val service: InputService) {
     private val playPause = round("▶", Color.parseColor("#2E7D32"))
     private val stop = round("■", Color.parseColor("#C62828"))
     private val restart = round("↻", Color.parseColor("#1565C0"))
+    private val camera = round("📷", Color.parseColor("#6A1B9A"))
     private val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
@@ -54,6 +55,7 @@ class ControlsOverlay(private val service: InputService) {
         buttons.addView(playPause)
         buttons.addView(stop)
         buttons.addView(restart)
+        buttons.addView(camera)
         root.addView(handle)
         root.addView(buttons)
         root.alpha = 0.85f
@@ -66,6 +68,7 @@ class ControlsOverlay(private val service: InputService) {
         }
         stop.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_STOP_RUN)) }
         restart.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_RESTART)) }
+        camera.setOnClickListener { captureTemplate() }
         dragAndFold()
         refresh()
     }
@@ -87,6 +90,26 @@ class ControlsOverlay(private val service: InputService) {
             return
         }
         service.startService(LastRun.intent(service, last.first, last.second))
+    }
+
+    /** Grab the game screen (without these buttons) and open the crop screen. */
+    private fun captureTemplate() {
+        if (Runner.isRunning) { MacroLog.i("stop the macro before capturing a template"); return }
+        root.visibility = View.INVISIBLE
+        main.postDelayed({
+            Thread {
+                val path = TemplateCapture.saveScreen(service)
+                main.post {
+                    root.visibility = View.VISIBLE
+                    if (path == null) MacroLog.i("no screen capture yet (allow screen capture first)")
+                    else service.startActivity(
+                        android.content.Intent(service, CaptureActivity::class.java)
+                            .putExtra(CaptureActivity.EXTRA_PATH, path)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+                    )
+                }
+            }.start()
+        }, 350) // let the hidden buttons leave the screen first
     }
 
     private fun refresh() {

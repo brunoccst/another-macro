@@ -1,0 +1,85 @@
+# Daily Cat Scratchbook.
+#  read: open Diary → Cat Scratchbook, report today's clues and where each cat is.
+#  hunt: on the map where today's cat is, walk in short steps, tap its feather bubble.
+name: cat-scratchbook
+description: "read: report today's cat clues and where they are; hunt: find the cat on this map."
+templates: [cat_scratchbook]
+params:
+  mode: {default: read, help: "read = report today's clues; hunt = find the cat on the map you're on"}
+  first_walk: {default: -1, help: "hunt: direction of the first walk, -1 = left, 1 = right"}
+  pulse_ms: {default: 300, help: "hunt: length of each short walk"}
+  max_walks: {default: 120, help: "hunt: give up after this many walks"}
+  span: {default: 8, help: "hunt: walks to either side of the start before turning"}
+screens: [scratchbook, battle_result, skill_list, battle_command, battle, field]
+unknown_timeout_s: 20
+
+setup:
+  - set: {opened: false, report: "''", dir: first_walk, walks: 0, still: 0, pos: 0, found_cat: false}
+
+handlers:
+  field:
+    - if: mode == 'hunt'
+      then:
+        - if: found_cat
+          then: [{stop: found the scratchbook cat}]
+        - find_feather: true
+        - if: tapped
+          then:
+            - count: bubble_taps
+            - wait: 2
+          else:
+            - if: walks >= max_walks
+              then: [{stop: "no scratchbook cat found after {walks} walks"}]
+            # hit a wall: turn around; and sweep back and forth around the start
+            - if: not view_moved()
+              then:
+                - set: {still: still + 1}
+                - if: still >= 2
+                  then: [{set: {dir: -dir, still: 0}}]
+              else: [{set: {still: 0}}]
+            - if: span > 0 and abs(pos + dir) > span
+              then: [{set: {dir: -dir}}]
+            - walk: {dir: dir, ms: pulse_ms}
+            - set: {walks: walks + 1, pos: pos + dir}
+            - wait: 0.4
+      else:
+        - if: report != ''
+          then: [{stop: "{report}"}]
+        - if: not opened
+          then:
+            - set: {opened: true}
+            - tap: [0.329, 0.922]   # Diary
+            - wait: 2
+
+  scratchbook:
+    - if: mode == 'hunt'
+      then:
+        # finding the cat opens the book with reward banners: clear them, close it
+        - if: stats.bubble_taps > 0 and not found_cat
+          then:
+            - set: {found_cat: true}
+            - count: cats_found
+        - repeat: {times: 3, do: [{tap: [0.5, 0.65]}, {wait: 1.2}]}
+        - tap: [0.88, 0.03]
+        - wait: 1.5
+      else:
+        - if: report == ''
+          then: [{read_cat_clues: true}]
+        - tap: [0.88, 0.03]
+        - wait: 1.5
+
+  # a random encounter while hunting outside a town
+  battle_command:
+    - reset_view: true
+    - if: found('battle_auto_button')
+      then: [{tap: battle_auto_button}]
+      else: [{tap: battle_attack_button}]
+    - wait: 1
+  skill_list:
+    - if: found('battle_attack_button')
+      then: [{tap: battle_attack_button}]
+      else: [{back: true}]
+    - wait: 0.8
+  battle_result:
+    - tap: [0.5, 0.75]
+    - wait: 0.8

@@ -35,8 +35,10 @@ class MainActivity : Activity() {
     private lateinit var status: TextView
     private lateinit var log: TextView
     private val paramFields = LinkedHashMap<String, EditText>()
-    private var scenario: Scenario = Scenarios.all.first()
+    private lateinit var scenario: Scenario
+    private lateinit var macros: List<Scenario>
     private lateinit var paramsBox: LinearLayout
+    private lateinit var userTemplates: TextView
     private lateinit var macroDescription: TextView
     private lateinit var runButton: Button
     private val logListener: (String) -> Unit = { text -> if (::log.isInitialized) log.text = text }
@@ -88,7 +90,9 @@ class MainActivity : Activity() {
 
         // --- macro -------------------------------------------------------------
         column.addView(label("Macro", bold = true))
-        val names = Scenarios.all.map { it.name }
+        macros = Scenarios.all(this)
+        scenario = macros.first()
+        val names = macros.map { it.name }
         val picker = Spinner(this).apply {
             adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, names)
         }
@@ -100,13 +104,22 @@ class MainActivity : Activity() {
         runButton = button("Run") { run(scenario.name, paramFields.mapValues { it.value.text.toString() }) }
         column.addView(runButton)
         picker.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = showMacro(Scenarios.all[position])
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = showMacro(macros[position])
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
         val last = LastRun.load(this)?.first
         picker.setSelection(names.indexOf(last).coerceAtLeast(0))
         column.addView(button("Stop") { startService(MacroService.intent(this, MacroService.ACTION_STOP_RUN)) })
         column.addView(button("Turn off screen capture") { startService(MacroService.intent(this, MacroService.ACTION_SHUTDOWN)) })
+        column.addView(label("Your macros and templates", bold = true))
+        column.addView(label("Macros are .yaml files (see macros/ in the repo). Import your own here; " +
+            "templates you capture with the 📷 floating button can be used in them by name."))
+        column.addView(button("Import macro (.yaml)") {
+            @Suppress("DEPRECATION")
+            startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQUEST_IMPORT)
+        })
+        userTemplates = label("")
+        column.addView(userTemplates)
         column.addView(label("While screen capture is on, floating buttons over the game start ▶, pause ❚❚, stop ■ and restart ↻ the last macro. Drag ≡ to move them, tap it to fold them."))
 
         column.addView(label("Log", bold = true))
@@ -205,6 +218,8 @@ class MainActivity : Activity() {
         log.text = MacroLog.text()
         refreshStatus()
         checkForUpdates(automatic = true)
+        val mine = TemplateCapture.list(this)
+        userTemplates.text = if (mine.isEmpty()) "Captured templates: none yet." else "Captured templates: ${mine.joinToString()}"
     }
 
     override fun onPause() {
@@ -228,6 +243,7 @@ class MainActivity : Activity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == REQUEST_IMPORT) { importMacro(resultCode, data); return }
         if (requestCode != REQUEST_CAPTURE) return
         if (resultCode != RESULT_OK || data == null) {
             MacroLog.i("screen capture was not allowed")
@@ -238,6 +254,21 @@ class MainActivity : Activity() {
             .putExtra(MacroService.EXTRA_RESULT_DATA, data)
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc) else startService(svc)
         status.postDelayed({ refreshStatus() }, 800)
+    }
+
+    /** Copy a picked .yaml into the user's macros (after checking it parses), then reload. */
+    private fun importMacro(resultCode: Int, data: Intent?) {
+        val uri = data?.data ?: return
+        if (resultCode != RESULT_OK) return
+        try {
+            val text = contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() }
+            val macro = FlowScenario.parse(text, uri.lastPathSegment ?: "import")
+            java.io.File(Scenarios.userDir(this), "${macro.name}.yaml").writeText(text)
+            MacroLog.i("imported macro '${macro.name}'")
+            recreate()
+        } catch (e: Exception) {
+            MacroLog.e("could not import: ${e.message}")
+        }
     }
 
     private fun run(name: String, params: Map<String, String>) {
@@ -260,5 +291,6 @@ class MainActivity : Activity() {
 
     companion object {
         private const val REQUEST_CAPTURE = 1
+        private const val REQUEST_IMPORT = 3
     }
 }

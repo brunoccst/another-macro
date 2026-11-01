@@ -101,11 +101,11 @@ class MacroService : Service() {
         val name = intent.getStringExtra(EXTRA_SCENARIO) ?: return
         val params = HashMap<String, String>()
         intent.getBundleExtra(EXTRA_PARAMS)?.let { b -> b.keySet().forEach { k -> b.getString(k)?.let { params[k] = it } } }
-        val scenario = try { Scenarios.get(name) } catch (e: Exception) { MacroLog.e(e.message ?: "unknown macro"); return }
+        val scenario = try { Scenarios.get(this, name) } catch (e: Exception) { MacroLog.e(e.message ?: "unknown macro"); return }
         LastRun.save(this, name, params)
         updateNotification("Running ${scenario.name}")
         worker = Thread({
-            val reason = Runner.run(scenario, params, cap, assets)
+            val reason = Runner.run(scenario, params, cap, assets, Scenarios.userTemplates(this))
             updateNotification("Stopped: $reason")
         }, "macro").apply { start() }
     }

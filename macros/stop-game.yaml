@@ -1,0 +1,31 @@
+# Turn the game off: back on the field opens "Close the app?", Yes closes it.
+name: stop-game
+description: "Turn the game off (back → 'Close the app?' → Yes)."
+screens: [close_app, field]
+unknown_timeout_s: 60
+
+setup:
+  - set: {confirmed: false, backs: 0}
+
+handlers:
+  close_app:
+    - count: confirms
+    - tap: [0.588, 0.568]
+    - set: {confirmed: true}
+    - wait: 3
+  field:
+    - back: true
+    - wait: 1.5
+
+unknown:
+  # the game is landscape-only: a portrait app in front means it's gone
+  - if: not game_in_front()
+    then:
+      - if: confirmed
+        then: [{stop: the game is off}]
+        else: [{stop: the game is not in front}]
+  - set: {backs: backs + 1}
+  - if: backs > 12
+    then: [{stop: could not reach the field to close the game}]
+  - back: true
+  - wait: 1.5

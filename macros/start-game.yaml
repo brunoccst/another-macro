@@ -1,0 +1,78 @@
+# Turn the game on, always watch the daily login-bonus ad, stop on the field.
+name: start-game
+description: Turn the game on, always watch the daily login-bonus ad, stop on the field.
+templates: [start_game]
+params:
+  watch_ad: {default: true, help: "take the daily login-bonus ad; false = just open the game"}
+  ad_wait_s: {default: 45, help: "how long to let an ad play before pressing back to close it"}
+screens: [ad_reward, premium_thanks, ad_offer, field, title]
+unknown_timeout_s: 180
+
+setup:
+  - set: {watching_since: 0, continued: false}
+  - launch: "'games.wfs.anothereden'"
+  - count: launches
+  - wait: 3
+
+handlers:
+  title:
+    # "Continue" only shows once the game has reached its server
+    - if: found('title_continue')
+      then:
+        - count: continue_taps
+        - set: {continued: true}
+        - tap: [0.5, 0.75]
+        - wait: 8
+      else:
+        - wait: 2
+
+  ad_offer:
+    - if: not watch_ad
+      then: [{stop: "the game is open (daily ad not checked)"}]
+    - count: ads_accepted
+    - tap: watch_video_button
+    - set: {watching_since: now()}
+    - wait: 3
+
+  premium_thanks:   # premium subscribers get this instead of an ad
+    - if: not watch_ad
+      then: [{stop: "the game is open (daily ad not checked)"}]
+    - count: premium_skips
+    - tap: dialog_close_button
+    - set: {watching_since: 0}
+    - wait: 2
+
+  ad_reward:
+    - count: ad_rewards
+    - tap: dialog_ok_button
+    - set: {watching_since: 0}
+    - wait: 2
+
+  field:
+    - stop: the game is on and on the field
+
+unknown:
+  - if: not watch_ad
+    then:
+      - if: continued and game_in_front()
+        then: [{stop: "the game is open (daily ad not checked)"}]
+      - wait: 2
+    else:
+      - if: watching_since > 0
+        then:
+          # an ad is playing: let it finish, then back closes it; never tap inside it
+          - if: now() - watching_since > ad_wait_s
+            then:
+              - back: true
+              - count: ad_backs
+              - set: {watching_since: now() - ad_wait_s + 10}
+          - wait: 2
+        else:
+          - if: not game_in_front()
+            then:
+              - launch: "'games.wfs.anothereden'"
+              - wait: 3
+            else:
+              # loading screens and the cat delivering the login bonus
+              - tap: [0.5, 0.3]
+              - wait: 1.5
