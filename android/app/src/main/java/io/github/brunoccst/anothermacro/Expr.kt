@@ -12,7 +12,7 @@ package io.github.brunoccst.anothermacro
  * after a walk.
  */
 class Expr(private val src: String) {
-    fun interface Env {
+    interface Env {
         fun variable(name: String): Any?
         fun call(name: String, args: List<Any?>): Any?
     }
