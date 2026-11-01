@@ -44,6 +44,18 @@ class Param:
     help: str = ""
 
 
+def boolean(value: str | bool) -> bool:
+    """Param type for yes/no options: true/false, yes/no, on/off, 1/0."""
+    if isinstance(value, bool):
+        return value
+    v = str(value).strip().lower()
+    if v in ("1", "true", "yes", "on", "y"):
+        return True
+    if v in ("0", "false", "no", "off", "n"):
+        return False
+    raise ValueError(f"expected true/false, got {value!r}")
+
+
 class StopScenario(Exception):
     """Raised (via ctx.stop) to end a run cleanly with a reason."""
 
@@ -224,7 +236,11 @@ def run(
 
             frame = ctx.refresh()
             if (is_blank(frame) or frame.shape[0] > frame.shape[1]) and device.is_locked():
-                raise StopScenario("the phone is locked; unlock it and run again")
+                device.unlock()
+                sleep(1.5)
+                if device.is_locked():
+                    raise StopScenario("the phone is locked (it has a PIN/password?); unlock it and run again")
+                continue
             if is_blank(frame):
                 # screen off (screencap returns a black frame): wake it instead of counting as unknown
                 if last_screen != "screen off":

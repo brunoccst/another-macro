@@ -161,6 +161,11 @@ class AdbDevice(Device):
             return False
         return "isKeyguardShowing=true" in out
 
+    def unlock(self) -> None:
+        # only works without a PIN/password; never types one
+        self._send("input keyevent KEYCODE_WAKEUP", wait_s=0.5)
+        self._send("wm dismiss-keyguard", wait_s=0.8)
+
     @contextmanager
     def keep_awake(self) -> Iterator[None]:
         """Raise the screen timeout for the run and put the phone's own value back after.
