@@ -8,6 +8,8 @@ the phone), a fake driver for tests, and later a native-app or Steam driver.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from contextlib import contextmanager
+from typing import Iterator
 
 import numpy as np
 
@@ -37,6 +39,21 @@ class Device(ABC):
 
     def start_app(self, package: str) -> None:  # optional
         raise NotImplementedError
+
+    def stop_app(self, package: str) -> None:  # optional
+        raise NotImplementedError
+
+    def app_running(self, package: str) -> bool:  # optional
+        return True
+
+    def is_locked(self) -> bool:  # optional
+        """True while the lock screen is showing (nothing can be done until it's unlocked)."""
+        return False
+
+    @contextmanager
+    def keep_awake(self) -> Iterator[None]:  # optional
+        """Keep the screen from timing out for the duration of a run."""
+        yield
 
     def wake(self) -> None:  # optional
         """Turn the screen on if it is off."""

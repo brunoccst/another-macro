@@ -41,3 +41,17 @@ class FakeDevice(Device):
 
     def back(self) -> None:
         self.actions.append(("back",))
+
+    # app lifecycle, for start/stop scenarios
+    running: bool = True
+
+    def start_app(self, package: str) -> None:
+        self.actions.append(("start_app", package))
+        self.running = True
+
+    def stop_app(self, package: str) -> None:
+        self.actions.append(("stop_app", package))
+        self.running = False
+
+    def app_running(self, package: str) -> bool:
+        return self.running

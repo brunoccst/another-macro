@@ -1,0 +1,80 @@
+# Templates for start-game (daily login + ad reward). Captured on a 2400x1080 phone.
+templates:
+  ad_offer_header:
+    file: ad_offer_header.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.35
+    - 0.3667
+    - 0.3
+    - 0.1556
+    notes: '"Reward for Watching Video" in the daily login-bonus ad offer (Get 20
+      Chronos Stones... for watching a commercial).'
+  watch_video_button:
+    file: watch_video_button.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.4625
+    - 0.5889
+    - 0.2542
+    - 0.1926
+    notes: '"Watch Video" button of the daily ad offer. Always taken.'
+  premium_thanks:
+    file: premium_thanks.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.3208
+    - 0.6537
+    - 0.3583
+    - 0.1444
+    notes: '"Another Eden Development Team" line of the premium-subscriber thank-you
+      shown instead of the ad.'
+  dialog_close_button:
+    file: dialog_close_button.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.3875
+    - 0.7787
+    - 0.225
+    - 0.1833
+    notes: '"Close" button on the premium thank-you dialog.'
+  reward_inbox_thanks:
+    file: reward_inbox_thanks.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.3375
+    - 0.263
+    - 0.3271
+    - 0.1463
+    notes: '"Thank you for watching." dialog: the ad reward went to the inbox.'
+  dialog_ok_button:
+    file: dialog_ok_button.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.3875
+    - 0.5426
+    - 0.225
+    - 0.1833
+    notes: '"OK" button on the reward-delivered dialog.'
+screens:
+  ad_offer:
+    require:
+    - ad_offer_header
+  premium_thanks:
+    require:
+    - premium_thanks
+  ad_reward:
+    require:
+    - reward_inbox_thanks

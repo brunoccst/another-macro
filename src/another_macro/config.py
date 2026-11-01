@@ -30,3 +30,12 @@ def serial_file() -> Path:
 def saved_serial() -> str | None:
     f = serial_file()
     return f.read_text().strip() or None if f.is_file() else None
+
+
+# Another Eden's Android package (global release)
+GAME_PACKAGE = "games.wfs.anothereden"
+
+
+def screen_timeout_file() -> Path:
+    """The phone's own screen timeout, saved while a run keeps the screen awake."""
+    return home() / "screen_timeout"
