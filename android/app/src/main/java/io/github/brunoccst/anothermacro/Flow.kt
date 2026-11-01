@@ -31,6 +31,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   reset_view: true            (forget the last view for view_moved())
  *   find_feather: true          (cat scratchbook: tap the feather bubble if visible; sets `tapped`)
  *   read_cat_clues: true        (cat scratchbook: sets `report` to today's clues and their places)
+ *   cat_daily: true             (cat scratchbook: read clues by OCR, travel to each cat, find it; stops with a summary)
  *
  * Expression functions: found('t'), captured('t'), game_in_front(), view_moved(), now(), pick(i, a, b, ...)
  */
@@ -102,6 +103,7 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
             "reset_view" in a -> { lastView?.release(); lastView = null }
             "find_feather" in a -> findFeather(ctx)
             "read_cat_clues" in a -> vars["report"] = readCatClues(ctx)
+            "cat_daily" in a -> ctx.stop(CatDaily.run(ctx))
             else -> throw IllegalArgumentException("$name: unknown action ${a.keys}")
         }
     }

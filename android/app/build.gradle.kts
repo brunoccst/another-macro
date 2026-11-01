@@ -77,4 +77,6 @@ tasks.named("preBuild") { dependsOn(copyMacroAssets) }
 dependencies {
     implementation("org.opencv:opencv:4.10.0")
     implementation("org.snakeyaml:snakeyaml-engine:2.7")
+    // on-device text recognition (bundled model, no Google Play services needed): cat clues, map labels
+    implementation("com.google.mlkit:text-recognition:16.0.1")
 }

@@ -39,6 +39,28 @@ class Context(
 
     fun find(template: String): Match? = frame?.let { vision.find(it, template) }
 
+    /** The current screen in colour as BGR (caller releases it). */
+    fun colorMat(): org.opencv.core.Mat? = capture.grabColor()
+
+    /** The current screen in colour (RGBA bitmap), for text recognition. */
+    fun colorBitmap(): android.graphics.Bitmap? {
+        val bgr = capture.grabColor() ?: return null
+        val rgba = org.opencv.core.Mat()
+        org.opencv.imgproc.Imgproc.cvtColor(bgr, rgba, org.opencv.imgproc.Imgproc.COLOR_BGR2RGBA)
+        bgr.release()
+        val bmp = android.graphics.Bitmap.createBitmap(rgba.cols(), rgba.rows(), android.graphics.Bitmap.Config.ARGB_8888)
+        org.opencv.android.Utils.matToBitmap(rgba, bmp)
+        rgba.release()
+        return bmp
+    }
+
+    /** Text lines on screen right now (on-device OCR), with normalized positions. */
+    fun readText(): List<Ocr.Line> {
+        Thread.sleep(150) // let the latest frame arrive
+        val bmp = colorBitmap() ?: return emptyList()
+        return try { Ocr.read(bmp) } finally { bmp.recycle() }
+    }
+
     private fun px(p: Point): Pair<Float, Float> = p.toPx(capture.width, capture.height)
 
     private fun point(target: Any): Point = when (target) {
