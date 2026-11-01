@@ -65,6 +65,17 @@ class CaptureActivity : Activity() {
         })
     }
 
+    // the floating buttons would sit on top of this screen's buttons
+    override fun onResume() {
+        super.onResume()
+        InputService.instance?.showControls(false)
+    }
+
+    override fun onPause() {
+        if (MacroService.capture != null) InputService.instance?.showControls(true)
+        super.onPause()
+    }
+
     private fun save() {
         val box = crop.selection() ?: return run { result.text = "Drag a box first." }
         val n = name.text.toString().trim()
