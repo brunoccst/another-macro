@@ -101,6 +101,9 @@ class Context(
 
     val assets get() = assetManager
 
+    /** Where macros may leave debug images (the app's own storage). */
+    var debugDir: java.io.File = java.io.File(System.getProperty("java.io.tmpdir") ?: "/data/local/tmp")
+
     fun bool(name: String) = params.getValue(name).trim().lowercase() in setOf("1", "true", "yes", "on", "y")
 
     fun wait(seconds: Double) {
@@ -209,6 +212,7 @@ object Runner {
         userTemplates?.let { library.addDir(it) }
         (scenario as? FlowScenario)?.let { library.addScreens(it.screenDefs) }
         val ctx = Context(capture, assets, Vision(library), params, stopRequested)
+        userTemplates?.parentFile?.parentFile?.let { ctx.debugDir = java.io.File(it, "debug").apply { mkdirs() } }
         var reason = "finished"
         InputService.instance?.keepScreenOn(true)
         MacroLog.i("running ${scenario.name} with $params")

@@ -98,7 +98,9 @@ object CatDaily {
         if (searchAndGo(ctx, place, sub)) return true
         // not on this continent: try each one in the Expand view
         ctx.tap(EXPAND); ctx.wait(2.0)
-        val continents = ctx.readText().filter { it.text.contains("Continent", ignoreCase = true) }.map { it.text }
+        val expandText = ctx.readText()
+        val continents = expandText.filter { it.text.contains("Continent", ignoreCase = true) }.map { it.text }
+        MacroLog.i("continents: ${continents.joinToString().ifEmpty { "none read; saw: " + expandText.joinToString { it.text }.take(200) }}")
         for (name in continents) {
             if (ctx.readText().none { it.text.contains("Continent", true) }) { ctx.tap(EXPAND); ctx.wait(2.0) }
             val line = ctx.readText().firstOrNull { it.text == name } ?: continue
@@ -117,7 +119,9 @@ object CatDaily {
         val pans = listOf(0.0 to 0.0, -0.35 to 0.0, 0.0 to -0.35, 0.35 to 0.0, 0.35 to 0.0, 0.0 to 0.35, 0.0 to 0.35, -0.35 to 0.0, -0.35 to 0.0)
         for ((dx, dy) in pans) {
             if (dx != 0.0 || dy != 0.0) { ctx.drag(Point(0.5, 0.55), Point(0.5 + dx, 0.55 + dy), 700); ctx.wait(1.0) }
-            val label = ctx.readText().firstOrNull {
+            val read = ctx.readText()
+            MacroLog.i("map labels: " + read.filter { it.center.y > 0.12 }.joinToString { it.text }.take(300))
+            val label = read.firstOrNull {
                 it.center.y > 0.12 && (Ocr.norm(it.text) == Ocr.norm(place) || Ocr.similarity(it.text, place) >= 0.85)
             } ?: continue
             ctx.tap(label.center); ctx.wait(2.0)
@@ -183,6 +187,10 @@ object CatDaily {
         ctx.tap(Point(0.5, 0.93)); ctx.wait(1.5)
         val feather = findMapFeather(ctx, frame) ?: run { bgr?.release(); return null }
         val party = bgr?.let { findPartyMarker(it, feather) }
+        if (party == null && bgr != null) {
+            // keep the map for debugging (app storage, not shared)
+            Imgcodecs.imwrite(java.io.File(ctx.debugDir, "area-map.png").path, bgr)
+        }
         bgr?.release()
         return feather to party
     }
@@ -217,6 +225,7 @@ object CatDaily {
         val w = bgr.cols().toDouble(); val h = bgr.rows().toDouble()
         var best: Point? = null
         var bestArea = 0.0
+        val seen = ArrayList<String>()
         for (k in 1 until n) {
             val bw = stats.get(k, Imgproc.CC_STAT_WIDTH)[0]
             val bh = stats.get(k, Imgproc.CC_STAT_HEIGHT)[0]
@@ -224,6 +233,7 @@ object CatDaily {
             val cx = cents.get(k, 0)[0] / w
             val cy = cents.get(k, 1)[0] / h
             val aspect = bw / bh
+            if (area >= 300) seen += "(${"%.3f".format(cx)},${"%.3f".format(cy)} ${bw.toInt()}x${bh.toInt()} a${area.toInt()})"
             // the eye is wider than tall (quest "!" markers are taller); its size follows the map's zoom
             if (area < 450 || aspect < 1.05 || aspect > 1.9 || bw < 30 || bw > 110) continue
             if (abs(cx - feather.x) < 0.02 && abs(cy - feather.y) < 0.04) continue
@@ -231,6 +241,7 @@ object CatDaily {
             if (score > bestArea) { bestArea = score; best = Point(cx, cy) }
         }
         listOf(hsv, mask, labels, stats, cents).forEach { it.release() }
+        if (best == null) MacroLog.i("map blobs (${bgr.cols()}x${bgr.rows()}): ${seen.joinToString(" ")}")
         return best
     }
 
