@@ -58,3 +58,21 @@ def test_every_clue_has_a_location():
     riddles = cat_scratchbook.load_riddles()
     assert len(riddles) > 60
     assert all(r["location"] and r["text"] for r in riddles.values())
+
+
+def test_feather_finder_matches_its_own_template_and_not_a_blank_frame():
+    import cv2
+    import numpy as np
+
+    from another_macro.scenarios.cat_scratchbook import FEATHER_FILE, FEATHER_MIN, FeatherFinder
+
+    finder = FeatherFinder()
+    bubble = cv2.imread(str(FEATHER_FILE))
+    frame = np.full((1080, 2400, 3), 60, np.uint8)
+    h, w = bubble.shape[:2]
+    frame[400 : 400 + h, 1000 : 1000 + w] = bubble
+    score, at = finder.find(frame)
+    assert score >= FEATHER_MIN
+    assert abs(at.x * 2400 - (1000 + w / 2)) < 12 and abs(at.y * 1080 - (400 + h / 2)) < 12
+    score, _ = finder.find(np.full((1080, 2400, 3), 60, np.uint8))
+    assert score < FEATHER_MIN
