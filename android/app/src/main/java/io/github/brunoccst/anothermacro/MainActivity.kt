@@ -148,6 +148,12 @@ class MainActivity : Activity() {
     private var available: Updater.Release? = null
 
     private fun checkForUpdates(automatic: Boolean) {
+        if (BuildConfig.VERSION_NAME.contains("-dev")) {
+            // test builds from CI: a release would always look newer and replace them
+            updateInfo.text = "Development build (${BuildConfig.VERSION_NAME}): updates are off."
+            updateButton.isEnabled = false
+            return
+        }
         val prefs = getSharedPreferences("updates", MODE_PRIVATE)
         if (automatic && System.currentTimeMillis() - prefs.getLong("last_check", 0) < 6 * 3600_000L) return
         prefs.edit().putLong("last_check", System.currentTimeMillis()).apply()
