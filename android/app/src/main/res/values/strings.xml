@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Another Macro</string>
+    <string name="input_service_description">Lets Another Macro tap, hold and swipe in Another Eden for the macros you start. It does not read screen content through accessibility; the macros see the game through screen capture.</string>
+</resources>
