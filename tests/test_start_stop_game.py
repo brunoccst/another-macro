@@ -9,6 +9,9 @@ from another_macro.scenarios.stop_game import StopGame
 from helpers import render, write_library
 
 SCREENS = {
+    "ad_offer": {"require": ["ad_offer_header"]},
+    "premium_thanks": {"require": ["premium_thanks"]},
+    "ad_reward": {"require": ["reward_inbox_thanks"]},
     "field": {"require": ["field_menu_button"]},
     "title": {"require": ["title_screen"]},
     "close_app": {"require": ["close_app_dialog"]},
@@ -51,6 +54,27 @@ def test_start_game_taps_continue_once_it_shows(lib, tmp_path):
     assert device.actions[0] == ("start_app", "games.wfs.anothereden")
     # no tap while the title was still connecting ("Game Id...")
     assert len([a for a in device.actions if a[0] == "tap"]) == 1
+
+
+def test_start_game_always_watches_the_daily_ad(lib, tmp_path):
+    seq = [
+        render(["title_screen", "title_continue"]),
+        render(["ad_offer_header", "watch_video_button"]),
+        render(["premium_thanks", "dialog_close_button"]),
+        render(["reward_inbox_thanks", "dialog_ok_button"]),
+        render(["field_menu_button"]),
+    ]
+
+    def frame(device):
+        return seq[min(len([a for a in device.actions if a[0] == "tap"]), len(seq) - 1)]
+
+    device = FakeDevice(frame)
+    result = base.run(_scenario(StartGame, lib), device, run_dir=tmp_path / "run")
+    assert result.reason == "the game is on and on the field"
+    assert result.stats == {"launches": 1, "continue_taps": 1, "ads_accepted": 1, "premium_skips": 1, "ad_rewards": 1}
+    # "Watch Video" is the right-hand button, never "Don't Watch"
+    watch = [a for a in device.actions if a[0] == "tap"][1]
+    assert abs(watch[1] / 2400 - 0.71) < 0.03 and abs(watch[2] / 1080 - 0.525) < 0.03
 
 
 def test_stop_game_presses_back_and_confirms(lib, tmp_path):

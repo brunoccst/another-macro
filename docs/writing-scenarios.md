@@ -161,3 +161,9 @@ Then add a Termux widget button in `termux/shortcuts/<Name>.sh` (copy
 - **Closing the game:** Android back on the field opens "Close the app?"; Yes exits
   cleanly (`stop-game`). Starting: splash → title ("Game Id..." while connecting,
   then "Continue") → tap → field (`start-game`).
+
+- **Daily ad:** the first `start-game` of the day always takes "Watch Video" on the
+  login-bonus ad offer (20 Chronos Stones). With the premium subscription a
+  "Thank you for subscribing" dialog replaces the ad (Close); then "Thank you for
+  watching... delivered to your inbox" (OK). Without premium the ad plays and is
+  closed with back after `ad_wait_s` (not yet seen live).
