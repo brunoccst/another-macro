@@ -224,9 +224,11 @@ object CatDaily {
             val cx = cents.get(k, 0)[0] / w
             val cy = cents.get(k, 1)[0] / h
             val aspect = bw / bh
-            if (area < 600 || aspect < 1.2 || aspect > 1.9 || bw < 40 || bw > 110) continue
+            // the eye is wider than tall (quest "!" markers are taller); its size follows the map's zoom
+            if (area < 450 || aspect < 1.05 || aspect > 1.9 || bw < 30 || bw > 110) continue
             if (abs(cx - feather.x) < 0.02 && abs(cy - feather.y) < 0.04) continue
-            if (area > bestArea) { bestArea = area; best = Point(cx, cy) }
+            val score = area * (1.0 - abs(aspect - 1.35))
+            if (score > bestArea) { bestArea = score; best = Point(cx, cy) }
         }
         listOf(hsv, mask, labels, stats, cents).forEach { it.release() }
         return best
@@ -239,9 +241,9 @@ object CatDaily {
         var dir = -1.0
         var pos = 0
         repeat(60) {
+            fightIfBattle(ctx) // first: it takes its own screenshots
             val f1 = ctx.refresh()
             if (ctx.find("scratchbook_header") != null) return collect(ctx)
-            fightIfBattle(ctx)
             val (score, p1) = ff.find(f1)
             if (score >= 0.78) {
                 val t1 = System.currentTimeMillis()
@@ -283,6 +285,7 @@ object CatDaily {
         while (System.currentTimeMillis() < end) {
             ctx.refresh()
             if (ctx.find("field_menu_button") != null) return true
+            if (ctx.find("title_continue") != null) { ctx.tap(Point(0.5, 0.75)); ctx.wait(6.0) }
             fightIfBattle(ctx)
             ctx.wait(1.0)
         }
