@@ -50,6 +50,7 @@ class ControlsOverlay(private val service: InputService) {
         y = dp(70)
     }
     private val listener: () -> Unit = { main.post { refresh() } }
+    private var wasRunning = false
 
     init {
         buttons.addView(playPause)
@@ -113,6 +114,12 @@ class ControlsOverlay(private val service: InputService) {
     }
 
     private fun refresh() {
+        // fold down to the handle while a macro runs (the buttons would cover the game, and
+        // the macro sees them too); tap the handle to unfold for pause/stop
+        if (Runner.isRunning != wasRunning) {
+            wasRunning = Runner.isRunning
+            buttons.visibility = if (wasRunning) View.GONE else View.VISIBLE
+        }
         val color = when {
             Runner.isPaused -> Color.parseColor("#F9A825")
             Runner.isRunning -> Color.parseColor("#2E7D32")

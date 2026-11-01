@@ -90,10 +90,12 @@ object CatDaily {
     // --- 2. world map travel ----------------------------------------------------
     fun travel(ctx: Context, clue: Clue): Boolean {
         val place = clue.location.substringBefore(" (").substringBefore(" –").substringBefore(" -").trim()
+        // "Moonlight Forest (Forest Edge)" / "Nadara Volcano – Caldera Edge": the sub-destination
+        val sub = Regex("""\(([^)]*)\)|[–-] (.+)$""").find(clue.location)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }?.trim() ?: ""
         ctx.tap(MAP_BUTTON); ctx.wait(2.5)
         if (ctx.readText().none { Ocr.norm(it.text) == "world map" }) { ctx.wait(1.5) }
         ctx.tap(ERA.getValue(clue.era)); ctx.wait(2.0)
-        if (searchAndGo(ctx, place)) return true
+        if (searchAndGo(ctx, place, sub)) return true
         // not on this continent: try each one in the Expand view
         ctx.tap(EXPAND); ctx.wait(2.0)
         val continents = ctx.readText().filter { it.text.contains("Continent", ignoreCase = true) }.map { it.text }
@@ -101,7 +103,7 @@ object CatDaily {
             if (ctx.readText().none { it.text.contains("Continent", true) }) { ctx.tap(EXPAND); ctx.wait(2.0) }
             val line = ctx.readText().firstOrNull { it.text == name } ?: continue
             ctx.tap(line.center); ctx.wait(2.0)
-            if (searchAndGo(ctx, place)) return true
+            if (searchAndGo(ctx, place, sub)) return true
         }
         MacroLog.i("couldn't find $place on the map (not unlocked yet?)")
         ctx.tap(CLOSE); ctx.wait(1.5)
@@ -109,7 +111,9 @@ object CatDaily {
     }
 
     /** Pan around the visible map looking for [place]'s label; tap it and confirm the trip. */
-    private fun searchAndGo(ctx: Context, place: String): Boolean {
+    private fun isYes(l: Ocr.Line) = Ocr.norm(l.text) == "yes" && l.center.y > 0.4
+
+    private fun searchAndGo(ctx: Context, place: String, sub: String): Boolean {
         val pans = listOf(0.0 to 0.0, -0.35 to 0.0, 0.0 to -0.35, 0.35 to 0.0, 0.35 to 0.0, 0.0 to 0.35, 0.0 to 0.35, -0.35 to 0.0, -0.35 to 0.0)
         for ((dx, dy) in pans) {
             if (dx != 0.0 || dy != 0.0) { ctx.drag(Point(0.5, 0.55), Point(0.5 + dx, 0.55 + dy), 700); ctx.wait(1.0) }
@@ -117,7 +121,16 @@ object CatDaily {
                 it.center.y > 0.12 && (Ocr.norm(it.text) == Ocr.norm(place) || Ocr.similarity(it.text, place) >= 0.85)
             } ?: continue
             ctx.tap(label.center); ctx.wait(2.0)
-            val yes = ctx.readText().firstOrNull { Ocr.norm(it.text) == "yes" }
+            var lines = ctx.readText()
+            if (lines.none { isYes(it) } && lines.none { it.text.startsWith("Moving to") }) {
+                // some places open a panel of destinations (e.g. Unigan / Royal Theater / ...)
+                val entries = lines.filter { it.center.x > 0.55 && it.center.y in 0.25..0.75 }
+                val entry = (if (sub.isNotEmpty()) entries.maxByOrNull { Ocr.similarity(it.text, sub) }?.takeIf { Ocr.similarity(it.text, sub) > 0.7 } else null)
+                    ?: entries.maxByOrNull { Ocr.similarity(it.text, place) }?.takeIf { Ocr.similarity(it.text, place) > 0.7 }
+                if (entry != null) { ctx.tap(entry.center); ctx.wait(2.0); lines = ctx.readText() }
+            }
+            val yes = lines.firstOrNull { isYes(it) }
+                ?: if (lines.any { it.text.startsWith("Moving to") }) Ocr.Line("Yes", Region(0.54, 0.53, 0.1, 0.08)) else null
             if (yes == null) {
                 MacroLog.i("$place: no travel dialog (already here, or not a travel point)")
                 ctx.tap(CLOSE); ctx.wait(1.5)
