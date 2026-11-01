@@ -6,7 +6,9 @@ Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
 - **Input:** an accessibility service dispatches taps, slide-and-hold walking and Back.
 - **Vision:** OpenCV template matching on the same `library.yaml` + PNG templates as the
   Python tool (copied into the APK at build time from `src/another_macro/.../templates`).
-- **Macros:** `grind-battles` (ported from Python).
+- **Macros:** `grind-battles`, `start-game` (with the daily ad, `watch_ad`), `stop-game`,
+  `cat-scratchbook` (`mode=read` reports today's clues and where the cats are; `mode=hunt`
+  finds the cat on the current map). Pick one on the main screen; its params are remembered.
 - **Floating controls** over the game (start/pause/stop/restart the last macro), shown
   while screen capture is on.
 
@@ -22,6 +24,12 @@ Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
 CI (`.github/workflows/android.yml`) builds the APK. It is signed with the permanent key
 from the `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` secrets, so updates install
 over an existing copy. Keep a backup of that key: without it installed apps can't be updated.
+
+## Notes
+- Whether the game is in front is read from the capture: a portrait app (home screen, Termux)
+  shows pillar-boxed in the landscape capture.
+- Dev builds from CI (`0.0.N-dev`) don't check for updates (a release would replace them).
+- `uiautomator dump` suspends accessibility services while it runs; don't use it while testing.
 
 ## Testing from a computer/Termux
 `adb shell am start -n io.github.brunoccst.anothermacro/.MainActivity --es run grind-battles --es params "battles=3"`
