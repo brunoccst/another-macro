@@ -50,6 +50,9 @@ class Device(ABC):
         """True while the lock screen is showing (nothing can be done until it's unlocked)."""
         return False
 
+    def unlock(self) -> None:  # optional
+        """Dismiss a lock screen that has no PIN/password (swipe or none)."""
+
     @contextmanager
     def keep_awake(self) -> Iterator[None]:  # optional
         """Keep the screen from timing out for the duration of a run."""

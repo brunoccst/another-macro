@@ -99,3 +99,23 @@ def test_stop_game_when_already_off(lib, tmp_path):
     result = base.run(_scenario(StopGame, lib), device, run_dir=tmp_path / "run")
     assert result.reason == "the game is off"
     assert device.actions == []
+
+
+def test_start_game_without_ad_just_opens_the_game(lib, tmp_path):
+    seq = [render(["title_screen", "title_continue"]), render(["ad_offer_header", "watch_video_button"])]
+
+    def frame(device):
+        return seq[min(len([a for a in device.actions if a[0] == "tap"]), 1)]
+
+    device = FakeDevice(frame)
+    result = base.run(_scenario(StartGame, lib), device, {"watch_ad": False}, run_dir=tmp_path / "run")
+    assert result.reason == "the game is open (daily ad not checked)"
+    assert len([a for a in device.actions if a[0] == "tap"]) == 1  # only Continue; the ad offer is never touched
+
+
+def test_boolean_param():
+    from another_macro.scenario.base import boolean
+
+    assert boolean("false") is False and boolean("Yes") is True and boolean(True) is True
+    with pytest.raises(ValueError):
+        boolean("maybe")

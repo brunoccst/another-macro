@@ -17,6 +17,9 @@ Seen live with the premium subscription (no ad). Without it the ad runs in the
 game or in its own window; the macro waits for it to finish (`ad_wait_s`) and
 then presses Android back to close it, which is how rewarded ads are dismissed.
 
+With `--param watch_ad=false` the ad screens aren't looked for at all: it just
+opens the game (Continue) and stops once past the title.
+
 Start state: anything (game closed, in the background, or already running).
 """
 from __future__ import annotations
@@ -24,7 +27,7 @@ from __future__ import annotations
 import time
 
 from ... import config
-from ...scenario.base import Context, Param, Scenario
+from ...scenario.base import Context, Param, Scenario, boolean
 from ...vision.geometry import Point
 
 CONTINUE = Point(0.5, 0.75)
@@ -35,6 +38,7 @@ class StartGame(Scenario):
     description = "Turn Another Eden on, always watch the daily ad for the login bonus, stop on the field."
     params = {
         "package": Param(str, config.GAME_PACKAGE, "Android package of the game"),
+        "watch_ad": Param(boolean, True, "take the daily login-bonus ad; false = just open the game, don't look for it"),
         "ad_wait_s": Param(int, 45, "how long to let an ad play before pressing back to close it"),
     }
     screens = ["ad_reward", "premium_thanks", "ad_offer", "field", "title"]
@@ -44,6 +48,10 @@ class StartGame(Scenario):
 
     def setup(self, ctx: Context) -> None:
         self._watching_since: float | None = None
+        self._continued = False
+        if not ctx.params["watch_ad"]:
+            # don't look for the ad screens at all
+            self.screens = ["field", "title"]
         # (re)launching also brings an already-running game to the front
         ctx.device.start_app(ctx.params["package"])
         ctx.stats["launches"] += 1
@@ -53,6 +61,7 @@ class StartGame(Scenario):
         # "Continue" only shows once the game has reached its server
         if ctx.find("title_continue"):
             ctx.stats["continue_taps"] += 1
+            self._continued = True
             ctx.tap(CONTINUE)
             ctx.wait(8.0)  # the title stays up while the game logs in
         else:
@@ -82,6 +91,13 @@ class StartGame(Scenario):
         ctx.stop("the game is on and on the field")
 
     def on_unknown(self, ctx: Context) -> None:
+        if not ctx.params["watch_ad"]:
+            # just open the game: once past the title it's open; anything that
+            # pops up (daily ad offer included) is left for the player
+            if self._continued and ctx.frame is not None and ctx.frame.shape[1] > ctx.frame.shape[0]:
+                ctx.stop("the game is open (daily ad not checked)")
+            ctx.wait(2.0)
+            return
         if self._watching_since is not None:
             # an ad is playing (in the game or its own window): let it finish,
             # then back closes it; never tap inside it (that opens the store)
