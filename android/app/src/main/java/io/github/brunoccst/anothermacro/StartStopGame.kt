@@ -61,9 +61,8 @@ class StartGame : Scenario() {
     }
 
     override fun onUnknown(ctx: Context) {
-        val front = ctx.foreground
         if (!watchAd) {
-            if (continued && front == GAME_PACKAGE) ctx.stop("the game is open (daily ad not checked)")
+            if (continued && ctx.frame?.portraitAppInFront != true) ctx.stop("the game is open (daily ad not checked)")
             ctx.wait(2.0)
             return
         }
@@ -78,7 +77,7 @@ class StartGame : Scenario() {
             ctx.wait(2.0)
             return
         }
-        if (front != null && front != GAME_PACKAGE) {
+        if (ctx.frame?.portraitAppInFront == true) {
             ctx.launchApp(GAME_PACKAGE) // something else came to the front: bring the game back
             ctx.wait(3.0)
             return
@@ -100,10 +99,7 @@ class StopGame : Scenario() {
     override val screens = listOf("close_app", "field")
     override val unknownTimeoutS = 60.0
     private var confirmed = false
-
-    override fun setup(ctx: Context) {
-        if (ctx.foreground != null && ctx.foreground != GAME_PACKAGE) ctx.stop("the game is not in front (already off?)")
-    }
+    private var backs = 0
 
     override fun onScreen(ctx: Context, screen: String) {
         when (screen) {
@@ -112,15 +108,15 @@ class StopGame : Scenario() {
                 ctx.tap(Point(0.588, 0.568))
                 confirmed = true
                 ctx.wait(3.0)
-                if (ctx.foreground != GAME_PACKAGE) ctx.stop("the game is off")
             }
             "field" -> { ctx.back(); ctx.wait(1.5) }
         }
     }
 
     override fun onUnknown(ctx: Context) {
-        val front = ctx.foreground
-        if (front != null && front != GAME_PACKAGE) ctx.stop(if (confirmed) "the game is off" else "the game is not in front")
+        // the game is landscape-only: a portrait app in front means it's gone (or was never up)
+        if (ctx.frame?.portraitAppInFront == true) ctx.stop(if (confirmed) "the game is off" else "the game is not in front")
+        if (++backs > 12) ctx.stop("could not reach the field to close the game")
         ctx.back()
         ctx.wait(1.5)
     }
