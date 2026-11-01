@@ -21,14 +21,17 @@ class InputService : AccessibilityService() {
 
     private val main = Handler(Looper.getMainLooper())
     private var keepOnView: View? = null
+    private var controls: ControlsOverlay? = null
 
     override fun onServiceConnected() {
         instance = this
         MacroLog.i("accessibility service connected (taps enabled)")
+        if (MacroService.capture != null) showControls(true)
     }
 
     override fun onDestroy() {
         keepScreenOn(false)
+        showControls(false)
         if (instance === this) instance = null
         super.onDestroy()
     }
@@ -86,6 +89,14 @@ class InputService : AccessibilityService() {
                 keepOnView?.let { runCatching { wm.removeView(it) } }
                 keepOnView = null
             }
+        }
+    }
+
+    /** The floating start/pause/stop/restart buttons over the game. */
+    fun showControls(show: Boolean) {
+        main.post {
+            if (show && controls == null) controls = ControlsOverlay(this).also { it.show() }
+            if (!show) { controls?.hide(); controls = null }
         }
     }
 

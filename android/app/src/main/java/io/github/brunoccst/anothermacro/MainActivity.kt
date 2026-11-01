@@ -18,7 +18,9 @@ import android.widget.TextView
 
 /**
  * Proof-of-concept screen: turn on taps (accessibility), allow screen capture,
- * pick a macro and its parameters, run/stop, and watch the log.
+ * pick a macro and its parameters, run/stop, and watch the log. Once screen
+ * capture is on, floating buttons over the game start/pause/stop/restart the
+ * last macro (see ControlsOverlay).
  *
  * Can also be driven from adb for testing:
  *   am start -n io.github.brunoccst.anothermacro/.MainActivity --es run grind-battles --es params "battles=3,mode=skill"
@@ -133,10 +135,7 @@ class MainActivity : Activity() {
     private fun run(name: String, params: Map<String, String>) {
         if (MacroService.capture == null) { MacroLog.i("allow screen capture first (step 2)"); return }
         if (InputService.instance == null) { MacroLog.i("turn on taps first (step 1)"); return }
-        val bundle = Bundle().apply { params.forEach { (k, v) -> putString(k, v) } }
-        startService(MacroService.intent(this, MacroService.ACTION_RUN)
-            .putExtra(MacroService.EXTRA_SCENARIO, name)
-            .putExtra(MacroService.EXTRA_PARAMS, bundle))
+        startService(LastRun.intent(this, name, params))
         // get out of the way so the game is in front
         moveTaskToBack(true)
     }

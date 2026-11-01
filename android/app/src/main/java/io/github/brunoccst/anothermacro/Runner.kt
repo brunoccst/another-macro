@@ -71,6 +71,7 @@ class Context(
             if (stopRequested.get()) throw StopScenario("stop requested")
             Thread.sleep(50)
         }
+        Runner.waitWhilePaused(stopRequested)
     }
 
     fun stop(reason: String): Nothing = throw StopScenario(reason)
@@ -105,13 +106,39 @@ object Scenarios {
 object Runner {
     private val stopRequested = AtomicBoolean(false)
     private val running = AtomicBoolean(false)
+    private val paused = AtomicBoolean(false)
     val isRunning get() = running.get()
+    val isPaused get() = paused.get()
+    var current: String? = null
+        private set
 
-    fun requestStop() = stopRequested.set(true)
+    /** Notified (on any thread) whenever running/paused changes. */
+    val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
+    private fun changed() = listeners.forEach { runCatching { it() } }
+
+    fun requestStop() { stopRequested.set(true); paused.set(false); changed() }
+
+    fun setPaused(p: Boolean) {
+        if (!running.get()) return
+        paused.set(p)
+        MacroLog.i(if (p) "paused" else "resumed")
+        changed()
+    }
+
+    /** Block while paused; throw if a stop comes in meanwhile. */
+    internal fun waitWhilePaused(stop: AtomicBoolean) {
+        while (paused.get()) {
+            if (stop.get()) throw StopScenario("stop requested")
+            Thread.sleep(150)
+        }
+    }
 
     fun run(scenario: Scenario, given: Map<String, String>, capture: Capture, assets: AssetManager): String {
         if (!running.compareAndSet(false, true)) return "a macro is already running"
         stopRequested.set(false)
+        paused.set(false)
+        current = scenario.name
+        changed()
         val params = scenario.params.mapValues { it.value.default } + given.filterKeys { it in scenario.params }
         val library = Library.load(assets, "templates/common", *scenario.templateFolders.map { "templates/$it" }.toTypedArray())
         val ctx = Context(capture, Vision(library), params, stopRequested)
@@ -126,6 +153,7 @@ object Runner {
             var last: String? = "-"
             while (true) {
                 if (stopRequested.get()) throw StopScenario("stop requested")
+                waitWhilePaused(stopRequested)
                 val frame = ctx.refresh()
                 ctx.screen = ctx.vision.identify(frame, scenario.screens)
                 if (ctx.screen != last) {
@@ -155,6 +183,8 @@ object Runner {
             InputService.instance?.keepScreenOn(false)
             ctx.frame?.gray?.release()
             running.set(false)
+            paused.set(false)
+            changed()
         }
         MacroLog.i("stopped: $reason — ${scenario.summary(ctx.stats)}")
         return reason

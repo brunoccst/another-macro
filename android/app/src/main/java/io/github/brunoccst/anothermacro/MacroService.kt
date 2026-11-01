@@ -42,6 +42,8 @@ class MacroService : Service() {
             ACTION_START_CAPTURE -> startCapture(intent)
             ACTION_RUN -> runMacro(intent)
             ACTION_STOP_RUN -> { Runner.requestStop(); MacroLog.i("stop requested") }
+            ACTION_PAUSE -> Runner.setPaused(!Runner.isPaused)
+            ACTION_RESTART -> restart()
             ACTION_SHUTDOWN -> shutdown()
         }
         return START_NOT_STICKY
@@ -79,6 +81,18 @@ class MacroService : Service() {
         val h = min(metrics.widthPixels, metrics.heightPixels)
         capture = Capture(p, w, h, metrics.densityDpi)
         MacroLog.i("screen capture on (${w}x$h)")
+        InputService.instance?.showControls(true)
+    }
+
+    /** Stop the running macro (if any) and start the last one again with the same params. */
+    private fun restart() {
+        Runner.requestStop()
+        Thread {
+            val w = worker
+            if (w != null && w.isAlive) w.join(15000)
+            val last = LastRun.load(this) ?: run { MacroLog.i("nothing to restart yet"); return@Thread }
+            startService(LastRun.intent(this, last.first, last.second))
+        }.start()
     }
 
     private fun runMacro(intent: Intent) {
@@ -88,6 +102,7 @@ class MacroService : Service() {
         val params = HashMap<String, String>()
         intent.getBundleExtra(EXTRA_PARAMS)?.let { b -> b.keySet().forEach { k -> b.getString(k)?.let { params[k] = it } } }
         val scenario = try { Scenarios.get(name) } catch (e: Exception) { MacroLog.e(e.message ?: "unknown macro"); return }
+        LastRun.save(this, name, params)
         updateNotification("Running ${scenario.name}")
         worker = Thread({
             val reason = Runner.run(scenario, params, cap, assets)
@@ -97,6 +112,7 @@ class MacroService : Service() {
 
     private fun shutdown() {
         Runner.requestStop()
+        InputService.instance?.showControls(false)
         capture?.release(); capture = null
         projection?.stop(); projection = null
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -142,6 +158,8 @@ class MacroService : Service() {
         const val ACTION_RUN = "run"
         const val ACTION_STOP_RUN = "stop_run"
         const val ACTION_SHUTDOWN = "shutdown"
+        const val ACTION_PAUSE = "pause"
+        const val ACTION_RESTART = "restart"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
         const val EXTRA_SCENARIO = "scenario"
@@ -154,5 +172,34 @@ class MacroService : Service() {
             private set
 
         fun intent(context: Context, action: String) = Intent(context, MacroService::class.java).setAction(action)
+    }
+}
+
+/** The last macro started and its params, so the overlay can start/restart it without the app. */
+object LastRun {
+    private const val PREFS = "last_run"
+
+    fun save(context: Context, name: String, params: Map<String, String>) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putString("name", name)
+            .putString("params", params.entries.joinToString("\n") { "${it.key}=${it.value}" })
+            .apply()
+    }
+
+    fun load(context: Context): Pair<String, Map<String, String>>? {
+        val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+        val name = prefs.getString("name", null) ?: return null
+        val params = prefs.getString("params", "").orEmpty().lines().mapNotNull {
+            val kv = it.split("=", limit = 2)
+            if (kv.size == 2) kv[0] to kv[1] else null
+        }.toMap()
+        return name to params
+    }
+
+    fun intent(context: Context, name: String, params: Map<String, String>): Intent {
+        val bundle = android.os.Bundle().apply { params.forEach { (k, v) -> putString(k, v) } }
+        return MacroService.intent(context, MacroService.ACTION_RUN)
+            .putExtra(MacroService.EXTRA_SCENARIO, name)
+            .putExtra(MacroService.EXTRA_PARAMS, bundle)
     }
 }
