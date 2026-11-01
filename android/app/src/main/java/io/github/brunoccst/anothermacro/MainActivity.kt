@@ -5,6 +5,7 @@ import android.app.Activity
 import android.content.Intent
 import android.graphics.Typeface
 import android.media.projection.MediaProjectionManager
+import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
@@ -17,7 +18,8 @@ import android.widget.ScrollView
 import android.widget.TextView
 
 /**
- * Proof-of-concept screen: turn on taps (accessibility), allow screen capture,
+ * Main screen: first-run guide (taps, screen capture), updates from GitHub
+ * Releases, and the macro with its params. Turn on taps (accessibility), allow screen capture,
  * pick a macro and its parameters, run/stop, and watch the log. Once screen
  * capture is on, floating buttons over the game start/pause/stop/restart the
  * last macro (see ControlsOverlay).
@@ -51,19 +53,39 @@ class MainActivity : Activity() {
             setOnClickListener { onClick() }
         }
 
-        column.addView(label("Another Macro (proof of concept)", bold = true))
+        column.addView(label("Another Macro ${BuildConfig.VERSION_NAME}", bold = true))
         status = label("")
         column.addView(status)
+
+        // --- first-run guide ---------------------------------------------------
+        column.addView(label("Setup", bold = true))
         column.addView(button("1. Turn on taps (Accessibility)") {
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
         })
+        column.addView(label(
+            "In Accessibility, open Another Macro (Samsung: under \"Installed apps\") and switch it on. " +
+                "If it is greyed out with \"Restricted setting\" (Android 13+ for apps installed from a browser): " +
+                "open App info below, tap ⋮ (top right) → Allow restricted settings, then try again."
+        ))
+        column.addView(button("Open App info") {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+        })
         column.addView(button("2. Allow screen capture") { requestCapture() })
+        column.addView(label("Android asks \"Start recording or casting?\" → Start now. It is needed again after the app restarts or updates."))
 
+        // --- updates -----------------------------------------------------------
+        column.addView(label("Updates", bold = true))
+        updateInfo = label("")
+        column.addView(updateInfo)
+        updateButton = button("Check for updates") { onUpdateButton() }
+        column.addView(updateButton)
+
+        // --- macro -------------------------------------------------------------
         column.addView(label("${scenario.name}: ${scenario.description}", bold = true))
         for ((key, p) in scenario.params) {
             column.addView(label("$key — ${p.help}"))
             val field = EditText(this).apply {
-                setText(p.default)
+                setText(LastRun.load(this@MainActivity)?.takeIf { it.first == scenario.name }?.second?.get(key) ?: p.default)
                 inputType = InputType.TYPE_CLASS_TEXT
                 setSingleLine()
             }
@@ -73,6 +95,7 @@ class MainActivity : Activity() {
         column.addView(button("Run ${scenario.name}") { run(scenario.name, paramFields.mapValues { it.value.text.toString() }) })
         column.addView(button("Stop") { startService(MacroService.intent(this, MacroService.ACTION_STOP_RUN)) })
         column.addView(button("Turn off screen capture") { startService(MacroService.intent(this, MacroService.ACTION_SHUTDOWN)) })
+        column.addView(label("While screen capture is on, floating buttons over the game start ▶, pause ❚❚, stop ■ and restart ↻ the last macro. Drag ≡ to move them, tap it to fold them."))
 
         column.addView(label("Log", bold = true))
         log = TextView(this).apply {
@@ -87,6 +110,52 @@ class MainActivity : Activity() {
         handleAdbIntent(intent)
     }
 
+    // --- updates ---------------------------------------------------------------
+    private lateinit var updateInfo: TextView
+    private lateinit var updateButton: Button
+    private var available: Updater.Release? = null
+
+    private fun checkForUpdates(automatic: Boolean) {
+        val prefs = getSharedPreferences("updates", MODE_PRIVATE)
+        if (automatic && System.currentTimeMillis() - prefs.getLong("last_check", 0) < 6 * 3600_000L) return
+        prefs.edit().putLong("last_check", System.currentTimeMillis()).apply()
+        updateInfo.text = "Checking GitHub for updates…"
+        Thread {
+            val result = runCatching { Updater.checkNewer() }
+            runOnUiThread {
+                result.onSuccess { r ->
+                    available = r
+                    updateInfo.text = if (r == null) "Up to date (${BuildConfig.VERSION_NAME})."
+                    else "Version ${r.version} is available (you have ${BuildConfig.VERSION_NAME}).\n${r.notes.take(400)}"
+                    updateButton.text = if (r == null) "Check for updates" else "Update to ${r.version}"
+                }.onFailure { updateInfo.text = "Could not check for updates: ${it.message}" }
+            }
+        }.start()
+    }
+
+    private fun onUpdateButton() {
+        val r = available ?: return checkForUpdates(automatic = false)
+        if (!Updater.canInstall(this)) {
+            updateInfo.text = "Allow Another Macro to install apps (\"Install unknown apps\"), come back and tap Update again."
+            Updater.openInstallPermission(this)
+            return
+        }
+        if (Runner.isRunning) {
+            updateInfo.text = "Stop the running macro first."
+            return
+        }
+        updateButton.isEnabled = false
+        updateInfo.text = "Downloading ${r.version}…"
+        Thread {
+            val result = runCatching { Updater.downloadAndInstall(this, r) }
+            runOnUiThread {
+                updateButton.isEnabled = true
+                result.onSuccess { updateInfo.text = "Installing ${r.version}: confirm with Update if Android asks." }
+                    .onFailure { updateInfo.text = "Update failed: ${it.message}" }
+            }
+        }.start()
+    }
+
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         handleAdbIntent(intent)
@@ -97,6 +166,7 @@ class MainActivity : Activity() {
         MacroLog.listen(logListener)
         log.text = MacroLog.text()
         refreshStatus()
+        checkForUpdates(automatic = true)
     }
 
     override fun onPause() {
