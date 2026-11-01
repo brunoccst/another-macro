@@ -11,7 +11,7 @@ Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
   while screen capture is on.
 
 ## Install / first run
-1. Download the APK from the CI artifact (Releases + auto-update come next) and install it.
+1. Download `another-macro.apk` from the latest GitHub Release and install it.
 2. In the app: **1. Turn on taps** → enable *Another Macro* in Accessibility. On Android 13+,
    if it's greyed out ("restricted setting"): Settings → Apps → Another Macro → ⋮ →
    *Allow restricted settings*, then enable it.
@@ -26,3 +26,14 @@ over an existing copy. Keep a backup of that key: without it installed apps can'
 ## Testing from a computer/Termux
 `adb shell am start -n io.github.brunoccst.anothermacro/.MainActivity --es run grind-battles --es params "battles=3"`
 and `adb logcat -s AnotherMacro` for the log.
+
+## Releases and auto-update
+- Push a tag `vX.Y.Z` → `.github/workflows/release.yml` builds the signed APK and publishes
+  it as a GitHub Release asset `another-macro.apk`.
+- Users install from
+  https://github.com/brunoccst/another-macro/releases/latest/download/another-macro.apk
+  (the browser asks to allow installing unknown apps once).
+- The app checks GitHub for a newer release when it opens (at most every 6 hours, or with
+  **Check for updates**), downloads it and hands it to Android's installer. Android asks to
+  confirm; the first time it also asks to allow Another Macro to install apps.
+- versionCode is derived from the version (1.2.3 → 10203), so releases always upgrade.
