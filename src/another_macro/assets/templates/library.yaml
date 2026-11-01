@@ -29,7 +29,8 @@ templates:
     - 2400
     - 1080
   battle_auto_button:
-    notes: The ">>" button in the battle's top bar (next to Status). Assumed to be Auto; not verified yet.
+    notes: The ">>" button in the battle's top bar (next to Status). Assumed to be
+      Auto; not verified yet.
     region:
     - 0.2225
     - 0.0
@@ -71,7 +72,8 @@ templates:
     - 1.0
     - 0.6
   title_screen:
-    notes: '"The Cat Beyond Time and Space" subtitle on the title screen, middle part only (the account ID at the top-left must stay out of the crop).'
+    notes: '"The Cat Beyond Time and Space" subtitle on the title screen, middle part
+      only (the account ID at the top-left must stay out of the crop).'
     file: title_screen.png
     ref:
     - 2400
@@ -92,6 +94,17 @@ templates:
     - 0.6722
     - 0.1958
     - 0.1574
+  close_app_dialog:
+    file: close_app_dialog.png
+    ref:
+    - 2400
+    - 1080
+    region:
+    - 0.3833
+    - 0.3296
+    - 0.2358
+    - 0.1556
+    notes: '"Close the app?" dialog that Android back opens on the field.'
 screens:
   field:
     require:
@@ -111,3 +124,6 @@ screens:
   title:
     require:
     - title_screen
+  close_app:
+    require:
+    - close_app_dialog

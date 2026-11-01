@@ -25,6 +25,9 @@ ELEMENTS = {
     "defeat_banner": (0.35, 0.3, 0.3, 0.12),
     "skill_list_open": (0.2, 0.02, 0.1, 0.06),
     "verdanta_last_skill_selected": (0.1, 0.62, 0.1, 0.05),
+    "title_screen": (0.33, 0.5, 0.33, 0.05),
+    "title_continue": (0.45, 0.72, 0.1, 0.06),
+    "close_app_dialog": (0.43, 0.38, 0.14, 0.06),
 }
 
 

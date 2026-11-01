@@ -154,3 +154,10 @@ Then add a Termux widget button in `termux/shortcuts/<Name>.sh` (copy
   templates still match through the dim. The runner checks for it every 30 s and stops.
 - **The game is landscape-only.** A portrait screenshot means another app (e.g.
   Termux) is in front; the runner pauses input until the game is back.
+- **Every run keeps the screen awake.** The runner raises the phone's screen
+  timeout for the run and puts the original back afterwards (saved to
+  `~/.another-macro/screen_timeout`, so a killed run is restored by the next one).
+  A locked phone stops the run with "the phone is locked".
+- **Closing the game:** Android back on the field opens "Close the app?"; Yes exits
+  cleanly (`stop-game`). Starting: splash → title ("Game Id..." while connecting,
+  then "Continue") → tap → field (`start-game`).

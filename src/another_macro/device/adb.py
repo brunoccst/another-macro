@@ -22,7 +22,13 @@ import time
 import cv2
 import numpy as np
 
+from contextlib import contextmanager
+from typing import Iterator
+
+from .. import config
 from .base import Device
+
+MAX_SCREEN_TIMEOUT_MS = 2147483647
 
 
 class AdbError(RuntimeError):
@@ -140,6 +146,44 @@ class AdbDevice(Device):
 
     def start_app(self, package: str) -> None:
         run_adb("shell", "monkey", "-p", package, "-c", "android.intent.category.LAUNCHER", "1", serial=self.serial)
+
+    def stop_app(self, package: str) -> None:
+        run_adb("shell", "am", "force-stop", package, serial=self.serial)
+
+    def app_running(self, package: str) -> bool:
+        res = subprocess.run([adb_path(), "-s", self.serial, "shell", "pidof", package], capture_output=True, timeout=10)
+        return res.returncode == 0 and bool(res.stdout.strip())
+
+    def is_locked(self) -> bool:
+        try:
+            out = run_adb("shell", "dumpsys", "window", serial=self.serial, timeout=10)
+        except (AdbError, subprocess.TimeoutExpired):
+            return False
+        return "isKeyguardShowing=true" in out
+
+    @contextmanager
+    def keep_awake(self) -> Iterator[None]:
+        """Raise the screen timeout for the run and put the phone's own value back after.
+
+        The original is saved to a file first, so a run that is killed half-way
+        still gets it restored by the next run.
+        """
+        saved = config.screen_timeout_file()
+        original = saved.read_text().strip() if saved.is_file() else ""
+        if not original:
+            original = run_adb("shell", "settings", "get", "system", "screen_off_timeout", serial=self.serial).strip()
+            if original and original != str(MAX_SCREEN_TIMEOUT_MS):
+                saved.write_text(original)
+        run_adb("shell", "settings", "put", "system", "screen_off_timeout", str(MAX_SCREEN_TIMEOUT_MS), serial=self.serial)
+        try:
+            yield
+        finally:
+            if original and original != str(MAX_SCREEN_TIMEOUT_MS):
+                try:
+                    run_adb("shell", "settings", "put", "system", "screen_off_timeout", original, serial=self.serial)
+                    saved.unlink(missing_ok=True)
+                except (AdbError, subprocess.TimeoutExpired):
+                    pass  # stays saved; the next run restores it
 
     def find_packages(self, pattern: str = "eden") -> list[str]:
         out = run_adb("shell", "pm", "list", "packages", serial=self.serial)

@@ -203,7 +203,9 @@ def run(
     file_log.setFormatter(logging.Formatter("%(asctime)s %(message)s", "%H:%M:%S"))
     log.addHandler(file_log)
     log.info("running %s with %s (run folder: %s)", scenario.name, values, run_dir)
+    awake = device.keep_awake()
     try:
+        awake.__enter__()
         device.wake()
         scenario.setup(ctx)
         while True:
@@ -221,6 +223,8 @@ def run(
                     raise StopScenario(f"'{overlay}' is covering the game and blocks input; turn it off and run again")
 
             frame = ctx.refresh()
+            if (is_blank(frame) or frame.shape[0] > frame.shape[1]) and device.is_locked():
+                raise StopScenario("the phone is locked; unlock it and run again")
             if is_blank(frame):
                 # screen off (screencap returns a black frame): wake it instead of counting as unknown
                 if last_screen != "screen off":
@@ -259,6 +263,8 @@ def run(
         reason = str(stop)
     except KeyboardInterrupt:
         reason = "interrupted"
+    finally:
+        awake.__exit__(None, None, None)
     log.info("stopped: %s — %s", reason, scenario.summary(ctx))
     log.removeHandler(file_log)
     file_log.close()
