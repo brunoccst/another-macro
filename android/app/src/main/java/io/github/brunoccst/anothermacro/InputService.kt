@@ -50,7 +50,8 @@ class InputService : AccessibilityService() {
 
     /** Launch (or bring to the front) an app. A bound accessibility service may start activities from the background. */
     fun launchApp(pkg: String): Boolean {
-        val intent = packageManager.getLaunchIntentForPackage(pkg) ?: return false
+        val intent = packageManager.getLaunchIntentForPackage(pkg)
+            ?: return false.also { MacroLog.e("can't launch $pkg: not installed or not visible to this app") }
         intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_RESET_TASK_IF_NEEDED)
         main.post { runCatching { startActivity(intent) }.onFailure { MacroLog.e("could not start $pkg", it) } }
         return true
