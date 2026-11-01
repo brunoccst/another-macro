@@ -36,7 +36,7 @@ jobs:
       - name: Build debug APK
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-                    VERSION_NAME: 0.0.${{ github.run_number }}-dev
+          VERSION_NAME: 0.0.${{ github.run_number }}-dev
         run: gradle -p android assembleDebug --stacktrace
       - uses: actions/upload-artifact@v4
         with:
