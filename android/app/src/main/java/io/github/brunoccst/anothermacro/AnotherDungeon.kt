@@ -270,15 +270,22 @@ object AnotherDungeon {
             AreaNav.hold(ctx, dir, 0.05)
             dir = -dir
             if (fight(r)) quiet = 0 else quiet++
-            if (noEnemiesLeft(ctx)) { MacroLog.i("no enemies left"); r.cleared = true; return }
+            if (r.cleared) return
         }
         MacroLog.i("no encounter in $quiet walks: taking ${ms.names.first()} as cleared")
         r.cleared = true
     }
 
-    private fun noEnemiesLeft(ctx: Context): Boolean {
-        val all = ctx.readText().joinToString(" ") { Ocr.norm(it.text) }
-        return ("enem" in all || "monster" in all) && (" no " in " $all " || "defeated all" in all || "all enemies" in all || "none" in all)
+    private fun noEnemiesLeft(text: String) = "enemies have disappeared" in text || ("enemies" in text && "disappeared" in text)
+
+    /** One read of the screen after a win: the map's enemies gone, the White Key. */
+    private fun readAfterWin(r: Run) {
+        val all = r.ctx.readText().joinToString(" ") { Ocr.norm(it.text) }
+        if (!r.cleared && noEnemiesLeft(all)) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
+        if ("white key" in all || "phantom crystal" in all) {
+            if (!r.phantom) MacroLog.i("White Key: the Phantom Crystal Dimension is open")
+            r.phantom = true
+        }
     }
 
     /**
@@ -313,7 +320,7 @@ object AnotherDungeon {
         val ctx = r.ctx
         var wasBoss = false
         // the run's end follows the boss battle's results: read every screen for the White Key
-        val out = Battle.fight(ctx, afterWin = { if (wasBoss || r.onBossMap) checkPhantom(r) }) { c ->
+        val out = Battle.fight(ctx, afterWin = { readAfterWin(r) }) { c ->
             // the enemies' names show while a skill list is open: look on the boss's map
             if (!r.bossNext && r.onBossMap && r.spec.boss.isNotEmpty()) {
                 val names = Battle.enemyNames(c)
@@ -329,7 +336,10 @@ object AnotherDungeon {
             Battle.Outcome.WON -> {
                 ctx.count("battles")
                 if (wasBoss) { r.bossBeaten = true; ctx.count("bosses") }
-                checkPhantom(r)
+                // "The enemies have disappeared" flashes for a moment after a map's last enemy
+                val end = System.currentTimeMillis() + 3000
+                while (!r.cleared && !r.bossBeaten && System.currentTimeMillis() < end) readAfterWin(r)
+                if (r.bossBeaten) checkPhantom(r)
             }
         }
         return true
