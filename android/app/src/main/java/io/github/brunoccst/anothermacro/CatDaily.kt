@@ -154,9 +154,23 @@ object CatDaily {
     private fun isYes(l: Ocr.Line) = Ocr.norm(l.text) == "yes" && l.center.y > 0.4
 
     private fun searchAndGo(ctx: Context, place: String, sub: String, region: String? = null): Boolean {
-        val pans = listOf(0.0 to 0.0, -0.35 to 0.0, 0.0 to -0.35, 0.35 to 0.0, 0.35 to 0.0, 0.0 to 0.35, 0.0 to 0.35, -0.35 to 0.0, -0.35 to 0.0)
-        for ((dx, dy) in pans) {
-            if (dx != 0.0 || dy != 0.0) { ctx.drag(Point(0.5, 0.55), Point(0.5 + dx, 0.55 + dy), 700); ctx.wait(1.0) }
+        // look here first; then from the top-left corner, sweep the map row by row (snake order)
+        val pans = ArrayList<Pair<Double, Double>>()
+        pans += 0.0 to 0.0
+        repeat(3) { pans += 0.6 to 0.4 }          // to the top-left corner (the drags stop at the edges)
+        for (row in 0 until 3) {
+            val step = if (row % 2 == 0) -0.4 else 0.4
+            if (row > 0) pans += 0.0 to -0.35
+            repeat(4) { pans += step to 0.0 }
+        }
+        for ((i, pan) in pans.withIndex()) {
+            val (dx, dy) = pan
+            val cornerDrag = i in 1..2              // no point reading while still on the way to the corner
+            if (dx != 0.0 || dy != 0.0) {
+                val from = Point(0.5 - dx / 2, 0.55 - dy / 2)
+                ctx.drag(from, Point(from.x + dx, from.y + dy), 700); ctx.wait(1.0)
+            }
+            if (cornerDrag) continue
             var read = ctx.readText()
             MacroLog.i("map labels: " + read.filter { it.center.y > 0.12 }.joinToString { it.text }.take(300))
             fun placeLabel() = read.firstOrNull {
