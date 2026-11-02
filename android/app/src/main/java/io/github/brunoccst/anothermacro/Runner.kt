@@ -201,6 +201,31 @@ object Runner {
         }
     }
 
+    private var lastAnrCheck = 0L
+
+    /**
+     * Android's "<app> isn't responding" dialog (the game froze): close the app so the
+     * macro can relaunch it. Checked only while Android's own window is in front.
+     */
+    private fun closeNotRespondingDialog(ctx: Context): Boolean {
+        val fg = ctx.foreground ?: return false
+        if (fg != "android" && fg != "com.android.systemui") return false
+        val now = System.currentTimeMillis()
+        if (now - lastAnrCheck < 3000) return false
+        lastAnrCheck = now
+        val lines = ctx.readText()
+        val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        if ("not responding" !in all && "isn t responding" !in all && "isnt responding" !in all) return false
+        val button = listOf("close app", "stop now", "close").firstNotNullOfOrNull { want ->
+            lines.firstOrNull { Ocr.norm(it.text) == want }
+        } ?: return false.also { MacroLog.i("app-not-responding dialog seen but no close button read: $all") }
+        MacroLog.i("app-not-responding dialog: tapping '${button.text}'")
+        ctx.count("not_responding_closed")
+        ctx.tapExact(button.center)
+        ctx.wait(3.0)
+        return true
+    }
+
     fun run(scenario: Scenario, given: Map<String, String>, capture: Capture, assets: AssetManager, userTemplates: java.io.File? = null): String {
         if (!running.compareAndSet(false, true)) return "a macro is already running"
         stopRequested.set(false)
@@ -238,7 +263,7 @@ object Runner {
                     if (now - unknownSince > scenario.unknownTimeoutS * 1000) {
                         ctx.stop("stuck on an unrecognised screen for ${scenario.unknownTimeoutS.toInt()}s")
                     }
-                    scenario.onUnknown(ctx)
+                    if (!closeNotRespondingDialog(ctx)) scenario.onUnknown(ctx)
                 } else {
                     unknownSince = null
                     scenario.onScreen(ctx, screen)
