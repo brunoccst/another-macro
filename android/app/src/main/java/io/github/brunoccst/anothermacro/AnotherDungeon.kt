@@ -249,19 +249,39 @@ object AnotherDungeon {
         }
     }
 
+    /** The screen is one of the end screens that list rewards. */
+    private fun rewardScreen(lines: List<Ocr.Line>): Boolean {
+        val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        return "congratulations" in all || "items obtained" in all
+    }
+
     /**
-     * The end screens: "Congratulations" rows ("Medium Class Scroll  × 2") and "Items Obtained"
-     * ("Dark Residue / Amount 4,250 / Held …").
+     * The end screens: "Congratulations" rows ("Medium Class Scroll  × 2", the count read as its own
+     * line or on the name's line) and "Items Obtained" ("Dark Residue / Amount 4,250 / Held …").
+     * Returns how many rewards were read off this screen.
      */
-    private fun noteRewards(r: Run, lines: List<Ocr.Line>) {
+    private fun noteRewards(r: Run, lines: List<Ocr.Line>): Int {
         fun num(t: String) = t.replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(Regex("[^0-9]"), "").toIntOrNull()
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        var read = 0
         if ("congratulations" in all) {
-            for (c in lines.filter { Regex("""^\s*[x×X]\s*[0-9OoIl,]+\s*$""").matches(it.text) }) {
-                val name = lines.filter { it !== c && abs(it.center.y - c.center.y) < 0.03 && it.center.x < c.center.x && Regex("[A-Za-z]{3}").containsMatchIn(it.text) }
-                    .maxByOrNull { it.center.x }?.text?.let { cleanName(it) } ?: continue
-                val n = num(c.text) ?: continue
+            val count = Regex("""^\s*[x×X]\s*([0-9OoIl,]+)\s*$""")
+            val inline = Regex("""^(.*[A-Za-z]{3}.*?)\s*[x×X]\s*([0-9OoIl,]+)\s*$""")
+            for (c in lines) {
+                val (name, n) = if (count.matches(c.text)) {
+                    // the name to the left on the same row, else just above or below the count (icon grids)
+                    val left = lines.filter { it !== c && abs(it.center.y - c.center.y) < 0.03 && it.center.x < c.center.x && Regex("[A-Za-z]{3}").containsMatchIn(it.text) }
+                        .maxByOrNull { it.center.x }
+                    val near = left ?: lines.filter { it !== c && abs(it.center.x - c.center.x) < 0.12 && abs(it.center.y - c.center.y) < 0.08 &&
+                        Regex("[A-Za-z]{3}").containsMatchIn(it.text) && "congratulations" !in Ocr.norm(it.text) }
+                        .minByOrNull { abs(it.center.y - c.center.y) }
+                    (near?.text?.let { cleanName(it) } ?: continue) to (num(c.text) ?: continue)
+                } else {
+                    val m = inline.find(c.text) ?: continue
+                    (cleanName(m.groupValues[1]) ?: continue) to (num(m.groupValues[2]) ?: continue)
+                }
                 r.rewards[name] = (r.rewards[name] ?: 0) + n
+                read++
             }
         }
         if ("items obtained" in all) {
@@ -272,8 +292,10 @@ object AnotherDungeon {
                     Regex("[A-Za-z]{3}").containsMatchIn(it.text) && !Regex("[0-9]").containsMatchIn(it.text) && !Ocr.norm(it.text).startsWith("items") }
                     .maxByOrNull { it.center.y }?.text?.let { cleanName(it) } ?: continue
                 r.rewards[name] = n // the run's total of that item (shown once)
+                read++
             }
         }
+        return read
     }
 
     /** One line about the run: how long, what it got. Also appended to the app's runs.log. */
@@ -584,6 +606,7 @@ object AnotherDungeon {
     /** Tap through the completion screens, noting a White Key / Phantom Crystal Dimension. */
     private fun finish(r: Run): String {
         val ctx = r.ctx
+        var rewardWaits = 0
         repeat(25) {
             ctx.refresh()
             if (ctx.find("field_menu_button") != null) {
@@ -599,7 +622,12 @@ object AnotherDungeon {
                 ctx.tap(AD_CLOSE); ctx.wait(2.0)
                 return@repeat
             }
-            noteRewards(r, lines)
+            if (rewardScreen(lines) && noteRewards(r, lines) == 0) {
+                // the rows fade in after the title: give them a moment before tapping past the screen
+                if (rewardWaits < 2) { rewardWaits++; ctx.wait(1.5); return@repeat }
+                MacroLog.i("no rewards read on: ${lines.joinToString(" | ") { it.text }.take(400)}")
+            }
+            rewardWaits = 0
             // "Continue to skip?  End / Skip": End (Skip would spend another key and ticket)
             if (endNotSkip(r, lines)) return@repeat
             tapText(r, "OK", "Close", "Next", exact = true, tries = 1)
