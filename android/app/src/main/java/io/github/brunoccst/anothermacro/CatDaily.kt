@@ -134,6 +134,20 @@ object CatDaily {
         return false
     }
 
+    /**
+     * Where to tap a label: its middle, unless the map is at its edge and the label still sits
+     * against Expand (bottom right); then the end of the label away from that button.
+     */
+    private fun tapPoint(l: Ocr.Line): Point {
+        val b = l.box
+        if (!(l.center.x > 0.7 && l.center.y > 0.75)) return l.center
+        // the label's frame reaches a little past its text
+        val left = Point(b.x + b.w * 0.1, b.y + b.h * 0.3)
+        val right = Point(minOf(b.x + b.w + 0.03, 0.915), b.y + b.h * 0.3)
+        fun d(p: Point) = (p.x - EXPAND.x).let { it * it } + (p.y - EXPAND.y).let { it * it }
+        return if (d(right) > d(left)) right else left
+    }
+
     private fun nearButtons(p: Point) = (p.x > 0.7 && p.y > 0.75) || p.x > 0.85 || p.y < 0.28 || (p.x < 0.25 && p.y > 0.8)
 
     /** Pan around the visible map looking for [place]'s label; tap it and confirm the trip. */
@@ -170,7 +184,7 @@ object CatDaily {
                 read = ctx.readText()
                 label = placeLabel() ?: continue
             }
-            ctx.tap(label.center); ctx.wait(2.0)
+            ctx.tap(tapPoint(label)); ctx.wait(2.0)
             var lines = ctx.readText()
             if (lines.none { isYes(it) } && lines.none { it.text.startsWith("Moving to") }) {
                 // some places open a panel of destinations (e.g. Unigan / Royal Theater / ...)
