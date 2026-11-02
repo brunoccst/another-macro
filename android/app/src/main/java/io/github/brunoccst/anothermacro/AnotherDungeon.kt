@@ -133,6 +133,12 @@ object AnotherDungeon {
         tapText(r, eraLabel(r.spec.era)); ctx.wait(1.5)
         tapText(r, r.spec.name, minY = 0.2, maxX = 0.62) ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map: ${seen(ctx)}")
         ctx.wait(2.0)
+        // the panel's counters at the bottom: green keys, red keys, Cat Express Tickets ("17/50"); their "+" buy more
+        val tickets = ctx.readText().filter { it.center.y > 0.85 && it.center.x > 0.8 }
+            .firstNotNullOfOrNull { Regex("""(\d+)\s*/\s*50""").find(it.text)?.groupValues?.get(1)?.toIntOrNull() }
+        MacroLog.i("Cat Express Tickets: ${tickets ?: "not read"}")
+        val skip = ctx.bool("cat_ticket") && (tickets ?: 0) > 0
+        if (ctx.bool("cat_ticket") && !skip) MacroLog.i("no Cat Express Ticket to use: walking the dungeon instead")
         tapText(r, difficulty, exact = true, minX = 0.6) ?: ctx.stop("no '$difficulty' entry for ${r.spec.name}: ${seen(ctx)}")
         ctx.wait(2.0)
         // "Using Green Key×1 to move to Dogma Tower (Hard)."
@@ -143,7 +149,7 @@ object AnotherDungeon {
             tapText(r, "Back", exact = true)
             ctx.stop("expected a $keyWord key for $difficulty but the game says: '$using'")
         }
-        if (ctx.bool("cat_ticket")) {
+        if (skip) {
             tapText(r, "Skip", exact = true) ?: ctx.stop("no Skip button (Cat Express Ticket): ${seen(ctx)}")
             ctx.wait(2.0)
             // the skip dialog: confirm only (a purchase offer stops in tapText)
