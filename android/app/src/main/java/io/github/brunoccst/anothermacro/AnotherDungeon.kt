@@ -201,13 +201,16 @@ object AnotherDungeon {
         val ctx = r.ctx
         MacroLog.i("chest ${r.chestsDone + 1}/${ms.chests.size} at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)})")
         AreaNav.walkLayout(ctx, ms.layout!!, chest, onStep(r))
-        // close by: the chest's "!" shows; step toward it until it does
+        // close by: the chest's "!" shows; look around the spot, a little further each side, until it does
         val party = AreaNav.look(ctx) { emptyList() }.party
         val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
-        for (nudge in 0..5) {
-            if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
-            AreaNav.hold(ctx, if (nudge < 4) dir else -dir, 0.012)
+        if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
+        for (k in 1..6) {
+            val side = if (k % 2 == 1) dir else -dir
+            AreaNav.hold(ctx, side, 0.006 * k)
             fight(r)
+            ctx.wait(0.6)
+            if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
         }
         MacroLog.i("no chest found by (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}); skipping it")
         r.chestsDone++
@@ -267,15 +270,22 @@ object AnotherDungeon {
             AreaNav.hold(ctx, dir, 0.05)
             dir = -dir
             if (fight(r)) quiet = 0 else quiet++
-            if (noEnemiesLeft(ctx)) { MacroLog.i("no enemies left"); r.cleared = true; return }
+            if (r.cleared) return
         }
         MacroLog.i("no encounter in $quiet walks: taking ${ms.names.first()} as cleared")
         r.cleared = true
     }
 
-    private fun noEnemiesLeft(ctx: Context): Boolean {
-        val all = ctx.readText().joinToString(" ") { Ocr.norm(it.text) }
-        return ("enem" in all || "monster" in all) && (" no " in " $all " || "defeated all" in all || "all enemies" in all || "none" in all)
+    private fun noEnemiesLeft(text: String) = "enemies have disappeared" in text || ("enemies" in text && "disappeared" in text)
+
+    /** One read of the screen after a win: the map's enemies gone, the White Key. */
+    private fun readAfterWin(r: Run) {
+        val all = r.ctx.readText().joinToString(" ") { Ocr.norm(it.text) }
+        if (!r.cleared && noEnemiesLeft(all)) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
+        if ("white key" in all || "phantom crystal" in all) {
+            if (!r.phantom) MacroLog.i("White Key: the Phantom Crystal Dimension is open")
+            r.phantom = true
+        }
     }
 
     /**
@@ -310,7 +320,7 @@ object AnotherDungeon {
         val ctx = r.ctx
         var wasBoss = false
         // the run's end follows the boss battle's results: read every screen for the White Key
-        val out = Battle.fight(ctx, afterWin = { if (wasBoss || r.onBossMap) checkPhantom(r) }) { c ->
+        val out = Battle.fight(ctx, afterWin = { readAfterWin(r) }) { c ->
             // the enemies' names show while a skill list is open: look on the boss's map
             if (!r.bossNext && r.onBossMap && r.spec.boss.isNotEmpty()) {
                 val names = Battle.enemyNames(c)
@@ -326,7 +336,10 @@ object AnotherDungeon {
             Battle.Outcome.WON -> {
                 ctx.count("battles")
                 if (wasBoss) { r.bossBeaten = true; ctx.count("bosses") }
-                checkPhantom(r)
+                // "The enemies have disappeared" flashes for a moment after a map's last enemy
+                val end = System.currentTimeMillis() + 3000
+                while (!r.cleared && !r.bossBeaten && System.currentTimeMillis() < end) readAfterWin(r)
+                if (r.bossBeaten) checkPhantom(r)
             }
         }
         return true
