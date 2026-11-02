@@ -29,6 +29,21 @@ object MacroLog {
         i("ERROR: $message${t?.let { " (${it.javaClass.simpleName}: ${it.message})" } ?: ""}")
     }
 
+    /** What the macro is doing now, in plain words (shown by the live log overlay). */
+    @Volatile var status: String = ""
+        private set
+    private val statusListeners = java.util.concurrent.CopyOnWriteArrayList<(String) -> Unit>()
+
+    /** Log a step in plain words and show it on the live log. */
+    fun status(message: String) {
+        i(message)
+        status = message
+        main.post { statusListeners.forEach { it(message) } }
+    }
+
+    fun onStatus(l: (String) -> Unit) { statusListeners += l }
+    fun offStatus(l: (String) -> Unit) { statusListeners -= l }
+
     @Synchronized
     fun text(): String = lines.joinToString("\n")
 

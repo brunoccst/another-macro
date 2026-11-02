@@ -62,8 +62,13 @@ object AreaNav {
      */
     fun look(ctx: Context, readText: Boolean = false, targets: (Frame) -> List<Point>): View {
         last?.release(); last = null
-        ctx.tap(MINIMAP); ctx.wait(2.0)
+        // only from the field: a battle that just started would take these taps (the close tap at
+        // the bottom middle lands on the 4th character's portrait)
+        ctx.refresh()
+        if (ctx.find("field_menu_button") == null) return View(emptyList(), null, emptyList(), null, 0, 0)
+        ctx.tap(MINIMAP); ctx.wait(1.3)
         val frame = ctx.refresh()
+        if (Battle.inBattle(ctx)) return View(emptyList(), null, emptyList(), null, 0, 0)
         val first = ctx.colorMat()
         // the party marker pulses (shrinks, fades): if this frame caught it faint, take another
         val bgr = if (first != null && findPartyMarkers(first, emptyList()).isEmpty()) {
@@ -73,7 +78,7 @@ object AreaNav {
         } else first
         val text = if (readText) ctx.readText() else emptyList()
         val found = targets(frame)
-        ctx.tap(MAP_CLOSE); ctx.wait(1.5)
+        ctx.tap(MAP_CLOSE); ctx.wait(1.0)
         val cands = bgr?.let { findPartyMarkers(it, found) } ?: emptyList()
         val party = cands.firstOrNull()
         if (party == null && bgr != null) {
@@ -282,6 +287,18 @@ object AreaNav {
         return moves
     }
 
+    /** How far [a] → [b] is over the layout's streets (climbs count a little): for planning an order. */
+    fun pathCost(layout: Layout, a: Point, b: Point): Double {
+        val moves = route(layout, a, b) ?: return 9.0
+        var x = a.x
+        var cost = 0.0
+        for (m in moves) when (m) {
+            is Move.Walk -> { cost += abs(m.x - x); x = m.x }
+            is Move.Climb -> cost += 0.06
+        }
+        return cost
+    }
+
     /**
      * Walk to [goal] over a known [layout]: read the party marker, plan, do the first move,
      * look again. [onStep] runs after every move and says whether a battle interrupted it.
@@ -290,16 +307,30 @@ object AreaNav {
         var stuck = 0
         var nudge = 0
         var climbedAt: Point? = null
+        var lastWalk: Double? = null
+        var lastTarget = -1.0
+        var overshot = false
+        var gain = 1.0
+        var known: Point? = null
+        var expect: Point? = null
         var lastParty: Point? = null
         repeat(tries) {
-            val view = look(ctx) { emptyList() }
-            val party = view.candidates.firstOrNull { segOf(layout, it) != null }
+            // where we are: worked out from the last undisturbed walk (no map needed), else read on the map
+            val reckoned = known
+            known = null
+            val view = if (reckoned == null) look(ctx) { emptyList() } else null
+            // chests already walked past show on the map in gold too: take the candidate on a street
+            // nearest to where the party should be, not just the most marker-like blob
+            val onStreets = view?.candidates?.filter { segOf(layout, it) != null }.orEmpty()
+            val party = reckoned ?: expect?.let { e -> onStreets.minByOrNull { abs(it.x - e.x) + 2 * abs(it.y - e.y) } } ?: onStreets.firstOrNull()
             if (party == null) {
-                MacroLog.i("party marker not on the known streets (saw ${view.candidates.take(3)})")
+                MacroLog.i("party marker not on the known streets (saw ${view?.candidates?.take(3)})")
+                // (a battle that started is fought first: the map can't open over it)
+                if (onStep()) return@repeat
                 if (++stuck >= 5) return false
                 return@repeat
             }
-            pendingSpeed?.let { (x0, ms, d) ->
+            if (reckoned == null) pendingSpeed?.let { (x0, ms, d) ->
                 // learn this map's walking speed from an undisturbed walk (a wall stops it early)
                 val moved = abs(party.x - x0)
                 if (ms > 400 && moved > 0.01 && moved < abs(d) * 1.6) speed = (0.5 * speed + 0.5 * moved / (ms / 1000.0)).coerceIn(0.01, 0.08)
@@ -309,7 +340,8 @@ object AreaNav {
             MacroLog.i("at (${"%.3f".format(party.x)}, ${"%.3f".format(party.y)}) → (${"%.3f".format(goal.x)}, ${"%.3f".format(goal.y)}): ${moves.joinToString(" ")}")
             // a walk can be skipped when we're nearly there, but stairs only take the party standing on them
             val first = moves.withIndex().firstOrNull { (i, m) ->
-                val tol = if (moves.getOrNull(i + 1) is Move.Climb) 0.004 else 0.012
+                // (the shortest step moves ~0.01: once a step overshot the stairs, take them from here)
+                val tol = if (moves.getOrNull(i + 1) is Move.Climb) (if (overshot) 0.012 else 0.005) else 0.012
                 !(m is Move.Walk && abs(m.x - party.x) < tol)
             }?.value ?: return true
             if (lastParty != null && abs(lastParty!!.x - party.x) < 0.005 && abs(lastParty!!.y - party.y) < 0.01) stuck++ else stuck = 0
@@ -318,18 +350,34 @@ object AreaNav {
             when (first) {
                 is Move.Walk -> {
                     val d = first.x - party.x
-                    val ms = (abs(d) / speed * 1000).toLong().coerceIn(40, 12000)
+                    // walking past the spot and back: shorter steps each time (and the stairs taken from closer)
+                    if (lastWalk != null && lastWalk!! * d < 0 && abs(lastTarget - first.x) < 0.001) { overshot = true; gain *= 0.5 } else if (!overshot) gain = 1.0
+                    lastWalk = d; lastTarget = first.x
+                    val ms = (abs(d) / speed * 1000 * gain).toLong().coerceIn(40, 12000)
                     ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * (if (d > 0) 1 else -1), 0.65), ms)
                     ctx.wait(0.5)
-                    if (!onStep()) pendingSpeed = Triple(party.x, ms, d)
+                    expect = Point(first.x, party.y)
+                    val battle = onStep()
+                    if (!battle && gain == 1.0) pendingSpeed = Triple(party.x, ms, d)
+                    // an undisturbed walk to a street's end stops at the wall: trust it without a look
+                    // (stairs need the real position, so a walk before them is checked on the map)
+                    val idx = moves.indexOf(first)
+                    val seg = segOf(layout, party)
+                    val toEnd = seg != null && (abs(first.x - seg.x1) < 0.006 || abs(first.x - seg.x2) < 0.006)
+                    if (!battle && toEnd && moves.getOrNull(idx + 1) !is Move.Climb) {
+                        known = Point(first.x, party.y)
+                        if (idx == moves.size - 1) return true
+                    }
                 }
                 is Move.Climb -> {
+                    lastWalk = null; overshot = false; gain = 1.0
                     // the last flick here did nothing: shuffle a little either side of the stairs first
                     if (climbedAt?.let { abs(it.x - party.x) < 0.01 && abs(it.y - party.y) < ROW_TOL } == true) {
                         nudge++
                         hold(ctx, if (nudge % 2 == 1) 1.0 else -1.0, 0.003 * ((nudge + 1) / 2))
                     } else nudge = 0
                     climbedAt = party
+                    expect = null
                     flick(ctx, first.up)
                     onStep()
                 }

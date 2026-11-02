@@ -13,6 +13,8 @@ data class Point(val x: Double, val y: Double) {
 data class Region(val x: Double, val y: Double, val w: Double, val h: Double) {
     val center: Point get() = Point(x + w / 2, y + h / 2)
 
+    fun contains(p: Point) = p.x in x..(x + w) && p.y in y..(y + h)
+
     /** Pixel box (left, top, right, bottom), clamped to the image. */
     fun toPx(width: Int, height: Int): IntArray {
         val left = (x * width).roundToInt().coerceIn(0, width)

@@ -68,7 +68,7 @@ object Battle {
                 }
                 ctx.find("battle_attack_button") != null -> {
                     seen = true; quiet = 0
-                    val s = setup ?: pick(ctx).also { setup = it; MacroLog.i("battle: skills $it") }
+                    val s = setup ?: pick(ctx).also { setup = it; MacroLog.i("battle: skills $it"); MacroLog.status("Battle: ${if (it.allAuto) "Auto" else "skills $it"}") }
                     if (s.allAuto) {
                         ctx.tap(if (ctx.find("battle_auto_button") != null) "battle_auto_button" else "battle_attack_button")
                     } else {
