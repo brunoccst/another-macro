@@ -55,6 +55,15 @@ object CatDaily {
         return "stopped after 8 rounds; found ${done.size}"
     }
 
+    /** Places on islands that the Expand view lists apart from the continents (anothereden.wiki/w/Map). */
+    private val REGIONS = mapOf(
+        "Snake Bone Island" to listOf("Snake Tail Corabel", "Snake Spine Gabaraki", "Konium", "Konium Bridge", "Snake Liver Damaku",
+            "Snake Neck Igoma", "Snake Dream", "Snake Skull Mescita"),
+        "Astra Island" to listOf("Astra Pier", "Astra Forest", "Resttin", "Astra Mountains", "Astral Ruins", "Astrarium", "Astra Woodlands"),
+        "Remulia" to listOf("Floating City - Remulia", "Corridor of Time Water", "Ark Exterior", "Ark Interior"),
+    )
+    private val REGION_NAMES = REGIONS.keys + listOf("Snake Bone", "Astra", "Ogres Spike")
+
     private fun supported(c: Clue) = c.era in ERA && !c.location.contains("Enter from") && !c.location.contains("quick destination")
 
     // --- 1. clues ----------------------------------------------------------------
@@ -99,10 +108,13 @@ object CatDaily {
         // not on this continent: try each one in the Expand view
         ctx.tap(EXPAND); ctx.wait(2.0)
         val expandText = ctx.readText()
-        val continents = expandText.filter { it.text.contains("Continent", ignoreCase = true) }.map { it.text }
-        MacroLog.i("continents: ${continents.joinToString().ifEmpty { "none read; saw: " + expandText.joinToString { it.text }.take(200) }}")
+        // the Expand view lists continents and islands; try the place's own region first (from the wiki's map list)
+        val region = REGIONS.entries.firstOrNull { (_, places) -> places.any { Ocr.norm(it) == Ocr.norm(place) } }?.key
+        val continents = expandText.filter { l -> l.text.contains("Continent", true) || REGION_NAMES.any { Ocr.similarity(l.text, it) >= 0.8 } }
+            .sortedByDescending { l -> region != null && Ocr.similarity(l.text, region) >= 0.8 }.map { it.text }
+        MacroLog.i("regions (want ${region ?: "?"}): ${continents.joinToString().ifEmpty { "none read; saw: " + expandText.joinToString { it.text }.take(200) }}")
         for (name in continents) {
-            if (ctx.readText().none { it.text.contains("Continent", true) }) { ctx.tap(EXPAND); ctx.wait(2.0) }
+            if (ctx.readText().none { l -> l.text == name }) { ctx.tap(EXPAND); ctx.wait(2.0) }
             val line = ctx.readText().firstOrNull { it.text == name } ?: continue
             ctx.tap(line.center); ctx.wait(2.0)
             if (searchAndGo(ctx, place, sub)) return true
