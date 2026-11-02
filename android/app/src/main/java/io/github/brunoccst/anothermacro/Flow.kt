@@ -33,7 +33,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   read_cat_clues: true        (cat scratchbook: sets `report` to today's clues and their places)
  *   cat_daily: true             (cat scratchbook: read clues by OCR, travel to each cat, find it; stops with a summary)
  *
- * Expression functions: found('t'), captured('t'), game_in_front(), view_moved(), now(), pick(i, a, b, ...)
+ * Expression functions: found('t'), captured('t'), text_has('s'), game_in_front(), view_moved(), now(), pick(i, a, b, ...)
  */
 class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Scenario() {
     override val name = spec["name"] as? String ?: throw IllegalArgumentException("$source: missing name")
@@ -178,6 +178,8 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
             "game_in_front" -> ctx.frame?.portraitAppInFront != true
             "view_moved" -> viewMoved(ctx)
             "now" -> System.currentTimeMillis() / 1000.0
+            // on-screen text (OCR) contains this, loosely (case and punctuation ignored)
+            "text_has" -> Ocr.norm(Expr.str(args[0])).let { want -> ctx.readText().any { Ocr.norm(it.text).contains(want) } }
             "pick" -> args[Expr.num(args[0]).toInt().coerceIn(1, args.size - 1)]
             "abs" -> kotlin.math.abs(Expr.num(args[0]))
             else -> throw IllegalArgumentException("$macro: unknown function $name()")

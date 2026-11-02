@@ -1,0 +1,34 @@
+# Templates for daily-ads (the 5 daily commercials behind the Menu's video icon). Captured on a 2400x1080 phone.
+templates:
+  menu_party_button:
+    file: menu_party_button.png
+    ref: [2400, 1080]
+    region: [0.08, 0.72, 0.14, 0.26]
+    notes: '"Party" button of the open Menu bar (bottom-left).'
+  menu_ad_icon:
+    file: menu_ad_icon.png
+    ref: [2400, 1080]
+    region: [0.66, 0.0, 0.1, 0.12]
+    notes: Video icon at the top of the open Menu (opens "Receive rewards by watching the commercial!").
+  ad_offer_title:
+    file: ad_offer_title.png
+    ref: [2400, 1080]
+    region: [0.28, 0.24, 0.44, 0.12]
+    notes: '"Receive rewards by watching the commercial!" title of the daily ad chest.'
+  ad_watch_button:
+    file: ad_watch_button.png
+    ref: [2400, 1080]
+    region: [0.48, 0.74, 0.2, 0.14]
+    notes: '"Watch Video" text of the button (the n/5 counter below it is read by OCR).'
+  ad_dont_watch_button:
+    file: ad_dont_watch_button.png
+    ref: [2400, 1080]
+    region: [0.3, 0.74, 0.22, 0.2]
+    notes: '"Don''t Watch" button: closes the ad chest.'
+screens:
+  ad_chest:
+    require: [ad_offer_title]
+  menu_open:
+    require: [menu_party_button]
+  ok_dialog:
+    require: [dialog_ok_button]
