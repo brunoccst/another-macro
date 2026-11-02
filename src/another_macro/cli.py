@@ -196,6 +196,12 @@ def cmd_doctor(args) -> None:
         print(f"{name}: " + (f"templates to capture: {', '.join(missing)}" if missing else "ready"))
 
 
+def cmd_dungeon_routes(args) -> int:
+    from . import dungeon_routes
+
+    return dungeon_routes.main(write=args.write, check=args.check)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="another-macro", description="Another Eden macro framework")
     p.add_argument("--serial", help="ADB serial (default: the one saved by `connect`, or the only device)")
@@ -258,6 +264,11 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--pad", type=float, default=0.05, help="search-region padding around the box (fraction of screen)")
     s.add_argument("--threshold", type=float)
     s.set_defaults(fn=cmd_capture_template)
+
+    s = sub.add_parser("dungeon-routes", help="plan the fixed walking routes of the Another Dungeons (chests, exit) from their layouts")
+    s.add_argument("--write", action="store_true", help="write them into dungeons.yaml as each map's path")
+    s.add_argument("--check", action="store_true", help="fail if the paths in dungeons.yaml are out of date")
+    s.set_defaults(fn=cmd_dungeon_routes)
     return p
 
 

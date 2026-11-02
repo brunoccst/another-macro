@@ -1,0 +1,34 @@
+# How far the party walks on the area map for a left/right hold that starts from rest
+# (the party accelerates, so distance is not proportional to time). Distances are in
+# area-map units (fractions of the screen width), the same units as dungeons.yaml.
+#
+# Measured on the phone in Dogma Tower map 1 (right holds, 2026-11-02). Every hold
+# starts from rest: after a battle the party is stopped in place, so the rest of a walk
+# is held again from rest (the ramp-up applies again).
+#
+# The gesture is the one AreaNav uses: press at (0.5, 0.65) and slide 0.1 of the screen
+# width left/right over the whole hold. Between the rows the distance is interpolated
+# linearly; past the last row it grows by beyond_per_s.
+#
+# Used by the route planner (`another-macro dungeon-routes`) and by the app at run time.
+# After re-measuring, run `another-macro dungeon-routes --write` to regenerate the paths.
+hold_ms:  [0, 250, 500, 750, 1000, 1500, 3000, 4000]
+distance: [0, 0.0076, 0.0128, 0.0184, 0.0244, 0.0362, 0.0709, 0.0970]
+beyond_per_s: 0.026
+# a flick up/down at stairs (gesture + the climb animation), for comparing routes by time
+flick_ms: 2650
+# walks shorter than this are skipped (the party is close enough)
+min_walk: 0.003
+# a chest or exit this close to a street's end is walked to by holding into the wall
+# (the wall stops the party there, so the position is exact again)
+wall_snap: 0.012
+# how much further than the wall to hold when snapping to it
+wall_margin: 0.008
+
+# --- used by the app only -------------------------------------------------------------
+# a battle is seen a moment after it starts: the time held is counted up to the last frame
+# that still showed the field, minus this much
+battle_lag_ms: 0
+# after a flick, how different the screen must look (mean grey-level change, 0-255) to take
+# it that the party changed street; less than this opens the area map to check
+flick_change: 8
