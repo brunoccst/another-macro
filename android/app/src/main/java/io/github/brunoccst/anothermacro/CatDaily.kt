@@ -134,6 +134,8 @@ object CatDaily {
         return false
     }
 
+    private fun nearButtons(p: Point) = (p.x > 0.7 && p.y > 0.75) || p.x > 0.85 || p.y < 0.28 || (p.x < 0.25 && p.y > 0.8)
+
     /** Pan around the visible map looking for [place]'s label; tap it and confirm the trip. */
     private fun isYes(l: Ocr.Line) = Ocr.norm(l.text) == "yes" && l.center.y > 0.4
 
@@ -162,6 +164,12 @@ object CatDaily {
                 }
             }
             if (label == null) continue
+            if (nearButtons(label.center)) {
+                // too close to Expand / the era icons / the side buttons: drag it to the middle first
+                ctx.drag(label.center, Point(0.45, 0.55), 700); ctx.wait(1.2)
+                read = ctx.readText()
+                label = placeLabel() ?: continue
+            }
             ctx.tap(label.center); ctx.wait(2.0)
             var lines = ctx.readText()
             if (lines.none { isYes(it) } && lines.none { it.text.startsWith("Moving to") }) {
