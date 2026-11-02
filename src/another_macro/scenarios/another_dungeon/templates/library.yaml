@@ -2,16 +2,11 @@
 # dungeons.yaml: the area map only shows the parts already walked.
 templates:
   field_interact_bubble:
-    notes: The "!" bubble over something the party can use when close (a chest, the Another Dungeon door).
+    notes: The "!" bubble over something the party can use when close (a chest of any look, the Another Dungeon door).
     file: field_interact_bubble.png
     ref: [2400, 1080]
     region: [0.05, 0.1, 0.9, 0.6]
     threshold: 0.8
-  dungeon_field_chest:
-    notes: A closed red-and-gold treasure chest standing on the field.
-    file: dungeon_field_chest.png
-    ref: [2400, 1080]
-    region: [0.0, 0.3, 1.0, 0.5]
   ground_arrow_bars:
     notes: Round sign (bars icon) on the ground at a staircase to another map; tap it to take it.
     file: ground_arrow_bars.png
