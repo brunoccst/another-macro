@@ -123,6 +123,18 @@ Copy `macros/dogma-tower.yaml` to `macros/<dungeon>.yaml`, change `name`,
 - **Walking**: ~0.027-0.033 map units per second of holding; the shortest step moves ~0.01,
   so stairs are taken from within ~0.005 or after an overshoot; a quick flick takes stairs.
 
+## The Phantom Crystal Dimension (White Key, `phantom-crystal`)
+
+Seen live on 2026-11-02: door "!" → "???" tab (glows) → "Phantom Crystal Dimension" → Hard
+("Using White Key×1", Back / Skip / Move: never Skip) → Move. No enemies, no area map; the
+bottom bar has only Menu and Rewards. World I (Aldo's room): no chests; the king cat and the
+notice board open the paw stamp menu (Cancel); drawer/window/bed are portals (no
+confirmation, a white fade). Other worlds: the standard red-and-gold chests (their "!" shows
+only when close), one cat with a "!" (a paw stamp), and portals (a "!" on scenery). The Cape:
+4 chests (10,000 Git, Medium Class Scroll ×5, Broken Club, Cat Express Ticket ×1-5), a cat,
+and a "!" on the stairs out → Congratulations → autosave → the Another Dungeon map. "!"
+bubbles are drawn at different sizes per world (scales 0.8-1.35 of the template).
+
 ## 5. Test
 
 Build (CI `android.yml`), install, re-allow screen capture, and run from next to the
