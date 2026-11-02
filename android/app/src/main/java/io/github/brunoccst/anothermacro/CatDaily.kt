@@ -27,6 +27,7 @@ object CatDaily {
     private val DIARY = Point(0.329, 0.922)
     private val MAP_BUTTON = Point(0.385, 0.917)
     private val CLOSE = Point(0.88, 0.03)
+    private val PANEL_CLOSE = Point(0.825, 0.10) // the X of an island's panel on the world map
     private val MINIMAP = Point(0.917, 0.12)
     private val ERA = mapOf("Antiquity" to Point(0.1525, 0.185), "Present" to Point(0.2283, 0.185), "Future" to Point(0.3029, 0.185))
     private val EXPAND = Point(0.844, 0.935)
@@ -113,12 +114,12 @@ object CatDaily {
         }
         if (!opened) return false
         ctx.tap(ERA.getValue(clue.era)); ctx.wait(2.0)
-        if (searchAndGo(ctx, place, sub)) return true
+        // the place's own region (from the wiki's map list): islands show as a label on a continent's map
+        val region = REGIONS.entries.firstOrNull { (_, places) -> places.any { Ocr.norm(it) == Ocr.norm(place) } }?.key
+        if (searchAndGo(ctx, place, sub, region)) return true
         // not on this continent: try each one in the Expand view
         ctx.tap(EXPAND); ctx.wait(2.0)
         val expandText = ctx.readText()
-        // the Expand view lists continents and islands; try the place's own region first (from the wiki's map list)
-        val region = REGIONS.entries.firstOrNull { (_, places) -> places.any { Ocr.norm(it) == Ocr.norm(place) } }?.key
         val continents = expandText.filter { l -> l.text.contains("Continent", true) || REGION_NAMES.any { Ocr.similarity(l.text, it) >= 0.8 } }
             .sortedByDescending { l -> region != null && Ocr.similarity(l.text, region) >= 0.8 }.map { it.text }
         MacroLog.i("regions (want ${region ?: "?"}): ${continents.joinToString().ifEmpty { "none read; saw: " + expandText.joinToString { it.text }.take(200) }}")
@@ -126,7 +127,7 @@ object CatDaily {
             if (ctx.readText().none { l -> l.text == name }) { ctx.tap(EXPAND); ctx.wait(2.0) }
             val line = ctx.readText().firstOrNull { it.text == name } ?: continue
             ctx.tap(line.center); ctx.wait(2.0)
-            if (searchAndGo(ctx, place, sub)) return true
+            if (searchAndGo(ctx, place, sub, region)) return true
         }
         MacroLog.i("couldn't find $place on the map (not unlocked yet?)")
         ctx.tap(CLOSE); ctx.wait(1.5)
@@ -136,15 +137,31 @@ object CatDaily {
     /** Pan around the visible map looking for [place]'s label; tap it and confirm the trip. */
     private fun isYes(l: Ocr.Line) = Ocr.norm(l.text) == "yes" && l.center.y > 0.4
 
-    private fun searchAndGo(ctx: Context, place: String, sub: String): Boolean {
+    private fun searchAndGo(ctx: Context, place: String, sub: String, region: String? = null): Boolean {
         val pans = listOf(0.0 to 0.0, -0.35 to 0.0, 0.0 to -0.35, 0.35 to 0.0, 0.35 to 0.0, 0.0 to 0.35, 0.0 to 0.35, -0.35 to 0.0, -0.35 to 0.0)
         for ((dx, dy) in pans) {
             if (dx != 0.0 || dy != 0.0) { ctx.drag(Point(0.5, 0.55), Point(0.5 + dx, 0.55 + dy), 700); ctx.wait(1.0) }
-            val read = ctx.readText()
+            var read = ctx.readText()
             MacroLog.i("map labels: " + read.filter { it.center.y > 0.12 }.joinToString { it.text }.take(300))
-            val label = read.firstOrNull {
+            fun placeLabel() = read.firstOrNull {
                 it.center.y > 0.12 && (Ocr.norm(it.text) == Ocr.norm(place) || Ocr.similarity(it.text, place) >= 0.85)
-            } ?: continue
+            }
+            var label = placeLabel()
+            if (label == null && region != null) {
+                // an island (e.g. Snake Bone Island) is one label on the continent map: it opens a panel of its places
+                val island = read.firstOrNull {
+                    it.center.y > 0.12 && (Ocr.similarity(it.text, region) >= 0.8 ||
+                        (Ocr.norm(it.text).length >= 8 && Ocr.norm(region).startsWith(Ocr.norm(it.text))))
+                }
+                if (island != null) {
+                    MacroLog.i("opening $region")
+                    ctx.tap(island.center); ctx.wait(2.0)
+                    read = ctx.readText()
+                    label = placeLabel()
+                    if (label == null) { MacroLog.i("$place not in the $region panel: ${read.joinToString { it.text }.take(200)}"); ctx.tap(PANEL_CLOSE); ctx.wait(1.5) }
+                }
+            }
+            if (label == null) continue
             ctx.tap(label.center); ctx.wait(2.0)
             var lines = ctx.readText()
             if (lines.none { isYes(it) } && lines.none { it.text.startsWith("Moving to") }) {
