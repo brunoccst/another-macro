@@ -224,7 +224,13 @@ object AnotherDungeon {
         task(r, "Entering ${r.spec.name} ($difficulty)")
         val door = ctx.find(BUBBLE) ?: ctx.stop("no \"!\" over the Another Dungeon door: start next to it (Spacetime Rift)")
         ctx.tap(door); ctx.wait(2.5)
-        if (ctx.readText().none { Ocr.norm(it.text) == "another dungeon" }) ctx.stop("the door didn't open the Another Dungeon map: ${seen(ctx)}")
+        // the map fades in: give it a few reads
+        var opened = false
+        for (i in 0 until 6) {
+            if (ctx.readText().any { Ocr.norm(it.text) == "another dungeon" }) { opened = true; break }
+            ctx.wait(1.0)
+        }
+        if (!opened) ctx.stop("the door didn't open the Another Dungeon map: ${seen(ctx)}")
         tapText(r, eraLabel(r.spec.era)); ctx.wait(1.5)
         tapText(r, r.spec.name, minY = 0.2, maxX = 0.62) ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map: ${seen(ctx)}")
         ctx.wait(2.0)
