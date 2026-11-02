@@ -67,8 +67,13 @@ class ControlsOverlay(private val service: InputService) {
         buttons.addView(playPause)
         buttons.addView(stop)
         buttons.addView(restart)
-        buttons.addView(camera)
-        buttons.addView(liveToggle)
+        // 📷 and 💬 side by side: a taller column would run off a landscape screen
+        buttons.addView(LinearLayout(service).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(liveToggle)
+            addView(camera)
+            (liveToggle.layoutParams as LinearLayout.LayoutParams).rightMargin = dp(6)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         root.addView(handle)
         root.addView(buttons, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         root.alpha = 0.85f
