@@ -293,6 +293,7 @@ object AreaNav {
         var lastWalk: Double? = null
         var lastTarget = -1.0
         var overshot = false
+        var gain = 1.0
         var lastParty: Point? = null
         repeat(tries) {
             val view = look(ctx) { emptyList() }
@@ -322,15 +323,16 @@ object AreaNav {
             when (first) {
                 is Move.Walk -> {
                     val d = first.x - party.x
-                    if (lastWalk != null && lastWalk!! * d < 0 && abs(lastTarget - first.x) < 0.001) overshot = true
+                    // walking past the spot and back: shorter steps each time (and the stairs taken from closer)
+                    if (lastWalk != null && lastWalk!! * d < 0 && abs(lastTarget - first.x) < 0.001) { overshot = true; gain *= 0.5 } else if (!overshot) gain = 1.0
                     lastWalk = d; lastTarget = first.x
-                    val ms = (abs(d) / speed * 1000).toLong().coerceIn(40, 12000)
+                    val ms = (abs(d) / speed * 1000 * gain).toLong().coerceIn(40, 12000)
                     ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * (if (d > 0) 1 else -1), 0.65), ms)
                     ctx.wait(0.5)
-                    if (!onStep()) pendingSpeed = Triple(party.x, ms, d)
+                    if (!onStep() && gain == 1.0) pendingSpeed = Triple(party.x, ms, d)
                 }
                 is Move.Climb -> {
-                    lastWalk = null; overshot = false
+                    lastWalk = null; overshot = false; gain = 1.0
                     // the last flick here did nothing: shuffle a little either side of the stairs first
                     if (climbedAt?.let { abs(it.x - party.x) < 0.01 && abs(it.y - party.y) < ROW_TOL } == true) {
                         nudge++
