@@ -62,7 +62,7 @@ object AreaNav {
      */
     fun look(ctx: Context, readText: Boolean = false, targets: (Frame) -> List<Point>): View {
         last?.release(); last = null
-        ctx.tap(MINIMAP); ctx.wait(2.0)
+        ctx.tap(MINIMAP); ctx.wait(1.3)
         val frame = ctx.refresh()
         val first = ctx.colorMat()
         // the party marker pulses (shrinks, fades): if this frame caught it faint, take another
@@ -73,7 +73,7 @@ object AreaNav {
         } else first
         val text = if (readText) ctx.readText() else emptyList()
         val found = targets(frame)
-        ctx.tap(MAP_CLOSE); ctx.wait(1.5)
+        ctx.tap(MAP_CLOSE); ctx.wait(1.0)
         val cands = bgr?.let { findPartyMarkers(it, found) } ?: emptyList()
         val party = cands.firstOrNull()
         if (party == null && bgr != null) {
@@ -282,6 +282,18 @@ object AreaNav {
         return moves
     }
 
+    /** How far [a] → [b] is over the layout's streets (climbs count a little): for planning an order. */
+    fun pathCost(layout: Layout, a: Point, b: Point): Double {
+        val moves = route(layout, a, b) ?: return 9.0
+        var x = a.x
+        var cost = 0.0
+        for (m in moves) when (m) {
+            is Move.Walk -> { cost += abs(m.x - x); x = m.x }
+            is Move.Climb -> cost += 0.06
+        }
+        return cost
+    }
+
     /**
      * Walk to [goal] over a known [layout]: read the party marker, plan, do the first move,
      * look again. [onStep] runs after every move and says whether a battle interrupted it.
@@ -294,16 +306,20 @@ object AreaNav {
         var lastTarget = -1.0
         var overshot = false
         var gain = 1.0
+        var known: Point? = null
         var lastParty: Point? = null
         repeat(tries) {
-            val view = look(ctx) { emptyList() }
-            val party = view.candidates.firstOrNull { segOf(layout, it) != null }
+            // where we are: worked out from the last undisturbed walk (no map needed), else read on the map
+            val reckoned = known
+            known = null
+            val view = if (reckoned == null) look(ctx) { emptyList() } else null
+            val party = reckoned ?: view!!.candidates.firstOrNull { segOf(layout, it) != null }
             if (party == null) {
-                MacroLog.i("party marker not on the known streets (saw ${view.candidates.take(3)})")
+                MacroLog.i("party marker not on the known streets (saw ${view?.candidates?.take(3)})")
                 if (++stuck >= 5) return false
                 return@repeat
             }
-            pendingSpeed?.let { (x0, ms, d) ->
+            if (reckoned == null) pendingSpeed?.let { (x0, ms, d) ->
                 // learn this map's walking speed from an undisturbed walk (a wall stops it early)
                 val moved = abs(party.x - x0)
                 if (ms > 400 && moved > 0.01 && moved < abs(d) * 1.6) speed = (0.5 * speed + 0.5 * moved / (ms / 1000.0)).coerceIn(0.01, 0.08)
@@ -329,7 +345,17 @@ object AreaNav {
                     val ms = (abs(d) / speed * 1000 * gain).toLong().coerceIn(40, 12000)
                     ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * (if (d > 0) 1 else -1), 0.65), ms)
                     ctx.wait(0.5)
-                    if (!onStep() && gain == 1.0) pendingSpeed = Triple(party.x, ms, d)
+                    val battle = onStep()
+                    if (!battle && gain == 1.0) pendingSpeed = Triple(party.x, ms, d)
+                    // an undisturbed walk to a street's end stops at the wall: trust it without a look
+                    // (stairs need the real position, so a walk before them is checked on the map)
+                    val idx = moves.indexOf(first)
+                    val seg = segOf(layout, party)
+                    val toEnd = seg != null && (abs(first.x - seg.x1) < 0.006 || abs(first.x - seg.x2) < 0.006)
+                    if (!battle && toEnd && moves.getOrNull(idx + 1) !is Move.Climb) {
+                        known = Point(first.x, party.y)
+                        if (idx == moves.size - 1) return true
+                    }
                 }
                 is Move.Climb -> {
                     lastWalk = null; overshot = false; gain = 1.0

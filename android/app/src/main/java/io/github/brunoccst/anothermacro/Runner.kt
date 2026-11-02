@@ -63,7 +63,22 @@ class Context(
     fun readText(): List<Ocr.Line> {
         Thread.sleep(150) // let the latest frame arrive
         val bmp = colorBitmap() ?: return emptyList()
-        return try { Ocr.read(bmp) } finally { bmp.recycle() }
+        // the live log overlay is on the screen capture too: never read our own words as the game's
+        val own = LiveLog.area
+        return try { Ocr.read(bmp).filter { l -> own == null || !own.contains(l.center) } } finally { bmp.recycle() }
+    }
+
+    /** Text in one part of the screen only (faster: a smaller image to read). */
+    fun readText(part: Region): List<Ocr.Line> {
+        val bmp = colorBitmap() ?: return emptyList()
+        val (l, t, r, b) = part.toPx(bmp.width, bmp.height).toList()
+        val crop = android.graphics.Bitmap.createBitmap(bmp, l, t, (r - l).coerceAtLeast(1), (b - t).coerceAtLeast(1))
+        bmp.recycle()
+        return try {
+            Ocr.read(crop).map { line ->
+                Ocr.Line(line.text, Region(part.x + line.box.x * part.w, part.y + line.box.y * part.h, line.box.w * part.w, line.box.h * part.h))
+            }
+        } finally { crop.recycle() }
     }
 
     private fun px(p: Point): Pair<Float, Float> = p.toPx(capture.width, capture.height)
@@ -276,6 +291,7 @@ object Runner {
         var reason = "finished"
         InputService.instance?.keepScreenOn(true)
         MacroLog.i("running ${scenario.name} with $params")
+        MacroLog.status("${scenario.name}: starting")
         try {
             val missing = scenario.screens.flatMap { library.screens[it]?.require ?: emptyList() }.filter { it in library.missing() }
             if (missing.isNotEmpty()) MacroLog.i("templates not captured yet: ${missing.distinct().joinToString()}")

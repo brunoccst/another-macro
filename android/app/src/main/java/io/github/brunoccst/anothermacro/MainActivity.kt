@@ -110,6 +110,11 @@ class MainActivity : Activity() {
         }
         val last = LastRun.load(this)?.first
         picker.setSelection(names.indexOf(last).coerceAtLeast(0))
+        column.addView(android.widget.CheckBox(this).apply {
+            text = "Live log: show what the macro is doing (bottom right, while it runs)"
+            isChecked = LiveLog.enabled(this@MainActivity)
+            setOnCheckedChangeListener { _, on -> LiveLog.setEnabled(this@MainActivity, on) }
+        })
         column.addView(button("Stop") { startService(MacroService.intent(this, MacroService.ACTION_STOP_RUN)) })
         column.addView(button("Turn off screen capture") { startService(MacroService.intent(this, MacroService.ACTION_SHUTDOWN)) })
         column.addView(label("Your macros and templates", bold = true))
@@ -121,7 +126,7 @@ class MainActivity : Activity() {
         })
         userTemplates = label("")
         column.addView(userTemplates)
-        column.addView(label("While screen capture is on, floating buttons over the game start ▶, pause ❚❚, stop ■ and restart ↻ the last macro. Drag ≡ to move them, tap it to fold them."))
+        column.addView(label("While screen capture is on, floating buttons over the game start ▶, pause ❚❚, stop ■ and restart ↻ the last macro; 💬 switches the live log. Drag ≡ to move them, tap it to fold them."))
 
         column.addView(label("Log", bold = true))
         log = TextView(this).apply {

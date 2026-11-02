@@ -38,6 +38,10 @@ class ControlsOverlay(private val service: InputService) {
     private val stop = round("■", Color.parseColor("#C62828"))
     private val restart = round("↻", Color.parseColor("#1565C0"))
     private val camera = round("📷", Color.parseColor("#6A1B9A"))
+    /** Live log on/off: a line at the bottom right saying what the macro is doing. */
+    private val liveToggle = round("💬", Color.GRAY)
+    private val liveLog = LiveLogOverlay(service)
+    private val liveListener: () -> Unit = { main.post { refresh() } }
     /** The selected macro (what ▶ starts); tap it to pick another. */
     private val selected = pill("—")
     private val picker = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END; visibility = View.GONE }
@@ -64,6 +68,7 @@ class ControlsOverlay(private val service: InputService) {
         buttons.addView(stop)
         buttons.addView(restart)
         buttons.addView(camera)
+        buttons.addView(liveToggle)
         root.addView(handle)
         root.addView(buttons, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         root.alpha = 0.85f
@@ -77,6 +82,7 @@ class ControlsOverlay(private val service: InputService) {
         stop.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_STOP_RUN)) }
         restart.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_RESTART)) }
         camera.setOnClickListener { captureTemplate() }
+        liveToggle.setOnClickListener { LiveLog.setEnabled(service, !LiveLog.enabled(service)) }
         selected.setOnClickListener { togglePicker() }
         dragAndFold()
         refresh()
@@ -85,10 +91,14 @@ class ControlsOverlay(private val service: InputService) {
     fun show() {
         runCatching { wm.addView(root, params) }.onFailure { MacroLog.e("could not show the controls", it) }
         Runner.listeners += listener
+        LiveLog.listeners += liveListener
+        liveLog.start()
     }
 
     fun hide() {
         Runner.listeners -= listener
+        LiveLog.listeners -= liveListener
+        liveLog.stop()
         runCatching { wm.removeView(root) }
     }
 
@@ -172,6 +182,7 @@ class ControlsOverlay(private val service: InputService) {
             else -> Color.GRAY
         }
         (handle.background as GradientDrawable).setColor(color)
+        (liveToggle.background as GradientDrawable).setColor(if (LiveLog.enabled(service)) Color.parseColor("#00838F") else Color.GRAY)
         playPause.text = if (Runner.isRunning && !Runner.isPaused) "❚❚" else "▶"
         selected.label("▸ " + (Runner.current?.takeIf { Runner.isRunning } ?: LastRun.load(service)?.first ?: "pick a macro"))
         relayout()
