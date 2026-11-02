@@ -126,10 +126,12 @@ object AnotherDungeon {
                     else -> { ignore = true; continue }
                 }
             }
+            val ok = outcome.startsWith("${spec.name} done") || r.phantom
+            // a run that stopped before entering (or skipping) isn't a run
+            if (!ok && !r.entered && !r.skipped) { end = if (done > 0) "stopped after run $done: $outcome" else outcome; break }
             lines += "run ${done + 1}: " + report(r, outcome)
             done++
             ctx.count("runs")
-            val ok = outcome.startsWith("${spec.name} done") || r.phantom
             if (!ok) { end = "stopped after run $done: $outcome"; break }
             if (r.phantom) when (onWhiteKey) {
                 "phantom" -> { if (!phantom(ctx, lines)) { end = "the Phantom Crystal Dimension run failed"; break }; phantoms++ }
@@ -138,6 +140,7 @@ object AnotherDungeon {
             }
         }
         if (total == 1 && lines.size == 1 && phantoms == 0 && end.isEmpty()) return lines[0].substringAfter(": ")
+        if (total == 1 && lines.isEmpty() && phantoms == 0) return end
         val mins = (System.currentTimeMillis() - start) / 60000
         val summary = "${spec.name}: $done run(s)" + (if (phantoms > 0) ", $phantoms Phantom Crystal Dimension run(s)" else "") +
             " in ${mins}m" + (if (end.isNotEmpty()) "; $end" else "")
@@ -216,12 +219,32 @@ object AnotherDungeon {
         return best
     }
 
+    /**
+     * The dungeon panel's counters, left to right. One OCR line can hold two of them
+     * ("5/5 En 16/50"): lines go by x, then the counters in a line by their order in it.
+     */
+    internal fun panelCounters(lines: List<Ocr.Line>): List<List<Int>> =
+        lines.sortedBy { it.center.x }.flatMap { l ->
+            Regex("""(\d+)\s*/\s*(\d+)""").findAll(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
+                .map { m -> m.groupValues.drop(1).map { v -> v.toInt() } }.toList()
+        }
+
+    /**
+     * An item name as read by OCR, cleaned: "LOw Class Scroll" → "Low Class Scroll". Null for junk
+     * ("X4( X400") with no word of three letters or more.
+     */
+    internal fun cleanName(raw: String): String? {
+        val words = raw.replace(Regex("""[^A-Za-z'\- ]"""), " ").trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (words.none { w -> w.count { it.isLetter() } >= 3 }) return null
+        return words.joinToString(" ") { w -> w.lowercase().replaceFirstChar { it.uppercase() } }
+    }
+
     /** "Obtained Dark Residue x200." → items (OCR reads 0 as O at times). One banner line at a time. */
     private fun noteItems(r: Run, lines: List<Ocr.Line>) {
         for (l in lines) {
             val m = Regex("""^\s*Obtained\s+([A-Za-z'\- ]+?)\s*[x×X]\s*([0-9OoIl,]+)""").find(l.text) ?: continue
             val n = m.groupValues[2].replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(",", "").toIntOrNull() ?: continue
-            val name = m.groupValues[1].trim()
+            val name = cleanName(m.groupValues[1]) ?: continue
             r.items[name] = (r.items[name] ?: 0) + n
         }
     }
@@ -236,7 +259,7 @@ object AnotherDungeon {
         if ("congratulations" in all) {
             for (c in lines.filter { Regex("""^\s*[x×X]\s*[0-9OoIl,]+\s*$""").matches(it.text) }) {
                 val name = lines.filter { it !== c && abs(it.center.y - c.center.y) < 0.03 && it.center.x < c.center.x && Regex("[A-Za-z]{3}").containsMatchIn(it.text) }
-                    .maxByOrNull { it.center.x }?.text?.trim() ?: continue
+                    .maxByOrNull { it.center.x }?.text?.let { cleanName(it) } ?: continue
                 val n = num(c.text) ?: continue
                 r.rewards[name] = (r.rewards[name] ?: 0) + n
             }
@@ -247,7 +270,7 @@ object AnotherDungeon {
                 val n = Regex("""[Aa]mount\s*([0-9OoIl,]+)""").find(sameRow)?.groupValues?.get(1)?.let { num(it) } ?: continue
                 val name = lines.filter { it.center.y < a.center.y && a.center.y - it.center.y < 0.1 && abs(it.center.x - a.center.x) < 0.2 &&
                     Regex("[A-Za-z]{3}").containsMatchIn(it.text) && !Regex("[0-9]").containsMatchIn(it.text) && !Ocr.norm(it.text).startsWith("items") }
-                    .maxByOrNull { it.center.y }?.text?.trim() ?: continue
+                    .maxByOrNull { it.center.y }?.text?.let { cleanName(it) } ?: continue
                 r.rewards[name] = n // the run's total of that item (shown once)
             }
         }
@@ -305,10 +328,7 @@ object AnotherDungeon {
         // left to right: green keys "10/10", red keys "5/5", Cat Express Tickets "17/50"
         val bottom = LiveLog.without { ctx.readText() }.filter { it.center.y > 0.85 && it.center.x > 0.5 }
         // OCR reads 0 as O at times ("16/5O")
-        val counters = bottom.mapNotNull { l ->
-            Regex("""(\d+)\s*/\s*(\d+)""").find(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
-                ?.let { l.center.x to it.groupValues.drop(1).map { v -> v.toInt() } }
-        }.sortedBy { it.first }.map { it.second }
+        val counters = panelCounters(bottom)
         if (counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }}")
         val tickets = counters.firstOrNull { it[1] == 50 }?.get(0) ?: counters.getOrNull(2)?.get(0)
         val keyCounters = counters.filter { it[1] != 50 }.take(2)
