@@ -246,7 +246,8 @@ object AnotherDungeon {
      */
     internal fun panelCounters(lines: List<Ocr.Line>): List<List<Int>> =
         lines.sortedBy { it.center.x }.flatMap { l ->
-            Regex("""(\d+)\s*/\s*(\d+)""").findAll(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
+            // the denominators are known (10, 5, 50): "5/515/50" (no space read) is 5/5 and 15/50
+            Regex("""(\d{1,2})\s*/\s*(50|10|5)(?=\D|$|\d{1,2}\s*/)""").findAll(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
                 .map { m -> m.groupValues.drop(1).map { v -> v.toInt() } }.toList()
         }
 
@@ -350,10 +351,11 @@ object AnotherDungeon {
         val bottom = LiveLog.without { ctx.readText() }.filter { it.center.y > 0.85 && it.center.x > 0.5 }
         // OCR reads 0 as O at times ("16/5O")
         val counters = panelCounters(bottom)
-        if (counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }}")
-        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0) ?: counters.getOrNull(2)?.get(0)
-        val keyCounters = counters.filter { it[1] != 50 }.take(2)
-        val keys = if (keyCounters.size >= 2) keyCounters[if (red) 1 else 0][0] else null
+        // each counter by its denominator, never by its place (a counter OCR missed shifts the rest):
+        // green keys "/10", red keys "/5", Cat Express Tickets "/50"
+        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0)
+        val keys = counters.firstOrNull { it[1] == (if (red) 5 else 10) }?.get(0)
+        if (keys == null || tickets == null || counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }} → $counters")
         MacroLog.i("keys (${if (red) "red" else "green"}): ${keys ?: "not read"}; Cat Express Tickets: ${tickets ?: "not read"}")
         if (keys == 0) {
             // the game would offer to buy keys: never; the loop ends here

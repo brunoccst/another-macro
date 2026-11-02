@@ -47,6 +47,7 @@ object Route {
     class Table(
         private val ms: DoubleArray, private val dist: DoubleArray, private val beyondPerS: Double,
         val minWalk: Double, val wallMargin: Double, val lagMs: Long, val flickChange: Double,
+        val hudLagMs: Long = 1500, val darkLevel: Double = 30.0,
     ) {
         fun distance(holdMs: Double): Double {
             if (holdMs <= 0) return 0.0
@@ -72,7 +73,8 @@ object Route {
         fun nums(k: String) = (y[k] as List<*>).map { (it as Number).toDouble() }.toDoubleArray()
         fun num(k: String, d: Double) = (y[k] as? Number)?.toDouble() ?: d
         Table(nums("hold_ms"), nums("distance"), num("beyond_per_s", 0.026), num("min_walk", 0.003), num("wall_margin", 0.008),
-            num("battle_lag_ms", 0.0).toLong(), num("flick_change", 8.0)).also { cached = it }
+            num("battle_lag_ms", 0.0).toLong(), num("flick_change", 8.0),
+            num("battle_hud_lag_ms", 1500.0).toLong(), num("dark_level", 30.0)).also { cached = it }
     }
 
     // --- following the party on the layout -------------------------------------------
@@ -116,21 +118,36 @@ object Route {
         var holdMs = ms
         var cancels = 0
         repeat(10) {
-            var lastSeen = 0L
-            var misses = 0
+            // a battle is told by its own look (the screen going dark for the encounter, the battle
+            // HUD), never by the field's buttons: the game hides those while the party walks
+            var lastField = 0L
+            var frames = 0
+            var dark = 0
+            var why: String? = null
             val res = ctx.hold(PRESS, Point(PRESS.x + if (right) 0.1 else -0.1, PRESS.y), holdMs) { held ->
-                ctx.refresh()
-                if (ctx.find("field_menu_button") != null) { lastSeen = held; misses = 0; false } else ++misses >= 2
+                val f = ctx.refresh()
+                frames++
+                val level = org.opencv.core.Core.mean(f.gray).`val`[0]
+                when {
+                    Battle.inBattle(ctx) -> { why = "battle screen"; true }
+                    level < t.darkLevel -> { if (++dark >= 2) why = "dark screen (${"%.0f".format(level)})"; dark >= 2 }
+                    else -> { dark = 0; lastField = held; false }
+                }
             }
             ctx.wait(0.4) // standing still again before the next hold
             val interrupted = res.stoppedAtMs != null || res.cancelled
             val battle = interrupted && fight()
+            val lag = if (why == "battle screen") t.hudLagMs else t.lagMs
             val walkedMs = when {
                 !interrupted -> holdMs
-                // the party stops when the battle starts: the last moment the field was still up
-                battle -> (lastSeen - t.lagMs).coerceIn(0L, holdMs)
+                // the party stops when the battle starts: the last frame that still looked like the field
+                battle -> (lastField - lag).coerceIn(0L, holdMs)
                 else -> res.heldMs.coerceAtMost(holdMs)
             }
+            MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: ${frames} frames, held ${res.heldMs}ms" +
+                (if (res.stoppedAtMs != null) ", stopped at ${res.stoppedAtMs}ms: ${why ?: "?"}" else "") +
+                (if (res.cancelled) ", gesture cancelled by the system" else "") +
+                (if (interrupted) if (battle) ", battle fought" else ", no battle came" else ""))
             val d = t.distance(walkedMs.toDouble())
             p = walked(l, p, right, d)
             left -= d
