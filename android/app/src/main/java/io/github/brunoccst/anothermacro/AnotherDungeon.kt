@@ -69,6 +69,7 @@ object AnotherDungeon {
         var chestsDone = 0
         var cleared = false
         var onBossMap = false
+        var bossNext = false
         var bossBeaten = false
         var phantom = false
         var entered = false
@@ -87,6 +88,7 @@ object AnotherDungeon {
             val idx = whereAmI(r)
             if (idx == null) {
                 if (fight(r)) return@repeat
+                if (bossGate(r)) return@repeat
                 // not on one of the dungeon's maps any more: the run ended
                 return finish(r)
             }
@@ -212,6 +214,7 @@ object AnotherDungeon {
         ctx.tap(b); ctx.wait(2.0)
         val text = ctx.readText().joinToString(" ") { it.text }
         MacroLog.i("\"!\": ${text.take(120)}")
+        if (bossGate(r)) { fight(r); return true }
         if (fight(r)) return true // the boss (or a guard) behind it
         ctx.tap(Point(0.5, 0.75)); ctx.wait(1.2)
         waitForField(ctx, 6)
@@ -301,11 +304,12 @@ object AnotherDungeon {
         var wasBoss = false
         val out = Battle.fight(ctx) { c ->
             // the enemies' names show while a skill list is open: look on the boss's map
-            if (r.onBossMap && r.spec.boss.isNotEmpty()) {
+            if (!r.bossNext && r.onBossMap && r.spec.boss.isNotEmpty()) {
                 val names = Battle.enemyNames(c)
                 wasBoss = Ocr.norm(names).contains(Ocr.norm(r.spec.boss))
                 MacroLog.i("enemies: ${names.take(80)}${if (wasBoss) " (boss)" else ""}")
             }
+            if (r.bossNext) { wasBoss = true; r.bossNext = false; MacroLog.i("boss battle") }
             if (wasBoss) r.bossSetup else r.mobs
         }
         when (out) {
@@ -317,6 +321,19 @@ object AnotherDungeon {
                 checkPhantom(r)
             }
         }
+        return true
+    }
+
+    /** "A major trial awaits you beyond this point. Proceed?": the boss. Yes, and the next battle is the boss. */
+    private fun bossGate(r: Run): Boolean {
+        val lines = r.ctx.readText()
+        val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        if ("major trial" !in all && "proceed" !in all) return false
+        val yes = lines.firstOrNull { Ocr.norm(it.text) == "yes" } ?: return false
+        MacroLog.i("boss ahead: proceeding")
+        r.ctx.tapExact(yes.center)
+        r.bossNext = true
+        r.ctx.wait(3.0)
         return true
     }
 

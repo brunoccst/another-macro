@@ -28,3 +28,10 @@ handlers:
   battle_command: [{another_dungeon: dogma_tower}]
   battle: [{another_dungeon: dogma_tower}]
   battle_result: [{another_dungeon: dogma_tower}]
+
+# nothing recognised (e.g. the area map left open over the field): close it after a few seconds
+setup: [{set: {unknown_ticks: 0}}]
+unknown:
+  - set: {unknown_ticks: unknown_ticks + 1}
+  - if: unknown_ticks >= 10
+    then: [{tap: [0.5, 0.93]}, {set: {unknown_ticks: 0}}, {wait: 1.5}]
