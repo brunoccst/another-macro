@@ -172,7 +172,7 @@ class ControlsOverlay(private val service: InputService) {
         }
         (handle.background as GradientDrawable).setColor(color)
         playPause.text = if (Runner.isRunning && !Runner.isPaused) "❚❚" else "▶"
-        selected.text = "▸ " + (Runner.current?.takeIf { Runner.isRunning } ?: LastRun.load(service)?.first ?: "pick a macro")
+        selected.label("▸ " + (Runner.current?.takeIf { Runner.isRunning } ?: LastRun.load(service)?.first ?: "pick a macro"))
         relayout()
     }
 
@@ -211,8 +211,15 @@ class ControlsOverlay(private val service: InputService) {
         if (Build.VERSION.SDK_INT >= 21) elevation = dp(3).toFloat()
     }
 
-    private fun pill(label: String) = TextView(service).apply {
-        text = label
+    /** Set a pill's text and size it to fit (the overlay window doesn't size text views on its own). */
+    private fun TextView.label(t: String) {
+        text = t
+        val w = (paint.measureText(t) + paddingLeft + paddingRight + dp(2)).toInt().coerceAtMost(dp(240))
+        layoutParams = (layoutParams as LinearLayout.LayoutParams).apply { width = w }
+    }
+
+    private fun pill(initial: String) = TextView(service).apply {
+        text = initial
         setTextColor(Color.WHITE)
         textSize = 12f
         isSingleLine = true
@@ -223,6 +230,7 @@ class ControlsOverlay(private val service: InputService) {
         background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Color.parseColor("#DD37474F")) }
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             .apply { setMargins(0, dp(3), 0, dp(3)); gravity = Gravity.END }
+        label(initial)
     }
 
     private fun dp(v: Int) = (v * density).toInt()
