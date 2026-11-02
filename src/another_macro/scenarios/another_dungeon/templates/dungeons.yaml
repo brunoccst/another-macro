@@ -6,7 +6,10 @@
 #   segs:   streets, [y, x_from, x_to]
 #   links:  stairs/arrows between two streets, [x, y_from, y_to] (a quick flick takes them)
 #   chests: [x, y] of each treasure chest (a "!" bubble shows over it when the party is close)
-#   exit:   [x, y] where the way to the next map is
+#   arrival: [x, y] where the party comes in (the map is lined up from it: the game draws each
+#            map a little left or right, so the measured offset there shifts the whole layout)
+#   exit:   [x, y] where the way down to the next map is (a "bars" sign on the ground; the
+#           "steps" sign is the way back up)
 # names: the area names in the map's title ("Dogma Tower - Gloomy Corridor"); a rare
 # variant of a map shares its layout. boss: the last map, where the boss waits.
 dogma_tower:
@@ -19,17 +22,20 @@ dogma_tower:
       segs: [[0.363, 0.341, 0.395], [0.363, 0.484, 0.643], [0.497, 0.34, 0.66], [0.631, 0.356, 0.627]]
       links: [[0.354, 0.363, 0.497], [0.516, 0.363, 0.497], [0.580, 0.363, 0.497], [0.389, 0.497, 0.631], [0.451, 0.497, 0.631], [0.612, 0.497, 0.631]]
       chests: [[0.484, 0.363], [0.39, 0.363]]
+      arrival: [0.5175, 0.631]
       exit: [0.643, 0.363]
     - names: [Gloomy Corridor, Secluded Corridor]
       segs: [[0.363, 0.392, 0.627], [0.497, 0.358, 0.509], [0.497, 0.562, 0.68], [0.631, 0.395, 0.679]]
       links: [[0.408, 0.363, 0.497], [0.578, 0.363, 0.497], [0.459, 0.497, 0.631], [0.628, 0.497, 0.631]]
       chests: [[0.4, 0.631]]
-      exit: [0.68, 0.497]
+      arrival: [0.68, 0.497]
+      exit: [0.46, 0.363]
     - names: [Desolate Space, Remote Space]
       segs: [[0.363, 0.357, 0.66], [0.497, 0.375, 0.525], [0.497, 0.578, 0.68], [0.631, 0.391, 0.66]]
       links: [[0.39, 0.363, 0.497], [0.509, 0.363, 0.497], [0.594, 0.363, 0.497], [0.424, 0.497, 0.631], [0.627, 0.497, 0.631]]
       chests: [[0.66, 0.363], [0.583, 0.631], [0.502, 0.631]]
-      exit: [0.46, 0.497]
+      arrival: [0.46, 0.497]
+      exit: [0.678, 0.497]
     - names: [Basement Mausoleum]
       boss: true
       chests_count: 1

@@ -23,7 +23,13 @@ import kotlin.math.abs
  * and are never tapped, and any purchase offer stops the run.
  */
 object AnotherDungeon {
-    data class MapSpec(val names: List<String>, val layout: AreaNav.Layout?, val chests: List<Point>, val exit: Point?, val boss: Boolean)
+    data class MapSpec(val names: List<String>, val layout: AreaNav.Layout?, val chests: List<Point>, val exit: Point?, val boss: Boolean, val arrival: Point? = null) {
+        /** The same map drawn [dx] further right. */
+        fun shifted(dx: Double) = copy(
+            layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
+            chests = chests.map { Point(it.x + dx, it.y) }, exit = exit?.let { Point(it.x + dx, it.y) },
+        )
+    }
     data class Spec(val id: String, val name: String, val era: String, val boss: String, val maps: List<MapSpec>)
 
     private const val DATA = "templates/another_dungeon/dungeons.yaml"
@@ -48,6 +54,7 @@ object AnotherDungeon {
                 lists(m["chests"]).map { Point(it[0], it[1]) },
                 nums(m["exit"])?.let { Point(it[0], it[1]) },
                 m["boss"] == true,
+                nums(m["arrival"])?.let { Point(it[0], it[1]) },
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps)
@@ -58,6 +65,7 @@ object AnotherDungeon {
         val bossSetup = if (ctx.bool("boss_setup")) Battle.Setup.from(ctx.params, "boss_skill_") else mobs
         val fightAll = ctx.bool("fight_all")
         var map = -1
+        var shift = 0.0
         var chestsDone = 0
         var cleared = false
         var onBossMap = false
@@ -83,12 +91,18 @@ object AnotherDungeon {
                 return finish(r)
             }
             if (idx != r.map) {
+                // line the layout up with where the party arrived (only when it just came in)
+                val arrival = spec.maps[idx].arrival
+                val party = AreaNav.look(ctx) { emptyList() }.party
+                r.shift = if (arrival != null && party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL && abs(party.x - arrival.x) < 0.06)
+                    party.x - arrival.x else 0.0
+                MacroLog.i("layout offset ${"%.3f".format(r.shift)}")
                 r.map = idx; r.chestsDone = 0; r.cleared = false
                 r.onBossMap = spec.maps[idx].boss
                 MacroLog.i("map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
                 ctx.count("maps")
             }
-            val ms = spec.maps[idx]
+            val ms = spec.maps[idx].shifted(r.shift)
             when {
                 ms.layout == null -> sweep(r)
                 r.chestsDone < ms.chests.size -> takeChest(r, ms, ms.chests[r.chestsDone])
