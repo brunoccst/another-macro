@@ -303,7 +303,8 @@ object AnotherDungeon {
     private fun fight(r: Run): Boolean {
         val ctx = r.ctx
         var wasBoss = false
-        val out = Battle.fight(ctx) { c ->
+        // the run's end follows the boss battle's results: read every screen for the White Key
+        val out = Battle.fight(ctx, afterWin = { if (wasBoss || r.onBossMap) checkPhantom(r) }) { c ->
             // the enemies' names show while a skill list is open: look on the boss's map
             if (!r.bossNext && r.onBossMap && r.spec.boss.isNotEmpty()) {
                 val names = Battle.enemyNames(c)

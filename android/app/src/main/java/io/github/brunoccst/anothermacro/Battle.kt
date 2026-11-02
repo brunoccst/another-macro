@@ -45,7 +45,7 @@ object Battle {
      * first command screen (so a caller can tell a boss from the mobs by looking at it).
      * NONE when no battle was on screen.
      */
-    fun fight(ctx: Context, pick: (Context) -> Setup): Outcome {
+    fun fight(ctx: Context, afterWin: ((Context) -> Unit)? = null, pick: (Context) -> Setup): Outcome {
         var seen = false
         var won = false
         var setup: Setup? = null
@@ -58,6 +58,7 @@ object Battle {
                 ctx.find("defeat_banner") != null -> return Outcome.LOST
                 ctx.find("result_banner") != null -> {
                     seen = true; won = true; quiet = 0
+                    afterWin?.invoke(ctx)
                     ctx.tap(Point(0.5, 0.75))
                 }
                 ctx.find("skill_list_open") != null -> {
@@ -85,7 +86,11 @@ object Battle {
                 else -> {
                     // the battle's intro, or the screens after the results (level up, drops)
                     if (!seen && ++quiet > 4) return Outcome.NONE
-                    if (won) ctx.tap(Point(0.5, 0.75))
+                    if (won) {
+                        // e.g. an Another Dungeon's completion screens: let the caller read them first
+                        afterWin?.invoke(ctx)
+                        ctx.tap(Point(0.5, 0.75))
+                    }
                 }
             }
             ctx.wait(1.0)
