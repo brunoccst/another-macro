@@ -100,9 +100,14 @@ class ControlsOverlay(private val service: InputService) {
         service.startService(LastRun.intent(service, last.first, last.second))
     }
 
+    /** The overlay window keeps the size it was first laid out with: re-measure after the content changes. */
+    private fun relayout() {
+        root.post { runCatching { if (root.isAttachedToWindow) wm.updateViewLayout(root, params) } }
+    }
+
     /** Show or hide the list of macros; picking one makes it what ▶ starts. */
     private fun togglePicker() {
-        if (picker.visibility == View.VISIBLE) { picker.visibility = View.GONE; return }
+        if (picker.visibility == View.VISIBLE) { picker.visibility = View.GONE; relayout(); return }
         if (Runner.isRunning) { MacroLog.i("stop the macro before choosing another"); return }
         picker.removeAllViews()
         val current = LastRun.load(service)?.first
@@ -119,6 +124,7 @@ class ControlsOverlay(private val service: InputService) {
             })
         }
         picker.visibility = View.VISIBLE
+        relayout()
     }
 
     /** Grab the game screen (without these buttons) and open the crop screen. */
@@ -147,6 +153,7 @@ class ControlsOverlay(private val service: InputService) {
         if (Runner.isRunning != wasRunning) {
             wasRunning = Runner.isRunning
             buttons.visibility = if (wasRunning) View.GONE else View.VISIBLE
+            if (wasRunning) picker.visibility = View.GONE
         }
         val color = when {
             Runner.isPaused -> Color.parseColor("#F9A825")
@@ -156,6 +163,7 @@ class ControlsOverlay(private val service: InputService) {
         (handle.background as GradientDrawable).setColor(color)
         playPause.text = if (Runner.isRunning && !Runner.isPaused) "❚❚" else "▶"
         selected.text = "▸ " + (Runner.current?.takeIf { Runner.isRunning } ?: LastRun.load(service)?.first ?: "pick a macro")
+        relayout()
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -176,6 +184,7 @@ class ControlsOverlay(private val service: InputService) {
                 }
                 MotionEvent.ACTION_UP -> if (!moved) {
                     buttons.visibility = if (buttons.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+                    relayout()
                 }
             }
             true
@@ -196,7 +205,9 @@ class ControlsOverlay(private val service: InputService) {
         text = label
         setTextColor(Color.WHITE)
         textSize = 12f
-        maxLines = 1
+        isSingleLine = true
+        ellipsize = android.text.TextUtils.TruncateAt.END
+        maxWidth = dp(220)
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(10), dp(6), dp(10), dp(6))
         background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Color.parseColor("#DD37474F")) }
