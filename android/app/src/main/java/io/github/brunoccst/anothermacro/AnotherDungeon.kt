@@ -87,6 +87,8 @@ object AnotherDungeon {
         var task = ""
         /** The chosen key ran out (read on the dungeon panel): the loop ends. */
         var outOfKeys = false
+        /** The macro's counters when this run started. */
+        val base: Map<String, Int> = HashMap(ctx.stats)
         /** A White Key was already held before entering. */
         var heldKey = false
         /** Enter even though a White Key is held (the loop was told to keep going). */
@@ -254,7 +256,8 @@ object AnotherDungeon {
     /** One line about the run: how long, what it got. Also appended to the app's runs.log. */
     private fun report(r: Run, outcome: String): String {
         val secs = (System.currentTimeMillis() - r.start) / 1000
-        val st = r.ctx.stats
+        // this run's counts (the macro's stats add up over the loop)
+        val st = r.ctx.stats.mapValues { (k, v) -> v - (r.base[k] ?: 0) }
         val items = r.items.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val rewards = r.rewards.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val text = "$outcome — ${secs / 60}m ${secs % 60}s; " +
