@@ -80,7 +80,8 @@ object AnotherDungeon {
         val r = Run(ctx, spec)
         MacroLog.i("${spec.name}: key ${ctx.str("key")}, cat ticket ${ctx.bool("cat_ticket")}, " +
             "fight all ${r.fightAll}, mobs ${r.mobs}, boss ${r.bossSetup}")
-        if (whereAmI(r) == null) {
+        // started on the boss gate's question, or outside: else already inside
+        if (!bossGate(r) && whereAmI(r) == null && !Battle.inBattle(ctx)) {
             enter(r)?.let { return it }
         }
         repeat(300) {
