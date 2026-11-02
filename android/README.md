@@ -1,4 +1,4 @@
-# Another Macro — Android app (proof of concept)
+# Another Macro — Android app
 
 Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
 
