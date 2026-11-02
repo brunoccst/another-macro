@@ -27,7 +27,9 @@ object AreaNav {
     const val ROW_TOL = 0.035
 
     /** What one look at the area map showed. */
-    class View(val targets: List<Point>, val party: Point?, val text: List<Ocr.Line>, private val paths: Mat?, private val w: Int, private val h: Int) {
+    class View(val targets: List<Point>, val party: Point?, val text: List<Ocr.Line>, private val paths: Mat?, private val w: Int, private val h: Int,
+               /** Every blob that could be the party marker, best first (gold things on screen can look like it). */
+               val candidates: List<Point> = listOfNotNull(party)) {
         /** x of the paths leaving the party's street up (or down), normalized. */
         fun connectors(up: Boolean): List<Double> {
             val p = party ?: return emptyList()
@@ -66,13 +68,14 @@ object AreaNav {
         val text = if (readText) ctx.readText() else emptyList()
         val found = targets(frame)
         ctx.tap(MAP_CLOSE); ctx.wait(1.5)
-        val party = bgr?.let { findPartyMarker(it, found) }
+        val cands = bgr?.let { findPartyMarkers(it, found) } ?: emptyList()
+        val party = cands.firstOrNull()
         if (party == null && bgr != null) {
             // keep the map for debugging (app storage, not shared)
             Imgcodecs.imwrite(java.io.File(ctx.debugDir, "area-map.png").path, bgr)
         }
         val paths = bgr?.let { pathMask(it) }
-        val view = View(found, party, text, paths, bgr?.cols() ?: 0, bgr?.rows() ?: 0)
+        val view = View(found, party, text, paths, bgr?.cols() ?: 0, bgr?.rows() ?: 0, cands)
         bgr?.release()
         last = view
         return view
@@ -149,15 +152,14 @@ object AreaNav {
     }
 
     /** The party marker: a gold-rimmed eye, wider than tall, away from the [targets] (chest icons are gold too). */
-    private fun findPartyMarker(bgr: Mat, targets: List<Point>): Point? {
+    private fun findPartyMarkers(bgr: Mat, targets: List<Point>): List<Point> {
         val hsv = Mat(); Imgproc.cvtColor(bgr, hsv, Imgproc.COLOR_BGR2HSV)
         val mask = Mat(); Core.inRange(hsv, Scalar(12.0, 40.0, 140.0), Scalar(35.0, 200.0, 255.0), mask)
         Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_CLOSE, Mat.ones(5, 5, org.opencv.core.CvType.CV_8U))
         val labels = Mat(); val stats = Mat(); val cents = Mat()
         val n = Imgproc.connectedComponentsWithStats(mask, labels, stats, cents)
         val w = bgr.cols().toDouble(); val h = bgr.rows().toDouble()
-        var best: Point? = null
-        var bestArea = 0.0
+        val found = ArrayList<Pair<Double, Point>>()
         val seen = ArrayList<String>()
         for (k in 1 until n) {
             val bw = stats.get(k, Imgproc.CC_STAT_WIDTH)[0]
@@ -170,12 +172,11 @@ object AreaNav {
             // the eye is wider than tall (quest "!" markers are taller); its size follows the map's zoom
             if (area < 220 || aspect < 1.05 || aspect > 1.9 || bw < 24 || bw > 110) continue
             if (targets.any { abs(cx - it.x) < 0.02 && abs(cy - it.y) < 0.04 }) continue
-            val score = area * (1.0 - abs(aspect - 1.35))
-            if (score > bestArea) { bestArea = score; best = Point(cx, cy) }
+            found += area * (1.0 - abs(aspect - 1.35)) to Point(cx, cy)
         }
         listOf(hsv, mask, labels, stats, cents).forEach { it.release() }
-        if (best == null) MacroLog.i("map blobs (${bgr.cols()}x${bgr.rows()}): ${seen.joinToString(" ")}")
-        return best
+        if (found.isEmpty()) MacroLog.i("map blobs (${bgr.cols()}x${bgr.rows()}): ${seen.joinToString(" ")}")
+        return found.sortedByDescending { it.first }.map { it.second }
     }
 
     /** Every place an icon (an asset PNG) shows on the grey [frame], at a few sizes, best first. */
@@ -285,7 +286,13 @@ object AreaNav {
         var climbedAt: Point? = null
         var lastParty: Point? = null
         repeat(tries) {
-            val party = look(ctx) { emptyList() }.party ?: return false.also { MacroLog.i("party marker not found on the map") }
+            val view = look(ctx) { emptyList() }
+            val party = view.candidates.firstOrNull { segOf(layout, it) != null }
+            if (party == null) {
+                MacroLog.i("party marker not on the known streets (saw ${view.candidates.take(3)})")
+                if (++stuck >= 5) return false
+                return@repeat
+            }
             pendingSpeed?.let { (x0, ms, d) ->
                 // learn this map's walking speed from an undisturbed walk (a wall stops it early)
                 val moved = abs(party.x - x0)
@@ -293,6 +300,7 @@ object AreaNav {
                 pendingSpeed = null
             }
             val moves = route(layout, party, goal) ?: return false.also { MacroLog.i("no route from $party to $goal") }
+            MacroLog.i("at (${"%.3f".format(party.x)}, ${"%.3f".format(party.y)}) → (${"%.3f".format(goal.x)}, ${"%.3f".format(goal.y)}): ${moves.joinToString(" ")}")
             // a walk can be skipped when we're nearly there, but stairs only take the party standing on them
             val first = moves.withIndex().firstOrNull { (i, m) ->
                 val tol = if (moves.getOrNull(i + 1) is Move.Climb) 0.004 else 0.012
@@ -321,6 +329,7 @@ object AreaNav {
                 }
             }
         }
+        MacroLog.i("gave up walking to $goal")
         return false
     }
 

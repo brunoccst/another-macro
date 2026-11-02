@@ -93,7 +93,7 @@ object AnotherDungeon {
             if (idx != r.map) {
                 // line the layout up with where the party arrived (only when it just came in)
                 val arrival = spec.maps[idx].arrival
-                val party = AreaNav.look(ctx) { emptyList() }.party
+                val party = arrival?.let { a -> AreaNav.look(ctx) { emptyList() }.candidates.minByOrNull { abs(it.x - a.x) + 3 * abs(it.y - a.y) } }
                 r.shift = if (arrival != null && party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL && abs(party.x - arrival.x) < 0.06)
                     party.x - arrival.x else 0.0
                 MacroLog.i("layout offset ${"%.3f".format(r.shift)}")
