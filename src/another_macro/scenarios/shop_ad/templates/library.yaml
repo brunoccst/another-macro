@@ -5,21 +5,6 @@ templates:
     ref: [2400, 1080]
     region: [0.64, 0.74, 0.12, 0.24]
     notes: '"Shop" button of the open Menu bar.'
-  shop_title:
-    file: shop_title.png
-    ref: [2400, 1080]
-    region: [0.42, 0.0, 0.16, 0.16]
-    notes: '"Shop" title at the top of the shop window.'
-  shop_watch_button:
-    file: shop_watch_button.png
-    ref: [2400, 1080]
-    region: [0.08, 0.0, 0.2, 0.18]
-    notes: 'Play button + "Watch for x10!" at the shop''s top-left; gone once watched today.'
-  shop_close_button:
-    file: shop_close_button.png
-    ref: [2400, 1080]
-    region: [0.78, 0.0, 0.14, 0.14]
-    notes: The X that closes the shop window.
 screens:
   shop:
     require: [shop_title, shop_close_button]

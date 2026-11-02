@@ -75,8 +75,37 @@ class Context(
     private fun jitter(r: Region) = Point(r.x + r.w * Random.nextDouble(0.25, 0.75), r.y + r.h * Random.nextDouble(0.25, 0.75))
 
     fun tap(target: Any) {
-        val (x, y) = px(point(target))
+        val p = point(target)
+        guardPurchases(target as? String, blind = target !is String)
+        val (x, y) = px(p)
         input.tap(x, y)
+    }
+
+    // --- safety: no purchase, ever --------------------------------------------------
+    /** Templates that may be tapped while the shop is open: the free commercial, its dialogs, the X. */
+    private val SHOP_SAFE = setOf("shop_watch_button", "shop_close_button", "dialog_close_button", "dialog_ok_button", "confirm_ok_button")
+
+    /**
+     * Before every tap: if the Shop or a purchase popup is on screen, only [SHOP_SAFE] templates may
+     * be tapped. Anything else (above all a blind tap at a fixed spot) is refused: the macro cancels
+     * the popup, closes the shop and stops. A blind tap also checks the text on screen for a
+     * purchase popup (it covers the shop's title).
+     */
+    private fun guardPurchases(template: String?, blind: Boolean) {
+        if (template != null && template in SHOP_SAFE) return
+        val f = capture.grab() ?: return
+        val inShop = try { vision.find(f, "shop_title") != null } finally { f.gray.release() }
+        val lines = if (blind || inShop) readText() else emptyList()
+        val norm = lines.map { Ocr.norm(it.text) }
+        val purchase = norm.any { it == "purchase" || it.startsWith("purchase for") || it.contains("remaining purchases") }
+        if (!inShop && !purchase) return
+        MacroLog.i("SAFETY: refused a ${template ?: "blind"} tap on the ${if (purchase) "purchase popup" else "shop"}")
+        lines.firstOrNull { Ocr.norm(it.text) == "cancel" }?.let { input.tap(px(it.center).first, px(it.center).second); Thread.sleep(1500) }
+        val g = capture.grab()
+        if (g != null) {
+            try { vision.find(g, "shop_close_button")?.let { m -> val (x, y) = px(m.region.center); input.tap(x, y) } } finally { g.gray.release() }
+        }
+        throw StopScenario("safety stop: the shop or a purchase popup was on screen (no tap made there)")
     }
 
     /** Press at [start], slide to [end] and keep holding until [durationMs] is up (walking). */
@@ -90,6 +119,7 @@ class Context(
 
     /** Tap exactly at [p] (no jitter): for moving targets aimed at precisely. */
     fun tapExact(p: Point) {
+        guardPurchases(null, blind = false)
         val (x, y) = px(p)
         input.tap(x, y)
     }
