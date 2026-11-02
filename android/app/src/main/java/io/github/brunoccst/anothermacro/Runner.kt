@@ -6,8 +6,13 @@ import kotlin.random.Random
 
 class StopScenario(reason: String) : Exception(reason)
 
-/** A user-tunable option, given as text (from the app's form or an intent extra). */
-data class Param(val default: String, val help: String)
+/**
+ * A user-tunable option, given as text (from the app's form or an intent extra).
+ * [choices] makes the form show a dropdown; [type] "bool" a checkbox; otherwise a text box.
+ */
+data class Param(val default: String, val help: String, val choices: List<String> = emptyList(), val type: String = "text") {
+    val isBool get() = type == "bool"
+}
 
 /** What a handler gets: the current frame, vision, input and helpers. Mirrors the Python tool's Context. */
 class Context(

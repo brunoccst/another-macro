@@ -1,0 +1,43 @@
+# Another Dungeons the another_dungeon action knows (source: anothereden.wiki, data only).
+#
+# The area map only shows what the party has already walked, so each map's layout is
+# given here, measured from the wiki's minimaps and checked on a 2400x1080 phone. All
+# positions are fractions of the screen as the opened area map shows them:
+#   segs:   streets, [y, x_from, x_to]
+#   links:  stairs/arrows between two streets, [x, y_from, y_to] (a quick flick takes them)
+#   chests: [x, y] of each treasure chest (a "!" bubble shows over it when the party is close)
+#   arrival: [x, y] where the party comes in (the map is lined up from it: the game draws each
+#            map a little left or right, so the measured offset there shifts the whole layout)
+#   exit:   [x, y] where the way down to the next map is (a "bars" sign on the ground; the
+#           "steps" sign is the way back up)
+# names: the area names in the map's title ("Dogma Tower - Gloomy Corridor"); a rare
+# variant of a map shares its layout. boss: the last map, where the boss waits.
+dogma_tower:
+  name: Dogma Tower
+  era: Present
+  boss: Ancient Sentry
+  maps:
+    - names: [Basement Entrance]
+      # measured on the phone (the rest of the maps: wiki minimap, shifted by the same -0.005)
+      segs: [[0.363, 0.341, 0.395], [0.363, 0.484, 0.643], [0.497, 0.34, 0.66], [0.631, 0.356, 0.627]]
+      links: [[0.354, 0.363, 0.497], [0.516, 0.363, 0.497], [0.580, 0.363, 0.497], [0.389, 0.497, 0.631], [0.451, 0.497, 0.631], [0.612, 0.497, 0.631]]
+      chests: [[0.484, 0.363], [0.39, 0.363]]
+      arrival: [0.5175, 0.631]
+      exit: [0.643, 0.363]
+    - names: [Gloomy Corridor, Secluded Corridor]
+      # lined up on the phone (arrival measured at 0.643)
+      segs: [[0.363, 0.355, 0.59], [0.497, 0.321, 0.472], [0.497, 0.525, 0.643], [0.631, 0.358, 0.642]]
+      links: [[0.371, 0.363, 0.497], [0.541, 0.363, 0.497], [0.428, 0.497, 0.631], [0.591, 0.497, 0.631]]
+      chests: [[0.363, 0.631]]
+      arrival: [0.643, 0.497]
+      exit: [0.423, 0.363]
+    - names: [Desolate Space, Remote Space]
+      # lined up on the phone (arrival measured at 0.436); the bottom street is split in two
+      segs: [[0.363, 0.333, 0.636], [0.497, 0.351, 0.501], [0.497, 0.554, 0.656], [0.631, 0.367, 0.481], [0.631, 0.548, 0.636]]
+      links: [[0.366, 0.363, 0.497], [0.485, 0.363, 0.497], [0.57, 0.363, 0.497], [0.4, 0.497, 0.631], [0.603, 0.497, 0.631]]
+      chests: [[0.636, 0.363], [0.559, 0.631], [0.478, 0.631]]
+      arrival: [0.436, 0.497]
+      exit: [0.654, 0.497]
+    - names: [Basement Mausoleum]
+      boss: true
+      chests_count: 1

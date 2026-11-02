@@ -34,7 +34,8 @@ class MainActivity : Activity() {
 
     private lateinit var status: TextView
     private lateinit var log: TextView
-    private val paramFields = LinkedHashMap<String, EditText>()
+    /** Each param's current value, read from its text box, dropdown or checkbox. */
+    private val paramFields = LinkedHashMap<String, () -> String>()
     private lateinit var scenario: Scenario
     private lateinit var macros: List<Scenario>
     private lateinit var paramsBox: LinearLayout
@@ -101,7 +102,7 @@ class MainActivity : Activity() {
         column.addView(macroDescription)
         paramsBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         column.addView(paramsBox)
-        runButton = button("Run") { run(scenario.name, paramFields.mapValues { it.value.text.toString() }) }
+        runButton = button("Run") { run(scenario.name, paramFields.mapValues { it.value() }) }
         column.addView(runButton)
         picker.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) = showMacro(macros[position])
@@ -144,13 +145,33 @@ class MainActivity : Activity() {
         paramFields.clear()
         val last = LastRun.load(this)?.takeIf { it.first == s.name }?.second
         for ((key, p) in s.params) {
+            val value = last?.get(key) ?: p.default
+            if (p.isBool) {
+                val box = android.widget.CheckBox(this).apply {
+                    text = "$key — ${p.help}"
+                    isChecked = FlowScenario.typed(value) == true
+                }
+                paramFields[key] = { box.isChecked.toString() }
+                paramsBox.addView(box)
+                continue
+            }
             paramsBox.addView(TextView(this).apply { text = "$key — ${p.help}"; textSize = 14f })
+            if (p.choices.isNotEmpty()) {
+                val options = if (value in p.choices) p.choices else p.choices + value
+                val spinner = Spinner(this).apply {
+                    adapter = ArrayAdapter(this@MainActivity, android.R.layout.simple_spinner_dropdown_item, options)
+                    setSelection(options.indexOf(value).coerceAtLeast(0))
+                }
+                paramFields[key] = { spinner.selectedItem?.toString() ?: p.default }
+                paramsBox.addView(spinner)
+                continue
+            }
             val field = EditText(this).apply {
-                setText(last?.get(key) ?: p.default)
+                setText(value)
                 inputType = InputType.TYPE_CLASS_TEXT
                 setSingleLine()
             }
-            paramFields[key] = field
+            paramFields[key] = { field.text.toString() }
             paramsBox.addView(field)
         }
     }

@@ -115,6 +115,11 @@ templates:
     - 0.2358
     - 0.1556
     notes: '"Close the app?" dialog that Android back opens on the field.'
+  skill_list_open:
+    notes: The "Skill Details" button at the top, shown only while a character's skill list is open.
+    file: skill_list_open.png
+    ref: [2400, 1080]
+    region: [0.1708, 0.0, 0.1967, 0.1333]
 screens:
   field:
     require:
@@ -137,3 +142,6 @@ screens:
   close_app:
     require:
     - close_app_dialog
+  skill_list:
+    require:
+    - skill_list_open

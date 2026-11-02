@@ -6,7 +6,7 @@ Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
 - **Input:** an accessibility service dispatches taps, slide-and-hold walking and Back.
 - **Vision:** OpenCV template matching on the same `library.yaml` + PNG templates as the
   Python tool (copied into the APK at build time from `src/another_macro/.../templates`).
-- **Macros:** `grind-battles`, `start-game` (with the daily ad, `watch_ad`), `stop-game`,
+- **Macros:** `grind-battles`, `dogma-tower`, `start-game` (with the daily ad, `watch_ad`), `stop-game`,
   `cat-scratchbook` (`mode=read` reports today's clues and where the cats are; `mode=hunt`
   finds the cat on the current map). Pick one on the main screen; its params are remembered.
 - **Floating controls** over the game (start/pause/stop/restart the last macro), shown
