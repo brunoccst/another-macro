@@ -1,0 +1,13 @@
+# Another Dungeons the another_dungeon action knows (source: anothereden.wiki, data only).
+# maps: in order of the run; `names` are the area names shown on the area map
+# ("Dogma Tower - Gloomy Corridor"); a rare variant of a map is listed with it.
+# chests: how many treasure chests the map has. boss: the last map, where the boss waits.
+dogma_tower:
+  name: Dogma Tower
+  era: Present
+  boss: Ancient Sentry
+  maps:
+    - {names: [Basement Entrance], chests: 2}
+    - {names: [Gloomy Corridor, Secluded Corridor], chests: 1}
+    - {names: [Desolate Space, Remote Space], chests: 3}
+    - {names: [Basement Mausoleum], chests: 1, boss: true}

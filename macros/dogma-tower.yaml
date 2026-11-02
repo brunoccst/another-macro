@@ -1,0 +1,30 @@
+# One run of the Dogma Tower Another Dungeon (Present era): every chest of every map,
+# optionally every enemy, then the boss. Stops when the run ends, and says so when a
+# White Key opened the Phantom Crystal Dimension. Never buys keys: a purchase offer stops it.
+name: dogma-tower
+description: "Another Dungeon: Dogma Tower. All chests, optionally all enemies, then the boss."
+templates: [another_dungeon]
+params:
+  key: {default: green, choices: [green, red], help: "key to use: green = Hard, red = Very Hard"}
+  keys: {default: 1, choices: [1, 2, 3, 4, 5, all], help: "how many keys to use on the entry"}
+  cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if one is available"}
+  fight_all: {default: true, type: bool, help: "fight all enemies: after a map's chests, fight until no enemies are left"}
+  # mobs: the four front-row characters, left to right (all auto = the battle's Auto button)
+  skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], help: "mobs, character 1: auto or skill 1-4"}
+  skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], help: "mobs, character 2: auto or skill 1-4"}
+  skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], help: "mobs, character 3: auto or skill 1-4"}
+  skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], help: "mobs, character 4: auto or skill 1-4"}
+  boss_setup: {default: false, type: bool, help: "use a different skill setup for the boss (below)"}
+  boss_skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], help: "boss, character 1: auto or skill 1-4"}
+  boss_skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], help: "boss, character 2: auto or skill 1-4"}
+  boss_skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], help: "boss, character 3: auto or skill 1-4"}
+  boss_skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], help: "boss, character 4: auto or skill 1-4"}
+screens: [field, battle_command, battle, battle_result]
+unknown_timeout_s: 120
+
+# the whole run is one action (AnotherDungeon.kt); it starts from the field or inside the dungeon
+handlers:
+  field: [{another_dungeon: dogma_tower}]
+  battle_command: [{another_dungeon: dogma_tower}]
+  battle: [{another_dungeon: dogma_tower}]
+  battle_result: [{another_dungeon: dogma_tower}]

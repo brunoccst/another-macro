@@ -29,6 +29,9 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   set: {var: expr, ...}       count: stat_name        stop: "text {expr}"
  *   if: expr  then: [actions]  else: [actions]          repeat: {times: expr, do: [actions]}
  *   reset_view: true            (forget the last view for view_moved())
+ *   fight: skill_       (fight the battle on screen until the field is back, with skills from params
+ *                        skill_1..skill_4 = auto|1-4; sets `outcome` to won/lost/none; stops on a wipe)
+ *   another_dungeon: dogma_tower   (run that Another Dungeon; see AnotherDungeon.kt)
  *   find_feather: true          (cat scratchbook: tap the feather bubble if visible; sets `tapped`)
  *   read_cat_clues: true        (cat scratchbook: sets `report` to today's clues and their places)
  *   cat_daily: true             (cat scratchbook: read clues by OCR, travel to each cat, find it; stops with a summary)
@@ -41,7 +44,10 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
     override val templateFolders: List<String> = list(spec["templates"]).map { it.toString() }
     override val params: Map<String, Param> = map(spec["params"]).entries.associate { (k, v) ->
         val m = mapOrNull(v)
-        k.toString() to Param(Expr.str(m?.get("default") ?: v), m?.get("help")?.toString() ?: "")
+        val choices = list(m?.get("choices")).map { Expr.str(it) }
+        val default = m?.get("default") ?: v
+        val type = m?.get("type")?.toString() ?: if (default is Boolean) "bool" else "text"
+        k.toString() to Param(Expr.str(default), m?.get("help")?.toString() ?: "", choices, type)
     }
     override val screens: List<String> = list(spec["screens"]).map { it.toString() }
     /** A routine: other macros run one after another (steps: [start-game, daily-ads, ...]). */
@@ -106,6 +112,13 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
             "find_feather" in a -> findFeather(ctx)
             "read_cat_clues" in a -> vars["report"] = readCatClues(ctx)
             "cat_daily" in a -> ctx.stop(CatDaily.run(ctx))
+            "fight" in a -> {
+                val prefix = a["fight"]?.toString()?.takeIf { it != "true" } ?: "skill_"
+                val outcome = Battle.fight(ctx) { Battle.Setup.from(ctx.params, prefix) }
+                vars["outcome"] = outcome.name.lowercase()
+                if (outcome == Battle.Outcome.LOST) ctx.stop("party was defeated")
+            }
+            "another_dungeon" in a -> ctx.stop(AnotherDungeon.run(ctx, a["another_dungeon"].toString()))
             else -> throw IllegalArgumentException("$name: unknown action ${a.keys}")
         }
     }

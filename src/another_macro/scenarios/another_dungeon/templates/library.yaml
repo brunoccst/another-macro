@@ -1,0 +1,11 @@
+# Another Dungeon templates. The map icons (PNG only, used by AnotherDungeon.kt) were cut
+# from the wiki's Dogma Tower minimaps and scaled to a 1080-px-tall screen: provisional,
+# recapture them from the phone's area map if they don't match.
+#   map_chest_icon.png        an unopened chest on the area map
+#   map_stairs_down_icon.png  stairs leading deeper
+#   map_stairs_up_icon.png    stairs (the way back / a level change)
+templates:
+  dungeon_field_chest:
+    notes: A closed treasure chest standing on the field in an Another Dungeon (tap it to open). Not captured yet.
+    region: [0.2, 0.3, 0.6, 0.5]
+screens: {}
