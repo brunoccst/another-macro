@@ -281,6 +281,8 @@ object AreaNav {
      */
     fun walkLayout(ctx: Context, layout: Layout, goal: Point, onStep: () -> Boolean, tries: Int = 24): Boolean {
         var stuck = 0
+        var nudge = 0
+        var climbedAt: Point? = null
         var lastParty: Point? = null
         repeat(tries) {
             val party = look(ctx) { emptyList() }.party ?: return false.also { MacroLog.i("party marker not found on the map") }
@@ -291,19 +293,29 @@ object AreaNav {
                 pendingSpeed = null
             }
             val moves = route(layout, party, goal) ?: return false.also { MacroLog.i("no route from $party to $goal") }
-            val first = moves.firstOrNull { !(it is Move.Walk && abs(it.x - party.x) < 0.012) } ?: return true
+            // a walk can be skipped when we're nearly there, but stairs only take the party standing on them
+            val first = moves.withIndex().firstOrNull { (i, m) ->
+                val tol = if (moves.getOrNull(i + 1) is Move.Climb) 0.004 else 0.012
+                !(m is Move.Walk && abs(m.x - party.x) < tol)
+            }?.value ?: return true
             if (lastParty != null && abs(lastParty!!.x - party.x) < 0.005 && abs(lastParty!!.y - party.y) < 0.01) stuck++ else stuck = 0
-            if (stuck >= 3) return false.also { MacroLog.i("not moving any more at $party") }
+            if (stuck >= 5) return false.also { MacroLog.i("not moving any more at $party") }
             lastParty = party
             when (first) {
                 is Move.Walk -> {
                     val d = first.x - party.x
-                    val ms = (abs(d) / speed * 1000).toLong().coerceIn(60, 12000)
+                    val ms = (abs(d) / speed * 1000).toLong().coerceIn(40, 12000)
                     ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * (if (d > 0) 1 else -1), 0.65), ms)
                     ctx.wait(0.5)
                     if (!onStep()) pendingSpeed = Triple(party.x, ms, d)
                 }
                 is Move.Climb -> {
+                    // the last flick here did nothing: shuffle a little either side of the stairs first
+                    if (climbedAt?.let { abs(it.x - party.x) < 0.01 && abs(it.y - party.y) < ROW_TOL } == true) {
+                        nudge++
+                        hold(ctx, if (nudge % 2 == 1) 1.0 else -1.0, 0.003 * ((nudge + 1) / 2))
+                    } else nudge = 0
+                    climbedAt = party
                     flick(ctx, first.up)
                     onStep()
                 }
