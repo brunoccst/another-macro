@@ -39,7 +39,12 @@ class InputService : AccessibilityService() {
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         // which app is in front (window state changes carry the package name; no screen content is read)
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
-            event.packageName?.toString()?.let { if (it != packageName) foreground = it }
+            event.packageName?.toString()?.let {
+                if (it != packageName) {
+                    if (it != foreground) MacroLog.i("in front: $it (${event.className})")
+                    foreground = it
+                }
+            }
         }
     }
 

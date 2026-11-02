@@ -1,11 +1,12 @@
 # Daily Cat Scratchbook.
 #  read: open Diary → Cat Scratchbook, report today's clues and where each cat is.
 #  hunt: on the map where today's cat is, walk in short steps, tap its feather bubble.
+#  daily: the whole thing unattended: read the clues (OCR), travel to each cat, find it.
 name: cat-scratchbook
-description: "read: report today's cat clues and where they are; hunt: find the cat on this map."
+description: "daily: find all of today's cats; read: report today's clues; hunt: find the cat on this map."
 templates: [cat_scratchbook]
 params:
-  mode: {default: read, help: "read = report today's clues; hunt = find the cat on the map you're on"}
+  mode: {default: daily, help: "daily = travel to and find every cat; read = report today's clues; hunt = find the cat on this map"}
   first_walk: {default: -1, help: "hunt: direction of the first walk, -1 = left, 1 = right"}
   pulse_ms: {default: 300, help: "hunt: length of each short walk"}
   max_walks: {default: 120, help: "hunt: give up after this many walks"}
@@ -14,6 +15,8 @@ screens: [scratchbook, battle_result, skill_list, battle_command, battle, field]
 unknown_timeout_s: 20
 
 setup:
+  - if: mode == 'daily'
+    then: [{cat_daily: true}]
   - set: {opened: false, report: "''", dir: first_walk, walks: 0, still: 0, pos: 0, found_cat: false}
 
 handlers:

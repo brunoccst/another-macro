@@ -39,6 +39,28 @@ class Context(
 
     fun find(template: String): Match? = frame?.let { vision.find(it, template) }
 
+    /** The current screen in colour as BGR (caller releases it). */
+    fun colorMat(): org.opencv.core.Mat? = capture.grabColor()
+
+    /** The current screen in colour (RGBA bitmap), for text recognition. */
+    fun colorBitmap(): android.graphics.Bitmap? {
+        val bgr = capture.grabColor() ?: return null
+        val rgba = org.opencv.core.Mat()
+        org.opencv.imgproc.Imgproc.cvtColor(bgr, rgba, org.opencv.imgproc.Imgproc.COLOR_BGR2RGBA)
+        bgr.release()
+        val bmp = android.graphics.Bitmap.createBitmap(rgba.cols(), rgba.rows(), android.graphics.Bitmap.Config.ARGB_8888)
+        org.opencv.android.Utils.matToBitmap(rgba, bmp)
+        rgba.release()
+        return bmp
+    }
+
+    /** Text lines on screen right now (on-device OCR), with normalized positions. */
+    fun readText(): List<Ocr.Line> {
+        Thread.sleep(150) // let the latest frame arrive
+        val bmp = colorBitmap() ?: return emptyList()
+        return try { Ocr.read(bmp) } finally { bmp.recycle() }
+    }
+
     private fun px(p: Point): Pair<Float, Float> = p.toPx(capture.width, capture.height)
 
     private fun point(target: Any): Point = when (target) {
@@ -53,8 +75,37 @@ class Context(
     private fun jitter(r: Region) = Point(r.x + r.w * Random.nextDouble(0.25, 0.75), r.y + r.h * Random.nextDouble(0.25, 0.75))
 
     fun tap(target: Any) {
-        val (x, y) = px(point(target))
+        val p = point(target)
+        guardPurchases(target as? String, blind = target !is String)
+        val (x, y) = px(p)
         input.tap(x, y)
+    }
+
+    // --- safety: no purchase, ever --------------------------------------------------
+    /** Templates that may be tapped while the shop is open: the free commercial, its dialogs, the X. */
+    private val SHOP_SAFE = setOf("shop_watch_button", "shop_close_button", "dialog_close_button", "dialog_ok_button", "confirm_ok_button")
+
+    /**
+     * Before every tap: if the Shop or a purchase popup is on screen, only [SHOP_SAFE] templates may
+     * be tapped. Anything else (above all a blind tap at a fixed spot) is refused: the macro cancels
+     * the popup, closes the shop and stops. A blind tap also checks the text on screen for a
+     * purchase popup (it covers the shop's title).
+     */
+    private fun guardPurchases(template: String?, blind: Boolean) {
+        if (template != null && template in SHOP_SAFE) return
+        val f = capture.grab() ?: return
+        val inShop = try { vision.find(f, "shop_title") != null } finally { f.gray.release() }
+        val lines = if (blind || inShop) readText() else emptyList()
+        val norm = lines.map { Ocr.norm(it.text) }
+        val purchase = norm.any { it == "purchase" || it.startsWith("purchase for") || it.contains("remaining purchases") }
+        if (!inShop && !purchase) return
+        MacroLog.i("SAFETY: refused a ${template ?: "blind"} tap on the ${if (purchase) "purchase popup" else "shop"}")
+        lines.firstOrNull { Ocr.norm(it.text) == "cancel" }?.let { input.tap(px(it.center).first, px(it.center).second); Thread.sleep(1500) }
+        val g = capture.grab()
+        if (g != null) {
+            try { vision.find(g, "shop_close_button")?.let { m -> val (x, y) = px(m.region.center); input.tap(x, y) } } finally { g.gray.release() }
+        }
+        throw StopScenario("safety stop: the shop or a purchase popup was on screen (no tap made there)")
     }
 
     /** Press at [start], slide to [end] and keep holding until [durationMs] is up (walking). */
@@ -68,6 +119,7 @@ class Context(
 
     /** Tap exactly at [p] (no jitter): for moving targets aimed at precisely. */
     fun tapExact(p: Point) {
+        guardPurchases(null, blind = false)
         val (x, y) = px(p)
         input.tap(x, y)
     }
@@ -78,6 +130,9 @@ class Context(
     val foreground: String? get() = InputService.instance?.foreground
 
     val assets get() = assetManager
+
+    /** Where macros may leave debug images (the app's own storage). */
+    var debugDir: java.io.File = java.io.File(System.getProperty("java.io.tmpdir") ?: "/data/local/tmp")
 
     fun bool(name: String) = params.getValue(name).trim().lowercase() in setOf("1", "true", "yes", "on", "y")
 
@@ -176,6 +231,31 @@ object Runner {
         }
     }
 
+    private var lastAnrCheck = 0L
+
+    /**
+     * Android's "<app> isn't responding" dialog (the game froze): close the app so the
+     * macro can relaunch it. Checked only while Android's own window is in front.
+     */
+    private fun closeNotRespondingDialog(ctx: Context): Boolean {
+        val fg = ctx.foreground ?: return false
+        if (fg != "android" && fg != "com.android.systemui") return false
+        val now = System.currentTimeMillis()
+        if (now - lastAnrCheck < 3000) return false
+        lastAnrCheck = now
+        val lines = ctx.readText()
+        val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        if ("not responding" !in all && "isn t responding" !in all && "isnt responding" !in all) return false
+        val button = listOf("close app", "stop now", "close").firstNotNullOfOrNull { want ->
+            lines.firstOrNull { Ocr.norm(it.text) == want }
+        } ?: return false.also { MacroLog.i("app-not-responding dialog seen but no close button read: $all") }
+        MacroLog.i("app-not-responding dialog: tapping '${button.text}'")
+        ctx.count("not_responding_closed")
+        ctx.tapExact(button.center)
+        ctx.wait(3.0)
+        return true
+    }
+
     fun run(scenario: Scenario, given: Map<String, String>, capture: Capture, assets: AssetManager, userTemplates: java.io.File? = null): String {
         if (!running.compareAndSet(false, true)) return "a macro is already running"
         stopRequested.set(false)
@@ -187,6 +267,7 @@ object Runner {
         userTemplates?.let { library.addDir(it) }
         (scenario as? FlowScenario)?.let { library.addScreens(it.screenDefs) }
         val ctx = Context(capture, assets, Vision(library), params, stopRequested)
+        userTemplates?.parentFile?.parentFile?.let { ctx.debugDir = java.io.File(it, "debug").apply { mkdirs() } }
         var reason = "finished"
         InputService.instance?.keepScreenOn(true)
         MacroLog.i("running ${scenario.name} with $params")
@@ -212,7 +293,7 @@ object Runner {
                     if (now - unknownSince > scenario.unknownTimeoutS * 1000) {
                         ctx.stop("stuck on an unrecognised screen for ${scenario.unknownTimeoutS.toInt()}s")
                     }
-                    scenario.onUnknown(ctx)
+                    if (!closeNotRespondingDialog(ctx)) scenario.onUnknown(ctx)
                 } else {
                     unknownSince = null
                     scenario.onScreen(ctx, screen)

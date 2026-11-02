@@ -1,0 +1,47 @@
+# Templates for daily-ads (the 5 daily commercials behind the Menu's video icon). Captured on a 2400x1080 phone.
+templates:
+  menu_party_button:
+    file: menu_party_button.png
+    ref: [2400, 1080]
+    region: [0.08, 0.72, 0.14, 0.26]
+    notes: '"Party" button of the open Menu bar (bottom-left).'
+  menu_ad_icon:
+    file: menu_ad_icon.png
+    ref: [2400, 1080]
+    region: [0.66, 0.0, 0.1, 0.12]
+    notes: Video icon at the top of the open Menu (opens "Receive rewards by watching the commercial!").
+  menu_ad_badge:
+    file: menu_ad_badge.png
+    ref: [2400, 1080]
+    region: [0.69, 0.0, 0.07, 0.1]
+    threshold: 0.85
+    notes: Red "!" on the video icon; gone once all of today's commercials are used.
+  ad_offer_title:
+    file: ad_offer_title.png
+    ref: [2400, 1080]
+    region: [0.35, 0.24, 0.3, 0.12]
+    notes: '"Receive rewards by watching the commercial!" title of the daily ad chest.'
+  ad_watch_button:
+    file: ad_watch_button.png
+    ref: [2400, 1080]
+    region: [0.48, 0.74, 0.2, 0.14]
+    notes: '"Watch Video" text of the button (the n/5 counter below it is read by OCR).'
+  ad_dont_watch_button:
+    file: ad_dont_watch_button.png
+    ref: [2400, 1080]
+    region: [0.3, 0.74, 0.22, 0.2]
+    notes: '"Don''t Watch" button: closes the ad chest.'
+  confirm_ok_button:
+    file: confirm_ok_button.png
+    ref: [2400, 1080]
+    region: [0.38, 0.64, 0.24, 0.22]
+    notes: '"OK" of the "Confirm / Rewards received" box after the chest opens.'
+screens:
+  reward_confirm:
+    require: [confirm_ok_button]
+  ad_chest:
+    require: [ad_offer_title]
+  menu_open:
+    require: [menu_party_button]
+  ok_dialog:
+    require: [dialog_ok_button]

@@ -1,0 +1,81 @@
+# The 5 daily commercials: Menu → video icon (top) → Watch Video, until the counter reads 0/5.
+# Premium subscribers get a thank-you instead of the commercial; the chest opens either way.
+name: daily-ads
+description: "Watch the 5 daily commercials (Menu → video icon) for the random chest."
+templates: [start_game, daily_ads]
+params:
+  ad_wait_s: {default: 45, help: "how long to let a commercial play before pressing back to close it"}
+  max_ads: {default: 5, help: "stop after this many"}
+screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, ad_chest, menu_open, field]
+unknown_timeout_s: 120
+
+setup:
+  - set: {watching_since: 0, menu_taps: 0}
+
+handlers:
+  ad_chest:
+    - set: {watching_since: 0}
+    # the button's counter shows how many are left today
+    - if: text_has('0/5') or stats.ads_started >= max_ads
+      then:
+        - tap: ad_dont_watch_button
+        - wait: 1.5
+        - back: true
+        - stop: "no commercials left today ({stats.ads_started} watched this run)"
+    - count: ads_started
+    - tap: ad_watch_button
+    - set: {watching_since: now()}
+    - wait: 3
+
+  premium_thanks:   # subscribers: no commercial, the chest still opens
+    - count: premium_skips
+    - tap: dialog_close_button
+    - set: {watching_since: 0}
+    - wait: 2
+
+  ad_reward:
+    - tap: dialog_ok_button
+    - wait: 1.5
+
+  ok_dialog:        # what the chest gave (or "could not receive ... reached the limit")
+    - count: rewards
+    - tap: dialog_ok_button
+    - wait: 1.5
+
+  reward_confirm:   # "Rewards received: 1 / Chronos Stone x5"
+    - count: rewards
+    - tap: confirm_ok_button
+    - wait: 1.5
+
+  menu_open:
+    # the red "!" on the video icon is gone once all of today's commercials are used
+    - if: not found('menu_ad_badge')
+      then:
+        - back: true
+        - stop: "all of today's commercials are done ({stats.ads_started} watched this run)"
+    - set: {menu_taps: menu_taps + 1}
+    - if: menu_taps > 4
+      then: [{stop: "the video icon didn't open the ad chest (maybe no commercials today)"}]
+    - tap: menu_ad_icon
+    - wait: 2.5
+
+  field:
+    - tap: field_menu_button
+    - wait: 2
+
+unknown:
+  - if: not game_in_front()
+    then: [{stop: "the game is not in front (open it first, e.g. with start-game)"}]
+  - if: watching_since > 0
+    then:
+      # a commercial is playing: let it finish, then back closes it; never tap inside it
+      - if: now() - watching_since > ad_wait_s
+        then:
+          - back: true
+          - count: ad_backs
+          - set: {watching_since: now() - ad_wait_s + 10}
+      - wait: 2
+    else:
+      # the chest opening: tap through it
+      - tap: [0.5, 0.65]
+      - wait: 1.5

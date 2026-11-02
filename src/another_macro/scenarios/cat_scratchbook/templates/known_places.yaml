@@ -1,0 +1,6 @@
+# Where scratchbook places sit on the world map, learned by the daily cat routine.
+# continent: the entry to tap in the map's Expand view (islands like Snake Bone Island
+# are reached from a continent's map). The app adds what it learns to its own copy.
+Unigan: {era: Present, continent: Migleina Continent}
+Konium: {era: Present, continent: Migleina Continent}
+Hidden Village Itoise: {era: Present, continent: Garulea Continent}

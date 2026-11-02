@@ -31,8 +31,9 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   reset_view: true            (forget the last view for view_moved())
  *   find_feather: true          (cat scratchbook: tap the feather bubble if visible; sets `tapped`)
  *   read_cat_clues: true        (cat scratchbook: sets `report` to today's clues and their places)
+ *   cat_daily: true             (cat scratchbook: read clues by OCR, travel to each cat, find it; stops with a summary)
  *
- * Expression functions: found('t'), captured('t'), game_in_front(), view_moved(), now(), pick(i, a, b, ...)
+ * Expression functions: found('t'), captured('t'), text_has('s'), game_in_front(), view_moved(), now(), pick(i, a, b, ...)
  */
 class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Scenario() {
     override val name = spec["name"] as? String ?: throw IllegalArgumentException("$source: missing name")
@@ -43,6 +44,8 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
         k.toString() to Param(Expr.str(m?.get("default") ?: v), m?.get("help")?.toString() ?: "")
     }
     override val screens: List<String> = list(spec["screens"]).map { it.toString() }
+    /** A routine: other macros run one after another (steps: [start-game, daily-ads, ...]). */
+    val steps: List<String> = list(spec["steps"]).map { it.toString() }
     override val unknownTimeoutS = (spec["unknown_timeout_s"] as? Number)?.toDouble() ?: 45.0
     val screenDefs: Map<String, ScreenDef> = map(spec["define_screens"]).entries.associate { (k, v) ->
         val m = mapOrNull(v)
@@ -102,6 +105,7 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
             "reset_view" in a -> { lastView?.release(); lastView = null }
             "find_feather" in a -> findFeather(ctx)
             "read_cat_clues" in a -> vars["report"] = readCatClues(ctx)
+            "cat_daily" in a -> ctx.stop(CatDaily.run(ctx))
             else -> throw IllegalArgumentException("$name: unknown action ${a.keys}")
         }
     }
@@ -176,6 +180,8 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
             "game_in_front" -> ctx.frame?.portraitAppInFront != true
             "view_moved" -> viewMoved(ctx)
             "now" -> System.currentTimeMillis() / 1000.0
+            // on-screen text (OCR) contains this, loosely (case and punctuation ignored)
+            "text_has" -> Ocr.norm(Expr.str(args[0])).let { want -> ctx.readText().any { Ocr.norm(it.text).contains(want) } }
             "pick" -> args[Expr.num(args[0]).toInt().coerceIn(1, args.size - 1)]
             "abs" -> kotlin.math.abs(Expr.num(args[0]))
             else -> throw IllegalArgumentException("$macro: unknown function $name()")

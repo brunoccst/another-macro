@@ -104,9 +104,26 @@ class MacroService : Service() {
         val scenario = try { Scenarios.get(this, name) } catch (e: Exception) { MacroLog.e(e.message ?: "unknown macro"); return }
         LastRun.save(this, name, params)
         updateNotification("Running ${scenario.name}")
+        val steps = (scenario as? FlowScenario)?.steps.orEmpty()
         worker = Thread({
-            val reason = Runner.run(scenario, params, cap, assets, Scenarios.userTemplates(this))
-            updateNotification("Stopped: $reason")
+            if (steps.isEmpty()) {
+                val reason = Runner.run(scenario, params, cap, assets, Scenarios.userTemplates(this))
+                updateNotification("Stopped: $reason")
+                return@Thread
+            }
+            // a routine: each macro in turn; a step that fails doesn't stop the rest (the last one turns the game off)
+            val results = ArrayList<String>()
+            for (step in steps) {
+                val sub = try { Scenarios.get(this, step) } catch (e: Exception) { results += "$step: unknown macro"; continue }
+                updateNotification("${scenario.name}: $step")
+                MacroLog.i("${scenario.name}: step $step")
+                val reason = Runner.run(sub, emptyMap(), cap, assets, Scenarios.userTemplates(this))
+                results += "$step: $reason"
+                if (reason == "stop requested") break
+                if (reason.startsWith("safety stop")) { MacroLog.i("${scenario.name}: safety stop, skipping the remaining steps"); break }
+            }
+            MacroLog.i("${scenario.name} done — " + results.joinToString(" | "))
+            updateNotification("${scenario.name} done")
         }, "macro").apply { start() }
     }
 

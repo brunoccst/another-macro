@@ -6,6 +6,16 @@
 # `file`, `ref` and `region`. `notes` says what to cut.
 
 templates:
+  shop_title:
+    notes: '"Shop" title at the top of the shop window. Safety: no blind tap while it is visible.'
+    file: shop_title.png
+    ref: [2400, 1080]
+    region: [0.42, 0.0, 0.16, 0.16]
+  shop_close_button:
+    notes: The X that closes the shop window.
+    file: shop_close_button.png
+    ref: [2400, 1080]
+    region: [0.78, 0.0, 0.14, 0.14]
   field_menu_button:
     notes: The "Menu" button shown on the field/map screen (bottom-left).
     region:
