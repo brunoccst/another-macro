@@ -209,12 +209,24 @@ class MainActivity : Activity() {
         paramsBox.removeAllViews()
         paramFields.clear()
         val last = LastRun.load(this)?.takeIf { it.first == s.name }?.second
+        // params shown only while a switch is on: their views, by that switch
+        val dependents = HashMap<String, MutableList<View>>()
+        val switches = HashMap<String, Boolean>()
+        val outer = paramsBox
         for ((key, p) in s.params) {
             val value = last?.get(key) ?: p.default
+            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+            outer.addView(box)
+            p.showIf?.let { dependents.getOrPut(it) { ArrayList() } += box; box.visibility = if (switches[it] == true) View.VISIBLE else View.GONE }
+            val paramsBox = box
             paramsBox.addView(Ui.divider(this))
             if (p.isBool) {
                 var cur = FlowScenario.typed(value) == true
-                paramsBox.addView(switchRow(Ui.title(key), p.help, cur) { cur = it })
+                switches[key] = cur
+                paramsBox.addView(switchRow(Ui.title(key), p.help, cur) { on ->
+                    cur = on
+                    dependents[key]?.forEach { it.visibility = if (on) View.VISIBLE else View.GONE }
+                })
                 paramFields[key] = { cur.toString() }
                 continue
             }

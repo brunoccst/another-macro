@@ -10,7 +10,9 @@ class StopScenario(reason: String) : Exception(reason)
  * A user-tunable option, given as text (from the app's form or an intent extra).
  * [choices] makes the form show a dropdown; [type] "bool" a checkbox; otherwise a text box.
  */
-data class Param(val default: String, val help: String, val choices: List<String> = emptyList(), val type: String = "text") {
+data class Param(val default: String, val help: String, val choices: List<String> = emptyList(), val type: String = "text",
+                 /** Shown in the app only while this switch param is on (e.g. the boss skills under boss_setup). */
+                 val showIf: String? = null) {
     val isBool get() = type == "bool"
 }
 

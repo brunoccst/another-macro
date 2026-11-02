@@ -49,7 +49,7 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
         val choices = list(m?.get("choices")).map { Expr.str(it) }
         val default = m?.get("default") ?: v
         val type = m?.get("type")?.toString() ?: if (default is Boolean) "bool" else "text"
-        k.toString() to Param(Expr.str(default), m?.get("help")?.toString() ?: "", choices, type)
+        k.toString() to Param(Expr.str(default), m?.get("help")?.toString() ?: "", choices, type, m?.get("show_if")?.toString())
     }
     override val screens: List<String> = list(spec["screens"]).map { it.toString() }
     /** A routine: other macros run one after another (steps: [start-game, daily-ads, ...]). */
