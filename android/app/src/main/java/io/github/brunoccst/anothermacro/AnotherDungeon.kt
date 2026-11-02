@@ -80,6 +80,7 @@ object AnotherDungeon {
         // the run's report
         val start = System.currentTimeMillis()
         val items = LinkedHashMap<String, Int>()
+        val rewards = LinkedHashMap<String, Int>()
         var chestsTotal = 0
         var skipped = false
         /** What the run is doing (the live log shows it again after a battle). */
@@ -166,19 +167,45 @@ object AnotherDungeon {
         }
     }
 
+    /**
+     * The end screens: "Congratulations" rows ("Medium Class Scroll  × 2") and "Items Obtained"
+     * ("Dark Residue / Amount 4,250 / Held …").
+     */
+    private fun noteRewards(r: Run, lines: List<Ocr.Line>) {
+        fun num(t: String) = t.replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(Regex("[^0-9]"), "").toIntOrNull()
+        val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        if ("congratulations" in all) {
+            for (c in lines.filter { Regex("""^\s*[x×X]\s*[0-9OoIl,]+\s*$""").matches(it.text) }) {
+                val name = lines.filter { it !== c && abs(it.center.y - c.center.y) < 0.03 && it.center.x < c.center.x && Regex("[A-Za-z]{3}").containsMatchIn(it.text) }
+                    .maxByOrNull { it.center.x }?.text?.trim() ?: continue
+                val n = num(c.text) ?: continue
+                r.rewards[name] = (r.rewards[name] ?: 0) + n
+            }
+        }
+        if ("items obtained" in all) {
+            for (a in lines.filter { Ocr.norm(it.text).startsWith("amount") }) {
+                val n = num(a.text.substringAfter("mount")) ?: lines.firstOrNull { it !== a && abs(it.center.y - a.center.y) < 0.03 && it.center.x > a.center.x }?.let { num(it.text) } ?: continue
+                val name = lines.filter { it.center.y < a.center.y && a.center.y - it.center.y < 0.1 && abs(it.center.x - a.center.x) < 0.15 && Regex("[A-Za-z]{3}").containsMatchIn(it.text) && !Ocr.norm(it.text).startsWith("items") }
+                    .maxByOrNull { it.center.y }?.text?.trim() ?: continue
+                r.rewards[name] = n // the run's total of that item (shown once)
+            }
+        }
+    }
+
     /** One line about the run: how long, what it got. Also appended to the app's runs.log. */
     private fun report(r: Run, outcome: String): String {
         val secs = (System.currentTimeMillis() - r.start) / 1000
         val st = r.ctx.stats
         val items = r.items.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
+        val rewards = r.rewards.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val text = "$outcome — ${secs / 60}m ${secs % 60}s; " +
             (if (r.skipped) "skipped with a Cat Express Ticket; " else "chests ${st["chests"] ?: 0}/${r.chestsTotal}, battles ${st["battles"] ?: 0}; ") +
-            "chest items: $items; White Key: ${if (r.phantom) "yes" else "no"}"
+            (if (r.skipped) "" else "chest items: $items; ") + "rewards: $rewards; White Key: ${if (r.phantom) "yes" else "no"}"
         runCatching {
             val o = org.json.JSONObject().put("when", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(r.start)))
                 .put("dungeon", r.spec.name).put("key", r.ctx.str("key")).put("seconds", secs).put("outcome", outcome)
                 .put("skipped", r.skipped).put("chests", st["chests"] ?: 0).put("chests_total", r.chestsTotal)
-                .put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>))
+                .put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
             java.io.File(r.ctx.debugDir.parentFile, "runs.log").appendText(o.toString() + "\n")
         }.onFailure { MacroLog.e("could not save the run report", it) }
         MacroLog.status(text)
@@ -219,12 +246,10 @@ object AnotherDungeon {
         }
         if (skip) {
             tapText(r, "Skip", exact = true) ?: ctx.stop("no Skip button (Cat Express Ticket): ${seen(ctx)}")
-            ctx.wait(2.0)
-            // the skip dialog: confirm only (a purchase offer stops in tapText)
-            tapText(r, "OK", "Yes", "Skip", "Use", exact = true, minY = 0.45) ?: ctx.stop("couldn't confirm the Skip: ${seen(ctx)}")
+            // no confirmation: the game goes straight to "Congratulations" and the items
             ctx.count("cat_tickets")
             r.skipped = true
-            ctx.wait(4.0)
+            ctx.wait(3.0)
             return finish(r)
         }
         tapText(r, "Move", exact = true) ?: ctx.stop("no Move button: ${seen(ctx)}")
@@ -362,6 +387,7 @@ object AnotherDungeon {
         // the banner sits at the top middle: reading only there is quicker (it shows for a moment)
         val lines = if (quick) r.ctx.readText(Region(0.15, 0.0, 0.7, 0.25)) else r.ctx.readText()
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        if (!quick) { noteRewards(r, lines); endNotSkip(r, lines) }
         if (!r.cleared && noEnemiesLeft(all)) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
         if ("white key" in all || "phantom crystal" in all) {
             if (!r.phantom) MacroLog.i("White Key: the Phantom Crystal Dimension is open")
@@ -451,16 +477,39 @@ object AnotherDungeon {
     private fun finish(r: Run): String {
         val ctx = r.ctx
         repeat(25) {
-            checkPhantom(r)
-            if (r.phantom) return phantomDone(r)
             ctx.refresh()
-            if (ctx.find("field_menu_button") != null && whereAmI(r) == null) return "${r.spec.name} done"
-            if (ctx.find("field_menu_button") != null) return "${r.spec.name}: the boss is beaten but the party is still inside"
+            if (ctx.find("field_menu_button") != null) {
+                if (whereAmI(r) != null) return "${r.spec.name}: the boss is beaten but the party is still inside"
+                return if (r.phantom) phantomDone(r) else "${r.spec.name} done"
+            }
             if (Battle.inBattle(ctx)) { fight(r); return@repeat }
-            tapText(r, "OK", "Close", "Next", "Leave", "Exit", exact = true, tries = 1) ?: ctx.tap(Point(0.5, 0.8))
+            val lines = ctx.readText()
+            readPhantom(r, lines)
+            noteRewards(r, lines)
+            // "Continue to skip?  End / Skip": End (Skip would spend another key and ticket)
+            if (endNotSkip(r, lines)) return@repeat
+            tapText(r, "OK", "Close", "Next", exact = true, tries = 1)
+                ?: ctx.tap(Point(0.5, 0.2)) // the rest closes with a tap anywhere: up here, away from buttons
             ctx.wait(2.0)
         }
         return "${r.spec.name}: finished, but stuck on the screens after it (${seen(ctx)})"
+    }
+
+    /** On the "Continue to skip?" box, tap End. True if it was there. */
+    private fun endNotSkip(r: Run, lines: List<Ocr.Line>): Boolean {
+        if (lines.none { Ocr.norm(it.text).contains("continue to skip") }) return false
+        val end = lines.firstOrNull { Ocr.norm(it.text) == "end" } ?: return false
+        MacroLog.i("\"Continue to skip?\": End")
+        r.ctx.tapExact(end.center); r.ctx.wait(2.5)
+        return true
+    }
+
+    private fun readPhantom(r: Run, lines: List<Ocr.Line>) {
+        val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        if ("white key" in all || "phantom crystal" in all) {
+            if (!r.phantom) MacroLog.i("White Key: the Phantom Crystal Dimension is open")
+            r.phantom = true
+        }
     }
 
     private fun checkPhantom(r: Run) {
