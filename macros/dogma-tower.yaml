@@ -3,6 +3,8 @@
 # White Key opened the Phantom Crystal Dimension. Never buys keys: a purchase offer stops it.
 # Start it next to the Another Dungeon door in the Spacetime Rift (or inside Dogma Tower).
 name: dogma-tower
+group: dungeon
+icon: chest
 description: "Another Dungeon: Dogma Tower. All chests, optionally all enemies, then the boss."
 templates: [another_dungeon]
 params:
@@ -15,10 +17,10 @@ params:
   skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], help: "mobs, character 3: auto or skill 1-4"}
   skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], help: "mobs, character 4: auto or skill 1-4"}
   boss_setup: {default: false, type: bool, help: "use a different skill setup for the boss (below)"}
-  boss_skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], help: "boss, character 1: auto or skill 1-4"}
-  boss_skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], help: "boss, character 2: auto or skill 1-4"}
-  boss_skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], help: "boss, character 3: auto or skill 1-4"}
-  boss_skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], help: "boss, character 4: auto or skill 1-4"}
+  boss_skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, character 1: auto or skill 1-4"}
+  boss_skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, character 2: auto or skill 1-4"}
+  boss_skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, character 3: auto or skill 1-4"}
+  boss_skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, character 4: auto or skill 1-4"}
 screens: [field, battle_command, battle, battle_result]
 unknown_timeout_s: 120
 

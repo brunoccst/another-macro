@@ -42,13 +42,15 @@ import org.snakeyaml.engine.v2.api.LoadSettings
 class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Scenario() {
     override val name = spec["name"] as? String ?: throw IllegalArgumentException("$source: missing name")
     override val description = spec["description"] as? String ?: ""
+    override val group = spec["group"] as? String ?: "other"
+    override val icon = spec["icon"] as? String ?: ""
     override val templateFolders: List<String> = list(spec["templates"]).map { it.toString() }
     override val params: Map<String, Param> = map(spec["params"]).entries.associate { (k, v) ->
         val m = mapOrNull(v)
         val choices = list(m?.get("choices")).map { Expr.str(it) }
         val default = m?.get("default") ?: v
         val type = m?.get("type")?.toString() ?: if (default is Boolean) "bool" else "text"
-        k.toString() to Param(Expr.str(default), m?.get("help")?.toString() ?: "", choices, type)
+        k.toString() to Param(Expr.str(default), m?.get("help")?.toString() ?: "", choices, type, m?.get("show_if")?.toString())
     }
     override val screens: List<String> = list(spec["screens"]).map { it.toString() }
     /** A routine: other macros run one after another (steps: [start-game, daily-ads, ...]). */

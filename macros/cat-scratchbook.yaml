@@ -3,6 +3,8 @@
 #  hunt: on the map where today's cat is, walk in short steps, tap its feather bubble.
 #  daily: the whole thing unattended: read the clues (OCR), travel to each cat, find it.
 name: cat-scratchbook
+group: daily
+icon: paw
 description: "daily: find all of today's cats; read: report today's clues; hunt: find the cat on this map."
 templates: [cat_scratchbook]
 params:

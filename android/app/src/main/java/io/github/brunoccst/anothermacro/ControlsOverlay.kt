@@ -137,7 +137,18 @@ class ControlsOverlay(private val service: InputService) {
         if (Runner.isRunning) { MacroLog.i("stop the macro before choosing another"); return }
         picker.removeAllViews()
         val current = LastRun.load(service)?.first
-        for (sc in runCatching { Scenarios.all(service) }.getOrDefault(emptyList())) {
+        for ((group, list) in Groups.sort(runCatching { Scenarios.all(service) }.getOrDefault(emptyList()))) {
+          // the group's name above its macros
+          picker.addView(TextView(service).apply {
+              text = " ${group.title}"
+              setCompoundDrawablesWithIntrinsicBounds(service.getDrawable(group.iconRes)?.apply { setBounds(0, 0, dp(14), dp(14)) }, null, null, null)
+              compoundDrawablePadding = dp(4)
+              setTextColor(Color.parseColor("#B0BEC5"))
+              textSize = 11f
+              setPadding(dp(10), dp(6), dp(10), dp(1))
+              layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.END }
+          })
+          for (sc in list) {
             picker.addView(pill((if (sc.name == current) "● " else "○ ") + sc.name).apply {
                 setOnClickListener {
                     // keep the saved params when re-picking the same macro; a new one starts with its defaults
@@ -148,6 +159,7 @@ class ControlsOverlay(private val service: InputService) {
                     refresh()
                 }
             })
+          }
         }
         picker.visibility = View.VISIBLE
         relayout()

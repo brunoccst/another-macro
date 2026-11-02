@@ -10,7 +10,9 @@ class StopScenario(reason: String) : Exception(reason)
  * A user-tunable option, given as text (from the app's form or an intent extra).
  * [choices] makes the form show a dropdown; [type] "bool" a checkbox; otherwise a text box.
  */
-data class Param(val default: String, val help: String, val choices: List<String> = emptyList(), val type: String = "text") {
+data class Param(val default: String, val help: String, val choices: List<String> = emptyList(), val type: String = "text",
+                 /** Shown in the app only while this switch param is on (e.g. the boss skills under boss_setup). */
+                 val showIf: String? = null) {
     val isBool get() = type == "bool"
 }
 
@@ -171,6 +173,10 @@ class Context(
 abstract class Scenario {
     abstract val name: String
     abstract val description: String
+    /** Which group the app lists it under (Groups: daily, dungeon, farm, game, other). */
+    open val group: String = "other"
+    /** Its icon in the app (chest, paw, crystal, key, swords, sun, power); empty = its group's. */
+    open val icon: String = ""
     open val params: Map<String, Param> = emptyMap()
     /** Asset folders (under templates/) whose library.yaml this scenario uses, besides "common". */
     open val templateFolders: List<String> = emptyList()
