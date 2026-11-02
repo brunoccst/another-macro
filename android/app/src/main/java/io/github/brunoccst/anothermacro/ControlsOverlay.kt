@@ -17,8 +17,8 @@ import android.widget.TextView
 import kotlin.math.abs
 
 /**
- * Floating controls over the game: start / pause-resume / stop / restart the
- * last macro without leaving the game. Drawn as an accessibility overlay (no
+ * Floating controls over the game: the selected macro (tap to pick another), and
+ * start / pause-resume / stop / restart it without leaving the game. Drawn as an accessibility overlay (no
  * "draw over other apps" permission needed). Drag the handle to move it; tap
  * the handle to fold the buttons away. The handle's colour shows the state:
  * grey = idle, green = running, amber = paused.
@@ -31,13 +31,16 @@ class ControlsOverlay(private val service: InputService) {
     private val wm = service.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val main = Handler(Looper.getMainLooper())
     private val density = service.resources.displayMetrics.density
-    private val root = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL }
-    private val buttons = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL }
+    private val root = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
+    private val buttons = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
     private val handle = round("≡", Color.GRAY)
     private val playPause = round("▶", Color.parseColor("#2E7D32"))
     private val stop = round("■", Color.parseColor("#C62828"))
     private val restart = round("↻", Color.parseColor("#1565C0"))
     private val camera = round("📷", Color.parseColor("#6A1B9A"))
+    /** The selected macro (what ▶ starts); tap it to pick another. */
+    private val selected = pill("—")
+    private val picker = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END; visibility = View.GONE }
     private val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
@@ -45,14 +48,17 @@ class ControlsOverlay(private val service: InputService) {
         WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
         PixelFormat.TRANSLUCENT,
     ).apply {
-        gravity = Gravity.TOP or Gravity.START
-        x = service.resources.displayMetrics.let { maxOf(it.widthPixels, it.heightPixels) } - dp(56)
+        // anchored to the right edge: the macro list grows to the left, onto the screen
+        gravity = Gravity.TOP or Gravity.END
+        x = dp(12)
         y = dp(70)
     }
     private val listener: () -> Unit = { main.post { refresh() } }
     private var wasRunning = false
 
     init {
+        buttons.addView(selected)
+        buttons.addView(picker)
         buttons.addView(playPause)
         buttons.addView(stop)
         buttons.addView(restart)
@@ -70,6 +76,7 @@ class ControlsOverlay(private val service: InputService) {
         stop.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_STOP_RUN)) }
         restart.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_RESTART)) }
         camera.setOnClickListener { captureTemplate() }
+        selected.setOnClickListener { togglePicker() }
         dragAndFold()
         refresh()
     }
@@ -91,6 +98,27 @@ class ControlsOverlay(private val service: InputService) {
             return
         }
         service.startService(LastRun.intent(service, last.first, last.second))
+    }
+
+    /** Show or hide the list of macros; picking one makes it what ▶ starts. */
+    private fun togglePicker() {
+        if (picker.visibility == View.VISIBLE) { picker.visibility = View.GONE; return }
+        if (Runner.isRunning) { MacroLog.i("stop the macro before choosing another"); return }
+        picker.removeAllViews()
+        val current = LastRun.load(service)?.first
+        for (sc in runCatching { Scenarios.all(service) }.getOrDefault(emptyList())) {
+            picker.addView(pill((if (sc.name == current) "● " else "○ ") + sc.name).apply {
+                setOnClickListener {
+                    // keep the saved params when re-picking the same macro; a new one starts with its defaults
+                    val params = LastRun.load(service)?.takeIf { it.first == sc.name }?.second ?: emptyMap()
+                    LastRun.save(service, sc.name, params)
+                    picker.visibility = View.GONE
+                    MacroLog.i("selected macro: ${sc.name}")
+                    refresh()
+                }
+            })
+        }
+        picker.visibility = View.VISIBLE
     }
 
     /** Grab the game screen (without these buttons) and open the crop screen. */
@@ -127,6 +155,7 @@ class ControlsOverlay(private val service: InputService) {
         }
         (handle.background as GradientDrawable).setColor(color)
         playPause.text = if (Runner.isRunning && !Runner.isPaused) "❚❚" else "▶"
+        selected.text = "▸ " + (Runner.current?.takeIf { Runner.isRunning } ?: LastRun.load(service)?.first ?: "pick a macro")
     }
 
     @SuppressLint("ClickableViewAccessibility")
@@ -141,7 +170,7 @@ class ControlsOverlay(private val service: InputService) {
                     val dx = e.rawX - downX; val dy = e.rawY - downY
                     if (abs(dx) > dp(6) || abs(dy) > dp(6)) moved = true
                     if (moved) {
-                        params.x = startX + dx.toInt(); params.y = startY + dy.toInt()
+                        params.x = startX - dx.toInt(); params.y = startY + dy.toInt() // x counts from the right edge
                         runCatching { wm.updateViewLayout(root, params) }
                     }
                 }
@@ -161,6 +190,18 @@ class ControlsOverlay(private val service: InputService) {
         background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
         layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { setMargins(0, dp(4), 0, dp(4)) }
         if (Build.VERSION.SDK_INT >= 21) elevation = dp(3).toFloat()
+    }
+
+    private fun pill(label: String) = TextView(service).apply {
+        text = label
+        setTextColor(Color.WHITE)
+        textSize = 12f
+        maxLines = 1
+        gravity = Gravity.CENTER_VERTICAL
+        setPadding(dp(10), dp(6), dp(10), dp(6))
+        background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Color.parseColor("#DD37474F")) }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            .apply { setMargins(0, dp(3), 0, dp(3)); gravity = Gravity.END }
     }
 
     private fun dp(v: Int) = (v * density).toInt()

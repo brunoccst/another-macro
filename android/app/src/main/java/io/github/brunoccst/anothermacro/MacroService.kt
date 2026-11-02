@@ -120,6 +120,7 @@ class MacroService : Service() {
                 val reason = Runner.run(sub, emptyMap(), cap, assets, Scenarios.userTemplates(this))
                 results += "$step: $reason"
                 if (reason == "stop requested") break
+                if (reason.startsWith("safety stop")) { MacroLog.i("${scenario.name}: safety stop, skipping the remaining steps"); break }
             }
             MacroLog.i("${scenario.name} done — " + results.joinToString(" | "))
             updateNotification("${scenario.name} done")
