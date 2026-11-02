@@ -196,7 +196,7 @@ object AnotherDungeon {
         tapText(r, r.spec.name, minY = 0.2, maxX = 0.62) ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map: ${seen(ctx)}")
         ctx.wait(2.0)
         // the panel's counters at the bottom: green keys, red keys, Cat Express Tickets ("17/50"); their "+" buy more
-        val tickets = ctx.readText().filter { it.center.y > 0.85 && it.center.x > 0.8 }
+        val tickets = LiveLog.without { ctx.readText() }.filter { it.center.y > 0.85 && it.center.x > 0.8 }
             .firstNotNullOfOrNull { Regex("""(\d+)\s*/\s*50""").find(it.text)?.groupValues?.get(1)?.toIntOrNull() }
         MacroLog.i("Cat Express Tickets: ${tickets ?: "not read"}")
         val skip = ctx.bool("cat_ticket") && (tickets ?: 0) > 0

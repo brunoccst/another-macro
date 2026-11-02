@@ -25,6 +25,22 @@ object LiveLog {
 
     val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
 
+    /** True while the macro reads what the live log covers: the overlay steps aside. */
+    @Volatile var hidden = false
+        private set
+
+    /** Run [block] (on the macro's thread) with the live log out of the way, e.g. to read the corner it covers. */
+    fun <T> without(block: () -> T): T {
+        if (area == null) return block()
+        hidden = true
+        listeners.forEach { runCatching { it() } }
+        Thread.sleep(400) // the overlay hides, and a frame without it arrives
+        return try { block() } finally {
+            hidden = false
+            listeners.forEach { runCatching { it() } }
+        }
+    }
+
     fun enabled(context: android.content.Context) =
         context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getBoolean("on", false)
 
@@ -80,7 +96,7 @@ class LiveLogOverlay(private val service: InputService) {
     }
 
     private fun refresh() {
-        val want = Runner.isRunning && LiveLog.enabled(service)
+        val want = Runner.isRunning && LiveLog.enabled(service) && !LiveLog.hidden
         if (want && !shown) {
             val dm = service.resources.displayMetrics
             val w = (maxOf(dm.widthPixels, dm.heightPixels) * 0.38).toInt()
