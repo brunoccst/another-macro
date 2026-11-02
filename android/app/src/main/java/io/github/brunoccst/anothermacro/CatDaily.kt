@@ -101,8 +101,17 @@ object CatDaily {
         val place = clue.location.substringBefore(" (").substringBefore(" –").substringBefore(" -").trim()
         // "Moonlight Forest (Forest Edge)" / "Nadara Volcano – Caldera Edge": the sub-destination
         val sub = Regex("""\(([^)]*)\)|[–-] (.+)$""").find(clue.location)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }?.trim() ?: ""
-        ctx.tap(MAP_BUTTON); ctx.wait(2.5)
-        if (ctx.readText().none { Ocr.norm(it.text) == "world map" }) { ctx.wait(1.5) }
+        // the Map button sometimes ignores a tap (right after a hunt or a trip): retry until the world map shows
+        var opened = false
+        for (attempt in 1..3) {
+            ensureField(ctx)
+            ctx.tap(MAP_BUTTON); ctx.wait(2.5)
+            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
+            ctx.wait(1.5)
+            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
+            MacroLog.i("world map didn't open (try $attempt/3)")
+        }
+        if (!opened) return false
         ctx.tap(ERA.getValue(clue.era)); ctx.wait(2.0)
         if (searchAndGo(ctx, place, sub)) return true
         // not on this continent: try each one in the Expand view
@@ -162,47 +171,105 @@ object CatDaily {
     // --- 3. steer on the area map -------------------------------------------------
     /** Walk toward the feather shown on the area map. True once the party is close to it. */
     fun steer(ctx: Context): Boolean {
-        var verticalTries = 0
-        var lastParty: Point? = null
-        repeat(14) {
-            val (feather, party) = readAreaMap(ctx) ?: return false.also { MacroLog.i("no feather on this map") }
-            if (party == null) { MacroLog.i("party marker not found on the map; hunting from here"); return true }
+        var lastRowY: Double? = null
+        var nudge = 0
+        repeat(16) {
+            val read = readAreaMap(ctx) ?: return false.also { MacroLog.i("no feather on this map") }
+            val feather = read.feather
+            val party = read.party ?: return true.also { MacroLog.i("party marker not found on the map; hunting from here") }
             val dx = feather.x - party.x
             val dy = feather.y - party.y
-            if (abs(dy) < 0.045 && abs(dx) < 0.05) return true
-            if (abs(dy) < 0.045) {
-                // same street: walk straight toward it (time scaled by the distance on the map)
-                glide(ctx, if (dx > 0) 1.0 else -1.0, 0.0, (abs(dx) * 9000).toLong().coerceIn(400, 7000))
-            } else {
-                val moved = lastParty?.let { abs(it.y - party.y) > 0.02 } ?: true
-                if (!moved) verticalTries++
-                if (verticalTries % 2 == 1) {
-                    // the stairs/path to the other street isn't here: step along the street first
-                    glide(ctx, if (dx > 0) 1.0 else -1.0, 0.0, 900)
-                }
-                glide(ctx, 0.0, if (dy > 0) 1.0 else -1.0, 1600)
+            if (abs(dy) < ROW_TOL && abs(dx) < 0.05) return true
+            if (abs(dy) < ROW_TOL) {
+                // same street: one long hold, sized from the distance on the map
+                hold(ctx, if (dx > 0) 1.0 else -1.0, abs(dx))
+                return@repeat
             }
-            lastParty = party
+            val up = dy < 0
+            val sameRowAsBefore = lastRowY?.let { abs(it - party.y) < ROW_TOL } ?: false
+            lastRowY = party.y
+            val conn = read.connectors(up)
+                .minByOrNull { abs(it - party.x) + 0.5 * abs(it - feather.x) }
+            if (conn == null) {
+                MacroLog.i("no street connector ${if (up) "up" else "down"} on the map; walking toward the feather")
+                hold(ctx, if (dx > 0) 1.0 else -1.0, abs(dx).coerceAtMost(0.08))
+                return@repeat
+            }
+            val toConn = conn - party.x
+            if (abs(toConn) > 0.012) hold(ctx, if (toConn > 0) 1.0 else -1.0, abs(toConn))
+            // the street changes on a quick flick while standing on the ground arrow;
+            // if the last flick did nothing, shuffle a little either side of the connector first
+            if (sameRowAsBefore) {
+                nudge++
+                val side = if (nudge % 2 == 1) 1.0 else -1.0
+                hold(ctx, side, 0.006 * ((nudge + 1) / 2))
+            } else nudge = 0
+            flick(ctx, up)
             fightIfBattle(ctx)
         }
         return true
     }
 
+    /** Map units (fraction of the screen width) walked per second of holding. Measured in Unigan. */
+    private val WALK_PER_S = 0.027
+    private val ROW_TOL = 0.035
+
+    private fun hold(ctx: Context, dir: Double, mapDist: Double) {
+        val ms = (mapDist / WALK_PER_S * 1000).toLong().coerceIn(40, 12000)
+        ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), ms)
+        ctx.wait(0.5)
+    }
+
+    /** A quick flick up or down: takes the path at a ground arrow (a slow hold only turns around). */
+    private fun flick(ctx: Context, up: Boolean) {
+        val (a, b) = if (up) 0.74 to 0.42 else 0.42 to 0.74
+        ctx.drag(Point(0.5, a), Point(0.5, b), 150)
+        ctx.wait(2.5)
+    }
+
     private fun glide(ctx: Context, dx: Double, dy: Double, ms: Long) =
         ctx.drag(Point(0.5, 0.55), Point(0.5 + 0.06 * dx, 0.55 + 0.08 * dy), ms)
 
+    /** What the area map shows: the feather, the party marker and the streets (light grey paths). */
+    private class AreaMap(val feather: Point, val party: Point?, private val paths: Mat?, private val w: Int, private val h: Int) {
+        /** x of the paths leaving the party's street up (or down), normalized. */
+        fun connectors(up: Boolean): List<Double> {
+            val p = party ?: return emptyList()
+            val m = paths ?: return emptyList()
+            val y0 = (p.y * h).toInt()
+            // from the edge of the party's street toward the next one
+            val (from, to) = if (up) (y0 - 100) to (y0 - 22) else (y0 + 22) to (y0 + 100)
+            if (from < 0 || to >= h) return emptyList()
+            val band = ByteArray((to - from) * w)
+            m.submat(from, to, 0, w).let { sub -> sub.clone().also { c -> c.get(0, 0, band); c.release() }; sub.release() }
+            val cols = ArrayList<Int>()
+            for (x in 0 until w step 2) {
+                var on = 0
+                for (y in 0 until to - from) if (band[y * w + x].toInt() != 0) on++
+                if (on >= (to - from) * 0.35) cols += x  // map icons cover parts of a path
+            }
+            val groups = ArrayList<MutableList<Int>>()
+            for (c in cols) if (groups.isNotEmpty() && c - groups.last().last() <= 6) groups.last() += c else groups += mutableListOf(c)
+            return groups.filter { it.last() - it.first() in 6..80 }.map { (it.first() + it.last()) / 2.0 / w }
+        }
+        fun release() { paths?.release() }
+    }
+
     /** Open the area map (tap the minimap), find the feather and the party marker, close it. */
-    private fun readAreaMap(ctx: Context): Pair<Point, Point?>? {
+    private fun readAreaMap(ctx: Context): AreaMap? {
+        lastMap?.release(); lastMap = null
         // right after a trip the map may not open yet (area banner, fade-in): try a few times
         repeat(3) { attempt ->
-            readAreaMapOnce(ctx)?.let { return it }
+            readAreaMapOnce(ctx)?.let { lastMap = it; return it }
             MacroLog.i("feather not seen on the area map (try ${attempt + 1}/3)")
             ctx.wait(2.5)
         }
         return null
     }
 
-    private fun readAreaMapOnce(ctx: Context): Pair<Point, Point?>? {
+    private var lastMap: AreaMap? = null
+
+    private fun readAreaMapOnce(ctx: Context): AreaMap? {
         ctx.tap(MINIMAP); ctx.wait(2.0)
         val frame = ctx.refresh()
         val bgr = ctx.colorMat()
@@ -213,8 +280,22 @@ object CatDaily {
             // keep the map for debugging (app storage, not shared)
             Imgcodecs.imwrite(java.io.File(ctx.debugDir, "area-map.png").path, bgr)
         }
+        val paths = bgr?.let { pathMask(it) }
+        val w = bgr?.cols() ?: 0
+        val h = bgr?.rows() ?: 0
         bgr?.release()
-        return feather to party
+        return AreaMap(feather, party, paths, w, h)
+    }
+
+    /** The streets on the area map: light grey, unsaturated lines (the side buttons are cut off). */
+    private fun pathMask(bgr: Mat): Mat {
+        val hsv = Mat(); Imgproc.cvtColor(bgr, hsv, Imgproc.COLOR_BGR2HSV)
+        val mask = Mat(); Core.inRange(hsv, Scalar(0.0, 0.0, 125.0), Scalar(180.0, 25.0, 215.0), mask)
+        hsv.release()
+        Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_OPEN, Mat.ones(9, 9, org.opencv.core.CvType.CV_8U))
+        val right = (mask.cols() * 0.93).toInt()
+        mask.submat(0, mask.rows(), right, mask.cols()).setTo(Scalar(0.0))
+        return mask
     }
 
     private var mapFeather: Mat? = null
