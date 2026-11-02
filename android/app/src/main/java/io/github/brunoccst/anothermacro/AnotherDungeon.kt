@@ -300,11 +300,15 @@ object AnotherDungeon {
         ctx.wait(2.0)
         // the panel's counters at the bottom: green keys, red keys, Cat Express Tickets ("17/50"); their "+" buy more
         // left to right: green keys "10/10", red keys "5/5", Cat Express Tickets "17/50"
-        val counters = LiveLog.without { ctx.readText() }.filter { it.center.y > 0.85 && it.center.x > 0.5 }
-            .mapNotNull { l -> Regex("""(\d+)\s*/\s*(\d+)""").find(l.text)?.let { l.center.x to it.groupValues.drop(1).map { v -> v.toInt() } } }
-            .sortedBy { it.first }.map { it.second }
-        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0)
-        val keyCounters = counters.filter { it[1] != 50 }
+        val bottom = LiveLog.without { ctx.readText() }.filter { it.center.y > 0.85 && it.center.x > 0.5 }
+        // OCR reads 0 as O at times ("16/5O")
+        val counters = bottom.mapNotNull { l ->
+            Regex("""(\d+)\s*/\s*(\d+)""").find(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
+                ?.let { l.center.x to it.groupValues.drop(1).map { v -> v.toInt() } }
+        }.sortedBy { it.first }.map { it.second }
+        if (counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }}")
+        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0) ?: counters.getOrNull(2)?.get(0)
+        val keyCounters = counters.filter { it[1] != 50 }.take(2)
         val keys = if (keyCounters.size >= 2) keyCounters[if (red) 1 else 0][0] else null
         MacroLog.i("keys (${if (red) "red" else "green"}): ${keys ?: "not read"}; Cat Express Tickets: ${tickets ?: "not read"}")
         if (keys == 0) {
