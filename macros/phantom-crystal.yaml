@@ -1,0 +1,14 @@
+# The Phantom Crystal Dimension, with the White Key an Another Dungeon run can drop:
+# every chest and paw-stamp cat of every world, then on through a portal, until the Cape or
+# the final world ends it. Start it next to the shining Another Dungeon door (Spacetime Rift),
+# or inside the dimension. Stops for you if the Sensationalist offers a Treatise/Codex/Opus.
+name: phantom-crystal
+description: "Phantom Crystal Dimension (White Key): every chest and stamp, world by world."
+templates: [another_dungeon]
+params: {}
+screens: [field]
+unknown_timeout_s: 120
+handlers:
+  field: [{phantom_crystal: true}]
+unknown:
+  - wait: 2

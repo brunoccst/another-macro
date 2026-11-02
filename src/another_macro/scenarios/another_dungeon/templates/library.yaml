@@ -1,4 +1,6 @@
-# Another Dungeon templates (captured on a 2400x1080 phone). The maps' layouts are in
+# Another Dungeon templates (captured on a 2400x1080 phone).
+# closed_chest.png (PNG only, used by PhantomCrystal.kt): the red-and-gold chest the Phantom
+# Crystal Dimension's worlds use, unopened. The maps' layouts are in
 # dungeons.yaml: the area map only shows the parts already walked.
 templates:
   field_interact_bubble:
