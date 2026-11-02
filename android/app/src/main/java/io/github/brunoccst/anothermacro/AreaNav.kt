@@ -62,8 +62,13 @@ object AreaNav {
      */
     fun look(ctx: Context, readText: Boolean = false, targets: (Frame) -> List<Point>): View {
         last?.release(); last = null
+        // only from the field: a battle that just started would take these taps (the close tap at
+        // the bottom middle lands on the 4th character's portrait)
+        ctx.refresh()
+        if (ctx.find("field_menu_button") == null) return View(emptyList(), null, emptyList(), null, 0, 0)
         ctx.tap(MINIMAP); ctx.wait(1.3)
         val frame = ctx.refresh()
+        if (Battle.inBattle(ctx)) return View(emptyList(), null, emptyList(), null, 0, 0)
         val first = ctx.colorMat()
         // the party marker pulses (shrinks, fades): if this frame caught it faint, take another
         val bgr = if (first != null && findPartyMarkers(first, emptyList()).isEmpty()) {
@@ -307,15 +312,21 @@ object AreaNav {
         var overshot = false
         var gain = 1.0
         var known: Point? = null
+        var expect: Point? = null
         var lastParty: Point? = null
         repeat(tries) {
             // where we are: worked out from the last undisturbed walk (no map needed), else read on the map
             val reckoned = known
             known = null
             val view = if (reckoned == null) look(ctx) { emptyList() } else null
-            val party = reckoned ?: view!!.candidates.firstOrNull { segOf(layout, it) != null }
+            // chests already walked past show on the map in gold too: take the candidate on a street
+            // nearest to where the party should be, not just the most marker-like blob
+            val onStreets = view?.candidates?.filter { segOf(layout, it) != null }.orEmpty()
+            val party = reckoned ?: expect?.let { e -> onStreets.minByOrNull { abs(it.x - e.x) + 2 * abs(it.y - e.y) } } ?: onStreets.firstOrNull()
             if (party == null) {
                 MacroLog.i("party marker not on the known streets (saw ${view?.candidates?.take(3)})")
+                // (a battle that started is fought first: the map can't open over it)
+                if (onStep()) return@repeat
                 if (++stuck >= 5) return false
                 return@repeat
             }
@@ -345,6 +356,7 @@ object AreaNav {
                     val ms = (abs(d) / speed * 1000 * gain).toLong().coerceIn(40, 12000)
                     ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * (if (d > 0) 1 else -1), 0.65), ms)
                     ctx.wait(0.5)
+                    expect = Point(first.x, party.y)
                     val battle = onStep()
                     if (!battle && gain == 1.0) pendingSpeed = Triple(party.x, ms, d)
                     // an undisturbed walk to a street's end stops at the wall: trust it without a look
@@ -365,6 +377,7 @@ object AreaNav {
                         hold(ctx, if (nudge % 2 == 1) 1.0 else -1.0, 0.003 * ((nudge + 1) / 2))
                     } else nudge = 0
                     climbedAt = party
+                    expect = null
                     flick(ctx, first.up)
                     onStep()
                 }

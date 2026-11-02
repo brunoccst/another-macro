@@ -81,7 +81,11 @@ object AnotherDungeon {
         val items = LinkedHashMap<String, Int>()
         var chestsTotal = 0
         var skipped = false
+        /** What the run is doing (the live log shows it again after a battle). */
+        var task = ""
     }
+
+    private fun task(r: Run, text: String) { r.task = text; MacroLog.status(text) }
 
     fun run(ctx: Context, id: String): String {
         val r = Run(ctx, spec(ctx, id))
@@ -119,7 +123,7 @@ object AnotherDungeon {
                 r.onBossMap = spec.maps[idx].boss
                 r.order = chestOrder(spec.maps[idx].shifted(r.shift), party)
                 r.chestsTotal += spec.maps[idx].chests.size
-                MacroLog.status("Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
+                task(r, "Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
                 ctx.count("maps")
             }
             val ms = spec.maps[idx].shifted(r.shift)
@@ -188,7 +192,7 @@ object AnotherDungeon {
         val red = ctx.str("key").lowercase() == "red"
         val difficulty = if (red) "Very Hard" else "Hard"
         if (!waitForField(ctx)) ctx.stop("not on the field: start next to the Another Dungeon door in the Spacetime Rift")
-        MacroLog.status("Entering ${r.spec.name} ($difficulty)")
+        task(r, "Entering ${r.spec.name} ($difficulty)")
         val door = ctx.find(BUBBLE) ?: ctx.stop("no \"!\" over the Another Dungeon door: start next to it (Spacetime Rift)")
         ctx.tap(door); ctx.wait(2.5)
         if (ctx.readText().none { Ocr.norm(it.text) == "another dungeon" }) ctx.stop("the door didn't open the Another Dungeon map: ${seen(ctx)}")
@@ -247,9 +251,11 @@ object AnotherDungeon {
     private fun whereAmI(r: Run): Int? {
         val ctx = r.ctx
         if (!waitForField(ctx, 10)) return null
-        ctx.tap(AreaNav.MINIMAP); ctx.wait(2.0)
+        ctx.tap(AreaNav.MINIMAP); ctx.wait(1.5)
+        ctx.refresh()
+        if (Battle.inBattle(ctx)) return null // a battle started: no close tap (it would hit a portrait)
         val text = ctx.readText()
-        ctx.tap(Point(0.5, 0.93)); ctx.wait(1.5)
+        ctx.tap(Point(0.5, 0.93)); ctx.wait(1.0)
         val title = text.filter { it.center.y < 0.12 }.joinToString(" ") { it.text }
         if (!Ocr.norm(title).contains(Ocr.norm(r.spec.name))) return null
         val part = title.substringAfter("-").trim()
@@ -262,7 +268,7 @@ object AnotherDungeon {
 
     private fun takeChest(r: Run, ms: MapSpec, chest: Point) {
         val ctx = r.ctx
-        MacroLog.status("Map ${r.map + 1}: chest ${r.chestsDone + 1}/${ms.chests.size}")
+        task(r, "Map ${r.map + 1}: chest ${r.chestsDone + 1}/${ms.chests.size}")
         MacroLog.i("chest ${r.chestsDone + 1}/${ms.chests.size} at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)})")
         AreaNav.walkLayout(ctx, ms.layout!!, chest, onStep(r))
         // close by: the chest's "!" shows; look around the spot, a little further each side, until it does
@@ -300,7 +306,7 @@ object AnotherDungeon {
     private fun leave(r: Run, ms: MapSpec, idx: Int) {
         val ctx = r.ctx
         r.moved = true
-        MacroLog.status("Map ${idx + 1}: to the stairs down")
+        task(r, "Map ${idx + 1}: to the stairs down")
         val exit = ms.exit!!
         MacroLog.i("to the exit at (${"%.3f".format(exit.x)}, ${"%.3f".format(exit.y)})")
         AreaNav.walkLayout(ctx, ms.layout!!, exit, onStep(r))
@@ -331,7 +337,7 @@ object AnotherDungeon {
     /** Walk back and forth fighting until the game says no enemies are left (or none come any more). */
     private fun grind(r: Run, ms: MapSpec) {
         val ctx = r.ctx
-        MacroLog.status("${ms.names.first()}: fighting the enemies left (back and forth)")
+        task(r, "${ms.names.first()}: fighting the enemies left (back and forth)")
         var dir = 1.0
         var quiet = 0
         while (quiet < 12) {
@@ -366,7 +372,7 @@ object AnotherDungeon {
     private fun sweep(r: Run) {
         val ctx = r.ctx
         if (r.fightAll && !r.cleared && !r.onBossMap) { grind(r, r.spec.maps[r.map]); return }
-        MacroLog.status("Map ${r.map + 1}: looking around (chest, boss)")
+        task(r, "Map ${r.map + 1}: looking around (chest, boss)")
         for (vertical in listOf(null, true, false)) {
             if (vertical != null) { AreaNav.flick(ctx, vertical); fight(r); if (r.bossBeaten) return }
             for (dir in listOf(-1.0, 1.0)) {
@@ -412,6 +418,7 @@ object AnotherDungeon {
             }
             Battle.Outcome.WON -> {
                 ctx.count("battles")
+                if (r.task.isNotEmpty()) MacroLog.status(r.task)
                 if (wasBoss) { r.bossBeaten = true; ctx.count("bosses") }
                 // "The enemies have disappeared" flashes for a moment after a map's last enemy
                 val end = System.currentTimeMillis() + 3000
@@ -428,7 +435,7 @@ object AnotherDungeon {
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         if ("major trial" !in all && "proceed" !in all) return false
         val yes = lines.firstOrNull { Ocr.norm(it.text) == "yes" } ?: return false
-        MacroLog.status("The boss: proceeding")
+        task(r, "The boss: proceeding")
         r.ctx.tapExact(yes.center)
         r.bossNext = true
         r.ctx.wait(3.0)
