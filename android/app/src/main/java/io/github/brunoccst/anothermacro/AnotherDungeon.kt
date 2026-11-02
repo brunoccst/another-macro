@@ -201,13 +201,16 @@ object AnotherDungeon {
         val ctx = r.ctx
         MacroLog.i("chest ${r.chestsDone + 1}/${ms.chests.size} at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)})")
         AreaNav.walkLayout(ctx, ms.layout!!, chest, onStep(r))
-        // close by: the chest's "!" shows; step toward it until it does
+        // close by: the chest's "!" shows; look around the spot, a little further each side, until it does
         val party = AreaNav.look(ctx) { emptyList() }.party
         val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
-        for (nudge in 0..5) {
-            if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
-            AreaNav.hold(ctx, if (nudge < 4) dir else -dir, 0.012)
+        if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
+        for (k in 1..6) {
+            val side = if (k % 2 == 1) dir else -dir
+            AreaNav.hold(ctx, side, 0.006 * k)
             fight(r)
+            ctx.wait(0.6)
+            if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
         }
         MacroLog.i("no chest found by (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}); skipping it")
         r.chestsDone++
