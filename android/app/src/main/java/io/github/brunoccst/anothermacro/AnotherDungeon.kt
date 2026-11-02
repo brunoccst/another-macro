@@ -23,7 +23,7 @@ import kotlin.math.abs
  * and are never tapped, and any purchase offer stops the run.
  */
 object AnotherDungeon {
-    data class MapSpec(val names: List<String>, val layout: AreaNav.Layout?, val chests: List<Point>, val exit: Point?, val boss: Boolean, val arrival: Point? = null) {
+    data class MapSpec(val names: List<String>, val layout: AreaNav.Layout?, val chests: List<Point>, val exit: Point?, val boss: Boolean, val arrival: Point? = null, val chestsCount: Int = 0) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
@@ -55,6 +55,7 @@ object AnotherDungeon {
                 nums(m["exit"])?.let { Point(it[0], it[1]) },
                 m["boss"] == true,
                 nums(m["arrival"])?.let { Point(it[0], it[1]) },
+                (m["chests_count"] as? Number)?.toInt() ?: 0,
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps)
@@ -122,7 +123,7 @@ object AnotherDungeon {
                 r.map = idx; r.chestsDone = 0; r.cleared = false
                 r.onBossMap = spec.maps[idx].boss
                 r.order = chestOrder(spec.maps[idx].shifted(r.shift), party)
-                r.chestsTotal += spec.maps[idx].chests.size
+                r.chestsTotal += spec.maps[idx].chests.size.takeIf { it > 0 } ?: spec.maps[idx].chestsCount
                 task(r, "Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
                 ctx.count("maps")
             }
@@ -155,11 +156,12 @@ object AnotherDungeon {
         return best
     }
 
-    /** "Obtained Dark Residue x200." → items (OCR reads 0 as O at times). */
-    private fun noteItems(r: Run, text: String) {
-        for (m in Regex("""Obtained\s+(.+?)\s*[x×X]\s*([0-9OoIl,.]+)""").findAll(text)) {
-            val n = m.groupValues[2].replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(",", "").trimEnd('.').toIntOrNull() ?: continue
-            val name = m.groupValues[1].trim().trimEnd('.')
+    /** "Obtained Dark Residue x200." → items (OCR reads 0 as O at times). One banner line at a time. */
+    private fun noteItems(r: Run, lines: List<Ocr.Line>) {
+        for (l in lines) {
+            val m = Regex("""^\s*Obtained\s+([A-Za-z'\- ]+?)\s*[x×X]\s*([0-9OoIl,]+)""").find(l.text) ?: continue
+            val n = m.groupValues[2].replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(",", "").toIntOrNull() ?: continue
+            val name = m.groupValues[1].trim()
             r.items[name] = (r.items[name] ?: 0) + n
         }
     }
@@ -171,7 +173,7 @@ object AnotherDungeon {
         val items = r.items.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val text = "$outcome — ${secs / 60}m ${secs % 60}s; " +
             (if (r.skipped) "skipped with a Cat Express Ticket; " else "chests ${st["chests"] ?: 0}/${r.chestsTotal}, battles ${st["battles"] ?: 0}; ") +
-            "items: $items; White Key: ${if (r.phantom) "yes" else "no"}"
+            "chest items: $items; White Key: ${if (r.phantom) "yes" else "no"}"
         runCatching {
             val o = org.json.JSONObject().put("when", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(r.start)))
                 .put("dungeon", r.spec.name).put("key", r.ctx.str("key")).put("seconds", secs).put("outcome", outcome)
@@ -292,9 +294,12 @@ object AnotherDungeon {
         ctx.refresh()
         val b = ctx.find(BUBBLE) ?: return false
         ctx.tap(b); ctx.wait(2.0)
-        val text = ctx.readText().joinToString(" ") { it.text }
+        val read = ctx.readText()
+        val text = read.joinToString(" ") { it.text }
         MacroLog.i("\"!\": ${text.take(120)}")
-        noteItems(r, text)
+        noteItems(r, read)
+        // a chest found while looking around a map without a layout
+        if (Ocr.norm(text).contains("obtained") && r.spec.maps.getOrNull(r.map)?.layout == null) ctx.count("chests")
         if (bossGate(r)) { fight(r); return true }
         if (fight(r)) return true // the boss (or a guard) behind it
         ctx.tap(Point(0.5, 0.75)); ctx.wait(1.2)
@@ -356,7 +361,6 @@ object AnotherDungeon {
     private fun readAfterWin(r: Run, quick: Boolean = false) {
         // the banner sits at the top middle: reading only there is quicker (it shows for a moment)
         val lines = if (quick) r.ctx.readText(Region(0.15, 0.0, 0.7, 0.25)) else r.ctx.readText()
-        noteItems(r, lines.joinToString(" ") { it.text })
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         if (!r.cleared && noEnemiesLeft(all)) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
         if ("white key" in all || "phantom crystal" in all) {
