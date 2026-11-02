@@ -64,7 +64,13 @@ object AreaNav {
         last?.release(); last = null
         ctx.tap(MINIMAP); ctx.wait(2.0)
         val frame = ctx.refresh()
-        val bgr = ctx.colorMat()
+        val first = ctx.colorMat()
+        // the party marker pulses (shrinks, fades): if this frame caught it faint, take another
+        val bgr = if (first != null && findPartyMarkers(first, emptyList()).isEmpty()) {
+            Thread.sleep(350)
+            val again = ctx.colorMat()
+            if (again != null) { first.release(); again } else first
+        } else first
         val text = if (readText) ctx.readText() else emptyList()
         val found = targets(frame)
         ctx.tap(MAP_CLOSE); ctx.wait(1.5)
