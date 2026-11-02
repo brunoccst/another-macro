@@ -167,3 +167,13 @@ Then add a Termux widget button in `termux/shortcuts/<Name>.sh` (copy
   "Thank you for subscribing" dialog replaces the ad (Close); then "Thank you for
   watching... delivered to your inbox" (OK). Without premium the ad plays and is
   closed with back after `ad_wait_s` (not yet seen live).
+
+- **Battles (shared `Battle.kt`):** each front-row character's skill row is 5 boxes:
+  normal attack, then skills 1-4 (x 0.177 / 0.346 / 0.499 / 0.653 / 0.807, y 0.759 on a
+  20:9 screen). Not every character has 4 skills; a missing or unusable one leaves the list
+  open, and the normal attack closes it. Tapping the portrait again does not close it.
+- **Another Dungeons:** see `.claude/skills/map-dungeon/SKILL.md` (entry, Skip, the
+  "Continue to skip?" box, the boss gate, the area map's quirks, what never to tap).
+- **Live log:** the 💬 overlay line sits bottom right; taps pass through it and
+  `Context.readText` ignores what it covers. To read that corner, wrap the read in
+  `LiveLog.without { }`.

@@ -86,6 +86,43 @@ ruins_of_ruoyana:
 Copy `macros/dogma-tower.yaml` to `macros/<dungeon>.yaml`, change `name`,
 `description` and the `another_dungeon:` id.
 
+## What we know about Another Dungeons (keep in mind for every dungeon)
+
+- **Entry**: the "!" over the Another Dungeon door in the Spacetime Rift (not the World
+  Map) → era tab → the dungeon's label → Hard (green key) / Very Hard (red key) → a box
+  "Using Green Key×1 to move to … (Hard)" with Back / Skip / Move. One run always costs
+  the dungeon's key(s); the count can't be chosen. The door's "!" is drawn ~10% larger
+  than a chest's.
+- **Never tap the "+"** beside the key and ticket counters at the bottom of the panel:
+  they buy more (premium currency). The third counter ("17/50") is Cat Express Tickets.
+- **Skip** (Cat Express Ticket + the key): no confirmation, straight to "Congratulations"
+  (rewards, Light/Shadow points) and the chest/enemy loot. Greyed out with no tickets.
+- **End of a run in a dungeon with its own currency** (Dogma Tower: Dark Residue): an
+  "Items Obtained … Continue to skip? End / Skip" box. Always **End**; Skip spends
+  another key and ticket (that's where a repeat-runs loop would go). Older dungeons
+  (e.g. Miglance Castle) don't show it.
+- **Light/Shadow**: a character who earns Light/Shadow points there (Poporo in Dogma
+  Tower) adds an animation after the rewards; it closes with a tap like the rest.
+- **White Key** (10% per run, also with Skip): a notification at the end; the Another
+  Dungeon door then shines and the "???" tab glows. The run stops and says so.
+- **On arrival** the daily ad offer can pop up ("Watch Video" is free).
+- **Chests** have different art per dungeon but always show the "!" bubble when the party
+  is close; the banner reads "Obtained <item> x<n>."
+- **"The enemies have disappeared"** flashes for a moment at the top after a map's last
+  enemy (Dogma Tower map 2: after ~5 fights): read the top of the screen right after each
+  won fight.
+- **The boss map** is usually one street going left from where the party arrives, with the
+  chest between the arrival and the spot that asks "A major trial awaits you beyond this
+  point. Proceed?" (Yes). Not a rule: check each dungeon.
+- **The area map** hides unexplored parts and draws each map a little left or right; the
+  party marker pulses (smaller/bigger, fading); chest icons on walked parts are gold too.
+  Never tap to open or close it while a battle is up (the close tap at the bottom middle
+  lands on the 4th character's portrait).
+- **Enemy names** show while a skill list is open (and in the battle intro): that's how the
+  boss is told apart.
+- **Walking**: ~0.027-0.033 map units per second of holding; the shortest step moves ~0.01,
+  so stairs are taken from within ~0.005 or after an overshoot; a quick flick takes stairs.
+
 ## 5. Test
 
 Build (CI `android.yml`), install, re-allow screen capture, and run from next to the
