@@ -184,8 +184,10 @@ object AnotherDungeon {
         }
         if ("items obtained" in all) {
             for (a in lines.filter { Ocr.norm(it.text).startsWith("amount") }) {
-                val n = num(a.text.substringAfter("mount")) ?: lines.firstOrNull { it !== a && abs(it.center.y - a.center.y) < 0.03 && it.center.x > a.center.x }?.let { num(it.text) } ?: continue
-                val name = lines.filter { it.center.y < a.center.y && a.center.y - it.center.y < 0.1 && abs(it.center.x - a.center.x) < 0.15 && Regex("[A-Za-z]{3}").containsMatchIn(it.text) && !Ocr.norm(it.text).startsWith("items") }
+                val sameRow = lines.filter { abs(it.center.y - a.center.y) < 0.03 }.sortedBy { it.center.x }.joinToString(" ") { it.text }
+                val n = Regex("""[Aa]mount\s*([0-9OoIl,]+)""").find(sameRow)?.groupValues?.get(1)?.let { num(it) } ?: continue
+                val name = lines.filter { it.center.y < a.center.y && a.center.y - it.center.y < 0.1 && abs(it.center.x - a.center.x) < 0.2 &&
+                    Regex("[A-Za-z]{3}").containsMatchIn(it.text) && !Regex("[0-9]").containsMatchIn(it.text) && !Ocr.norm(it.text).startsWith("items") }
                     .maxByOrNull { it.center.y }?.text?.trim() ?: continue
                 r.rewards[name] = n // the run's total of that item (shown once)
             }
@@ -231,6 +233,11 @@ object AnotherDungeon {
             ctx.wait(1.0)
         }
         if (!opened) ctx.stop("the door didn't open the Another Dungeon map: ${seen(ctx)}")
+        if (phantomTabGlows(ctx)) {
+            ctx.tap(AD_CLOSE); ctx.wait(1.5)
+            r.phantom = true
+            return "the Phantom Crystal Dimension is already open (White Key held): not entering"
+        }
         tapText(r, eraLabel(r.spec.era)); ctx.wait(1.5)
         tapText(r, r.spec.name, minY = 0.2, maxX = 0.62) ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map: ${seen(ctx)}")
         ctx.wait(2.0)
@@ -491,6 +498,12 @@ object AnotherDungeon {
             if (Battle.inBattle(ctx)) { fight(r); return@repeat }
             val lines = ctx.readText()
             readPhantom(r, lines)
+            // after End the game is back on the Another Dungeon map: its "???" tab glows with a White Key
+            if (lines.any { Ocr.norm(it.text) == "another dungeon" } && lines.any { Ocr.norm(it.text) == "hollow" }) {
+                if (phantomTabGlows(ctx)) { if (!r.phantom) MacroLog.i("the ??? tab glows: White Key"); r.phantom = true }
+                ctx.tap(AD_CLOSE); ctx.wait(2.0)
+                return@repeat
+            }
             noteRewards(r, lines)
             // "Continue to skip?  End / Skip": End (Skip would spend another key and ticket)
             if (endNotSkip(r, lines)) return@repeat
@@ -509,6 +522,19 @@ object AnotherDungeon {
         r.ctx.tapExact(end.center); r.ctx.wait(2.5)
         return true
     }
+
+    /** On the Another Dungeon map: the "???" tab glows cyan while a White Key is held. */
+    private fun phantomTabGlows(ctx: Context): Boolean {
+        val bgr = ctx.colorMat() ?: return false
+        val roi = bgr.submat((bgr.rows() * 0.037).toInt(), (bgr.rows() * 0.185).toInt(), (bgr.cols() * 0.342).toInt(), (bgr.cols() * 0.417).toInt())
+        val hsv = org.opencv.core.Mat(); org.opencv.imgproc.Imgproc.cvtColor(roi, hsv, org.opencv.imgproc.Imgproc.COLOR_BGR2HSV)
+        val mask = org.opencv.core.Mat(); org.opencv.core.Core.inRange(hsv, org.opencv.core.Scalar(80.0, 80.0, 180.0), org.opencv.core.Scalar(105.0, 255.0, 255.0), mask)
+        val frac = org.opencv.core.Core.countNonZero(mask).toDouble() / (mask.rows() * mask.cols()).coerceAtLeast(1)
+        listOf(roi, hsv, mask, bgr).forEach { it.release() }
+        return frac > 0.15
+    }
+
+    private val AD_CLOSE = Point(0.88, 0.03)
 
     private fun readPhantom(r: Run, lines: List<Ocr.Line>) {
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
