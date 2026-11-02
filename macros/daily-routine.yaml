@@ -1,5 +1,6 @@
 # Everything daily, unattended: open the game (login-bonus ad), the 5 menu commercials,
 # the shop commercial, today's scratchbook cats, then turn the game off.
 name: daily-routine
+group: daily
 description: "Daily: start game, 5 menu ads, shop ad, cat scratchbook, then turn the game off."
 steps: [start-game, daily-ads, shop-ad, cat-scratchbook, stop-game]

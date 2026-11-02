@@ -1,5 +1,6 @@
 # Walk back and forth on the current map, fight every encounter, repeat.
 name: grind-battles
+group: farm
 description: Walk back and forth on the current map, fight every encounter, repeat.
 templates: [grind_battles]
 params:

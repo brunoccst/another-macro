@@ -1,5 +1,6 @@
 # Turn the game on, always watch the daily login-bonus ad, stop on the field.
 name: start-game
+group: game
 description: Turn the game on, always watch the daily login-bonus ad, stop on the field.
 templates: [start_game]
 params:

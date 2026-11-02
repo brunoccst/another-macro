@@ -3,6 +3,7 @@
 # White Key opened the Phantom Crystal Dimension. Never buys keys: a purchase offer stops it.
 # Start it next to the Another Dungeon door in the Spacetime Rift (or inside Dogma Tower).
 name: dogma-tower
+group: dungeon
 description: "Another Dungeon: Dogma Tower. All chests, optionally all enemies, then the boss."
 templates: [another_dungeon]
 params:

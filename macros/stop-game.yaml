@@ -1,5 +1,6 @@
 # Turn the game off: back on the field opens "Close the app?", Yes closes it.
 name: stop-game
+group: game
 description: "Turn the game off (back → 'Close the app?' → Yes)."
 screens: [close_app, field]
 unknown_timeout_s: 60

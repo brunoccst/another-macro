@@ -1,0 +1,120 @@
+package io.github.brunoccst.anothermacro
+
+import android.content.Context
+import android.content.res.ColorStateList
+import android.graphics.Color
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.RippleDrawable
+import android.view.Gravity
+import android.view.View
+import android.widget.LinearLayout
+import android.widget.TextView
+
+/** The app's look: a dark theme with rounded cards, built in code (no XML layouts). */
+object Ui {
+    val BG = Color.parseColor("#0F1216")
+    val CARD = Color.parseColor("#1A1F26")
+    val CARD_ALT = Color.parseColor("#232A33")
+    val LINE = Color.parseColor("#2C3440")
+    val TEXT = Color.parseColor("#E9EDF2")
+    val MUTED = Color.parseColor("#94A0AE")
+    val ACCENT = Color.parseColor("#4FC3F7")
+    val ACCENT_DIM = Color.parseColor("#1D3A4A")
+    val GOOD = Color.parseColor("#66BB6A")
+    val WARN = Color.parseColor("#FFB74D")
+    val BAD = Color.parseColor("#EF5350")
+
+    fun dp(c: Context, v: Int) = (v * c.resources.displayMetrics.density).toInt()
+
+    fun rounded(color: Int, radius: Float, stroke: Int? = null, strokeW: Int = 0) = GradientDrawable().apply {
+        cornerRadius = radius
+        setColor(color)
+        if (stroke != null) setStroke(strokeW, stroke)
+    }
+
+    /** A rounded background that ripples when tapped. */
+    fun pressable(c: Context, color: Int, radiusDp: Int = 14, stroke: Int? = null) =
+        RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33FFFFFF")),
+            rounded(color, dp(c, radiusDp).toFloat(), stroke, dp(c, 2)), null)
+
+    fun text(c: Context, s: CharSequence, size: Float = 14f, color: Int = TEXT, bold: Boolean = false) = TextView(c).apply {
+        text = s
+        textSize = size
+        setTextColor(color)
+        if (bold) typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        setLineSpacing(0f, 1.1f)
+    }
+
+    /** A section title above cards. */
+    fun section(c: Context, s: String) = text(c, s.uppercase(), 12f, MUTED, bold = true).apply {
+        letterSpacing = 0.08f
+        setPadding(dp(c, 6), dp(c, 18), 0, dp(c, 8))
+    }
+
+    fun card(c: Context, color: Int = CARD) = LinearLayout(c).apply {
+        orientation = LinearLayout.VERTICAL
+        background = rounded(color, dp(c, 18).toFloat())
+        setPadding(dp(c, 16), dp(c, 14), dp(c, 16), dp(c, 14))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            .apply { bottomMargin = dp(c, 10) }
+    }
+
+    /** A filled (primary) or tonal button. */
+    fun button(c: Context, label: String, primary: Boolean = false, color: Int = ACCENT, onClick: () -> Unit) = TextView(c).apply {
+        text = label
+        textSize = 15f
+        gravity = Gravity.CENTER
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        setTextColor(if (primary) Color.parseColor("#0B1A22") else color)
+        background = pressable(c, if (primary) color else CARD_ALT, 24)
+        setPadding(dp(c, 18), dp(c, 12), dp(c, 18), dp(c, 12))
+        isClickable = true
+        setOnClickListener { onClick() }
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            .apply { topMargin = dp(c, 8) }
+    }
+
+    /** A small status pill: a coloured dot and a label. */
+    fun chip(c: Context) = TextView(c).apply {
+        textSize = 12f
+        setTextColor(TEXT)
+        background = rounded(CARD_ALT, dp(c, 14).toFloat())
+        setPadding(dp(c, 12), dp(c, 6), dp(c, 12), dp(c, 6))
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
+            .apply { rightMargin = dp(c, 8) }
+    }
+
+    fun setChip(v: TextView, label: String, color: Int) {
+        v.text = android.text.SpannableString("●  $label").apply {
+            setSpan(android.text.style.ForegroundColorSpan(color), 0, 1, 0)
+        }
+    }
+
+    fun divider(c: Context) = View(c).apply {
+        setBackgroundColor(LINE)
+        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply { topMargin = dp(c, 10); bottomMargin = dp(c, 10) }
+    }
+
+    /** "fight_all" → "Fight all". */
+    fun title(key: String) = key.replace('_', ' ').replaceFirstChar { it.uppercase() }
+}
+
+/** How macros are grouped in the app and the overlay (a macro's `group:`). */
+object Groups {
+    data class Group(val id: String, val title: String, val icon: String)
+
+    val ALL = listOf(
+        Group("daily", "Daily", "📅"),
+        Group("dungeon", "Another Dungeon", "🗝"),
+        Group("farm", "Farming", "⚔"),
+        Group("game", "Game", "🎮"),
+        Group("other", "Other", "🧩"),
+    )
+
+    fun of(id: String) = ALL.firstOrNull { it.id == id } ?: ALL.last()
+
+    /** Macros by group, in the groups' order. */
+    fun sort(macros: List<Scenario>): List<Pair<Group, List<Scenario>>> =
+        ALL.map { g -> g to macros.filter { of(it.group).id == g.id } }.filter { it.second.isNotEmpty() }
+}

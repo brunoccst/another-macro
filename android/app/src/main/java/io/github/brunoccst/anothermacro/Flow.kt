@@ -42,6 +42,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
 class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Scenario() {
     override val name = spec["name"] as? String ?: throw IllegalArgumentException("$source: missing name")
     override val description = spec["description"] as? String ?: ""
+    override val group = spec["group"] as? String ?: "other"
     override val templateFolders: List<String> = list(spec["templates"]).map { it.toString() }
     override val params: Map<String, Param> = map(spec["params"]).entries.associate { (k, v) ->
         val m = mapOrNull(v)
