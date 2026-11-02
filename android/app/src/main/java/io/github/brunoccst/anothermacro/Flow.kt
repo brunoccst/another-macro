@@ -43,6 +43,7 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
     override val name = spec["name"] as? String ?: throw IllegalArgumentException("$source: missing name")
     override val description = spec["description"] as? String ?: ""
     override val group = spec["group"] as? String ?: "other"
+    override val icon = spec["icon"] as? String ?: ""
     override val templateFolders: List<String> = list(spec["templates"]).map { it.toString() }
     override val params: Map<String, Param> = map(spec["params"]).entries.associate { (k, v) ->
         val m = mapOrNull(v)

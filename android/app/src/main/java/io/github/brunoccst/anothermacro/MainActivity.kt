@@ -39,6 +39,7 @@ class MainActivity : Activity() {
     private lateinit var userTemplates: TextView
     private lateinit var detailCard: LinearLayout
     private lateinit var detailTitle: TextView
+    private lateinit var detailIcon: android.widget.ImageView
     private lateinit var detailDescription: TextView
     private lateinit var runButton: TextView
     private lateinit var setupCard: LinearLayout
@@ -93,7 +94,7 @@ class MainActivity : Activity() {
         // --- macros, grouped ---------------------------------------------------------
         macros = Scenarios.all(this)
         for ((group, list) in Groups.sort(macros)) {
-            column.addView(Ui.section(this, "${group.icon}  ${group.title}"))
+            column.addView(Ui.withIcon(this, group.iconRes, Ui.section(this, group.title).apply { setPadding(0, dp(18), 0, dp(8)) }, 18).apply { setPadding(dp(6), 0, 0, 0) })
             val card = Ui.card(this).apply { setPadding(dp(6), dp(6), dp(6), dp(6)) }
             for ((i, m) in list.withIndex()) {
                 if (i > 0) card.addView(View(this).apply {
@@ -111,7 +112,11 @@ class MainActivity : Activity() {
         detailDescription = Ui.text(this, "", 13f, Ui.MUTED).apply { setPadding(0, dp(4), 0, dp(6)) }
         paramsBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         runButton = Ui.button(this, "Run", primary = true) { scenario?.let { run(it.name, paramFields.mapValues { f -> f.value() }) } }
-        detailCard.addView(detailTitle)
+        detailIcon = Ui.icon(this, R.drawable.ic_puzzle, 30)
+        detailCard.addView(LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+            addView(detailIcon); addView(detailTitle)
+        })
         detailCard.addView(detailDescription)
         detailCard.addView(paramsBox)
         detailCard.addView(runButton)
@@ -170,11 +175,16 @@ class MainActivity : Activity() {
 
     /** One macro in its group's list: name and description; tap to select it. */
     private fun macroRow(m: Scenario): View = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(12), dp(10), dp(12), dp(10))
         isClickable = true
-        addView(Ui.text(this@MainActivity, m.name, 15f, bold = true))
-        if (m.description.isNotBlank()) addView(Ui.text(this@MainActivity, m.description, 12.5f, Ui.MUTED).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
+        addView(Ui.icon(this@MainActivity, Groups.icon(m), 30).apply { (layoutParams as LinearLayout.LayoutParams).rightMargin = dp(14) })
+        addView(LinearLayout(this@MainActivity).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(Ui.text(this@MainActivity, m.name, 15f, bold = true))
+            if (m.description.isNotBlank()) addView(Ui.text(this@MainActivity, m.description, 12.5f, Ui.MUTED).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         setOnClickListener {
             showMacro(m)
             scroll.post { scroll.smoothScrollTo(0, detailCard.top - dp(40)) }
@@ -203,7 +213,8 @@ class MainActivity : Activity() {
         scenario = s
         for ((name, row) in macroRows) row.background = if (name == s.name) Ui.rounded(Ui.ACCENT_DIM, dp(12).toFloat()) else null
         detailCard.visibility = View.VISIBLE
-        detailTitle.text = "${Groups.of(s.group).icon}  ${s.name}"
+        detailTitle.text = s.name
+        detailIcon.setImageResource(Groups.icon(s))
         detailDescription.text = s.description
         runButton.text = "▶  Run ${s.name}"
         paramsBox.removeAllViews()

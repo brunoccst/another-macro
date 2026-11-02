@@ -175,6 +175,8 @@ abstract class Scenario {
     abstract val description: String
     /** Which group the app lists it under (Groups: daily, dungeon, farm, game, other). */
     open val group: String = "other"
+    /** Its icon in the app (chest, paw, crystal, key, swords, sun, power); empty = its group's. */
+    open val icon: String = ""
     open val params: Map<String, Param> = emptyMap()
     /** Asset folders (under templates/) whose library.yaml this scenario uses, besides "common". */
     open val templateFolders: List<String> = emptyList()

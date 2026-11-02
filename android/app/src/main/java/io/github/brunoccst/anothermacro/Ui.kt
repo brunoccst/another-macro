@@ -96,21 +96,47 @@ object Ui {
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply { topMargin = dp(c, 10); bottomMargin = dp(c, 10) }
     }
 
+    fun icon(c: Context, res: Int, sizeDp: Int = 22) = android.widget.ImageView(c).apply {
+        setImageResource(res)
+        layoutParams = LinearLayout.LayoutParams(dp(c, sizeDp), dp(c, sizeDp)).apply { rightMargin = dp(c, 10) }
+    }
+
+    /** A row: an icon, then [content]. */
+    fun withIcon(c: Context, res: Int, content: View, sizeDp: Int = 22) = LinearLayout(c).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(icon(c, res, sizeDp))
+        addView(content, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+    }
+
     /** "fight_all" → "Fight all". */
     fun title(key: String) = key.replace('_', ' ').replaceFirstChar { it.uppercase() }
 }
 
 /** How macros are grouped in the app and the overlay (a macro's `group:`). */
 object Groups {
-    data class Group(val id: String, val title: String, val icon: String)
+    /** [iconRes]: an original vector icon (res/drawable), drawn for this app: no game art. */
+    data class Group(val id: String, val title: String, val iconRes: Int)
 
     val ALL = listOf(
-        Group("daily", "Daily", "📅"),
-        Group("dungeon", "Another Dungeon", "🗝"),
-        Group("farm", "Farming", "⚔"),
-        Group("game", "Game", "🎮"),
-        Group("other", "Other", "🧩"),
+        Group("daily", "Daily", R.drawable.ic_sun),
+        Group("dungeon", "Another Dungeon", R.drawable.ic_keycard),
+        Group("farm", "Farming", R.drawable.ic_swords),
+        Group("game", "Game", R.drawable.ic_power),
+        Group("other", "Other", R.drawable.ic_puzzle),
     )
+
+    /** A macro's own icon (`icon:` in its yaml), else its group's. */
+    fun icon(m: Scenario): Int = when (m.icon) {
+        "chest" -> R.drawable.ic_chest
+        "paw" -> R.drawable.ic_paw
+        "crystal" -> R.drawable.ic_crystal
+        "key" -> R.drawable.ic_keycard
+        "swords" -> R.drawable.ic_swords
+        "sun" -> R.drawable.ic_sun
+        "power" -> R.drawable.ic_power
+        else -> of(m.group).iconRes
+    }
 
     fun of(id: String) = ALL.firstOrNull { it.id == id } ?: ALL.last()
 
