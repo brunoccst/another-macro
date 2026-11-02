@@ -193,6 +193,16 @@ object CatDaily {
 
     /** Open the area map (tap the minimap), find the feather and the party marker, close it. */
     private fun readAreaMap(ctx: Context): Pair<Point, Point?>? {
+        // right after a trip the map may not open yet (area banner, fade-in): try a few times
+        repeat(3) { attempt ->
+            readAreaMapOnce(ctx)?.let { return it }
+            MacroLog.i("feather not seen on the area map (try ${attempt + 1}/3)")
+            ctx.wait(2.5)
+        }
+        return null
+    }
+
+    private fun readAreaMapOnce(ctx: Context): Pair<Point, Point?>? {
         ctx.tap(MINIMAP); ctx.wait(2.0)
         val frame = ctx.refresh()
         val bgr = ctx.colorMat()
@@ -265,8 +275,9 @@ object CatDaily {
         var pos = 0
         repeat(60) {
             fightIfBattle(ctx) // first: it takes its own screenshots
-            val f1 = ctx.refresh()
+            var f1 = ctx.refresh()
             if (ctx.find("scratchbook_header") != null) return collect(ctx)
+            if (ctx.find("field_menu_button") == null) { leaveTalk(ctx); f1 = ctx.refresh() }
             val (score, p1) = ff.find(f1)
             if (score >= 0.78) {
                 val t1 = System.currentTimeMillis()
@@ -289,6 +300,27 @@ object CatDaily {
         }
         MacroLog.i("no feather bubble near the cat's spot")
         return false
+    }
+
+    /**
+     * Walking bumped into someone and a conversation opened: decline any offer
+     * ("Do not participate", "No", ...) and tap through the lines until the field is back.
+     */
+    private fun leaveTalk(ctx: Context) {
+        val decline = listOf("do not", "don t", "no", "cancel", "leave", "not now", "never mind")
+        repeat(8) {
+            ctx.refresh()
+            if (ctx.find("field_menu_button") != null || ctx.find("scratchbook_header") != null) return
+            val lines = ctx.readText()
+            val no = lines.firstOrNull { l -> val n = Ocr.norm(l.text); decline.any { n == it || n.startsWith("$it ") } }
+            if (no != null) {
+                MacroLog.i("a conversation opened while walking: choosing '${no.text}'")
+                ctx.tapExact(no.center)
+            } else {
+                ctx.tap(Point(0.5, 0.85)) // next line of the conversation
+            }
+            ctx.wait(1.5)
+        }
     }
 
     /** Clear the reward banners over the book and close it. */
