@@ -48,6 +48,11 @@ handlers:
     - wait: 1.5
 
   menu_open:
+    # the red "!" on the video icon is gone once all of today's commercials are used
+    - if: not found('menu_ad_badge')
+      then:
+        - back: true
+        - stop: "all of today's commercials are done ({stats.ads_started} watched this run)"
     - set: {menu_taps: menu_taps + 1}
     - if: menu_taps > 4
       then: [{stop: "the video icon didn't open the ad chest (maybe no commercials today)"}]

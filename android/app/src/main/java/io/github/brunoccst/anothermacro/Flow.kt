@@ -44,6 +44,8 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
         k.toString() to Param(Expr.str(m?.get("default") ?: v), m?.get("help")?.toString() ?: "")
     }
     override val screens: List<String> = list(spec["screens"]).map { it.toString() }
+    /** A routine: other macros run one after another (steps: [start-game, daily-ads, ...]). */
+    val steps: List<String> = list(spec["steps"]).map { it.toString() }
     override val unknownTimeoutS = (spec["unknown_timeout_s"] as? Number)?.toDouble() ?: 45.0
     val screenDefs: Map<String, ScreenDef> = map(spec["define_screens"]).entries.associate { (k, v) ->
         val m = mapOrNull(v)

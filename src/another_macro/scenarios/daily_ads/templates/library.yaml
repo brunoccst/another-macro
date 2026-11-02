@@ -10,6 +10,12 @@ templates:
     ref: [2400, 1080]
     region: [0.66, 0.0, 0.1, 0.12]
     notes: Video icon at the top of the open Menu (opens "Receive rewards by watching the commercial!").
+  menu_ad_badge:
+    file: menu_ad_badge.png
+    ref: [2400, 1080]
+    region: [0.69, 0.0, 0.07, 0.1]
+    threshold: 0.85
+    notes: Red "!" on the video icon; gone once all of today's commercials are used.
   ad_offer_title:
     file: ad_offer_title.png
     ref: [2400, 1080]
