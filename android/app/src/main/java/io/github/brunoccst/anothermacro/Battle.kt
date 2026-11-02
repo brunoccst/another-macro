@@ -15,13 +15,9 @@ object Battle {
     val PORTRAIT_X = listOf(0.161, 0.267, 0.373, 0.479)
     const val PORTRAIT_Y = 0.917
 
-    /**
-     * The skill row that opens above the portraits: five boxes, the normal attack first
-     * and then skills 1-4 (the last box, 0.8075, was measured; the others are spaced like
-     * the portraits).
-     */
-    val SKILL_X = listOf(0.3835, 0.4895, 0.5955, 0.7015, 0.8075)
-    const val SKILL_ROW_Y = 0.763
+    /** The skill row that opens above the portraits: the normal attack, then skills 1-4 (measured). */
+    val SKILL_X = listOf(0.177, 0.346, 0.499, 0.653, 0.807)
+    const val SKILL_ROW_Y = 0.759
 
     val SKILL_CHOICES = listOf("auto", "1", "2", "3", "4")
 
@@ -65,9 +61,9 @@ object Battle {
                     ctx.tap(Point(0.5, 0.75))
                 }
                 ctx.find("skill_list_open") != null -> {
-                    // a skill list left open (a skill that couldn't be picked): close it with its portrait
+                    // a skill list left open: the normal attack closes it (tapping the portrait again doesn't)
                     seen = true; quiet = 0
-                    ctx.tap(Point(PORTRAIT_X[0], PORTRAIT_Y))
+                    ctx.tapExact(Point(SKILL_X[0], SKILL_ROW_Y))
                 }
                 ctx.find("battle_attack_button") != null -> {
                     seen = true; quiet = 0
@@ -110,9 +106,21 @@ object Battle {
             ctx.tapExact(Point(SKILL_X[n], SKILL_ROW_Y)); ctx.wait(0.8)
             ctx.refresh()
             if (ctx.find("skill_list_open") != null) {
-                MacroLog.i("character ${i + 1}: skill $n couldn't be picked (not enough MP?); leaving the list")
-                ctx.tap(Point(PORTRAIT_X[i], PORTRAIT_Y)); ctx.wait(0.8)
+                MacroLog.i("character ${i + 1}: skill $n couldn't be picked (not enough MP?); normal attack instead")
+                ctx.tapExact(Point(SKILL_X[0], SKILL_ROW_Y)); ctx.wait(0.8)
             }
         }
+    }
+
+    /**
+     * The enemies' names: they only show while a skill list is open. Opens the first
+     * character's list, reads the text above it and closes it with the normal attack
+     * (the chosen skills are set after this).
+     */
+    fun enemyNames(ctx: Context): String {
+        ctx.tap(Point(PORTRAIT_X[0], PORTRAIT_Y)); ctx.wait(0.8)
+        val text = ctx.readText().filter { it.center.y < 0.68 }.joinToString(" ") { it.text }
+        ctx.tapExact(Point(SKILL_X[0], SKILL_ROW_Y)); ctx.wait(0.8)
+        return text
     }
 }

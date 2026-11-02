@@ -208,4 +208,109 @@ object AreaNav {
     }
 
     private val icons = HashMap<String, Mat>()
+
+    // --- walking a known layout (maps whose unexplored parts are hidden) ---------------
+    /** A street: a row at height [y] from [x1] to [x2] (area-map coordinates, 0..1 of the screen). */
+    data class Seg(val y: Double, val x1: Double, val x2: Double)
+    /** Stairs/arrow between two streets at [x]: from height [y1] up/down to [y2]. */
+    data class Link(val x: Double, val y1: Double, val y2: Double)
+    class Layout(val segs: List<Seg>, val links: List<Link>)
+
+    /** Map units walked per second of holding; re-measured after every undisturbed walk. */
+    var speed = WALK_PER_S
+
+    private sealed class Move {
+        data class Walk(val x: Double) : Move()
+        data class Climb(val up: Boolean) : Move()
+    }
+
+    private fun segOf(l: Layout, p: Point): Seg? = l.segs.filter { abs(it.y - p.y) < ROW_TOL * 1.5 && p.x > it.x1 - 0.04 && p.x < it.x2 + 0.04 }
+        .minByOrNull { abs(it.y - p.y) + maxOf(0.0, it.x1 - p.x, p.x - it.x2) }
+
+    /** Shortest way from [from] to [to] over the layout's streets and stairs (Dijkstra on a small graph). */
+    private fun route(l: Layout, from: Point, to: Point): List<Move>? {
+        val a = segOf(l, from) ?: return null
+        val b = segOf(l, to) ?: return null
+        data class Node(val seg: Seg, val x: Double)
+        val nodes = ArrayList<Node>()
+        nodes += Node(a, from.x.coerceIn(a.x1, a.x2)); nodes += Node(b, to.x.coerceIn(b.x1, b.x2))
+        val linkEnds = HashMap<Int, Pair<Int, Int>>()
+        for ((k, ln) in l.links.withIndex()) {
+            val s1 = l.segs.firstOrNull { abs(it.y - ln.y1) < 0.02 && ln.x in it.x1 - 0.02..it.x2 + 0.02 } ?: continue
+            val s2 = l.segs.firstOrNull { abs(it.y - ln.y2) < 0.02 && ln.x in it.x1 - 0.02..it.x2 + 0.02 } ?: continue
+            nodes += Node(s1, ln.x); nodes += Node(s2, ln.x)
+            linkEnds[k] = (nodes.size - 2) to (nodes.size - 1)
+        }
+        val n = nodes.size
+        val dist = DoubleArray(n) { Double.MAX_VALUE }
+        val prev = IntArray(n) { -1 }
+        val done = BooleanArray(n)
+        dist[0] = 0.0
+        val climbs = HashSet<Pair<Int, Int>>()
+        linkEnds.values.forEach { (i, j) -> climbs += i to j; climbs += j to i }
+        repeat(n) {
+            val u = (0 until n).filter { !done[it] }.minByOrNull { dist[it] } ?: return@repeat
+            if (dist[u] == Double.MAX_VALUE) return@repeat
+            done[u] = true
+            for (v in 0 until n) {
+                if (done[v]) continue
+                val w = when {
+                    (u to v) in climbs -> 0.06
+                    nodes[u].seg == nodes[v].seg -> abs(nodes[u].x - nodes[v].x)
+                    else -> continue
+                }
+                if (dist[u] + w < dist[v]) { dist[v] = dist[u] + w; prev[v] = u }
+            }
+        }
+        if (dist[1] == Double.MAX_VALUE) return null
+        val path = ArrayList<Int>()
+        var c = 1
+        while (c != -1) { path += c; c = prev[c] }
+        path.reverse()
+        val moves = ArrayList<Move>()
+        for (i in 1 until path.size) {
+            val u = nodes[path[i - 1]]; val v = nodes[path[i]]
+            if ((path[i - 1] to path[i]) in climbs) moves += Move.Climb(v.seg.y < u.seg.y) else moves += Move.Walk(v.x)
+        }
+        return moves
+    }
+
+    /**
+     * Walk to [goal] over a known [layout]: read the party marker, plan, do the first move,
+     * look again. [onStep] runs after every move and says whether a battle interrupted it.
+     */
+    fun walkLayout(ctx: Context, layout: Layout, goal: Point, onStep: () -> Boolean, tries: Int = 24): Boolean {
+        var stuck = 0
+        var lastParty: Point? = null
+        repeat(tries) {
+            val party = look(ctx) { emptyList() }.party ?: return false.also { MacroLog.i("party marker not found on the map") }
+            pendingSpeed?.let { (x0, ms, d) ->
+                // learn this map's walking speed from an undisturbed walk (a wall stops it early)
+                val moved = abs(party.x - x0)
+                if (ms > 400 && moved > 0.01 && moved < abs(d) * 1.6) speed = (0.5 * speed + 0.5 * moved / (ms / 1000.0)).coerceIn(0.01, 0.08)
+                pendingSpeed = null
+            }
+            val moves = route(layout, party, goal) ?: return false.also { MacroLog.i("no route from $party to $goal") }
+            val first = moves.firstOrNull { !(it is Move.Walk && abs(it.x - party.x) < 0.012) } ?: return true
+            if (lastParty != null && abs(lastParty!!.x - party.x) < 0.005 && abs(lastParty!!.y - party.y) < 0.01) stuck++ else stuck = 0
+            if (stuck >= 3) return false.also { MacroLog.i("not moving any more at $party") }
+            lastParty = party
+            when (first) {
+                is Move.Walk -> {
+                    val d = first.x - party.x
+                    val ms = (abs(d) / speed * 1000).toLong().coerceIn(60, 12000)
+                    ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * (if (d > 0) 1 else -1), 0.65), ms)
+                    ctx.wait(0.5)
+                    if (!onStep()) pendingSpeed = Triple(party.x, ms, d)
+                }
+                is Move.Climb -> {
+                    flick(ctx, first.up)
+                    onStep()
+                }
+            }
+        }
+        return false
+    }
+
+    private var pendingSpeed: Triple<Double, Long, Double>? = null
 }
