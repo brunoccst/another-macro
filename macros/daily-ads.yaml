@@ -6,7 +6,7 @@ templates: [start_game, daily_ads]
 params:
   ad_wait_s: {default: 45, help: "how long to let a commercial play before pressing back to close it"}
   max_ads: {default: 5, help: "stop after this many"}
-screens: [premium_thanks, ad_reward, ok_dialog, ad_chest, menu_open, field]
+screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, ad_chest, menu_open, field]
 unknown_timeout_s: 120
 
 setup:
@@ -40,6 +40,11 @@ handlers:
   ok_dialog:        # what the chest gave (or "could not receive ... reached the limit")
     - count: rewards
     - tap: dialog_ok_button
+    - wait: 1.5
+
+  reward_confirm:   # "Rewards received: 1 / Chronos Stone x5"
+    - count: rewards
+    - tap: confirm_ok_button
     - wait: 1.5
 
   menu_open:

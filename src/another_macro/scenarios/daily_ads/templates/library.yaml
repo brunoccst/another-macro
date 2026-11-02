@@ -25,7 +25,14 @@ templates:
     ref: [2400, 1080]
     region: [0.3, 0.74, 0.22, 0.2]
     notes: '"Don''t Watch" button: closes the ad chest.'
+  confirm_ok_button:
+    file: confirm_ok_button.png
+    ref: [2400, 1080]
+    region: [0.38, 0.64, 0.24, 0.22]
+    notes: '"OK" of the "Confirm / Rewards received" box after the chest opens.'
 screens:
+  reward_confirm:
+    require: [confirm_ok_button]
   ad_chest:
     require: [ad_offer_title]
   menu_open:
