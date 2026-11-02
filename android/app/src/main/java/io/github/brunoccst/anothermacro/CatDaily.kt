@@ -118,6 +118,18 @@ object CatDaily {
         ctx.tap(ERA.getValue(clue.era)); ctx.wait(2.0)
         // the place's own region (from the wiki's map list): islands show as a label on a continent's map
         val region = REGIONS.entries.firstOrNull { (_, places) -> places.any { Ocr.norm(it) == Ocr.norm(place) } }?.key
+        // learned before: go straight to its continent
+        val known = KnownPlaces.continent(ctx, place, clue.era)
+        if (known != null) {
+            MacroLog.i("$place: known to be on $known")
+            ctx.tap(EXPAND); ctx.wait(2.0)
+            val line = ctx.readText().firstOrNull { Ocr.similarity(it.text, known) >= 0.8 }
+            if (line != null) {
+                ctx.tap(line.center); ctx.wait(2.0)
+                if (searchAndGo(ctx, place, sub, region)) return true
+            }
+            MacroLog.i("$place wasn't where it was last time; searching")
+        }
         if (searchAndGo(ctx, place, sub, region)) return true
         // not on this continent: try each one in the Expand view
         ctx.tap(EXPAND); ctx.wait(2.0)
@@ -129,7 +141,10 @@ object CatDaily {
             if (ctx.readText().none { l -> l.text == name }) { ctx.tap(EXPAND); ctx.wait(2.0) }
             val line = ctx.readText().firstOrNull { it.text == name } ?: continue
             ctx.tap(line.center); ctx.wait(2.0)
-            if (searchAndGo(ctx, place, sub, region)) return true
+            if (searchAndGo(ctx, place, sub, region)) {
+                KnownPlaces.learn(ctx, place, clue.era, name)
+                return true
+            }
         }
         MacroLog.i("couldn't find $place on the map (not unlocked yet?)")
         ctx.tap(CLOSE); ctx.wait(1.5)
@@ -497,5 +512,52 @@ object CatDaily {
             }
             ctx.wait(1.0)
         }
+    }
+}
+
+/**
+ * Which continent (Expand-view entry) each place is on, so a trip doesn't search every map.
+ * Seeded from the APK (templates/cat_scratchbook/known_places.yaml); what the routine learns
+ * goes to the app's own storage (files/known_places.json) and wins over the seed.
+ */
+object KnownPlaces {
+    private data class Entry(val era: String, val continent: String)
+
+    private var cache: MutableMap<String, Entry>? = null
+
+    private fun file(ctx: Context) = java.io.File(ctx.debugDir.parentFile, "known_places.json")
+
+    @Synchronized
+    private fun all(ctx: Context): MutableMap<String, Entry> = cache ?: LinkedHashMap<String, Entry>().also { m ->
+        runCatching {
+            val text = ctx.assets.open("templates/cat_scratchbook/known_places.yaml").bufferedReader().use { it.readText() }
+            (Load(LoadSettings.builder().build()).loadFromString(text) as? Map<*, *>)?.forEach { (k, v) ->
+                val e = v as? Map<*, *> ?: return@forEach
+                m[Ocr.norm(k.toString())] = Entry(e["era"].toString(), e["continent"].toString())
+            }
+        }.onFailure { MacroLog.e("known places seed unreadable", it) }
+        runCatching {
+            val f = file(ctx)
+            if (f.exists()) {
+                val o = org.json.JSONObject(f.readText())
+                for (k in o.keys()) o.getJSONObject(k).let { m[k] = Entry(it.getString("era"), it.getString("continent")) }
+            }
+        }.onFailure { MacroLog.e("known places file unreadable", it) }
+        cache = m
+    }
+
+    fun continent(ctx: Context, place: String, era: String): String? =
+        all(ctx)[Ocr.norm(place)]?.takeIf { it.era.equals(era, true) }?.continent
+
+    @Synchronized
+    fun learn(ctx: Context, place: String, era: String, continent: String) {
+        val m = all(ctx)
+        val key = Ocr.norm(place)
+        if (m[key] == Entry(era, continent)) return
+        m[key] = Entry(era, continent)
+        val o = org.json.JSONObject()
+        m.forEach { (k, e) -> o.put(k, org.json.JSONObject().put("era", e.era).put("continent", e.continent)) }
+        runCatching { file(ctx).writeText(o.toString(1)) }.onFailure { MacroLog.e("could not save known places", it) }
+        MacroLog.i("learned: $place is on $continent ($era)")
     }
 }
