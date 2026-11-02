@@ -58,13 +58,14 @@ class ControlsOverlay(private val service: InputService) {
 
     init {
         buttons.addView(selected)
-        buttons.addView(picker)
+        // (a vertical LinearLayout's default child width is MATCH_PARENT, which would clamp the names)
+        buttons.addView(picker, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         buttons.addView(playPause)
         buttons.addView(stop)
         buttons.addView(restart)
         buttons.addView(camera)
         root.addView(handle)
-        root.addView(buttons)
+        root.addView(buttons, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         root.alpha = 0.85f
 
         playPause.setOnClickListener {
