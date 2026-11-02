@@ -85,14 +85,76 @@ object AnotherDungeon {
         var skipped = false
         /** What the run is doing (the live log shows it again after a battle). */
         var task = ""
+        /** The chosen key ran out (read on the dungeon panel): the loop ends. */
+        var outOfKeys = false
+        /** The macro's counters when this run started. */
+        val base: Map<String, Int> = HashMap(ctx.stats)
+        /** A White Key was already held before entering. */
+        var heldKey = false
+        /** Enter even though a White Key is held (the loop was told to keep going). */
+        var ignoreHeldKey = false
     }
 
     private fun task(r: Run, text: String) { r.task = text; MacroLog.status(text) }
 
+    /**
+     * Run the dungeon [runs] times in a row ("all": until the chosen key runs out). After every
+     * run a White Key is checked for: `white_key` = phantom runs the Phantom Crystal Dimension
+     * and comes back to the loop, stop ends the loop, keep_going ignores it.
+     */
     fun run(ctx: Context, id: String): String {
-        val r = Run(ctx, spec(ctx, id))
-        val outcome = try { runInner(r) } catch (s: StopScenario) { s.message ?: "stopped" }
-        return report(r, outcome)
+        val spec = spec(ctx, id)
+        val want = ctx.params["runs"]?.trim()?.lowercase()?.removeSuffix(".0") ?: "1"
+        val total = if (want == "all") Int.MAX_VALUE else want.toIntOrNull()?.coerceAtLeast(1) ?: 1
+        val onWhiteKey = ctx.params["white_key"]?.trim()?.lowercase() ?: "phantom"
+        val start = System.currentTimeMillis()
+        val lines = ArrayList<String>()
+        var done = 0
+        var phantoms = 0
+        var ignore = false
+        var end = ""
+        while (done < total) {
+            if (total > 1) MacroLog.status("${spec.name}: run ${done + 1}${if (total == Int.MAX_VALUE) "" else "/$total"}")
+            val r = Run(ctx, spec).also { it.ignoreHeldKey = ignore }
+            val outcome = try { runInner(r) } catch (s: StopScenario) { s.message ?: "stopped" }
+            if (r.outOfKeys) { end = outcome; break }
+            if (r.heldKey && !r.entered) {
+                // a White Key from before: deal with it first, then this run
+                when (onWhiteKey) {
+                    "phantom" -> { if (!phantom(ctx, lines)) { end = "the Phantom Crystal Dimension run failed"; break }; phantoms++; continue }
+                    "stop" -> { end = outcome; break }
+                    else -> { ignore = true; continue }
+                }
+            }
+            val ok = outcome.startsWith("${spec.name} done") || r.phantom
+            // a run that stopped before entering (or skipping) isn't a run
+            if (!ok && !r.entered && !r.skipped) { end = if (done > 0) "stopped after run $done: $outcome" else outcome; break }
+            lines += "run ${done + 1}: " + report(r, outcome)
+            done++
+            ctx.count("runs")
+            if (!ok) { end = "stopped after run $done: $outcome"; break }
+            if (r.phantom) when (onWhiteKey) {
+                "phantom" -> { if (!phantom(ctx, lines)) { end = "the Phantom Crystal Dimension run failed"; break }; phantoms++ }
+                "stop" -> { end = "a White Key dropped: stopping for you (Phantom Crystal Dimension open)"; break }
+                else -> ignore = true
+            }
+        }
+        if (total == 1 && lines.size == 1 && phantoms == 0 && end.isEmpty()) return lines[0].substringAfter(": ")
+        if (total == 1 && lines.isEmpty() && phantoms == 0) return end
+        val mins = (System.currentTimeMillis() - start) / 60000
+        val summary = "${spec.name}: $done run(s)" + (if (phantoms > 0) ", $phantoms Phantom Crystal Dimension run(s)" else "") +
+            " in ${mins}m" + (if (end.isNotEmpty()) "; $end" else "")
+        lines.forEach { MacroLog.i(it) }
+        MacroLog.status(summary)
+        return summary
+    }
+
+    /** The Phantom Crystal Dimension, from next to the door; back to the loop afterwards. */
+    private fun phantom(ctx: Context, lines: MutableList<String>): Boolean {
+        MacroLog.status("White Key: on to the Phantom Crystal Dimension")
+        val out = PhantomCrystal.run(ctx)
+        lines += "Phantom Crystal Dimension: $out"
+        return out.startsWith("Phantom Crystal Dimension done")
     }
 
     private fun runInner(r: Run): String {
@@ -157,12 +219,32 @@ object AnotherDungeon {
         return best
     }
 
+    /**
+     * The dungeon panel's counters, left to right. One OCR line can hold two of them
+     * ("5/5 En 16/50"): lines go by x, then the counters in a line by their order in it.
+     */
+    internal fun panelCounters(lines: List<Ocr.Line>): List<List<Int>> =
+        lines.sortedBy { it.center.x }.flatMap { l ->
+            Regex("""(\d+)\s*/\s*(\d+)""").findAll(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
+                .map { m -> m.groupValues.drop(1).map { v -> v.toInt() } }.toList()
+        }
+
+    /**
+     * An item name as read by OCR, cleaned: "LOw Class Scroll" → "Low Class Scroll". Null for junk
+     * ("X4( X400") with no word of three letters or more.
+     */
+    internal fun cleanName(raw: String): String? {
+        val words = raw.replace(Regex("""[^A-Za-z'\- ]"""), " ").trim().split(Regex("\\s+")).filter { it.isNotEmpty() }
+        if (words.none { w -> w.count { it.isLetter() } >= 3 }) return null
+        return words.joinToString(" ") { w -> w.lowercase().replaceFirstChar { it.uppercase() } }
+    }
+
     /** "Obtained Dark Residue x200." → items (OCR reads 0 as O at times). One banner line at a time. */
     private fun noteItems(r: Run, lines: List<Ocr.Line>) {
         for (l in lines) {
             val m = Regex("""^\s*Obtained\s+([A-Za-z'\- ]+?)\s*[x×X]\s*([0-9OoIl,]+)""").find(l.text) ?: continue
             val n = m.groupValues[2].replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(",", "").toIntOrNull() ?: continue
-            val name = m.groupValues[1].trim()
+            val name = cleanName(m.groupValues[1]) ?: continue
             r.items[name] = (r.items[name] ?: 0) + n
         }
     }
@@ -177,7 +259,7 @@ object AnotherDungeon {
         if ("congratulations" in all) {
             for (c in lines.filter { Regex("""^\s*[x×X]\s*[0-9OoIl,]+\s*$""").matches(it.text) }) {
                 val name = lines.filter { it !== c && abs(it.center.y - c.center.y) < 0.03 && it.center.x < c.center.x && Regex("[A-Za-z]{3}").containsMatchIn(it.text) }
-                    .maxByOrNull { it.center.x }?.text?.trim() ?: continue
+                    .maxByOrNull { it.center.x }?.text?.let { cleanName(it) } ?: continue
                 val n = num(c.text) ?: continue
                 r.rewards[name] = (r.rewards[name] ?: 0) + n
             }
@@ -188,7 +270,7 @@ object AnotherDungeon {
                 val n = Regex("""[Aa]mount\s*([0-9OoIl,]+)""").find(sameRow)?.groupValues?.get(1)?.let { num(it) } ?: continue
                 val name = lines.filter { it.center.y < a.center.y && a.center.y - it.center.y < 0.1 && abs(it.center.x - a.center.x) < 0.2 &&
                     Regex("[A-Za-z]{3}").containsMatchIn(it.text) && !Regex("[0-9]").containsMatchIn(it.text) && !Ocr.norm(it.text).startsWith("items") }
-                    .maxByOrNull { it.center.y }?.text?.trim() ?: continue
+                    .maxByOrNull { it.center.y }?.text?.let { cleanName(it) } ?: continue
                 r.rewards[name] = n // the run's total of that item (shown once)
             }
         }
@@ -197,7 +279,8 @@ object AnotherDungeon {
     /** One line about the run: how long, what it got. Also appended to the app's runs.log. */
     private fun report(r: Run, outcome: String): String {
         val secs = (System.currentTimeMillis() - r.start) / 1000
-        val st = r.ctx.stats
+        // this run's counts (the macro's stats add up over the loop)
+        val st = r.ctx.stats.mapValues { (k, v) -> v - (r.base[k] ?: 0) }
         val items = r.items.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val rewards = r.rewards.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val text = "$outcome — ${secs / 60}m ${secs % 60}s; " +
@@ -233,18 +316,30 @@ object AnotherDungeon {
             ctx.wait(1.0)
         }
         if (!opened) ctx.stop("the door didn't open the Another Dungeon map: ${seen(ctx)}")
-        if (phantomTabGlows(ctx)) {
+        if (!r.ignoreHeldKey && phantomTabGlows(ctx)) {
             ctx.tap(AD_CLOSE); ctx.wait(1.5)
-            r.phantom = true
-            return "the Phantom Crystal Dimension is already open (White Key held): not entering"
+            r.heldKey = true
+            return "a White Key is held (the Phantom Crystal Dimension is open): not entering"
         }
         tapText(r, eraLabel(r.spec.era)); ctx.wait(1.5)
         tapText(r, r.spec.name, minY = 0.2, maxX = 0.62) ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map: ${seen(ctx)}")
         ctx.wait(2.0)
         // the panel's counters at the bottom: green keys, red keys, Cat Express Tickets ("17/50"); their "+" buy more
-        val tickets = LiveLog.without { ctx.readText() }.filter { it.center.y > 0.85 && it.center.x > 0.8 }
-            .firstNotNullOfOrNull { Regex("""(\d+)\s*/\s*50""").find(it.text)?.groupValues?.get(1)?.toIntOrNull() }
-        MacroLog.i("Cat Express Tickets: ${tickets ?: "not read"}")
+        // left to right: green keys "10/10", red keys "5/5", Cat Express Tickets "17/50"
+        val bottom = LiveLog.without { ctx.readText() }.filter { it.center.y > 0.85 && it.center.x > 0.5 }
+        // OCR reads 0 as O at times ("16/5O")
+        val counters = panelCounters(bottom)
+        if (counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }}")
+        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0) ?: counters.getOrNull(2)?.get(0)
+        val keyCounters = counters.filter { it[1] != 50 }.take(2)
+        val keys = if (keyCounters.size >= 2) keyCounters[if (red) 1 else 0][0] else null
+        MacroLog.i("keys (${if (red) "red" else "green"}): ${keys ?: "not read"}; Cat Express Tickets: ${tickets ?: "not read"}")
+        if (keys == 0) {
+            // the game would offer to buy keys: never; the loop ends here
+            ctx.tap(AD_CLOSE); ctx.wait(1.5)
+            r.outOfKeys = true
+            return "out of ${if (red) "red" else "green"} keys"
+        }
         val skip = ctx.bool("cat_ticket") && (tickets ?: 0) > 0
         if (ctx.bool("cat_ticket") && !skip) MacroLog.i("no Cat Express Ticket to use: walking the dungeon instead")
         tapText(r, difficulty, exact = true, minX = 0.6) ?: ctx.stop("no '$difficulty' entry for ${r.spec.name}: ${seen(ctx)}")

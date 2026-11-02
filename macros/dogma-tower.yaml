@@ -9,6 +9,9 @@ description: "Another Dungeon: Dogma Tower. All chests, optionally all enemies, 
 templates: [another_dungeon]
 params:
   key: {default: green, choices: [green, red], help: "key to use: green = Hard, red = Very Hard"}
+  # every dungeon macro: how many runs in a row, and what to do when a White Key drops
+  runs: {default: 1, choices: [1, 2, 3, 5, 10, all], help: "runs in a row; all = until the chosen key runs out"}
+  white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
   cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
   fight_all: {default: true, type: bool, help: "fight all enemies: after a map's chests, fight until no enemies are left"}
   # mobs: the four front-row characters, left to right (all auto = the battle's Auto button)
