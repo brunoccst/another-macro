@@ -290,6 +290,9 @@ object AreaNav {
         var stuck = 0
         var nudge = 0
         var climbedAt: Point? = null
+        var lastWalk: Double? = null
+        var lastTarget = -1.0
+        var overshot = false
         var lastParty: Point? = null
         repeat(tries) {
             val view = look(ctx) { emptyList() }
@@ -309,7 +312,8 @@ object AreaNav {
             MacroLog.i("at (${"%.3f".format(party.x)}, ${"%.3f".format(party.y)}) → (${"%.3f".format(goal.x)}, ${"%.3f".format(goal.y)}): ${moves.joinToString(" ")}")
             // a walk can be skipped when we're nearly there, but stairs only take the party standing on them
             val first = moves.withIndex().firstOrNull { (i, m) ->
-                val tol = if (moves.getOrNull(i + 1) is Move.Climb) 0.004 else 0.012
+                // (the shortest step moves ~0.01: once a step overshot the stairs, take them from here)
+                val tol = if (moves.getOrNull(i + 1) is Move.Climb) (if (overshot) 0.012 else 0.005) else 0.012
                 !(m is Move.Walk && abs(m.x - party.x) < tol)
             }?.value ?: return true
             if (lastParty != null && abs(lastParty!!.x - party.x) < 0.005 && abs(lastParty!!.y - party.y) < 0.01) stuck++ else stuck = 0
@@ -318,12 +322,15 @@ object AreaNav {
             when (first) {
                 is Move.Walk -> {
                     val d = first.x - party.x
+                    if (lastWalk != null && lastWalk!! * d < 0 && abs(lastTarget - first.x) < 0.001) overshot = true
+                    lastWalk = d; lastTarget = first.x
                     val ms = (abs(d) / speed * 1000).toLong().coerceIn(40, 12000)
                     ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * (if (d > 0) 1 else -1), 0.65), ms)
                     ctx.wait(0.5)
                     if (!onStep()) pendingSpeed = Triple(party.x, ms, d)
                 }
                 is Move.Climb -> {
+                    lastWalk = null; overshot = false
                     // the last flick here did nothing: shuffle a little either side of the stairs first
                     if (climbedAt?.let { abs(it.x - party.x) < 0.01 && abs(it.y - party.y) < ROW_TOL } == true) {
                         nudge++
