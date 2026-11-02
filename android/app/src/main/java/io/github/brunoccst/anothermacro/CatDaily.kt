@@ -89,7 +89,9 @@ object CatDaily {
         }.filter { it.isNotBlank() }
         val pending = ArrayList<Clue>()
         val unknown = ArrayList<String>()
-        for (row in rows) {
+        for (raw in rows) {
+            // a found cat's row can carry the time left until the next clue ("4 hours left So, you have returned!")
+            val row = raw.replace(Regex("""^\s*\d+\s*(hours?|minutes?|mins?)\s*left\s*""", RegexOption.IGNORE_CASE), "")
             if (FOUND.any { Ocr.similarity(row.take(it.length + 8), it) > 0.6 || Ocr.norm(row).startsWith(Ocr.norm(it)) }) continue
             val best = riddles.maxByOrNull { Ocr.similarity(row, it.text) }
             if (best != null && Ocr.similarity(row, best.text) >= 0.6) pending += best else unknown += row
