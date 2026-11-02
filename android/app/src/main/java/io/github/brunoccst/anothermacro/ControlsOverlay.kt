@@ -102,7 +102,17 @@ class ControlsOverlay(private val service: InputService) {
 
     /** The overlay window keeps the size it was first laid out with: re-measure after the content changes. */
     private fun relayout() {
-        root.post { runCatching { if (root.isAttachedToWindow) wm.updateViewLayout(root, params) } }
+        root.post {
+            runCatching {
+                if (!root.isAttachedToWindow) return@runCatching
+                // measure the content ourselves and size the window to it (WRAP_CONTENT doesn't grow it)
+                val any = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+                root.measure(any, any)
+                params.width = root.measuredWidth
+                params.height = root.measuredHeight
+                wm.updateViewLayout(root, params)
+            }
+        }
     }
 
     /** Show or hide the list of macros; picking one makes it what ▶ starts. */
