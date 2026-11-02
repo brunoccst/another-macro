@@ -12,4 +12,16 @@ templates:
     file: dungeon_field_chest.png
     ref: [2400, 1080]
     region: [0.0, 0.3, 1.0, 0.5]
+  ground_arrow_bars:
+    notes: Round sign (bars icon) on the ground at a staircase to another map; tap it to take it.
+    file: ground_arrow_bars.png
+    ref: [2400, 1080]
+    region: [0.05, 0.15, 0.8, 0.8]
+    threshold: 0.8
+  ground_arrow_steps:
+    notes: Round sign (steps icon) at a staircase/door to another map; tap it to take it.
+    file: ground_arrow_steps.png
+    ref: [2400, 1080]
+    region: [0.05, 0.15, 0.8, 0.8]
+    threshold: 0.8
 screens: {}

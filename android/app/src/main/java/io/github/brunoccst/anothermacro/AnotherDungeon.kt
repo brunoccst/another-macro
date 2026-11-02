@@ -204,25 +204,35 @@ object AnotherDungeon {
         return true
     }
 
+    /** Walk to the map's exit and take its ground arrow (tap it); flick as a fallback. */
     private fun leave(r: Run, ms: MapSpec, idx: Int) {
         val ctx = r.ctx
-        MacroLog.i("to the exit at (${"%.3f".format(ms.exit!!.x)}, ${"%.3f".format(ms.exit.y)})")
-        AreaNav.walkLayout(ctx, ms.layout!!, ms.exit, onStep(r))
-        val towardEnd = if (ms.exit.x > 0.5) 1.0 else -1.0
-        for (move in listOf("up", "down", "on", "up", "down")) {
-            when (move) {
-                "up" -> AreaNav.flick(ctx, up = true)
-                "down" -> AreaNav.flick(ctx, up = false)
-                else -> AreaNav.hold(ctx, towardEnd, 0.04)
+        val exit = ms.exit!!
+        MacroLog.i("to the exit at (${"%.3f".format(exit.x)}, ${"%.3f".format(exit.y)})")
+        AreaNav.walkLayout(ctx, ms.layout!!, exit, onStep(r))
+        // the arrow shows on the ground once the party is near; walk on toward the exit until it does
+        val toward = if (exit.x > 0.5) 1.0 else -1.0
+        for (attempt in 0..7) {
+            ctx.refresh()
+            val arrow = ARROWS.mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
+            if (arrow != null) {
+                MacroLog.i("taking the ground arrow at (${"%.2f".format(arrow.center.x)}, ${"%.2f".format(arrow.center.y)})")
+                ctx.tap(arrow); ctx.wait(4.0)
+                fight(r)
+                if (whereAmI(r) != idx) return
+            }
+            when (attempt) {
+                3 -> AreaNav.flick(ctx, up = false)
+                5 -> AreaNav.flick(ctx, up = true)
+                else -> AreaNav.hold(ctx, if (attempt < 3) -toward else toward, 0.008)
             }
             fight(r)
-            ctx.wait(1.5)
-            if (whereAmI(r) != idx) return
-            openBubble(r) // a door with "!"
-            if (whereAmI(r) != idx) return
         }
         MacroLog.i("the exit didn't take us anywhere yet")
     }
+
+    /** The round signs on the ground where a staircase/door leads to another map. */
+    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps")
 
     /** Walk back and forth fighting until the game says no enemies are left (or none come any more). */
     private fun grind(r: Run, ms: MapSpec) {
