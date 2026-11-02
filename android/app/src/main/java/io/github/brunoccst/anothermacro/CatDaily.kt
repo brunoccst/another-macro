@@ -235,7 +235,7 @@ object CatDaily {
             val aspect = bw / bh
             if (area >= 300) seen += "(${"%.3f".format(cx)},${"%.3f".format(cy)} ${bw.toInt()}x${bh.toInt()} a${area.toInt()})"
             // the eye is wider than tall (quest "!" markers are taller); its size follows the map's zoom
-            if (area < 450 || aspect < 1.05 || aspect > 1.9 || bw < 30 || bw > 110) continue
+            if (area < 220 || aspect < 1.05 || aspect > 1.9 || bw < 24 || bw > 110) continue
             if (abs(cx - feather.x) < 0.02 && abs(cy - feather.y) < 0.04) continue
             val score = area * (1.0 - abs(aspect - 1.35))
             if (score > bestArea) { bestArea = score; best = Point(cx, cy) }
