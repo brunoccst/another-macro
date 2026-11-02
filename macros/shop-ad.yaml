@@ -3,6 +3,7 @@
 # nothing in the shop itself is touched, so nothing can be bought.
 name: shop-ad
 group: daily
+icon: chest
 description: "Watch the Shop's daily commercial (Menu → Shop → play button) for 10 Chronos Stones."
 templates: [start_game, daily_ads, shop_ad]
 params:

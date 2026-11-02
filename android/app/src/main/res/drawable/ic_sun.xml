@@ -1,0 +1,6 @@
+<vector xmlns:android="http://schemas.android.com/apk/res/android" android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <!-- daily: a sun over a calendar sheet -->
+    <path android:fillColor="#4FC3F7" android:pathData="M5,6h14a2,2 0,0 1,2 2v11a2,2 0,0 1,-2 2H5a2,2 0,0 1,-2 -2V8a2,2 0,0 1,2 -2z"/>
+    <path android:fillColor="#1D3A4A" android:pathData="M4.5,10h15v9.5h-15z"/>
+    <path android:fillColor="#FFD54F" android:pathData="M12,12a2.5,2.5 0,1 1,0 5a2.5,2.5 0,1 1,0 -5zM7,3h2v4H7zM15,3h2v4h-2z"/>
+</vector>

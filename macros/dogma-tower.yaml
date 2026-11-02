@@ -4,6 +4,7 @@
 # Start it next to the Another Dungeon door in the Spacetime Rift (or inside Dogma Tower).
 name: dogma-tower
 group: dungeon
+icon: chest
 description: "Another Dungeon: Dogma Tower. All chests, optionally all enemies, then the boss."
 templates: [another_dungeon]
 params:

@@ -2,6 +2,7 @@
 # Premium subscribers get a thank-you instead of the commercial; the chest opens either way.
 name: daily-ads
 group: daily
+icon: chest
 description: "Watch the 5 daily commercials (Menu → video icon) for the random chest."
 templates: [start_game, daily_ads]
 params:

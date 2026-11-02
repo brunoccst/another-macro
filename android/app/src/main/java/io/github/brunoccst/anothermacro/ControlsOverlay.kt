@@ -140,7 +140,9 @@ class ControlsOverlay(private val service: InputService) {
         for ((group, list) in Groups.sort(runCatching { Scenarios.all(service) }.getOrDefault(emptyList()))) {
           // the group's name above its macros
           picker.addView(TextView(service).apply {
-              text = "${group.icon} ${group.title}"
+              text = " ${group.title}"
+              setCompoundDrawablesWithIntrinsicBounds(service.getDrawable(group.iconRes)?.apply { setBounds(0, 0, dp(14), dp(14)) }, null, null, null)
+              compoundDrawablePadding = dp(4)
               setTextColor(Color.parseColor("#B0BEC5"))
               textSize = 11f
               setPadding(dp(10), dp(6), dp(10), dp(1))

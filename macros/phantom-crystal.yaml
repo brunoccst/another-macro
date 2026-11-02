@@ -4,6 +4,7 @@
 # or inside the dimension. Stops for you if the Sensationalist offers a Treatise/Codex/Opus.
 name: phantom-crystal
 group: dungeon
+icon: crystal
 description: "Phantom Crystal Dimension (White Key): every chest and stamp, world by world."
 templates: [another_dungeon]
 params: {}
