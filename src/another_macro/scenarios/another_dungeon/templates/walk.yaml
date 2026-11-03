@@ -40,3 +40,6 @@ battle_hud_lag_ms: 150
 # after a flick, how different the screen must look (mean grey-level change, 0-255) to take
 # it that the party changed street; less than this opens the area map to check
 flick_change: 8
+# a hold of 0.6 s or more whose view changed less than this (first vs last frame) walked
+# nothing (seen right after a flick onto a street): it is held again, pressed a little higher
+still_change: 1.5

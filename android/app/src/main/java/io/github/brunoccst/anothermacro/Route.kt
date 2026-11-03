@@ -47,7 +47,7 @@ object Route {
     class Table(
         private val ms: DoubleArray, private val dist: DoubleArray, private val beyondPerS: Double,
         val minWalk: Double, val wallMargin: Double, val lagMs: Long, val flickChange: Double,
-        val hudLagMs: Long = 150, val darkLevel: Double = 30.0,
+        val hudLagMs: Long = 150, val darkLevel: Double = 30.0, val stillChange: Double = 1.5,
     ) {
         fun distance(holdMs: Double): Double {
             if (holdMs <= 0) return 0.0
@@ -74,7 +74,7 @@ object Route {
         fun num(k: String, d: Double) = (y[k] as? Number)?.toDouble() ?: d
         Table(nums("hold_ms"), nums("distance"), num("beyond_per_s", 0.026), num("min_walk", 0.003), num("wall_margin", 0.008),
             num("battle_lag_ms", 0.0).toLong(), num("flick_change", 8.0),
-            num("battle_hud_lag_ms", 150.0).toLong(), num("dark_level", 30.0)).also { cached = it }
+            num("battle_hud_lag_ms", 150.0).toLong(), num("dark_level", 30.0), num("still_change", 1.5)).also { cached = it }
     }
 
     // --- following the party on the layout -------------------------------------------
@@ -122,6 +122,8 @@ object Route {
         var left = t.distance(ms.toDouble())
         var holdMs = ms
         var cancels = 0
+        var press = PRESS
+        var noEffect = 0
         repeat(10) {
             // a battle is told by its own look (the screen going dark for the encounter, the battle
             // HUD), never by the field's buttons: the game hides those while the party walks
@@ -129,9 +131,13 @@ object Route {
             var frames = 0
             var dark = 0
             var why: String? = null
-            val res = ctx.hold(PRESS, Point(PRESS.x + if (right) 0.1 else -0.1, PRESS.y), holdMs) { held ->
+            var firstGray: org.opencv.core.Mat? = null
+            var lastGray: org.opencv.core.Mat? = null
+            val res = ctx.hold(press, Point(press.x + if (right) 0.1 else -0.1, press.y), holdMs) { held ->
                 val f = ctx.refresh()
                 frames++
+                // the first and the latest view: a hold that walked scrolls the view
+                if (firstGray == null) firstGray = f.gray.clone() else { lastGray?.release(); lastGray = f.gray.clone() }
                 val level = org.opencv.core.Core.mean(f.gray).`val`[0]
                 when {
                     Battle.inBattle(ctx) -> { why = "battle screen"; true }
@@ -140,7 +146,29 @@ object Route {
                 }
             }
             ctx.wait(0.4) // standing still again before the next hold
-            val interrupted = res.stoppedAtMs != null || res.cancelled
+            val moved = if (firstGray != null && lastGray != null) change(firstGray!!, lastGray!!) else -1.0
+            firstGray?.release(); lastGray?.release()
+            val interrupted0 = res.stoppedAtMs != null || res.cancelled
+            if (!interrupted0 && holdMs >= 600 && moved in 0.0..t.stillChange && noEffect < 2) {
+                // the view barely moved: check on the map whether the party walked at all (the view
+                // also stands still where the camera stops at a map's edge)
+                val seen = AreaNav.look(ctx) { emptyList() }.candidates.filter { segOf(l, it) != null }
+                    .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) }
+                if (seen != null && abs(seen.x - p.x) < 0.006 && abs(seen.y - p.y) < AreaNav.ROW_TOL) {
+                    // it didn't (seen right after a flick onto a street): wait, press a little higher, hold again
+                    noEffect++
+                    MacroLog.i("hold ${if (right) "R" else "L"} $holdMs walked nothing (view change ${"%.1f".format(moved)}, map x ${"%.3f".format(seen.x)}): again from (0.5, 0.55)")
+                    press = Point(0.5, 0.55)
+                    ctx.wait(1.0)
+                    return@repeat
+                }
+                if (seen != null) {
+                    val s = segOf(l, seen)!!
+                    MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the view barely moved but the map shows x ${"%.3f".format(seen.x)}")
+                    return Point(seen.x.coerceIn(s.x1, s.x2), s.y)
+                }
+            }
+            val interrupted = interrupted0
             val battle = interrupted && fight()
             val lag = if (why == "battle screen") t.hudLagMs else t.lagMs
             val walkedMs = when {
@@ -149,7 +177,7 @@ object Route {
                 battle -> (lastField - lag).coerceIn(0L, holdMs)
                 else -> res.heldMs.coerceAtMost(holdMs)
             }
-            MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: ${frames} frames, held ${res.heldMs}ms" +
+            MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: ${frames} frames, held ${res.heldMs}ms, view change ${"%.1f".format(moved)}" +
                 (if (res.stoppedAtMs != null) ", stopped at ${res.stoppedAtMs}ms: ${why ?: "?"}" else "") +
                 (if (res.cancelled) ", gesture cancelled by the system" else "") +
                 (if (interrupted) if (battle) ", battle fought" else ", no battle came" else ""))
