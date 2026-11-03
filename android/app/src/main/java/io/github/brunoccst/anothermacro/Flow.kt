@@ -26,6 +26,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   tap: template_name | {x: expr, y: expr}      tap_exact: {x: expr, y: expr}
  *   drag: {from: [x, y], to: [x, y], ms: expr}    walk: {dir: expr, ms: expr}   (-1 left, 1 right, 'up', 'down')
  *   back: true        wait: seconds        launch: package        log: "text {expr}"
+ *   status: "text {expr}"       (log it and show it on the live log: what the macro is doing now)
  *   set: {var: expr, ...}       count: stat_name        stop: "text {expr}"
  *   if: expr  then: [actions]  else: [actions]          repeat: {times: expr, do: [actions]}
  *   reset_view: true            (forget the last view for view_moved())
@@ -37,7 +38,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   read_cat_clues: true        (cat scratchbook: sets `report` to today's clues and their places)
  *   cat_daily: true             (cat scratchbook: read clues by OCR, travel to each cat, find it; stops with a summary)
  *
- * Expression functions: found('t'), captured('t'), text_has('s'), game_in_front(), view_moved(), now(), pick(i, a, b, ...)
+ * Expression functions: found('t'), captured('t'), text_has('s'), screen_text(y0, y1), game_in_front(), view_moved(), now(), pick(i, a, b, ...)
  */
 class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Scenario() {
     override val name = spec["name"] as? String ?: throw IllegalArgumentException("$source: missing name")
@@ -104,6 +105,7 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
             "wait" in a -> ctx.wait(num(ctx, a["wait"]))
             "launch" in a -> ctx.launchApp(Expr.str(value(ctx, a["launch"])))
             "log" in a -> MacroLog.i(text(ctx, a["log"]))
+            "status" in a -> MacroLog.status("$name: ${text(ctx, a["status"])}")
             "set" in a -> map(a["set"]).forEach { (k, v) -> vars[k.toString()] = value(ctx, v) }
             "count" in a -> ctx.count(a["count"].toString())
             "stop" in a -> ctx.stop(text(ctx, a["stop"]))
@@ -199,6 +201,12 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
             "now" -> System.currentTimeMillis() / 1000.0
             // on-screen text (OCR) contains this, loosely (case and punctuation ignored)
             "text_has" -> Ocr.norm(Expr.str(args[0])).let { want -> ctx.readText().any { Ocr.norm(it.text).contains(want) } }
+            // the text on screen (OCR), optionally only between heights y0..y1, for a log line (e.g. what a reward was)
+            "screen_text" -> {
+                val y0 = if (args.isNotEmpty()) Expr.num(args[0]) else 0.0
+                val y1 = if (args.size > 1) Expr.num(args[1]) else 1.0
+                ctx.readText().filter { it.center.y in y0..y1 }.joinToString(" ") { it.text }.take(160)
+            }
             "pick" -> args[Expr.num(args[0]).toInt().coerceIn(1, args.size - 1)]
             "abs" -> kotlin.math.abs(Expr.num(args[0]))
             else -> throw IllegalArgumentException("$macro: unknown function $name()")

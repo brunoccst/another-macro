@@ -23,29 +23,34 @@ handlers:
         - tap: ad_dont_watch_button
         - wait: 1.5
         - back: true
-        - stop: "no commercials left today ({stats.ads_started} watched this run)"
+        - stop: "no commercials left today ({stats.ads_started} watched this run, {stats.rewards} rewards)"
     - count: ads_started
+    - status: "commercial {stats.ads_started}/{max_ads}: watching (closing it after {ad_wait_s}s)"
     - tap: ad_watch_button
     - set: {watching_since: now()}
     - wait: 3
 
   premium_thanks:   # subscribers: no commercial, the chest still opens
     - count: premium_skips
+    - status: "commercial {stats.ads_started}/{max_ads}: premium, no commercial; opening the chest"
     - tap: dialog_close_button
     - set: {watching_since: 0}
     - wait: 2
 
   ad_reward:
+    - status: "commercial {stats.ads_started}/{max_ads}: done, opening the chest"
     - tap: dialog_ok_button
     - wait: 1.5
 
   ok_dialog:        # what the chest gave (or "could not receive ... reached the limit")
     - count: rewards
+    - status: "chest {stats.rewards}: {screen_text(0.25, 0.8)}"
     - tap: dialog_ok_button
     - wait: 1.5
 
   reward_confirm:   # "Rewards received: 1 / Chronos Stone x5"
     - count: rewards
+    - status: "chest {stats.rewards}: {screen_text(0.25, 0.8)}"
     - tap: confirm_ok_button
     - wait: 1.5
 
@@ -54,14 +59,16 @@ handlers:
     - if: not found('menu_ad_badge')
       then:
         - back: true
-        - stop: "all of today's commercials are done ({stats.ads_started} watched this run)"
+        - stop: "all of today's commercials are done ({stats.ads_started} watched this run, {stats.rewards} rewards)"
     - set: {menu_taps: menu_taps + 1}
+    - status: "menu: opening the commercials (video icon)"
     - if: menu_taps > 4
       then: [{stop: "the video icon didn't open the ad chest (maybe no commercials today)"}]
     - tap: menu_ad_icon
     - wait: 2.5
 
   field:
+    - status: "opening the menu"
     - tap: field_menu_button
     - wait: 2
 
@@ -73,11 +80,13 @@ unknown:
       # a commercial is playing: let it finish, then back closes it; never tap inside it
       - if: now() - watching_since > ad_wait_s
         then:
+          - log: "commercial {stats.ads_started} still playing after {ad_wait_s}s: pressing back to close it"
           - back: true
           - count: ad_backs
           - set: {watching_since: now() - ad_wait_s + 10}
       - wait: 2
     else:
       # the chest opening: tap through it
+      - status: "opening the chest"
       - tap: [0.5, 0.65]
       - wait: 1.5

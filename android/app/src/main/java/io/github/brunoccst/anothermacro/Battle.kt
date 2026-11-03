@@ -51,6 +51,8 @@ object Battle {
         var setup: Setup? = null
         var skillsSet = false
         var quiet = 0
+        // what the live log said before the battle: shown again once it is over
+        val before = MacroLog.status
         val end = System.currentTimeMillis() + 15 * 60_000
         while (System.currentTimeMillis() < end) {
             ctx.refresh()
@@ -81,6 +83,8 @@ object Battle {
                 ctx.find("field_menu_button") != null -> {
                     if (!seen) return Outcome.NONE
                     if (won) ctx.count("battles_won")
+                    MacroLog.i(if (won) "battle won" else "battle over")
+                    if (before.isNotEmpty()) MacroLog.show(before)
                     return Outcome.WON
                 }
                 else -> {

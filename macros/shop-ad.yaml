@@ -19,23 +19,27 @@ handlers:
     - set: {watching_since: 0}
     - if: done or not found('shop_watch_button')
       then:
+        - status: "{pick(1 + done, 'no commercial button in the shop (already watched today?)', 'closing the shop')}"
         - tap: shop_close_button
         - wait: 2
         - set: {done: true}
       else:
         - count: ads_started
+        - status: "watching the shop commercial (closing it after {ad_wait_s}s)"
         - tap: shop_watch_button
         - set: {watching_since: now()}
         - wait: 3
 
   premium_thanks:   # subscribers: no commercial
     - count: premium_skips
+    - status: "premium: no commercial, closing the thank-you"
     - tap: dialog_close_button
     - set: {watching_since: 0}
     - wait: 2
 
   shop_ok_dialog:   # "Thank you for watching. You have been rewarded 10 Chronos Stones."
     - count: rewards
+    - status: "shop commercial watched: {screen_text(0.25, 0.8)}"
     - tap: dialog_ok_button
     - set: {done: true}
     - wait: 2
@@ -49,12 +53,14 @@ handlers:
     - set: {menu_taps: menu_taps + 1}
     - if: menu_taps > 4
       then: [{stop: "the Shop button didn't open the shop"}]
+    - status: "menu: opening the Shop"
     - tap: menu_shop_button
     - wait: 3
 
   field:
     - if: done
       then: [{stop: "{pick(1 + stats.rewards, 'the shop commercial was already watched today', 'shop commercial watched: +10 Chronos Stones')}"}]
+    - status: "opening the menu"
     - tap: field_menu_button
     - wait: 2
 
@@ -64,6 +70,7 @@ unknown:
   - if: watching_since > 0 and now() - watching_since > ad_wait_s
     then:
       # a commercial is playing: let it finish, then back closes it; never tap inside it
+      - log: "the shop commercial is still playing after {ad_wait_s}s: pressing back to close it"
       - back: true
       - count: ad_backs
       - set: {watching_since: now() - ad_wait_s + 10}

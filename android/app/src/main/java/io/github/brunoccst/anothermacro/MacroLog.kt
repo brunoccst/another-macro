@@ -34,12 +34,24 @@ object MacroLog {
         private set
     private val statusListeners = java.util.concurrent.CopyOnWriteArrayList<(String) -> Unit>()
 
-    /** Log a step in plain words and show it on the live log. */
+    /** Which step of a routine is running (e.g. "Daily 2/5"), put in front of the live log; empty outside routines. */
+    @Volatile var prefix: String = ""
+
+    /** Log a step in plain words and show it on the live log (a repeat of the same words is shown, not logged again). */
     fun status(message: String) {
-        i(message)
-        status = message
-        main.post { statusListeners.forEach { it(message) } }
+        if (message != status) i(message)
+        show(message)
     }
+
+    /** Show [message] on the live log without a new log line (e.g. back to the task after a battle). */
+    fun show(message: String) {
+        status = message
+        val shown = if (prefix.isEmpty()) message else "$prefix · $message"
+        main.post { statusListeners.forEach { it(shown) } }
+    }
+
+    /** What the live log shows now (with the routine's step in front). */
+    val shown: String get() = if (prefix.isEmpty() || status.isEmpty()) status else "$prefix · $status"
 
     fun onStatus(l: (String) -> Unit) { statusListeners += l }
     fun offStatus(l: (String) -> Unit) { statusListeners -= l }
