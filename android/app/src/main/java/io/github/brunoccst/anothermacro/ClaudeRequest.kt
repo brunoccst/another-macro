@@ -35,8 +35,11 @@ object ClaudeRequest {
     val BETAS = listOf(
         "context-management-2025-06-27",       // clear old screenshots server-side (keeps the cache and thinking valid)
         "thinking-display-updates-2026-08-18", // Claude's short progress notes between tool calls, shown on the live log
-        "server-side-fallback-2026-07-01",     // a refused request is retried on a fallback model
     )
+    /** A refused request is retried on a fallback model. Haiku has no server-side fallback. */
+    const val FALLBACK_BETA = "server-side-fallback-2026-07-01"
+
+    fun hasFallback(model: String) = !model.startsWith("claude-haiku")
 
     /** A new request with everything but the messages. The tool list never changes during a task (keeps the cache). */
     fun builder(model: String, system: String, effort: String): MessageCreateParams.Builder {
@@ -59,9 +62,9 @@ object ClaudeRequest {
                         .build()
                 ).build()
             )
-            .fallbacksDefault()
             .addTool(computerToolset())
         BETAS.forEach { params.addBeta(it) }
+        if (hasFallback(model)) params.fallbacksDefault().addBeta(FALLBACK_BETA)
         appTools().forEach { params.addTool(it) }
         return params
     }

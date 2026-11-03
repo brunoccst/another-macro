@@ -36,8 +36,9 @@ possible: Anthropic doesn't allow third-party apps to offer claude.ai login.
   sell/discard/release/exchange/... or on screens mentioning Chronos Stones ask the user
   first (`AskOverlay.kt`); each task stops at its step cap (default 150) and cost cap
   (default US$3, from the API's usage numbers). The floating ■ and ❚❚ work as for macros.
-- **Cost:** roughly US$0.02 a step on Opus 5.5 and US$0.01 on Sonnet 5.5 (list prices,
-  estimates). Let Claude explore and write macros; macros then replay for free.
+- **Cost:** roughly US$0.02 a step on Opus 5.5, US$0.01 on Sonnet 5.5 and under US$0.001
+  on Haiku 5.5, the economy choice for fine-tuning macros (list prices, estimates). Usage is
+  billed to the API key's Console account, not to a Claude Pro/Max subscription. Let Claude explore and write macros; macros then replay for free.
 - **Macros Claude writes** are ordinary `.yaml` files in the app's storage, listed with the
   others; built-in macro names can't be replaced.
 - Screenshots go to Anthropic's API only while a task runs and aren't saved on the phone.

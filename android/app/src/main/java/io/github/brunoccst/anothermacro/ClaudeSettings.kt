@@ -27,6 +27,9 @@ object ClaudeSettings {
     val MODELS = listOf(
         ModelInfo("claude-opus-5-5", "Opus 5.5", 4.0, 20.0, 0.20),
         ModelInfo("claude-sonnet-5-5", "Sonnet 5.5", 2.0, 10.0, 0.20),
+        // Economy: about 1/20 of Sonnet's price (prompts up to 100K tokens; context editing keeps
+        // them well under that). Good for fine-tuning macros; weaker on hard, unfamiliar screens.
+        ModelInfo("claude-haiku-5-5", "Haiku 5.5 (economy)", 0.10, 0.50, 0.01),
     )
     val EFFORTS = listOf("low", "medium", "high")
 

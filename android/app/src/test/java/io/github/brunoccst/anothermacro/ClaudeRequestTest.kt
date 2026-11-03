@@ -10,8 +10,8 @@ import org.junit.Test
 
 /** The request Claude runs with, serialized as the SDK sends it (no network, no device). */
 class ClaudeRequestTest {
-    private fun body(build: (com.anthropic.models.beta.messages.MessageCreateParams.Builder) -> Unit = {}): JsonNode {
-        val b = ClaudeRequest.builder("claude-opus-5-5", "system text", "medium")
+    private fun body(model: String = "claude-opus-5-5", build: (com.anthropic.models.beta.messages.MessageCreateParams.Builder) -> Unit = {}): JsonNode {
+        val b = ClaudeRequest.builder(model, "system text", "medium")
         b.addUserMessage("finish the cat scratchbook")
         build(b)
         val mapper = jsonMapper()
@@ -29,6 +29,15 @@ class ClaudeRequestTest {
         assertEquals("clear_tool_uses_20250919", j["context_management"]["edits"][0]["type"].asText())
         assertFalse("no forced tool choice (400 on Opus 5.5)", j.has("tool_choice"))
         assertFalse("no sampling params", j.has("temperature"))
+    }
+
+    @Test fun haikuHasNoServerSideFallback() {
+        val j = body("claude-haiku-5-5")
+        assertEquals("claude-haiku-5-5", j["model"].asText())
+        assertFalse("Haiku 5.5 has no server-side fallback", j.has("fallbacks"))
+        assertTrue(j["tools"].any { it["type"]?.asText() == "computer_toolset_20260801" })
+        assertTrue(ClaudeRequest.hasFallback("claude-sonnet-5-5"))
+        assertFalse(ClaudeRequest.hasFallback("claude-haiku-5-5"))
     }
 
     @Test fun computerToolsetHasNoNameAndOnlyPhoneActions() {
@@ -59,7 +68,7 @@ class ClaudeRequestTest {
     }
 
     @Test fun computerResultsEchoTheToolsetAndCarryTheScreenshot() {
-        val j = body { b ->
+        val j = body { b: com.anthropic.models.beta.messages.MessageCreateParams.Builder ->
             b.addUserMessageOfContentBlockParams(listOf(
                 BetaContentBlockParam.ofToolResult(ClaudeRequest.toolResult("toolu_1", "computer", ToolResult("screenshot", "AAAA"))),
                 BetaContentBlockParam.ofToolResult(ClaudeRequest.toolResult("toolu_2", "computer", ToolResult("Refused by the app: shop", isError = true))),
