@@ -177,3 +177,10 @@ Then add a Termux widget button in `termux/shortcuts/<Name>.sh` (copy
 - **Live log:** the 💬 overlay line sits bottom right; taps pass through it and
   `Context.readText` ignores what it covers. To read that corner, wrap the read in
   `LiveLog.without { }`.
+  It shows `MacroLog.status`: give every real step one. In a YAML macro use
+  `status: "text {expr}"` (logged once, shown with the macro's name in front); in Kotlin
+  call `MacroLog.status(...)` for a step and `MacroLog.show(...)` for a progress counter
+  that shouldn't add a log line each time. A routine puts its step ("daily-routine 2/5")
+  in front, and a battle puts the previous line back when it ends. `screen_text(y0, y1)`
+  returns the OCR text in a band of the screen, e.g. to log what a reward dialog says.
+  Never put account data (player name, IDs, friend codes) in a log line.

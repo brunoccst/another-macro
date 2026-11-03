@@ -102,7 +102,7 @@ class LiveLogOverlay(private val service: InputService) {
             val w = (maxOf(dm.widthPixels, dm.heightPixels) * 0.38).toInt()
             params.width = w
             text.maxWidth = w
-            if (text.text.isNullOrEmpty()) text.text = MacroLog.status.ifEmpty { "starting…" }
+            if (text.text.isNullOrEmpty()) text.text = MacroLog.shown.ifEmpty { "starting…" }
             runCatching { wm.addView(text, params); shown = true }.onFailure { MacroLog.e("could not show the live log", it) }
             text.post { updateArea() }
         } else if (!want && shown) hide()

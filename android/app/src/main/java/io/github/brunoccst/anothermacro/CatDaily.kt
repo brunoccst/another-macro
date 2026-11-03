@@ -26,25 +26,56 @@ object CatDaily {
     // "found" messages that replace a clue once its cat is back home
     private val FOUND = listOf("So, you have returned", "Nya! I did think you would be returning", "You took so long", "I've been beside myself")
 
+    /** The cat being looked for now ("cat 2 · Baruoki (Present)"), in front of each live log line. */
+    private var cat = ""
+
+    /** Log a step and show it on the live log. */
+    private fun step(text: String) = MacroLog.status("cat-scratchbook: " + (if (cat.isEmpty()) "" else "$cat: ") + text)
+
+    /** Show a step's progress on the live log only (no log line each time). */
+    private fun progress(text: String) = MacroLog.show("cat-scratchbook: " + (if (cat.isEmpty()) "" else "$cat: ") + text)
+
     fun run(ctx: Context): String {
+        cat = ""
         val riddles = loadRiddles(ctx)
         val failed = HashSet<String>()
         val done = ArrayList<String>()
-        repeat(8) {
+        val skipped = HashSet<String>()
+        repeat(8) { round ->
+            cat = ""
+            step(if (round == 0) "reading today's clues" else "reading the clues again (${done.size} found so far)")
             ensureField(ctx)
             val (pending, unknown) = readClues(ctx, riddles)
             MacroLog.i("clues: " + (pending.joinToString { "${it.location} (${it.era})" }.ifEmpty { "none left" }) +
                 if (unknown.isNotEmpty()) "; unreadable: ${unknown.joinToString(" | ")}" else "")
+            for (c in pending) if (!supported(c) && skipped.add(c.key)) {
+                MacroLog.i("skipping the cat in ${c.location} (${c.era.ifEmpty { "no era" }}): " +
+                    if (c.era !in ERA) "its era isn't on the world map's era buttons" else "it can't be reached from the world map (not supported yet)")
+                ctx.count("cats_skipped")
+            }
             val next = pending.firstOrNull { it.key !in failed && supported(it) }
             if (next == null) {
                 val left = pending.filter { it.key !in done }
                 return if (left.isEmpty() && unknown.isEmpty()) "all cats found today (${done.size} this run)"
                 else "found ${done.size}; still open: ${left.joinToString { it.location }}${if (unknown.isNotEmpty()) "; unread clues: ${unknown.size}" else ""}"
             }
-            MacroLog.i("going for the cat in ${next.location} (${next.era})")
-            val ok = travel(ctx, next) && steer(ctx) && hunt(ctx)
-            if (ok) { done += next.key; ctx.count("cats_found") } else { failed += next.key; ctx.count("cats_missed") }
+            cat = "cat ${done.size + failed.size + 1} · ${next.location} (${next.era})"
+            step("going there (clue: \"${next.text.take(60)}\")")
+            val miss = when {
+                !travel(ctx, next) -> "couldn't travel there"
+                !steer(ctx) -> "couldn't walk to the feather on the area map"
+                !hunt(ctx) -> "no cat found near the feather"
+                else -> null
+            }
+            if (miss == null) {
+                done += next.key; ctx.count("cats_found")
+                step("found! (${done.size} found this run)")
+            } else {
+                failed += next.key; ctx.count("cats_missed")
+                step("missed: $miss")
+            }
         }
+        cat = ""
         return "stopped after 8 rounds; found ${done.size}"
     }
 
@@ -98,6 +129,7 @@ object CatDaily {
         val sub = Regex("""\(([^)]*)\)|[–-] (.+)$""").find(clue.location)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }?.trim() ?: ""
         // the Map button sometimes ignores a tap (right after a hunt or a trip): retry until the world map shows
         var opened = false
+        step("opening the world map")
         for (attempt in 1..3) {
             ensureField(ctx)
             ctx.tap(MAP_BUTTON); ctx.wait(2.5)
@@ -106,7 +138,8 @@ object CatDaily {
             if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
             MacroLog.i("world map didn't open (try $attempt/3)")
         }
-        if (!opened) return false
+        if (!opened) return false.also { MacroLog.i("the world map never opened") }
+        step("on the world map: ${clue.era}")
         ctx.tap(ERA.getValue(clue.era)); ctx.wait(2.0)
         // the place's own region (from the wiki's map list): islands show as a label on a continent's map
         val region = REGIONS.entries.firstOrNull { (_, places) -> places.any { Ocr.norm(it) == Ocr.norm(place) } }?.key
@@ -114,6 +147,7 @@ object CatDaily {
         val known = KnownPlaces.continent(ctx, place, clue.era)
         if (known != null) {
             MacroLog.i("$place: known to be on $known")
+            step("looking for $place on $known")
             ctx.tap(EXPAND); ctx.wait(2.0)
             val line = ctx.readText().firstOrNull { Ocr.similarity(it.text, known) >= 0.8 }
             if (line != null) {
@@ -122,6 +156,7 @@ object CatDaily {
             }
             MacroLog.i("$place wasn't where it was last time; searching")
         }
+        step("looking for $place on the map shown")
         if (searchAndGo(ctx, place, sub, region)) return true
         // not on this continent: try each one in the Expand view
         ctx.tap(EXPAND); ctx.wait(2.0)
@@ -132,6 +167,7 @@ object CatDaily {
         for (name in continents) {
             if (ctx.readText().none { l -> l.text == name }) { ctx.tap(EXPAND); ctx.wait(2.0) }
             val line = ctx.readText().firstOrNull { it.text == name } ?: continue
+            step("looking for $place on $name")
             ctx.tap(line.center); ctx.wait(2.0)
             if (searchAndGo(ctx, place, sub, region)) {
                 KnownPlaces.learn(ctx, place, clue.era, name)
@@ -225,25 +261,29 @@ object CatDaily {
             }
             ctx.tap(yes.center)
             ctx.count("trips")
-            return waitForField(ctx, 30)
+            step("travelling to $place${if (sub.isNotEmpty()) " ($sub)" else ""}")
+            return waitForField(ctx, 30).also { if (!it) MacroLog.i("the field didn't come back after the trip") }
         }
         return false
     }
 
     // --- 3. steer on the area map -------------------------------------------------
     /** Walk toward the feather shown on the area map (shared map walking: AreaNav). True once close to it. */
-    fun steer(ctx: Context): Boolean = AreaNav.steer(ctx, look = {
-        // right after a trip the map may not open yet (area banner, fade-in): try a few times
-        var view: AreaNav.View? = null
-        for (attempt in 1..3) {
-            val v = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png").take(1) }
-            if (v.targets.isNotEmpty()) { view = v; break }
-            MacroLog.i("feather not seen on the area map (try $attempt/3)")
-            ctx.wait(2.5)
-        }
-        if (view == null) MacroLog.i("no feather on this map")
-        view
-    }, target = { it.targets.firstOrNull() }, onStep = { fightIfBattle(ctx) })
+    fun steer(ctx: Context): Boolean {
+        step("walking toward the feather on the area map")
+        return AreaNav.steer(ctx, look = {
+            // right after a trip the map may not open yet (area banner, fade-in): try a few times
+            var view: AreaNav.View? = null
+            for (attempt in 1..3) {
+                val v = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png").take(1) }
+                if (v.targets.isNotEmpty()) { view = v; break }
+                MacroLog.i("feather not seen on the area map (try $attempt/3)")
+                ctx.wait(2.5)
+            }
+            if (view == null) MacroLog.i("no feather on this map")
+            view
+        }, target = { it.targets.firstOrNull() }, onStep = { fightIfBattle(ctx) })
+    }
 
     private fun glide(ctx: Context, dx: Double, dy: Double, ms: Long) =
         ctx.drag(Point(0.5, 0.55), Point(0.5 + 0.06 * dx, 0.55 + 0.08 * dy), ms)
@@ -254,7 +294,10 @@ object CatDaily {
         val ff = FeatherFinder.load(ctx)
         var dir = -1.0
         var pos = 0
-        repeat(60) {
+        var taps = 0
+        step("looking for the cat's feather bubble")
+        repeat(60) { walk ->
+            progress("looking for the cat's feather bubble (walk ${walk + 1}/60${if (taps > 0) ", $taps taps" else ""})")
             fightIfBattle(ctx) // first: it takes its own screenshots
             var f1 = ctx.refresh()
             if (ctx.find("scratchbook_header") != null) return collect(ctx)
@@ -269,6 +312,8 @@ object CatDaily {
                 } else p1
                 ctx.tapExact(target)
                 ctx.count("bubble_taps")
+                taps++
+                MacroLog.i("tapped the feather bubble (tap $taps)")
                 ctx.wait(3.0)
                 ctx.refresh()
                 if (ctx.find("scratchbook_header") != null) return collect(ctx)
@@ -279,7 +324,7 @@ object CatDaily {
             pos += dir.toInt()
             ctx.wait(0.4)
         }
-        MacroLog.i("no feather bubble near the cat's spot")
+        MacroLog.i("no feather bubble near the cat's spot after 60 walks ($taps taps)")
         return false
     }
 
@@ -306,6 +351,10 @@ object CatDaily {
 
     /** Clear the reward banners over the book and close it. */
     private fun collect(ctx: Context): Boolean {
+        step("cat found: collecting the rewards")
+        // what the banners say (e.g. "Obtained ..."): game text only, for the log
+        val banner = ctx.readText().filter { it.center.y in 0.25..0.85 }.joinToString(" ") { it.text }.take(200)
+        if (banner.isNotBlank()) MacroLog.i("reward banner: $banner")
         repeat(4) { ctx.tap(Point(0.5, 0.65)); ctx.wait(1.2) }
         ctx.tap(CLOSE); ctx.wait(1.5)
         return true
