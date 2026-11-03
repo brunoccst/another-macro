@@ -420,8 +420,9 @@ Satellite Stadium:
   continent: Garulea Continent  # Bruno: Future > Garulea Continent > Satellite Stadium, north of the map
   place: Satellite Stadium
   sub: null
-  # Bruno: from the spawn point walk left to the next junction and go up that street; the cat is
-  # on it. To measure: streets, links, arrival, cat, drift, walk_scale
+  # Bruno: from the spawn point walk left to the first junction and go up, then left again to the
+  # next junction and go up; the cat is on that street. To measure: streets, links, arrival, cat,
+  # drift, walk_scale
   area: null
 Nagsham:
   era: Present
