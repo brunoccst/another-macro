@@ -8,27 +8,45 @@ description: "Watch the Shop's daily commercial (Menu → Shop → play button) 
 templates: [start_game, daily_ads, shop_ad]
 params:
   ad_wait_s: {default: 45, help: "how long to let a commercial play before pressing back to close it"}
+  connecting_wait_s: {default: 30, help: "how long to wait out the shop's \"Connecting\" overlay before deciding there is no commercial button"}
 screens: [premium_thanks, shop_ok_dialog, shop, menu_open, field]
 unknown_timeout_s: 120
 
 setup:
-  - set: {watching_since: 0, done: false, menu_taps: 0}
+  - set: {watching_since: 0, done: false, menu_taps: 0, shop_misses: 0, shop_since: 0}
 
 handlers:
   shop:
     - set: {watching_since: 0}
-    - if: done or not found('shop_watch_button')
+    - if: done
       then:
-        - status: "{pick(1 + done, 'no commercial button in the shop (already watched today?)', 'closing the shop')}"
+        - status: "closing the shop"
         - tap: shop_close_button
         - wait: 2
-        - set: {done: true}
       else:
-        - count: ads_started
-        - status: "watching the shop commercial (closing it after {ad_wait_s}s)"
-        - tap: shop_watch_button
-        - set: {watching_since: now()}
-        - wait: 3
+        - if: found('shop_watch_button')
+          then:
+            - count: ads_started
+            - status: "watching the shop commercial (closing it after {ad_wait_s}s)"
+            - tap: shop_watch_button
+            - set: {watching_since: now(), shop_misses: 0}
+            - wait: 3
+          else:
+            # The shop often opens under a "Connecting" overlay that hides the play button.
+            # A missing button only means "already watched today" once the shop has settled:
+            # wait while "Connecting" is on screen (up to connecting_wait_s), then look a few more times.
+            - if: shop_since == 0
+              then: [{set: {shop_since: now()}}]
+            - set: {shop_misses: shop_misses + 1, connecting: text_has('connecting')}
+            - if: shop_misses < 4 or (connecting and now() - shop_since < connecting_wait_s)
+              then:
+                - status: "{pick(1 + connecting, 'looking for the commercial button', 'the shop is still connecting: waiting for the commercial button')}"
+                - wait: 2
+              else:
+                - status: "no commercial button in the shop (already watched today?)"
+                - tap: shop_close_button
+                - wait: 2
+                - set: {done: true}
 
   premium_thanks:   # subscribers: no commercial
     - count: premium_skips
@@ -55,6 +73,7 @@ handlers:
       then: [{stop: "the Shop button didn't open the shop"}]
     - status: "menu: opening the Shop"
     - tap: menu_shop_button
+    - set: {shop_since: 0, shop_misses: 0}
     - wait: 3
 
   field:
