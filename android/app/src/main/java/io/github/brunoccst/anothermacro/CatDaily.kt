@@ -8,9 +8,11 @@ import kotlin.math.abs
  * The whole daily Cat Scratchbook, unattended:
  *  1. open Diary → Cat Scratchbook and read today's clues with on-device OCR,
  *     matching them against the wiki's clue table (riddles.yaml);
- *  2. travel to the clue's place on the World Map (era → find the place's label by
- *     OCR, panning and switching continents as needed → Yes);
- *  3. steer toward the feather on the area map (party marker vs feather icon);
+ *  2. travel to the clue's place on the World Map: the fixed way from point zero where
+ *     cat_spots.yaml has it (CatRoute), else era → find the place's label by OCR,
+ *     panning and switching continents as needed → Yes;
+ *  3. walk the spot's fixed path to the cat's start (CatRoute), else steer toward the
+ *     feather on the area map (party marker vs feather icon);
  *  4. hunt: walk in short steps and tap the cat's feather bubble;
  *  5. back to the book (a cat that ran away leaves a new clue) until all are found.
  */
@@ -42,10 +44,35 @@ object CatDaily {
                 else "found ${done.size}; still open: ${left.joinToString { it.location }}${if (unknown.isNotEmpty()) "; unread clues: ${unknown.size}" else ""}"
             }
             MacroLog.i("going for the cat in ${next.location} (${next.era})")
-            val ok = travel(ctx, next) && steer(ctx) && hunt(ctx)
+            val ok = go(ctx, next)
             if (ok) { done += next.key; ctx.count("cats_found") } else { failed += next.key; ctx.count("cats_missed") }
         }
         return "stopped after 8 rounds; found ${done.size}"
+    }
+
+    /**
+     * Travel to the clue's cat and find it: the fixed way (cat_spots.yaml, CatRoute) where the spot
+     * is measured, the searching way where it isn't or where the screen doesn't match the data.
+     */
+    private fun go(ctx: Context, clue: Clue): Boolean {
+        val spot = CatRoute.spot(ctx, clue.location)
+        val fight = { Battle.fight(ctx) { Battle.Setup.AUTO }.also { if (it == Battle.Outcome.LOST) ctx.stop("party was defeated") } == Battle.Outcome.WON }
+        val arrived = if (spot != null && spot.fixedTravel) {
+            CatRoute.travel(ctx, spot) || run {
+                if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) closeMap(ctx)
+                travel(ctx, clue)
+            }
+        } else travel(ctx, clue)
+        if (!arrived) return false
+        if (spot != null && spot.fixedWalk) {
+            ctx.count("fixed_routes")
+            val range = CatRoute.walk(ctx, spot, fight)
+            if (range != null) return hunt(ctx, CatRoute.sweeper(ctx, spot, range, fight))
+            ctx.count("fixed_route_fallbacks")
+        } else {
+            MacroLog.i("${clue.location}: no fixed route yet (`another-macro cat-routes --todo`)")
+        }
+        return steer(ctx) && hunt(ctx)
     }
 
     /** Places on islands that the Expand view lists apart from the continents (anothereden.wiki/w/Map). */
@@ -96,18 +123,7 @@ object CatDaily {
         val place = clue.location.substringBefore(" (").substringBefore(" –").substringBefore(" -").trim()
         // "Moonlight Forest (Forest Edge)" / "Nadara Volcano – Caldera Edge": the sub-destination
         val sub = Regex("""\(([^)]*)\)|[–-] (.+)$""").find(clue.location)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }?.trim() ?: ""
-        // the Map button sometimes ignores a tap (right after a hunt or a trip): retry until the world map shows
-        var opened = false
-        for (attempt in 1..3) {
-            ensureField(ctx)
-            ctx.tap(MAP_BUTTON); ctx.wait(2.5)
-            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
-            ctx.wait(1.5)
-            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
-            MacroLog.i("world map didn't open (try $attempt/3)")
-        }
-        if (!opened) return false
-        ctx.tap(ERA.getValue(clue.era)); ctx.wait(2.0)
+        if (!openWorldMap(ctx, clue.era)) return false
         // the place's own region (from the wiki's map list): islands show as a label on a continent's map
         val region = REGIONS.entries.firstOrNull { (_, places) -> places.any { Ocr.norm(it) == Ocr.norm(place) } }?.key
         // learned before: go straight to its continent
@@ -142,6 +158,35 @@ object CatDaily {
         ctx.tap(CLOSE); ctx.wait(1.5)
         return false
     }
+
+    /** Open the World Map on [era]'s tab. The Map button sometimes ignores a tap (right after a hunt or a trip): retried. */
+    internal fun openWorldMap(ctx: Context, era: String): Boolean {
+        var opened = false
+        for (attempt in 1..3) {
+            ensureField(ctx)
+            ctx.tap(MAP_BUTTON); ctx.wait(2.5)
+            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
+            ctx.wait(1.5)
+            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
+            MacroLog.i("world map didn't open (try $attempt/3)")
+        }
+        if (!opened) return false
+        ctx.tap(ERA.getValue(era)); ctx.wait(2.0)
+        return true
+    }
+
+    /** Expand → tap [continent]'s entry (by its text). */
+    internal fun openContinent(ctx: Context, continent: String): Boolean {
+        ctx.tap(EXPAND); ctx.wait(2.0)
+        val line = ctx.readText().firstOrNull { Ocr.similarity(it.text, continent) >= 0.8 } ?: return false
+        ctx.tap(line.center); ctx.wait(2.0)
+        return true
+    }
+
+    /** The map is dragged into its top-left corner: the drags stop at the edges, so the view is the same every time. */
+    internal fun toCorner(ctx: Context) = repeat(3) { ctx.drag(Point(0.2, 0.35), Point(0.8, 0.75), 700); ctx.wait(1.0) }
+
+    internal fun closeMap(ctx: Context) { ctx.tap(CLOSE); ctx.wait(1.5) }
 
     /**
      * Where to tap a label: its middle, unless the map is at its edge and the label still sits
@@ -207,6 +252,14 @@ object CatDaily {
                 read = ctx.readText()
                 label = placeLabel() ?: continue
             }
+            return goVia(ctx, label, place, sub)
+        }
+        return false
+    }
+
+    /** Tap a place's [label] on the world map, pick [sub] in its destinations panel if one opens, confirm the trip. */
+    internal fun goVia(ctx: Context, label: Ocr.Line, place: String, sub: String): Boolean {
+        run {
             ctx.tap(tapPoint(label)); ctx.wait(2.0)
             var lines = ctx.readText()
             if (lines.none { isYes(it) } && lines.none { it.text.startsWith("Moving to") }) {
@@ -227,7 +280,6 @@ object CatDaily {
             ctx.count("trips")
             return waitForField(ctx, 30)
         }
-        return false
     }
 
     // --- 3. steer on the area map -------------------------------------------------
@@ -249,8 +301,11 @@ object CatDaily {
         ctx.drag(Point(0.5, 0.55), Point(0.5 + 0.06 * dx, 0.55 + 0.08 * dy), ms)
 
     // --- 4. hunt -------------------------------------------------------------------
-    /** Walk in short steps around here and tap the feather bubble; true once the book opens (found). */
-    fun hunt(ctx: Context): Boolean {
+    /**
+     * Walk in short steps around here and tap the feather bubble; true once the book opens (found).
+     * [walk] (i-th walk) replaces the pulses left and right, e.g. CatRoute's sweep of the cat's drift range.
+     */
+    fun hunt(ctx: Context, walk: ((Int) -> Unit)? = null): Boolean {
         val ff = FeatherFinder.load(ctx)
         var dir = -1.0
         var pos = 0
@@ -274,6 +329,7 @@ object CatDaily {
                 if (ctx.find("scratchbook_header") != null) return collect(ctx)
                 return@repeat
             }
+            if (walk != null) { walk(it); ctx.wait(0.4); return@repeat }
             if (abs(pos + dir) > 6) dir = -dir
             glide(ctx, dir, 0.0, 300)
             pos += dir.toInt()
