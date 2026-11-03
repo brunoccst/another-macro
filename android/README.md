@@ -51,6 +51,12 @@ Every macro is a `.yaml` file: the built-in ones live in the repo's `macros/` fo
 the APK), and users can **Import macro** their own. The format (screens, handlers, actions,
 expressions) is documented at the top of `Flow.kt`; `macros/grind-battles.yaml` is a full example.
 
+## Recording a run
+⏺ on the floating buttons records a manual run: each touch is caught by a see-through overlay
+and played on to the game when the finger lifts (same path and timing), with a frame per move.
+⏹ asks for a name, saves it under `Android/data/<app>/files/recordings/<name>` and makes a macro
+of the same name (group Recorded) that replays it (`replay:` action). See `docs/recording.md`.
+
 ## Capturing templates in the app
 With screen capture on, tap 📷 on the floating buttons: the game screen is grabbed (without the
 buttons), drag a box around a stable element (a label or icon, no numbers or moving parts), name

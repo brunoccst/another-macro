@@ -34,6 +34,9 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *                        skill_1..skill_4 = auto|1-4; sets `outcome` to won/lost/none; stops on a wipe)
  *   another_dungeon: dogma_tower   (run that Another Dungeon; see AnotherDungeon.kt)
  *   phantom_crystal: true          (the Phantom Crystal Dimension with a White Key; see PhantomCrystal.kt)
+ *   replay: {name: "cat-acteul", sync: true, pace: 1, from: 0, to: 12}
+ *                               (play a recording made with ⏺, move by move; name is taken as written,
+ *                                the rest are expressions; see Recorder.kt / Replay)
  *   find_feather: true          (cat scratchbook: tap the feather bubble if visible; sets `tapped`)
  *   read_cat_clues: true        (cat scratchbook: sets `report` to today's clues and their places)
  *   cat_daily: true             (cat scratchbook: read clues by OCR, travel to each cat, find it; stops with a summary)
@@ -125,6 +128,16 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
             }
             "another_dungeon" in a -> ctx.stop(AnotherDungeon.run(ctx, a["another_dungeon"].toString()))
             "phantom_crystal" in a -> ctx.stop(PhantomCrystal.run(ctx))
+            "replay" in a -> {
+                val m = mapOrNull(a["replay"]) ?: mapOf("name" to a["replay"])
+                Replay.run(
+                    ctx, m["name"].toString(),
+                    sync = m["sync"]?.let { truthy(ctx, it) } ?: true,
+                    pace = m["pace"]?.let { num(ctx, it) } ?: 1.0,
+                    from = m["from"]?.let { num(ctx, it).toInt() } ?: 0,
+                    to = m["to"]?.let { num(ctx, it).toInt() },
+                )
+            }
             else -> throw IllegalArgumentException("$name: unknown action ${a.keys}")
         }
     }

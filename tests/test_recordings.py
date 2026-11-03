@@ -1,0 +1,119 @@
+"""The recording converter: synthetic recordings (no phone, no images)."""
+import json
+
+import yaml
+
+from another_macro import cli, recordings
+
+
+def _tap(i, x, y, label=None, gap=800):
+    g = {"i": i, "gap_ms": gap, "dur_ms": 70, "points": [[0, x, y], [70, x, y]]}
+    if label:
+        g["label"] = label
+    return g
+
+
+def _hold(i, x0, y0, x1, y1, ms, gap=600):
+    # press, slide in the first 150 ms, then stay
+    return {"i": i, "gap_ms": gap, "dur_ms": ms, "points": [[0, x0, y0], [150, x1, y1], [ms, x1, y1]]}
+
+
+def _recording(tmp_path, gestures, name="cat-acteul"):
+    folder = tmp_path / name
+    folder.mkdir()
+    (folder / "recording.json").write_text(json.dumps(
+        {"version": 1, "name": name, "screen": [2400, 1080], "end_ms": 60000, "gestures": gestures}
+    ))
+    return folder
+
+
+def _cat_trip():
+    gs = [
+        _tap(0, 0.95, 0.9, "Map"),
+        _tap(1, 0.20, 0.06, "Antiquity"),
+        _tap(2, 0.90, 0.10, "Expand"),
+        _tap(3, 0.50, 0.40, "Migleina Continent"),
+        _tap(4, 0.52, 0.48, "Acteul"),
+        _tap(5, 0.60, 0.70, "Travel"),
+        _hold(6, 0.5, 0.65, 0.4, 0.65, 800, gap=4000),     # walk left
+        {"i": 7, "gap_ms": 500, "dur_ms": 180, "points": [[0, 0.5, 0.65], [180, 0.5, 0.5]]},  # flick up
+        _hold(8, 0.5, 0.65, 0.6, 0.65, 163),                # too short for a walk: a swipe
+        _hold(9, 0.5, 0.65, 0.6, 0.65, 1604),               # walk right
+        _tap(10, 0.41, 0.40),                               # the cat bubble
+    ]
+    for k, g in enumerate(gs):
+        g["i"] = k
+    return gs
+
+
+def test_classify_moves(tmp_path):
+    rec = recordings.load(_recording(tmp_path, _cat_trip()))
+    kinds = [m.kind for m in recordings.moves(rec)]
+    assert kinds == ["tap"] * 6 + ["walk", "flick", "swipe", "walk", "tap"]
+    ms = recordings.moves(rec)
+    assert ms[6].token == "L 800"
+    assert ms[7].token == "U"
+    assert ms[9].token == "R 1600"
+    assert ms[4].label == "Acteul"
+
+
+def test_cat_spot_from_a_recording(tmp_path):
+    rec = recordings.load(_recording(tmp_path, _cat_trip()))
+    spot = recordings.cat_spot(rec)
+    assert spot["era"] == "Antiquity"
+    assert spot["continent"] == "Migleina Continent"
+    assert spot["place"] == "Acteul"
+    assert spot["sub"] is None
+    assert spot["path"] == ["L 800", "U", "R 1600"]
+    assert spot["cat_tap"] == [0.41, 0.4]
+    assert any("swipe" in d for d in spot["unrouted"])
+    # the YAML snippet parses
+    data = yaml.safe_load(recordings.cat_spot_yaml(rec))
+    assert data["Acteul"]["recorded_path"] == ["L 800", "U", "R 1600"]
+
+
+def test_sub_location_is_the_label_after_the_place(tmp_path):
+    gs = [_tap(0, 0.2, 0.06, "Antiquity"), _tap(1, 0.5, 0.5, "Nadara Volcano"), _tap(2, 0.5, 0.6, "Caldera Edge"),
+          _hold(3, 0.5, 0.65, 0.6, 0.65, 1000), _tap(4, 0.6, 0.4)]
+    spot = recordings.cat_spot(recordings.load(_recording(tmp_path, gs)))
+    assert (spot["era"], spot["continent"], spot["place"], spot["sub"]) == ("Antiquity", None, "Nadara Volcano", "Caldera Edge")
+    assert spot["path"] == ["R 1000"]
+
+
+def test_dungeon_legs_split_at_taps(tmp_path):
+    gs = [_hold(0, 0.5, 0.65, 0.4, 0.65, 5250),
+          {"i": 1, "gap_ms": 500, "dur_ms": 200, "points": [[0, 0.5, 0.65], [200, 0.5, 0.5]]},
+          _tap(2, 0.48, 0.36, "!"),
+          _hold(3, 0.5, 0.65, 0.6, 0.65, 6690)]
+    legs = recordings.dungeon_legs(recordings.load(_recording(tmp_path, gs, "dogma-map-1")))
+    assert legs == [["tap '!'", "L 5250", "U"], ["end", "R 6690"]]
+    assert yaml.safe_load(recordings.dungeon_yaml(recordings.load(tmp_path / "dogma-map-1")))["path"][1] == ["end", "R 6690"]
+
+
+def test_to_macro_is_a_valid_flow_macro(tmp_path):
+    rec = recordings.load(_recording(tmp_path, _cat_trip()))
+    text = recordings.to_macro(rec, "cat-acteul-fixed")
+    data = yaml.safe_load(text)
+    assert data["name"] == "cat-acteul-fixed"
+    assert data["screens"] == []
+    steps = data["setup"]
+    assert steps[0] == {"status": "replaying cat-acteul-fixed"}
+    assert steps[-1] == {"stop": "replayed cat-acteul-fixed"}
+    assert {"tap_exact": {"x": 0.52, "y": 0.48}} in steps
+    assert {"drag": {"from": [0.5, 0.65], "to": [0.4, 0.65], "ms": 800}} in steps
+    assert {"wait": "4.00 * pace"} in steps
+    # every step is one action the app knows
+    known = {"status", "wait", "tap_exact", "drag", "stop"}
+    assert all(len(s) == 1 and next(iter(s)) in known for s in steps)
+
+
+def test_cli_recording(tmp_path, capsys):
+    folder = _recording(tmp_path, _cat_trip())
+    assert cli.main(["recording", str(folder)]) == 0
+    out = capsys.readouterr().out
+    assert "11 moves" in out and "'Acteul'" in out and "walk L 800" in out
+    assert cli.main(["recording", str(folder), "--cat"]) == 0
+    assert "recorded_path: [L 800, U, R 1600]" in capsys.readouterr().out
+    target = tmp_path / "out.yaml"
+    assert cli.main(["recording", str(folder / "recording.json"), "--macro", "cat-acteul", "-o", str(target)]) == 0
+    assert yaml.safe_load(target.read_text())["name"] == "cat-acteul"

@@ -34,6 +34,13 @@
             android:screenOrientation="sensorLandscape"
             android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
 
+        <!-- name a recording made with the floating ⏺ button -->
+        <activity
+            android:name=".RecordingActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+
         <receiver
             android:name=".Updater$InstallResult"
             android:exported="false" />

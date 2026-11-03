@@ -196,6 +196,25 @@ def cmd_doctor(args) -> None:
         print(f"{name}: " + (f"templates to capture: {', '.join(missing)}" if missing else "ready"))
 
 
+def cmd_recording(args) -> None:
+    from . import recordings
+
+    rec = recordings.load(args.path)
+    if args.macro:
+        text = recordings.to_macro(rec, args.macro)
+    elif args.cat:
+        text = recordings.cat_spot_yaml(rec)
+    elif args.dungeon:
+        text = recordings.dungeon_yaml(rec)
+    else:
+        text = recordings.summary(rec) + "\n"
+    if args.output:
+        Path(args.output).write_text(text)
+        print(f"wrote {args.output}")
+    else:
+        print(text, end="")
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="another-macro", description="Another Eden macro framework")
     p.add_argument("--serial", help="ADB serial (default: the one saved by `connect`, or the only device)")
@@ -258,6 +277,15 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--pad", type=float, default=0.05, help="search-region padding around the box (fraction of screen)")
     s.add_argument("--threshold", type=float)
     s.set_defaults(fn=cmd_capture_template)
+
+    s = sub.add_parser("recording", help="turn a recording made with the app's record button into steps/routes")
+    s.add_argument("path", help="the recording's folder (adb pull'ed from the phone) or its recording.json")
+    g = s.add_mutually_exclusive_group()
+    g.add_argument("--macro", metavar="NAME", help="write a macro .yaml (tap_exact/drag/wait steps) named NAME")
+    g.add_argument("--cat", action="store_true", help="cat_spots.yaml fields + the walk to the cat")
+    g.add_argument("--dungeon", action="store_true", help="the walks as dungeons.yaml path legs")
+    s.add_argument("-o", "--output", help="write to this file instead of printing")
+    s.set_defaults(fn=cmd_recording)
     return p
 
 
