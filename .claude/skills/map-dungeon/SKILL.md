@@ -141,6 +141,10 @@ the dungeon panel reads 0), `white_key` (phantom / stop / keep_going), `cat_tick
   the rest of a walk is held again from rest (the app turns the time held before the battle
   into a distance with the same table). Stairs are taken from within ~0.005 with a quick
   flick. A stop by a street's end is walked into the wall, which puts the party exactly there.
+  The run opens the area map only to re-read the party's spot: once after a battle cut a
+  walk short (before the next stairs), after looking around for a chest, and when a flick
+  seems to have done nothing (if the party is still at the stairs it flicks again). A chest
+  that isn't found logs where the map shows the party: use it to fix the chest's x.
 - **Re-measuring the walk**: hold right from rest for 0.25-4 s and read how far the party
   marker moved on the area map; write the rows into `walk.yaml` and run
   `another-macro dungeon-routes --write`. `battle_lag_ms` (time held counted up to the last

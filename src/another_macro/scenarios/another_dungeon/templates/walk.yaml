@@ -30,12 +30,13 @@ wall_margin: 0.008
 # (mean grey level below dark_level on 2 frames in a row) or by the battle screen itself
 # (the field's buttons can't be used: the game hides them while the party walks).
 # The time walked is counted up to the last frame that still looked like the field, minus
-# battle_lag_ms (seen by the dark screen) or battle_hud_lag_ms (seen only on the battle
-# screen, which shows a while after the party stopped). Tune them from the log's
-# "hold L 5210: ... stopped at ...ms: dark screen" lines.
+# battle_lag_ms (seen by the dark screen) or battle_hud_lag_ms (seen on the battle screen).
+# Tune them from the log's "hold L 5210: ... stopped at ...ms: ..." lines. After a battle the
+# app reads the party's spot on the area map once before the next stairs (or leg), so these
+# only need to be roughly right.
 dark_level: 30
 battle_lag_ms: 150
-battle_hud_lag_ms: 1500
+battle_hud_lag_ms: 150
 # after a flick, how different the screen must look (mean grey-level change, 0-255) to take
 # it that the party changed street; less than this opens the area map to check
 flick_change: 8

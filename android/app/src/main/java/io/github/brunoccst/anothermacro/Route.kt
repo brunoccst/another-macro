@@ -47,7 +47,7 @@ object Route {
     class Table(
         private val ms: DoubleArray, private val dist: DoubleArray, private val beyondPerS: Double,
         val minWalk: Double, val wallMargin: Double, val lagMs: Long, val flickChange: Double,
-        val hudLagMs: Long = 1500, val darkLevel: Double = 30.0,
+        val hudLagMs: Long = 150, val darkLevel: Double = 30.0,
     ) {
         fun distance(holdMs: Double): Double {
             if (holdMs <= 0) return 0.0
@@ -74,7 +74,7 @@ object Route {
         fun num(k: String, d: Double) = (y[k] as? Number)?.toDouble() ?: d
         Table(nums("hold_ms"), nums("distance"), num("beyond_per_s", 0.026), num("min_walk", 0.003), num("wall_margin", 0.008),
             num("battle_lag_ms", 0.0).toLong(), num("flick_change", 8.0),
-            num("battle_hud_lag_ms", 1500.0).toLong(), num("dark_level", 30.0)).also { cached = it }
+            num("battle_hud_lag_ms", 150.0).toLong(), num("dark_level", 30.0)).also { cached = it }
     }
 
     // --- following the party on the layout -------------------------------------------
@@ -106,6 +106,9 @@ object Route {
 
     // --- doing it --------------------------------------------------------------------
     private val PRESS = Point(0.5, 0.65)
+
+    /** A hold was cut short by a battle since this was last cleared: the position is less sure. */
+    @Volatile var disturbed = false
 
     /**
      * Hold right/left for [ms] from [from], watching for a battle. A battle that interrupts
@@ -152,6 +155,7 @@ object Route {
             p = walked(l, p, right, d)
             left -= d
             if (!interrupted) return p
+            disturbed = true
             MacroLog.i("walk ${if (right) "right" else "left"} stopped after ${walkedMs}ms of $holdMs" +
                 (if (battle) " (battle)" else if (res.cancelled) " (gesture cancelled)" else "") +
                 "; ${"%.3f".format(left.coerceAtLeast(0.0))} left from (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})")
