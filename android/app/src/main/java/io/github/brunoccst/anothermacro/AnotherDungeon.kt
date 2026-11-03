@@ -445,6 +445,18 @@ object AnotherDungeon {
     /** Fight what interrupted a walk; true if there was a battle. */
     private fun onStep(r: Run): () -> Boolean = { fight(r) }
 
+    /**
+     * The party's spot on the area map: the marker-like blob on a street nearest to [near] (the
+     * followed position). Gold chest icons look like the marker too, so the most marker-like blob
+     * isn't taken blindly.
+     */
+    private fun readSpot(r: Run, l: AreaNav.Layout, near: Point): Point? {
+        val seen = AreaNav.look(r.ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
+            .minByOrNull { abs(it.x - near.x) + 2 * abs(it.y - near.y) } ?: return null
+        val seg = Route.segOf(l, seen)!!
+        return Point(seen.x.coerceIn(seg.x1, seg.x2), seg.y)
+    }
+
     private fun takeChest(r: Run, ms: MapSpec, chest: Point) {
         val ctx = r.ctx
         task(r, "Map ${r.map + 1}: chest ${r.chestsDone + 1}/${ms.chests.size}")
@@ -465,6 +477,26 @@ object AnotherDungeon {
             if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
             Thread.sleep(250)
         }
+        // not there: read the real spot on the map and walk to the chest's x from it (a hold can
+        // come up short, a battle can cut it), then look again
+        val l0 = ms.layout
+        val p0 = r.pos
+        if (l0 != null && p0 != null) {
+            val t = Route.table(ctx)
+            repeat(2) {
+                val at = readSpot(r, l0, r.pos ?: p0) ?: return@repeat
+                MacroLog.i("no \"!\" yet: the map shows the party at (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}), chest at ${"%.3f".format(chest.x)}")
+                r.pos = at
+                val d = chest.x - at.x
+                if (Route.segOf(l0, at) != Route.segOf(l0, chest) || abs(d) < 0.004) return@repeat
+                r.pos = Route.hold(ctx, l0, t, at, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
+                ctx.wait(0.8)
+                repeat(3) {
+                    if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
+                    Thread.sleep(250)
+                }
+            }
+        }
         // looking around moves the party off the chest's spot: read it on the map before the next leg
         r.unsure = r.pos != null
         for (k in 1..8) {
@@ -480,7 +512,7 @@ object AnotherDungeon {
             if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
         }
         // (where the party stands on the map tells whether the chest's spot in dungeons.yaml is off)
-        val at = if (r.pos != null) AreaNav.look(ctx) { emptyList() }.party else null
+        val at = r.pos?.let { p -> ms.layout?.let { readSpot(r, it, p) } }
         MacroLog.i("no chest found by (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}); skipping it" +
             (at?.let { " (the map shows the party at (${"%.3f".format(it.x)}, ${"%.3f".format(it.y)}))" } ?: ""))
         r.unsure = r.pos != null
@@ -558,6 +590,7 @@ object AnotherDungeon {
                         // stairs only take the party standing on them
                         val at = plan.x + offsets[attempt - 1]
                         if (abs(p.x - at) >= t.minWalk) walkTo(at)
+                        ctx.wait(0.4) // standing still on the stairs before the flick
                         val before = ctx.refresh().gray.clone()
                         AreaNav.flick(ctx, st.up)
                         val after = ctx.refresh().gray.clone()
@@ -579,10 +612,11 @@ object AnotherDungeon {
                             if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in dungeons.yaml")
                             break
                         }
-                        if (seen != null && Route.segOf(l, seen) == Route.segOf(l, plan) && abs(seen.x - plan.x) < 0.03) {
+                        if (seen != null && Route.segOf(l, seen) == Route.segOf(l, plan)) {
                             // still at the stairs (a battle came first, or the flick missed them): flick again from here
                             MacroLog.i("still at the stairs (map shows x=${"%.3f".format(seen.x)}, stairs ${"%.3f".format(plan.x)}): again, a little to the side")
                             p = Point(seen.x, plan.y)
+                            Route.unseen = false
                             continue
                         }
                         r.pos = seen?.let { Point(it.x, Route.segOf(l, it)!!.y) } ?: p
@@ -596,6 +630,8 @@ object AnotherDungeon {
             }
             r.pos = p
         }
+        // a battle on the last walk of the leg: read the real spot and finish the walk
+        if (Route.disturbed && resync("at the end of the leg after a battle") && abs(p.x - plan.x) >= t.minWalk) walkTo(plan.x)
         r.pos = p
         r.planPos = plan
     }
