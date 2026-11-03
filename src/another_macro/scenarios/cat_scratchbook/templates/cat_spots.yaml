@@ -3,16 +3,18 @@
 # Another Eden Wiki's clue table); positions are measured on the phone, never from art.
 #
 #   era:        World Map era tab (Antiquity / Present / Future)
-#   continent:  the entry to tap in the World Map's Expand list (islands such as Snake Bone
-#               Island have their own entry)
+#   continent:  the entry to tap in the World Map's Expand list when the place isn't on the map
+#               point zero shows (islands such as Snake Bone Island have their own entry);
+#               null = no Expand needed
 #   place:      the label to tap on that continent's map
 #   walk_to:    the map the cat is on when it is next to the travel point (the clue says
 #               "Enter from"): the party travels to `place` and walks across. Not routed yet.
 #   sub:        the sub-location: the entry in the place's destination panel, if it has one
-#   world_map:  from POINT ZERO (era tab -> Expand -> continent -> map dragged into its
-#               top-left corner), {pans: [[dx, dy], ...], tap: [x, y]}: each pan drags the map
-#               by that fraction of the screen (700 ms, from the middle), then the place's label
-#               is tapped at [x, y]. The label is checked by OCR before the tap.
+#   world_map:  from POINT ZERO (World Map, Present era, Baruoki's label dragged to (0.5, 0.55);
+#               Baruoki is the first map, every account has it), then the era tab if not Present
+#               and Expand -> continent if set: {pans: [[dx, dy], ...], tap: [x, y]}. Each pan
+#               drags the map by that fraction of the screen (700 ms, from the middle), then the
+#               place's label is tapped at [x, y]. The label is checked by OCR before the tap.
 #   area:       on the opened area map (fractions of a 2400x1080 screen, as in dungeons.yaml):
 #     segs:       streets [y, x_from, x_to];  links: stairs [x, y_from, y_to] (a flick takes them)
 #     arrival:    [x, y] where the party stands after the trip

@@ -177,7 +177,8 @@ Then add a Termux widget button in `termux/shortcuts/<Name>.sh` (copy
   "Continue to skip?" box, the boss gate, the area map's quirks, what never to tap).
 - **Cat Scratchbook routes:** `scenarios/cat_scratchbook/templates/cat_spots.yaml` holds,
   per clue location, the era, continent, place, sub-location, the world-map taps from
-  point zero (era tab → Expand → continent → map dragged into its top-left corner), the
+  point zero (World Map on Present with Baruoki's label dragged to the middle, then the
+  era tab and Expand → continent where needed), the
   arrival spot, the cat's start and drift on the area map, and the map's `walk_scale`.
   `another-macro cat-routes --write` turns that into each spot's fixed `path` (the
   dungeon planner and walk.yaml, scaled); `--todo` lists what each spot still needs

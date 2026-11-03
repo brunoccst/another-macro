@@ -4,10 +4,11 @@ Each scratchbook clue points at a fixed place, and the cat always starts at the 
 that place's map (it wanders a little from there, always along the same street). So, like the
 Another Dungeon paths (dungeon_routes.py), the whole trip can be a fixed list of actions:
 
-1. **Point zero**: open the World Map, tap the clue's era tab, open Expand and tap the
-   continent, then drag the map into its top-left corner (the drags stop at the edges, so the
-   view is the same every time, wherever the map was before).
-2. **World map**: from point zero, the fixed pans (`world_map.pans`) and the tap on the place's
+1. **Point zero** (Bruno): the World Map on the Present era, with Baruoki's label dragged to the
+   middle of the screen (0.5, 0.55). Baruoki is the game's first map, so every account has it;
+   other places, and even the Expand button, only show once the story unlocks them.
+2. **World map**: from point zero, the era tab (if not Present), Expand -> continent (only for a
+   place that isn't on Baruoki's map; `continent: null` means it is), the fixed pans (`world_map.pans`) and the tap on the place's
    label (`world_map.tap`), then the panel entry for the sub-location (`sub`) and Yes.
 3. **Area map**: the party arrives at a fixed spot (`area.arrival`); the fixed moves (`path`,
    generated here from the street layout, the walk table and the map's `walk_scale`) take it to
@@ -109,8 +110,6 @@ def follow(name: str, spot: dict, t: dr.WalkTable, steps: list[str]) -> tuple[fl
 def missing(spot: dict) -> list[str]:
     """What still has to be measured on the phone for a fully fixed trip."""
     out = ["walking across from the travel point (walk_to: not routed yet)"] if spot.get("walk_to") else []
-    if not spot.get("continent"):
-        out.append("continent")
     if not (spot.get("world_map") or {}).get("tap"):
         out.append("world_map")
     a = spot.get("area") or {}

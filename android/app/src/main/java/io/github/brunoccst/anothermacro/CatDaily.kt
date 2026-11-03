@@ -171,9 +171,11 @@ object CatDaily {
             MacroLog.i("world map didn't open (try $attempt/3)")
         }
         if (!opened) return false
-        ctx.tap(ERA.getValue(era)); ctx.wait(2.0)
+        tapEra(ctx, era)
         return true
     }
+
+    internal fun tapEra(ctx: Context, era: String) { ctx.tap(ERA.getValue(era)); ctx.wait(2.0) }
 
     /** Expand → tap [continent]'s entry (by its text). */
     internal fun openContinent(ctx: Context, continent: String): Boolean {
@@ -183,8 +185,27 @@ object CatDaily {
         return true
     }
 
-    /** The map is dragged into its top-left corner: the drags stop at the edges, so the view is the same every time. */
-    internal fun toCorner(ctx: Context) = repeat(3) { ctx.drag(Point(0.2, 0.35), Point(0.8, 0.75), 700); ctx.wait(1.0) }
+    /** Where point zero puts Baruoki's label on the screen. */
+    internal val ZERO = Point(0.5, 0.55)
+
+    /**
+     * Point zero (Bruno): the World Map on the Present era with Baruoki's label dragged to [ZERO].
+     * Baruoki is the game's first map, so every account has it (other places, and even the Expand
+     * button, only show once the story unlocks them). False if Baruoki can't be found.
+     */
+    internal fun pointZero(ctx: Context): Boolean {
+        if (!openWorldMap(ctx, "Present")) return false
+        fun baruoki() = ctx.readText().firstOrNull { it.center.y > 0.12 && Ocr.similarity(it.text, "Baruoki") >= 0.8 }
+        var label = baruoki()
+        if (label == null && openContinent(ctx, "Migleina Continent")) label = baruoki()
+        if (label == null) { MacroLog.i("point zero: no Baruoki label on the Present map"); return false }
+        if (abs(label.center.x - ZERO.x) > 0.01 || abs(label.center.y - ZERO.y) > 0.01) {
+            ctx.drag(label.center, ZERO, 900); ctx.wait(1.2)
+            label = baruoki() ?: return false
+            MacroLog.i("point zero: Baruoki at (${"%.3f".format(label.center.x)}, ${"%.3f".format(label.center.y)})")
+        }
+        return true
+    }
 
     internal fun closeMap(ctx: Context) { ctx.tap(CLOSE); ctx.wait(1.5) }
 

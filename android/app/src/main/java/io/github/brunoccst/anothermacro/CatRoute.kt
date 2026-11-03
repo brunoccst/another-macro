@@ -7,7 +7,8 @@ import kotlin.math.abs
 /**
  * The fixed way to a Cat Scratchbook cat (cat_spots.yaml, paths from `another-macro cat-routes`).
  *
- *  1. point zero: World Map → era tab → Expand → continent → map dragged into its top-left corner;
+ *  1. point zero: World Map on the Present era, Baruoki's label dragged to the middle (CatDaily.pointZero);
+ *     then the spot's era tab and Expand → continent where it's on another one;
  *  2. the spot's fixed pans, the tap on the place's label (checked by OCR first), the sub-location;
  *  3. from the arrival spot, the fixed moves to where the cat starts (Route.hold / flicks, with the
  *     walk table scaled to this area map's zoom);
@@ -24,7 +25,8 @@ object CatRoute {
         val worldMap: WorldMap?, val layout: AreaNav.Layout?, val arrival: Point?, val cat: Point?,
         val driftLeft: Double, val driftRight: Double, val walkScale: Double, val path: List<Route.Step>?,
     ) {
-        val fixedTravel get() = continent != null && worldMap != null
+        /** continent null = on Baruoki's map (no Expand needed) */
+        val fixedTravel get() = worldMap != null
         val fixedWalk get() = layout != null && arrival != null && cat != null && path != null
     }
 
@@ -86,11 +88,11 @@ object CatRoute {
      */
     fun travel(ctx: Context, s: Spot): Boolean {
         val wm = s.worldMap ?: return false
-        if (!CatDaily.openWorldMap(ctx, s.era)) return false
-        if (!CatDaily.openContinent(ctx, s.continent ?: return false)) {
+        if (!CatDaily.pointZero(ctx)) return false
+        if (!s.era.equals("Present", true)) CatDaily.tapEra(ctx, s.era)
+        if (s.continent != null && !CatDaily.openContinent(ctx, s.continent)) {
             MacroLog.i("${s.place}: no '${s.continent}' in the Expand list"); return false
         }
-        CatDaily.toCorner(ctx)
         for ((dx, dy) in wm.pans) {
             val from = Point(0.5 - dx / 2, 0.55 - dy / 2)
             ctx.drag(from, Point(from.x + dx, from.y + dy), 700); ctx.wait(1.0)
@@ -104,7 +106,7 @@ object CatRoute {
         }
         if (abs(label.center.x - wm.tap.x) > 0.02 || abs(label.center.y - wm.tap.y) > 0.02)
             MacroLog.i("${s.place}: label at ${fmt(label.center)}, data ${fmt(wm.tap)}")
-        MacroLog.i("${s.place}: fixed trip from point zero (${s.continent}, ${wm.pans.size} pans)")
+        MacroLog.i("${s.place}: fixed trip from point zero (${s.era}, ${s.continent ?: "Baruoki's map"}, ${wm.pans.size} pans)")
         return CatDaily.goVia(ctx, label, s.place, s.sub)
     }
 
