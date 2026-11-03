@@ -61,6 +61,19 @@ the phone with ADB (Termux, or the phone session):
 adb pull /sdcard/Android/data/io.github.brunoccst.anothermacro/files/recordings/cat-acteul /tmp/cat-acteul
 ```
 
+## Recording from Termux (or the phone session) directly
+
+The same reader works without the app:
+
+```bash
+another-macro record-touches start --out /sdcard/Download/dogma1
+# ... play ...
+another-macro record-touches stop --out /sdcard/Download/dogma1
+another-macro recording ~/.another-macro/touchrec/touches.json --dungeon
+```
+
+(no frames or tap labels this way; the converter reads `touches.json` as well as `recording.json`).
+
 ## Turning it into something to commit
 
 ```bash

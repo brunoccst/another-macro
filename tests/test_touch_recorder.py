@@ -80,3 +80,15 @@ def test_second_finger_marks_multi_touch():
 
 def test_no_touchscreen_is_an_error():
     assert "error" in tr.convert("add device 1: /dev/input/event0\n", "", 1)
+
+
+def test_converter_reads_touches_json(tmp_path):
+    from another_macro import recordings
+    lines = [ev(1.0, "ABS_MT_TRACKING_ID", "00000001"), ev(1.0, "ABS_MT_POSITION_X", f"{540:08x}"),
+             ev(1.0, "ABS_MT_POSITION_Y", f"{1200:08x}"), syn(1.0),
+             ev(1.05, "ABS_MT_TRACKING_ID", "ffffffff"), syn(1.05)]
+    import json
+    f = tmp_path / "touches.json"
+    f.write_text(json.dumps(tr.convert(DEVICES, "\n".join(lines), 1)))
+    rec = recordings.load(f)
+    assert [m.kind for m in recordings.moves(rec)] == ["tap"]

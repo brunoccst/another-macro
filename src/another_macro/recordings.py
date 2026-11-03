@@ -135,6 +135,10 @@ def load(path: str | Path) -> Recording:
     if p.is_dir():
         p = p / "recording.json"
     data = json.loads(p.read_text())
+    if "error" in data:
+        raise ValueError(f"{p}: {data['error']}")
+    if "version" not in data and "clock" in data:
+        data = _from_touches(data, p)
     if data.get("version", 1) != 1:
         raise ValueError(f"{p}: unsupported recording version {data.get('version')}")
     screen = data.get("screen") or [2400, 1080]
@@ -179,6 +183,21 @@ def stick_runs(pts: list, aspect: float) -> list[tuple[str, int, int]]:
     if merged:
         merged[0] = (merged[0][0], 0, merged[0][2])   # a hold counts from the press
     return merged
+
+
+def _from_touches(data: dict, p: Path) -> dict:
+    """A touches.json straight from `another-macro record-touches stop` (no frames, no labels)."""
+    gestures = []
+    prev_end = None
+    t0 = data["gestures"][0]["down_s"] if data.get("gestures") else 0.0
+    for i, g in enumerate(data.get("gestures", [])):
+        down = g["down_s"]
+        gap = 0 if prev_end is None else max(0, int(round((down - prev_end) * 1000)))
+        gestures.append({"i": i, "down_ms": int(round((down - t0) * 1000)), "gap_ms": gap,
+                         "dur_ms": g["dur_ms"], "points": g["points"], "multi_touch": g.get("multi_touch", False)})
+        prev_end = down + g["dur_ms"] / 1000
+    end = gestures[-1]["down_ms"] + gestures[-1]["dur_ms"] if gestures else 0
+    return {"version": 1, "name": p.parent.name, "screen": data.get("screen") or [2400, 1080], "end_ms": end, "gestures": gestures}
 
 
 def classify(g: dict, aspect: float = 0.45) -> Move:
