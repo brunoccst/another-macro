@@ -352,8 +352,9 @@ object CatDaily {
     /** Clear the reward banners over the book and close it. */
     private fun collect(ctx: Context): Boolean {
         step("cat found: collecting the rewards")
-        // what the banners say (e.g. "Obtained ..."): game text only, for the log
-        val banner = ctx.readText().filter { it.center.y in 0.25..0.85 }.joinToString(" ") { it.text }.take(200)
+        // what the banner says ("Obtained ..."): only its own lines, not the book's other clue rows behind it
+        val banner = ctx.readText().filter { l -> Ocr.norm(l.text).let { "obtain" in it || "received" in it } }
+            .joinToString(" | ") { it.text }.take(200)
         if (banner.isNotBlank()) MacroLog.i("reward banner: $banner")
         repeat(4) { ctx.tap(Point(0.5, 0.65)); ctx.wait(1.2) }
         ctx.tap(CLOSE); ctx.wait(1.5)
