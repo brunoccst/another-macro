@@ -471,30 +471,22 @@ object AnotherDungeon {
         }
         // close by: the chest's "!" shows; look around the spot, a little further each side, until it does
         val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
-        // the "!" pops up a moment after the party stops: give it a few frames before looking around
-        ctx.wait(0.8)
-        repeat(3) {
-            if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
-            Thread.sleep(250)
-        }
+        // the "!" pops up a while after the party stops: watch for it before looking around
+        if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
         // not there: read the real spot on the map and walk to the chest's x from it (a hold can
         // come up short, a battle can cut it), then look again
         val l0 = ms.layout
         val p0 = r.pos
         if (l0 != null && p0 != null) {
             val t = Route.table(ctx)
-            repeat(2) {
+            repeat(4) {
                 val at = readSpot(r, l0, r.pos ?: p0) ?: return@repeat
                 MacroLog.i("no \"!\" yet: the map shows the party at (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}), chest at ${"%.3f".format(chest.x)}")
                 r.pos = at
                 val d = chest.x - at.x
                 if (Route.segOf(l0, at) != Route.segOf(l0, chest) || abs(d) < 0.004) return@repeat
                 r.pos = Route.hold(ctx, l0, t, at, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
-                ctx.wait(0.8)
-                repeat(3) {
-                    if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
-                    Thread.sleep(250)
-                }
+                if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
             }
         }
         // looking around moves the party off the chest's spot: read it on the map before the next leg
@@ -508,11 +500,18 @@ object AnotherDungeon {
                 r.pos = Route.hold(ctx, ms.layout, t, p, side > 0, t.holdMs(0.006 * k).toLong()) { fight(r) }
             } else AreaNav.hold(ctx, side, 0.006 * k)
             fight(r)
-            ctx.wait(0.6)
-            if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
+            if (waitBubble(r, 1.5)) { r.chestsDone++; ctx.count("chests"); return }
         }
         // (where the party stands on the map tells whether the chest's spot in dungeons.yaml is off)
         val at = r.pos?.let { p -> ms.layout?.let { readSpot(r, it, p) } }
+        // a picture of the screen for working out why (the app's own storage, never shared)
+        runCatching {
+            ctx.colorMat()?.let { m ->
+                val f = java.io.File(ctx.debugDir, "no-chest-map${r.map + 1}-${r.chestsDone + 1}.png")
+                org.opencv.imgcodecs.Imgcodecs.imwrite(f.path, m); m.release()
+                MacroLog.i("saved ${f.name} in the app's debug folder")
+            }
+        }
         MacroLog.i("no chest found by (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}); skipping it" +
             (at?.let { " (the map shows the party at (${"%.3f".format(it.x)}, ${"%.3f".format(it.y)}))" } ?: ""))
         r.unsure = r.pos != null
@@ -636,13 +635,40 @@ object AnotherDungeon {
         r.planPos = plan
     }
 
+    /**
+     * Watch for the "!" for up to [seconds] and open it. Logs the best bubble score seen when it
+     * doesn't show (how close the template came).
+     */
+    private fun waitBubble(r: Run, seconds: Double): Boolean {
+        val end = System.currentTimeMillis() + (seconds * 1000).toLong()
+        var best = 0.0
+        var frames = 0
+        while (System.currentTimeMillis() < end) {
+            if (openBubble(r)) return true
+            frames++
+            best = maxOf(best, r.ctx.vision.library.templates[BUBBLE]?.lastScore ?: 0.0)
+            Thread.sleep(200)
+        }
+        MacroLog.i("no \"!\" in ${seconds}s ($frames frames, best bubble score ${"%.2f".format(best)})")
+        return false
+    }
+
     /** Tap a "!" bubble on screen and clear what it opens (a chest's "Obtained ..."). True if there was one. */
     private fun openBubble(r: Run): Boolean {
         val ctx = r.ctx
         ctx.refresh()
         val b = ctx.find(BUBBLE) ?: return false
         ctx.tap(b); ctx.wait(2.0)
-        val read = ctx.readText()
+        // the banner can be a moment late (the read came back empty): read again for up to ~2 s
+        var read = ctx.readText()
+        for (i in 0 until 4) {
+            val all = read.joinToString(" ") { Ocr.norm(it.text) }
+            if ("obtained" in all || "proceed" in all || "major trial" in all) break
+            ctx.refresh()
+            if (Battle.inBattle(ctx)) break
+            ctx.wait(0.5)
+            read = ctx.readText()
+        }
         val text = read.joinToString(" ") { it.text }
         MacroLog.i("\"!\": ${text.take(120)}")
         noteItems(r, read)
