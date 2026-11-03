@@ -108,6 +108,7 @@ object CatRoute {
      */
     fun walk(ctx: Context, s: Spot, fight: () -> Boolean): Triple<Double, Double, Double>? {
         if (!s.fixedWalk) return null
+        settle(ctx)
         // every feather-like icon: a big grey quill-in-a-circle icon (seen in Ratle) matches the
         // feather template nearly as well, so the one nearest the cat's start is taken
         val view = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png") }
@@ -133,6 +134,7 @@ object CatRoute {
             Point(party.x, Route.segOf(l, party)?.y ?: arrival.y)
             else Point(arrival.x + shift, arrival.y).also { MacroLog.i("${s.location}: party marker not read at the arrival; taking the arrival spot") }
         val w = Walk(l, table(ctx, s.walkScale), start, Point(arrival.x + shift, arrival.y))
+        settle(ctx) // the area map just closed
         MacroLog.i("${s.location}: path to the cat: ${s.path!!.joinToString(", ")}")
         Route.disturbed = false
         for (st in s.path) {
@@ -155,7 +157,19 @@ object CatRoute {
         var d = x - w.p.x
         if (s != null && (abs(x - s.x1) < 1e-6 || abs(x - s.x2) < 1e-6) && abs(d) >= w.t.minWalk) d += if (d > 0) w.t.wallMargin else -w.t.wallMargin
         if (abs(d) < w.t.minWalk) return
+        val from = w.p
+        val before = ctx.refresh().gray.clone()
         w.p = Route.hold(ctx, w.l, w.t, w.p, d > 0, w.t.holdMs(abs(d)).toLong(), fight)
+        val after = ctx.refresh().gray.clone()
+        val change = Route.change(before, after)
+        before.release(); after.release()
+        if (change < STILL && !Route.disturbed) {
+            // the view didn't move: the hold came too soon (area banner, fade-in) and walked nothing
+            // (Ratle, 2026-11-03: "hold R 539 ... view change 0.3"); hold it again from the same spot
+            MacroLog.i("hold ${if (d > 0) "R" else "L"}: view change ${"%.1f".format(change)}, the party didn't move; again")
+            settle(ctx)
+            w.p = Route.hold(ctx, w.l, w.t, from, d > 0, w.t.holdMs(abs(d)).toLong(), fight)
+        }
         if (Route.unseen) {
             // a battle came during the hold without being seen: read the spot and walk the rest
             Route.unseen = false
@@ -163,6 +177,20 @@ object CatRoute {
             val rest = x - w.p.x
             if (abs(rest) >= w.t.minWalk) w.p = Route.hold(ctx, w.l, w.t, w.p, rest > 0, w.t.holdMs(abs(rest)).toLong(), fight)
         }
+    }
+
+    /** Less view change than this (mean grey level, 0-255) after a hold: the party didn't walk. */
+    private const val STILL = 2.0
+
+    /** On the field and still for a moment: right after a trip or the area map, a hold can be ignored. */
+    private fun settle(ctx: Context) {
+        val end = System.currentTimeMillis() + 10_000
+        while (System.currentTimeMillis() < end) {
+            ctx.refresh()
+            if (ctx.find("field_menu_button") != null) break
+            ctx.wait(0.5)
+        }
+        ctx.wait(1.0)
     }
 
     private fun resync(ctx: Context, w: Walk, why: String) {

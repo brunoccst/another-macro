@@ -96,7 +96,17 @@ class Context(
     // land somewhere in the middle half of a button, like a finger would
     private fun jitter(r: Region) = Point(r.x + r.w * Random.nextDouble(0.25, 0.75), r.y + r.h * Random.nextDouble(0.25, 0.75))
 
+    /**
+     * Before any input: no tap, swipe or hold goes out while the macro is paused (Bruno plays by
+     * hand then; an injected touch cancels his). Waits for resume, or throws on stop.
+     */
+    private fun beforeInput() {
+        if (stopRequested.get()) throw StopScenario("stop requested")
+        Runner.waitWhilePaused(stopRequested)
+    }
+
     fun tap(target: Any) {
+        beforeInput()
         val p = point(target)
         guardPurchases(target as? String, blind = target !is String)
         val (x, y) = px(p)
@@ -132,6 +142,7 @@ class Context(
 
     /** Press at [start], slide to [end] and keep holding until [durationMs] is up (walking). */
     fun drag(start: Point, end: Point, durationMs: Long) {
+        beforeInput()
         val (x1, y1) = px(start)
         val (x2, y2) = px(end)
         input.stroke(x1, y1, x2, y2, durationMs)
@@ -148,6 +159,7 @@ class Context(
      * over with the ms held so far, and returning true lifts the finger there (a battle started).
      */
     fun hold(start: Point, end: Point, durationMs: Long, watch: (Long) -> Boolean): HoldResult {
+        beforeInput()
         val (x1, y1) = px(start)
         val (x2, y2) = px(end)
         val h = input.startHold(x1, y1, x2, y2, durationMs)
@@ -155,6 +167,8 @@ class Context(
         val giveUp = System.currentTimeMillis() + durationMs + 5000
         while (h.done.count > 0 && System.currentTimeMillis() < giveUp) {
             if (stopRequested.get()) h.stop.set(true)
+            // paused mid-hold: lift the finger at once (counted like a stop, so the walk is resumed later)
+            if (Runner.isPaused && stoppedAt == null) { stoppedAt = h.heldMs; h.stop.set(true) }
             if (stoppedAt == null && h.startedAt != 0L) {
                 val t = h.heldMs
                 if (watch(t)) { stoppedAt = t; h.stop.set(true) }
@@ -170,6 +184,7 @@ class Context(
 
     /** Tap exactly at [p] (no jitter): for moving targets aimed at precisely. */
     fun tapExact(p: Point) {
+        beforeInput()
         guardPurchases(null, blind = false)
         val (x, y) = px(p)
         input.tap(x, y)

@@ -50,6 +50,7 @@ object Battle {
         var won = false
         var setup: Setup? = null
         var skillsSet = false
+        var autoOn = false
         var quiet = 0
         val end = System.currentTimeMillis() + 15 * 60_000
         while (System.currentTimeMillis() < end) {
@@ -70,7 +71,12 @@ object Battle {
                     seen = true; quiet = 0
                     val s = setup ?: pick(ctx).also { setup = it; MacroLog.i("battle: skills $it"); MacroLog.status("Battle: ${if (it.allAuto) "Auto" else "skills $it"}") }
                     if (s.allAuto) {
-                        ctx.tap(if (ctx.find("battle_auto_button") != null) "battle_auto_button" else "battle_attack_button")
+                        // Auto once per battle: the game keeps it on, and the command screen stays up
+                        // while it runs, so tapping again would turn it off (and fight a player's own taps)
+                        if (!autoOn) {
+                            autoOn = true
+                            ctx.tap(if (ctx.find("battle_auto_button") != null) "battle_auto_button" else "battle_attack_button")
+                        }
                     } else {
                         if (!skillsSet) { setSkills(ctx, s); skillsSet = true }
                         ctx.count("turns")
