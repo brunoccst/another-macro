@@ -183,14 +183,22 @@ class ControlsOverlay(private val service: InputService) {
         if (!Recorder.start(service)) return
         // the recorder's overlay was added last and would cover these buttons: put them back on top
         runCatching { wm.removeView(root); wm.addView(root, params) }
-        MacroLog.i("recording: play as usual (each move reaches the game when your finger lifts), then ⏹")
+        MacroLog.i("recording: play as usual, then ⏹")
         refresh()
     }
 
     /** ⏹: stop recording and ask for a name. */
     private fun stopRecording() {
         recordStop.isEnabled = false
-        Recorder.stop { dir ->
+        // leave out the moves made on these buttons (the ⏹ press itself)
+        val loc = IntArray(2).also { root.getLocationOnScreen(it) }
+        val p = android.graphics.Point().also { @Suppress("DEPRECATION") wm.defaultDisplay.getRealSize(it) }
+        val pad = dp(8)
+        val exclude = Region(
+            (loc[0] - pad).toDouble() / p.x, (loc[1] - pad).toDouble() / p.y,
+            (root.width + 2 * pad).toDouble() / p.x, (root.height + 2 * pad).toDouble() / p.y,
+        )
+        Recorder.stop(exclude) { dir ->
             recordStop.isEnabled = true
             if (dir == null) { MacroLog.i("recording: no moves recorded"); return@stop }
             service.startActivity(

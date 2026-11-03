@@ -34,6 +34,9 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *                        skill_1..skill_4 = auto|1-4; sets `outcome` to won/lost/none; stops on a wipe)
  *   another_dungeon: dogma_tower   (run that Another Dungeon; see AnotherDungeon.kt)
  *   phantom_crystal: true          (the Phantom Crystal Dimension with a White Key; see PhantomCrystal.kt)
+ *   gesture: [[0, 0.5, 0.65], [150, 0.44, 0.65], [1200, 0.44, 0.65]]
+ *                               (a finger path with its timing, [ms since the press, x, y]: holds and turns
+ *                                as one continued stroke; `another-macro recording --macro` writes these)
  *   replay: {name: "cat-acteul", sync: true, pace: 1, from: 0, to: 12}
  *                               (play a recording made with ⏺, move by move; name is taken as written,
  *                                the rest are expressions; see Recorder.kt / Replay)
@@ -128,6 +131,13 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
             }
             "another_dungeon" in a -> ctx.stop(AnotherDungeon.run(ctx, a["another_dungeon"].toString()))
             "phantom_crystal" in a -> ctx.stop(PhantomCrystal.run(ctx))
+            "gesture" in a -> {
+                val pts = list(a["gesture"]).map { p ->
+                    val v = list(p)
+                    Triple(num(ctx, v[0]).toLong(), num(ctx, v[1]), num(ctx, v[2]))
+                }
+                if (pts.isNotEmpty()) ctx.gesture(pts)
+            }
             "replay" in a -> {
                 val m = mapOrNull(a["replay"]) ?: mapOf("name" to a["replay"])
                 Replay.run(

@@ -8,9 +8,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
-    <!-- Android 11+ package visibility: needed to launch the game -->
+    <!-- recording a run (⏺): Termux reads the touchscreen through ADB (see Termux.kt) -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+
+    <!-- Android 11+ package visibility: needed to launch the game, and to find Termux -->
     <queries>
         <package android:name="games.wfs.anothereden" />
+        <package android:name="com.termux" />
     </queries>
 
     <application

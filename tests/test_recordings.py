@@ -100,10 +100,11 @@ def test_to_macro_is_a_valid_flow_macro(tmp_path):
     assert steps[0] == {"status": "replaying cat-acteul-fixed"}
     assert steps[-1] == {"stop": "replayed cat-acteul-fixed"}
     assert {"tap_exact": {"x": 0.52, "y": 0.48}} in steps
-    assert {"drag": {"from": [0.5, 0.65], "to": [0.4, 0.65], "ms": 800}} in steps
+    assert {"gesture": [[0, 0.5, 0.65], [150, 0.4, 0.65], [800, 0.4, 0.65]]} in steps
+    assert any("drag" in s for s in steps)  # the flick
     assert {"wait": "4.00 * pace"} in steps
     # every step is one action the app knows
-    known = {"status", "wait", "tap_exact", "drag", "stop"}
+    known = {"status", "wait", "tap_exact", "drag", "gesture", "stop"}
     assert all(len(s) == 1 and next(iter(s)) in known for s in steps)
 
 
@@ -117,3 +118,15 @@ def test_cli_recording(tmp_path, capsys):
     target = tmp_path / "out.yaml"
     assert cli.main(["recording", str(folder / "recording.json"), "--macro", "cat-acteul", "-o", str(target)]) == 0
     assert yaml.safe_load(target.read_text())["name"] == "cat-acteul"
+
+
+def test_a_walk_that_turns_without_lifting(tmp_path):
+    # left 1.2 s, slide up past the press point and hold 0.4 s (stairs), then left 0.8 s
+    pts = [[0, 0.5, 0.65], [100, 0.46, 0.65], [1200, 0.46, 0.65], [1260, 0.5, 0.55], [1600, 0.5, 0.55],
+           [1680, 0.45, 0.65], [2400, 0.45, 0.65]]
+    gs = [{"i": 0, "gap_ms": 0, "dur_ms": 2400, "points": pts}, _tap(1, 0.6, 0.4)]
+    rec = recordings.load(_recording(tmp_path, gs, "dogma-map-1"))
+    m = recordings.moves(rec)[0]
+    assert m.kind == "walk"
+    assert m.tokens == ["L 1260", "U", "L 720"]
+    assert recordings.dungeon_legs(rec) == [["tap (0.6, 0.4)", "L 1260", "U", "L 720"]]

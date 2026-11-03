@@ -215,6 +215,15 @@ def cmd_recording(args) -> None:
         print(text, end="")
 
 
+def cmd_record_touches(args) -> None:
+    from . import touch_recorder
+
+    if args.action == "start":
+        touch_recorder.start(args.out, args.rotation)
+    else:
+        touch_recorder.stop(args.out)
+
+
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(prog="another-macro", description="Another Eden macro framework")
     p.add_argument("--serial", help="ADB serial (default: the one saved by `connect`, or the only device)")
@@ -286,6 +295,12 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--dungeon", action="store_true", help="the walks as dungeons.yaml path legs")
     s.add_argument("-o", "--output", help="write to this file instead of printing")
     s.set_defaults(fn=cmd_recording)
+
+    s = sub.add_parser("record-touches", help="read the touchscreen through ADB (the app's record button runs this in Termux)")
+    s.add_argument("action", choices=["start", "stop"])
+    s.add_argument("--out", help="the app's recording folder on the phone; stop pushes touches.json there")
+    s.add_argument("--rotation", type=int, default=1, help="Display rotation while recording (1 = landscape, turned left)")
+    s.set_defaults(fn=cmd_record_touches)
     return p
 
 

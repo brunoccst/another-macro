@@ -55,6 +55,10 @@ FLICK_MAX_MS = 450
 FLICK_MIN_MOVE = 0.015
 # routes round hold times to this many ms
 ROUND_MS = 10
+# the virtual stick: how far from the press the finger must be to count as a direction,
+# and how long a direction must be held to count (shorter is the finger passing through a turn)
+STICK_DEAD = 0.012
+TURN_MIN_MS = 150
 
 ERAS = ("antiquity", "present", "future")
 # labels on buttons that aren't places (map and travel dialogs)
@@ -76,15 +80,21 @@ class Move:
     direction: str | None = None   # R/L for walks, U/D for flicks, R/L/U/D for swipes
     echo_ok: bool = True
     points: list[list[float]] = field(default_factory=list)
+    # a walk that turns without lifting the finger: one route move per direction
+    turns: list[str] = field(default_factory=list)
+
+    @property
+    def tokens(self) -> list[str]:
+        """The route moves ("R 1180", "U"); empty for taps and swipes."""
+        if self.kind == "walk":
+            return self.turns or [f"{self.direction} {_ms(self.dur_ms)}"]
+        if self.kind == "flick":
+            return [self.direction or ""]
+        return []
 
     @property
     def token(self) -> str | None:
-        """The route move ("R 1180", "U"), or None for taps and swipes."""
-        if self.kind == "walk":
-            return f"{self.direction} {int(round(self.dur_ms / ROUND_MS) * ROUND_MS)}"
-        if self.kind == "flick":
-            return self.direction
-        return None
+        return " ".join(f"{t}," for t in self.tokens).rstrip(",") or None
 
     def describe(self) -> str:
         x0, y0 = self.start
@@ -137,6 +147,40 @@ def load(path: str | Path) -> Recording:
     )
 
 
+def _ms(ms: float) -> int:
+    return int(round(ms / ROUND_MS) * ROUND_MS)
+
+
+def stick_runs(pts: list, aspect: float) -> list[tuple[str, int, int]]:
+    """Walking is a virtual stick: the party goes where the finger is from the press point.
+
+    Returns the directions held, as (R/L/U/D, from ms, to ms), the first from the press.
+    Moments shorter than TURN_MIN_MS (the finger passing through on a turn) are dropped.
+    """
+    x0, y0 = pts[0][1], pts[0][2]
+    runs: list[list] = []
+    for t, x, y in pts:
+        dx, dy = x - x0, (y - y0) * aspect
+        if math.hypot(dx, dy) < STICK_DEAD:
+            continue
+        d = ("R" if dx > 0 else "L") if abs(dx) >= abs(dy) else ("D" if dy > 0 else "U")
+        if runs and runs[-1][0] == d:
+            continue
+        runs.append([d, int(t)])
+    end = int(pts[-1][0])
+    out = [(d, start, runs[k + 1][1] if k + 1 < len(runs) else end) for k, (d, start) in enumerate(runs)]
+    out = [r for r in out if r[2] - r[1] >= TURN_MIN_MS]
+    merged: list[tuple[str, int, int]] = []
+    for d, a, b in out:
+        if merged and merged[-1][0] == d:
+            merged[-1] = (d, merged[-1][1], b)
+        else:
+            merged.append((d, a, b))
+    if merged:
+        merged[0] = (merged[0][0], 0, merged[0][2])   # a hold counts from the press
+    return merged
+
+
 def classify(g: dict, aspect: float = 0.45) -> Move:
     pts = g["points"]
     t_end = int(pts[-1][0])
@@ -146,11 +190,16 @@ def classify(g: dict, aspect: float = 0.45) -> Move:
     dy = (y1 - y0) * aspect
     far = max(math.hypot(p[1] - x0, (p[2] - y0) * aspect) for p in pts)
     dur = int(g.get("dur_ms", t_end))
+    turns: list[str] = []
     if far < TAP_MAX_MOVE:
         kind = "tap" if dur < TAP_MAX_MS else "long_press"
         direction = None
     elif dur < FLICK_MAX_MS and abs(dy) > abs(dx) and abs(dy) >= FLICK_MIN_MOVE:
         kind, direction = "flick", ("U" if dy < 0 else "D")
+    elif dur >= FLICK_MAX_MS and len(runs := stick_runs(pts, aspect)) > 1:
+        # turned without lifting the finger: one move per direction (a vertical one takes stairs)
+        kind, direction = "walk", runs[0][0]
+        turns = [f"{d} {_ms(b - a)}" if d in "LR" else d for d, a, b in runs]
     elif dur >= FLICK_MAX_MS and abs(dx) >= abs(dy):
         kind, direction = "walk", ("R" if dx > 0 else "L")
     else:
@@ -167,6 +216,7 @@ def classify(g: dict, aspect: float = 0.45) -> Move:
         direction=direction,
         echo_ok=bool(g.get("echo_ok", True)),
         points=pts,
+        turns=turns,
     )
 
 
@@ -192,7 +242,8 @@ def _r(v: float) -> float:
 def to_macro(rec: Recording, name: str | None = None, description: str | None = None) -> str:
     """A macro .yaml that plays the recording with plain steps (no images, safe to commit).
 
-    Taps become ``tap_exact`` at the recorded spot, everything else a ``drag`` from the
+    Taps become ``tap_exact`` at the recorded spot, flicks a ``drag``, and holds/slides a
+    ``gesture`` with the finger's path and timing (points every 50 ms); otherwise a ``drag`` from the
     first to the last point over the recorded time (how the macros walk), with the recorded
     pauses as ``wait``. Tune it afterwards: replace pauses with screen checks where loading
     times vary.
@@ -216,12 +267,27 @@ def to_macro(rec: Recording, name: str | None = None, description: str | None = 
         note = f"   # {m.i + 1}: {m.kind}" + (f" '{m.label}'" if m.label else "") + (f" {m.token}" if m.token else "")
         if m.kind == "tap":
             lines.append(f"  - tap_exact: {{x: {_r(m.start[0])}, y: {_r(m.start[1])}}}{note}")
-        else:
+        elif len(m.points) <= 2 or m.kind in ("flick", "long_press"):
             lines.append(
                 f"  - drag: {{from: [{_r(m.start[0])}, {_r(m.start[1])}], to: [{_r(m.end[0])}, {_r(m.end[1])}], ms: {m.dur_ms}}}{note}"
             )
+        else:
+            # the finger's whole path with its timing (turns, holds): played as one continued stroke
+            pts = ", ".join(f"[{int(t)}, {_r(x)}, {_r(y)}]" for t, x, y in _thin(m.points))
+            lines.append(f"  - gesture: [{pts}]{note}")
     lines.append(f"  - stop: {json.dumps('replayed ' + name)}")
     return "\n".join(lines) + "\n"
+
+
+def _thin(pts: list, step_ms: int = 50) -> list:
+    """Keep a point every step_ms (and the corners' neighbours: every point that turns), plus the last."""
+    out = [pts[0]]
+    for p in pts[1:-1]:
+        if p[0] - out[-1][0] >= step_ms:
+            out.append(p)
+    if pts[-1] is not out[-1]:
+        out.append(pts[-1])
+    return out
 
 
 def _walk_start(ms: list[Move]) -> int:
@@ -267,7 +333,7 @@ def cat_spot(rec: Recording) -> dict:
     if labels:
         place = labels[0] if len(labels) == 1 else labels[-2]
         sub = labels[-1] if len(labels) > 1 else None
-    path = [m.token for m in rest if m.token]
+    path = [t for m in rest for t in m.tokens]
     taps = [m for m in rest if m.kind == "tap"]
     out: dict = {
         "era": era,
@@ -293,8 +359,8 @@ def dungeon_legs(rec: Recording) -> list[list[str]]:
     legs: list[list[str]] = []
     cur: list[str] = []
     for m in moves(rec):
-        if m.token:
-            cur.append(m.token)
+        if m.tokens:
+            cur.extend(m.tokens)
         elif m.kind == "tap" and cur:
             legs.append([f"tap '{m.label}'" if m.label else f"tap ({_r(m.start[0])}, {_r(m.start[1])})", *cur])
             cur = []

@@ -418,6 +418,12 @@ class MainActivity : Activity() {
     }
 
     private fun handleAdbIntent(intent: Intent?) {
+        // the floating ⏺ asks for Termux's "Run commands" permission here (only an activity can ask)
+        if (intent?.getBooleanExtra(Termux.EXTRA_ASK, false) == true) {
+            intent.removeExtra(Termux.EXTRA_ASK)
+            requestPermissions(arrayOf(Termux.PERMISSION), REQUEST_TERMUX)
+            return
+        }
         val name = intent?.getStringExtra("run") ?: return
         val params = intent.getStringExtra("params").orEmpty().split(",").mapNotNull {
             val kv = it.split("=", limit = 2)
@@ -430,5 +436,6 @@ class MainActivity : Activity() {
     companion object {
         private const val REQUEST_CAPTURE = 1
         private const val REQUEST_IMPORT = 3
+        private const val REQUEST_TERMUX = 4
     }
 }
