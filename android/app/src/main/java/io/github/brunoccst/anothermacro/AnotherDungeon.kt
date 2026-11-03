@@ -10,12 +10,12 @@ import kotlin.math.abs
  *  1. enter: the "!" over the Another Dungeon door (Spacetime Rift) → era tab → the
  *     dungeon's label → Hard (green key) or Very Hard (red key) → Move, or Skip when a
  *     Cat Express Ticket should be used (skips the whole dungeon);
- *  2. every map: follow its fixed path (dungeons.yaml `path:`, planned from the map's
+ *  2. every map: first fight its enemies, walking back and forth by where the party arrived,
+ *     until the game says they have disappeared (then no battle can interrupt the walk);
+ *  3. follow the map's fixed path (dungeons.yaml `path:`, planned from the map's
  *     layout by `another-macro dungeon-routes`) to each chest and open it with the "!"
  *     bubble, fighting the encounters on the way, without opening the area map (see
  *     Route.kt); a map without a path walks its layout looking at the area map;
- *  3. "fight all enemies": after a map's chests, walk back and forth fighting until the
- *     game says no enemies are left (or none come any more);
  *  4. walk to the map's exit and take it;
  *  5. the last map (no layout yet): sweep it, tapping every "!" (its chest, the boss);
  *     the boss battle gets the boss skill setup when one is chosen;
@@ -69,7 +69,6 @@ object AnotherDungeon {
     private class Run(val ctx: Context, val spec: Spec) {
         val mobs = Battle.Setup.from(ctx.params, "skill_")
         val bossSetup = if (ctx.bool("boss_setup")) Battle.Setup.from(ctx.params, "boss_skill_") else mobs
-        val fightAll = ctx.bool("fight_all")
         var map = -1
         var shift = 0.0
         var chestsDone = 0
@@ -175,7 +174,7 @@ object AnotherDungeon {
         val ctx = r.ctx
         val spec = r.spec
         MacroLog.i("${spec.name}: key ${ctx.str("key")}, cat ticket ${ctx.bool("cat_ticket")}, " +
-            "fight all ${r.fightAll}, mobs ${r.mobs}, boss ${r.bossSetup}")
+            "mobs ${r.mobs}, boss ${r.bossSetup}")
         // started on the boss gate's question, or outside: else already inside
         if (!bossGate(r) && whereAmI(r) == null && !Battle.inBattle(ctx)) {
             enter(r)?.let { return it }
@@ -218,8 +217,14 @@ object AnotherDungeon {
             val ms = spec.maps[idx].shifted(r.shift)
             when {
                 ms.layout == null -> sweep(r)
+                // every map's enemies first: once "the enemies have disappeared", no battle can cut
+                // the fixed path short, so it is walked exactly as planned
+                !r.cleared && !r.onBossMap -> {
+                    grind(r, ms)
+                    // the fights moved the party a little: read its spot once before the path
+                    if (r.pos != null) { r.unsure = true; r.lastDir = 0.0 }
+                }
                 r.chestsDone < ms.chests.size -> takeChest(r, ms, ms.chests[r.order.getOrElse(r.chestsDone) { r.chestsDone }])
-                r.fightAll && !r.cleared -> grind(r, ms)
                 ms.exit != null -> leave(r, ms, idx)
                 else -> sweep(r)
             }
@@ -776,7 +781,7 @@ object AnotherDungeon {
      */
     private fun sweep(r: Run) {
         val ctx = r.ctx
-        if (r.fightAll && !r.cleared && !r.onBossMap) { grind(r, r.spec.maps[r.map]); return }
+        if (!r.cleared && !r.onBossMap) { grind(r, r.spec.maps[r.map]); return }
         task(r, "Map ${r.map + 1}: looking around (chest, boss)")
         for (vertical in listOf(null, true, false)) {
             if (vertical != null) { AreaNav.flick(ctx, vertical); fight(r); if (r.bossBeaten) return }

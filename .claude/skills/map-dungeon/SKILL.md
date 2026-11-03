@@ -99,7 +99,8 @@ Copy `macros/dogma-tower.yaml` to `macros/<dungeon>.yaml`, change `name`,
 `description` and the `another_dungeon:` id. Keep `group: dungeon` and the standard
 dungeon params every dungeon macro has: `key`, `runs` (1-10 or all: until the key counter on
 the dungeon panel reads 0), `white_key` (phantom / stop / keep_going), `cat_ticket`,
-`fight_all`, the skill setups.
+the skill setups (every map's enemies are always fought first, so the fixed path
+isn't interrupted by battles).
 
 ## What we know about Another Dungeons (keep in mind for every dungeon)
 
