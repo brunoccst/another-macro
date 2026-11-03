@@ -88,7 +88,9 @@ object CatRoute {
         if (!CatDaily.pointZero(ctx)) return false
         if (!s.era.equals("Present", true)) CatDaily.tapEra(ctx, s.era)
         if (s.continent != null && !CatDaily.openContinent(ctx, s.continent)) {
-            MacroLog.i("${s.place}: no '${s.continent}' in the Expand list"); return false
+            // no Expand button yet (early story) or no such entry: look on the map the era tab shows
+            MacroLog.i("${s.place}: no '${s.continent}' in the Expand list; looking on this map")
+            if (ctx.readText().none { Ocr.norm(it.text) == "world map" }) return false
         }
         MacroLog.i("${s.place}: trip from point zero (${s.era}, ${s.continent ?: "no Expand"})")
         return CatDaily.searchAndGo(ctx, s.place, s.sub)
