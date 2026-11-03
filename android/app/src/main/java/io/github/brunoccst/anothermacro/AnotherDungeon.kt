@@ -105,6 +105,8 @@ object AnotherDungeon {
         var nextMap: Int? = null
         /** The followed position is unsure (a chest was looked for around its spot): read it on the map before the next leg. */
         var unsure = false
+        /** The direction of the last walk on the path (+1 right, -1 left): a chest is looked for that way first. */
+        var lastDir = 0.0
     }
 
     private fun task(r: Run, text: String) { r.task = text; MacroLog.status(text) }
@@ -485,20 +487,25 @@ object AnotherDungeon {
                 r.pos = at
                 val d = chest.x - at.x
                 if (Route.segOf(l0, at) != Route.segOf(l0, chest) || abs(d) < 0.004) return@repeat
+                // a read a little behind the way the party walked is a wobbly marker: don't turn back for it
+                if (r.lastDir != 0.0 && d * r.lastDir < 0 && abs(d) <= 0.01) return@repeat
                 r.pos = Route.hold(ctx, l0, t, at, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
                 if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
             }
         }
         // looking around moves the party off the chest's spot: read it on the map before the next leg
         r.unsure = r.pos != null
-        for (k in 1..8) {
-            val side = if (k % 2 == 1) dir else -dir
+        // forward first (the way the party was walking: the chest is usually just ahead), then back past the spot
+        val fwd = if (r.pos != null && r.lastDir != 0.0) r.lastDir else dir
+        val steps = listOf(1, 1, 1, -1, -1, -1, -1, -1, -1)
+        for (sgn in steps) {
+            val side = fwd * sgn
             val p = r.pos
             if (p != null && ms.layout != null) {
                 // (on a path the position is followed through the search too)
                 val t = Route.table(ctx)
-                r.pos = Route.hold(ctx, ms.layout, t, p, side > 0, t.holdMs(0.006 * k).toLong()) { fight(r) }
-            } else AreaNav.hold(ctx, side, 0.006 * k)
+                r.pos = Route.hold(ctx, ms.layout, t, p, side > 0, t.holdMs(0.006).toLong()) { fight(r) }
+            } else AreaNav.hold(ctx, side, 0.006)
             fight(r)
             if (waitBubble(r, 1.5)) { r.chestsDone++; ctx.count("chests"); return }
         }
@@ -542,14 +549,19 @@ object AnotherDungeon {
          * Read where the party is on the area map (once, after a battle or a chest search) and
          * follow from there. False if it isn't on the street the plan has it on.
          */
-        fun resync(why: String): Boolean {
+        fun resync(why: String, target: Double? = null): Boolean {
             val seen = AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
                 .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) }
             Route.disturbed = false; r.unsure = false
             if (seen == null) { MacroLog.i("$why: no party marker on the map; keeping (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})"); return true }
             val seg = Route.segOf(l, seen)!!
             MacroLog.i("$why: the map shows (${"%.3f".format(seen.x)}, ${"%.3f".format(seen.y)}), followed (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})")
-            p = Point(seen.x.coerceIn(seg.x1, seg.x2), seg.y)
+            var x = seen.x.coerceIn(seg.x1, seg.x2)
+            // the party only walks forward: a read a little past the target (a stale or wobbly marker)
+            // is taken as being there, so the walk doesn't turn back; only clearly past it (>0.01) turns
+            val to = target ?: plan.x
+            if (r.lastDir != 0.0 && seg == Route.segOf(l, plan) && (x - to) * r.lastDir > 0 && abs(x - to) <= 0.01) x = to
+            p = Point(x, seg.y)
             return seg == Route.segOf(l, plan)
         }
         /** Hold toward [x] on this street (into the wall when [x] is the street's end). */
@@ -558,12 +570,13 @@ object AnotherDungeon {
             var d = x - p.x
             if (s != null && (abs(x - s.x1) < 1e-6 || abs(x - s.x2) < 1e-6) && abs(d) >= t.minWalk) d += if (d > 0) t.wallMargin else -t.wallMargin
             if (abs(d) < t.minWalk) return
+            r.lastDir = if (d > 0) 1.0 else -1.0
             p = Route.hold(ctx, l, t, p, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
             // a battle the hold didn't see (it came anyway): where the party stopped is unknown, read it and walk the rest
             repeat(2) {
                 if (!Route.unseen) return
                 Route.unseen = false
-                if (!resync("a battle came during the hold")) return
+                if (!resync("a battle came during the hold", x)) return
                 val rest = x - p.x
                 if (abs(rest) < t.minWalk) return
                 p = Route.hold(ctx, l, t, p, rest > 0, t.holdMs(abs(rest) + if (s != null && (abs(x - s.x1) < 1e-6 || abs(x - s.x2) < 1e-6)) t.wallMargin else 0.0).toLong()) { fight(r) }
