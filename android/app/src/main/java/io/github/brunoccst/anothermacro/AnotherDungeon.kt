@@ -283,8 +283,12 @@ object AnotherDungeon {
         return out
     }
 
+    /** The name already counted that [name] is an OCR variant of ("Medium Class Soroll" → "Medium Class Scroll"), else [name]. */
+    internal fun sameName(seen: Map<String, Int>, name: String): String =
+        seen.keys.filter { Ocr.similarity(it, name) >= 0.85 }.maxByOrNull { Ocr.similarity(it, name) } ?: name
+
     private fun noteItems(r: Run, lines: List<Ocr.Line>) {
-        for ((name, n) in obtained(lines)) r.items[name] = (r.items[name] ?: 0) + n
+        for ((raw, n) in obtained(lines)) { val name = sameName(r.items, raw); r.items[name] = (r.items[name] ?: 0) + n }
     }
 
     /**
@@ -299,7 +303,8 @@ object AnotherDungeon {
                 val name = lines.filter { it !== c && abs(it.center.y - c.center.y) < 0.03 && it.center.x < c.center.x && Regex("[A-Za-z]{3}").containsMatchIn(it.text) }
                     .maxByOrNull { it.center.x }?.text?.let { cleanName(it) } ?: continue
                 val n = num(c.text) ?: continue
-                r.rewards[name] = (r.rewards[name] ?: 0) + n
+                val key = sameName(r.rewards, name)
+                r.rewards[key] = (r.rewards[key] ?: 0) + n
             }
         }
         if ("items obtained" in all) {
@@ -309,7 +314,7 @@ object AnotherDungeon {
                 val name = lines.filter { it.center.y < a.center.y && a.center.y - it.center.y < 0.1 && abs(it.center.x - a.center.x) < 0.2 &&
                     Regex("[A-Za-z]{3}").containsMatchIn(it.text) && !Regex("[0-9]").containsMatchIn(it.text) && !Ocr.norm(it.text).startsWith("items") }
                     .maxByOrNull { it.center.y }?.text?.let { cleanName(it) } ?: continue
-                r.rewards[name] = n // the run's total of that item (shown once)
+                r.rewards[sameName(r.rewards, name)] = n // the run's total of that item (shown once)
             }
         }
     }
@@ -454,7 +459,12 @@ object AnotherDungeon {
         }
         // close by: the chest's "!" shows; look around the spot, a little further each side, until it does
         val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
-        if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
+        // the "!" pops up a moment after the party stops: give it a few frames before looking around
+        ctx.wait(0.8)
+        repeat(3) {
+            if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
+            Thread.sleep(250)
+        }
         // looking around moves the party off the chest's spot: read it on the map before the next leg
         r.unsure = r.pos != null
         for (k in 1..8) {
@@ -518,6 +528,15 @@ object AnotherDungeon {
             if (s != null && (abs(x - s.x1) < 1e-6 || abs(x - s.x2) < 1e-6) && abs(d) >= t.minWalk) d += if (d > 0) t.wallMargin else -t.wallMargin
             if (abs(d) < t.minWalk) return
             p = Route.hold(ctx, l, t, p, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
+            // a battle the hold didn't see (it came anyway): where the party stopped is unknown, read it and walk the rest
+            repeat(2) {
+                if (!Route.unseen) return
+                Route.unseen = false
+                if (!resync("a battle came during the hold")) return
+                val rest = x - p.x
+                if (abs(rest) < t.minWalk) return
+                p = Route.hold(ctx, l, t, p, rest > 0, t.holdMs(abs(rest) + if (s != null && (abs(x - s.x1) < 1e-6 || abs(x - s.x2) < 1e-6)) t.wallMargin else 0.0).toLong()) { fight(r) }
+            }
         }
         Route.disturbed = false
         if (r.unsure && !resync("after looking around for the chest")) { r.pos = p; offPath("not on the street the path expects"); return }
@@ -533,9 +552,12 @@ object AnotherDungeon {
                     if (Route.disturbed && !resync("before the stairs after a battle")) { r.pos = p; offPath("not on the street the path expects"); return }
                     val next = Route.climbed(l, plan, st.up) ?: run { r.pos = p; offPath("the path has no stairs ${if (st.up) "up" else "down"} here"); return }
                     var took = false
-                    for (attempt in 1..3) {
+                    // the stairs can be a little off in the data: from the 2nd try, flick a little either side
+                    val offsets = listOf(0.0, -0.006, 0.006, -0.012, 0.012)
+                    for (attempt in 1..offsets.size) {
                         // stairs only take the party standing on them
-                        if (abs(p.x - plan.x) >= t.minWalk) walkTo(plan.x)
+                        val at = plan.x + offsets[attempt - 1]
+                        if (abs(p.x - at) >= t.minWalk) walkTo(at)
                         val before = ctx.refresh().gray.clone()
                         AreaNav.flick(ctx, st.up)
                         val after = ctx.refresh().gray.clone()
@@ -543,15 +565,23 @@ object AnotherDungeon {
                         before.release(); after.release()
                         val battle = fight(r)
                         MacroLog.i("flick ${st} (try $attempt): screen change ${"%.1f".format(change)}${if (battle) " (a battle came)" else ""}")
-                        if (!battle && change >= t.flickChange) { took = true; break }
+                        if (!battle && change >= t.flickChange) {
+                            took = true
+                            if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in dungeons.yaml")
+                            break
+                        }
                         // check on the map: on the far end of the stairs, or still at their foot?
                         val seen = AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
                             .minByOrNull { minOf(abs(it.x - next.x) + 2 * abs(it.y - next.y), abs(it.x - plan.x) + 2 * abs(it.y - plan.y)) }
                         Route.disturbed = false
-                        if (seen != null && abs(seen.y - next.y) < AreaNav.ROW_TOL) { took = true; break }
+                        if (seen != null && abs(seen.y - next.y) < AreaNav.ROW_TOL) {
+                            took = true
+                            if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in dungeons.yaml")
+                            break
+                        }
                         if (seen != null && Route.segOf(l, seen) == Route.segOf(l, plan) && abs(seen.x - plan.x) < 0.03) {
                             // still at the stairs (a battle came first, or the flick missed them): flick again from here
-                            MacroLog.i("still at the stairs (map shows x=${"%.3f".format(seen.x)}, stairs ${"%.3f".format(plan.x)}): again")
+                            MacroLog.i("still at the stairs (map shows x=${"%.3f".format(seen.x)}, stairs ${"%.3f".format(plan.x)}): again, a little to the side")
                             p = Point(seen.x, plan.y)
                             continue
                         }
@@ -559,7 +589,7 @@ object AnotherDungeon {
                         offPath("the flick ${st} didn't take the stairs (map shows ${seen ?: "no marker"})")
                         return
                     }
-                    if (!took) { r.pos = p; offPath("the flick ${st} didn't take the stairs in 3 tries"); return }
+                    if (!took) { r.pos = p; offPath("the flick ${st} didn't take the stairs in ${offsets.size} tries"); return }
                     plan = next
                     p = next
                 }

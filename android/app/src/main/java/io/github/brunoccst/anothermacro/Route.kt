@@ -109,6 +109,8 @@ object Route {
 
     /** A hold was cut short by a battle since this was last cleared: the position is less sure. */
     @Volatile var disturbed = false
+    /** The last hold ran its full time, but a battle was there right after it (not seen during it). */
+    @Volatile var unseen = false
 
     /**
      * Hold right/left for [ms] from [from], watching for a battle. A battle that interrupts
@@ -154,7 +156,14 @@ object Route {
             val d = t.distance(walkedMs.toDouble())
             p = walked(l, p, right, d)
             left -= d
-            if (!interrupted) return p
+            if (!interrupted) {
+                // a battle the screen checks missed: the party stopped somewhere along the way
+                if (fight()) {
+                    MacroLog.i("a battle came during the hold without being seen: the position is unknown")
+                    disturbed = true; unseen = true
+                }
+                return p
+            }
             disturbed = true
             MacroLog.i("walk ${if (right) "right" else "left"} stopped after ${walkedMs}ms of $holdMs" +
                 (if (battle) " (battle)" else if (res.cancelled) " (gesture cancelled)" else "") +
