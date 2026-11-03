@@ -11,7 +11,6 @@ SPOT = {
     "continent": "Somewhere Continent",
     "place": "Testville",
     "sub": None,
-    "world_map": {"pans": [[-0.4, 0.0]], "tap": [0.5, 0.5]},
     "area": {
         "segs": [[0.4, 0.3, 0.7], [0.6, 0.3, 0.7]],
         "links": [[0.5, 0.6, 0.4]],
@@ -83,3 +82,15 @@ def test_render_writes_and_replaces_a_path(tmp_path, table):
     p.write_text(once)
     assert cr.render(p, table) == once
     assert yaml.safe_load(once)["Testville"]["path"] == cr.plan("Testville", SPOT, table)
+
+
+def test_measured_spots_reach_their_cat(table):
+    spots = cr.load_spots()
+    measured = {n: s for n, s in spots.items() if cr.area_map(n, s) is not None}
+    assert {"Ratle", "Acteul"} <= set(measured)
+    for name, s in measured.items():
+        steps = s["path"]
+        end = cr.follow(name, s, table, steps)
+        cat = s["area"]["cat"]
+        assert end[1] == pytest.approx(cat[1]), name
+        assert abs(end[0] - cat[0]) <= 0.006, f"{name}: path ends at x={end[0]:.3f}, cat {cat[0]:.3f}"

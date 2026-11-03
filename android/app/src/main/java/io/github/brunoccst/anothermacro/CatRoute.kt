@@ -9,7 +9,8 @@ import kotlin.math.abs
  *
  *  1. point zero: World Map on the Present era, Baruoki's label dragged to the middle (CatDaily.pointZero);
  *     then the spot's era tab and Expand → continent where it's on another one;
- *  2. the spot's fixed pans, the tap on the place's label (checked by OCR first), the sub-location;
+ *  2. the place's label by OCR from the view the era tab opens (it's where that era's last trip
+ *     went, so it isn't fixed), the sub-location, Yes;
  *  3. from the arrival spot, the fixed moves to where the cat starts (Route.hold / flicks, with the
  *     walk table scaled to this area map's zoom);
  *  4. the cat wanders along its street within `drift`: the hunt sweeps between those two ends.
@@ -18,15 +19,15 @@ import kotlin.math.abs
  * feather) when the data is missing or the screen doesn't look like the data says.
  */
 object CatRoute {
-    data class WorldMap(val pans: List<Pair<Double, Double>>, val tap: Point)
-
     data class Spot(
         val location: String, val era: String, val continent: String?, val place: String, val sub: String,
-        val worldMap: WorldMap?, val layout: AreaNav.Layout?, val arrival: Point?, val cat: Point?,
+        /** the cat is on a map the party walks to from [place] (not routed yet) */
+        val walkTo: String?,
+        val layout: AreaNav.Layout?, val arrival: Point?, val cat: Point?,
         val driftLeft: Double, val driftRight: Double, val walkScale: Double, val path: List<Route.Step>?,
     ) {
-        /** continent null = on Baruoki's map (no Expand needed) */
-        val fixedTravel get() = worldMap != null
+        /** continent null = reachable without Expand; a spot whose continent isn't known yet still starts at point zero */
+        val fixedTravel get() = era.isNotEmpty()
         val fixedWalk get() = layout != null && arrival != null && cat != null && path != null
     }
 
@@ -43,7 +44,6 @@ object CatRoute {
     private fun pt(v: Any?) = nums(v)?.let { Point(it[0], it[1]) }
 
     internal fun parse(location: String, v: Map<String, Any?>): Spot {
-        val wm = v["world_map"] as? Map<*, *>
         val area = v["area"] as? Map<*, *>
         val segs = (area?.get("segs") as? List<*>)?.mapNotNull { nums(it) }?.map { AreaNav.Seg(it[0], it[1], it[2]) }
         val links = (area?.get("links") as? List<*>)?.mapNotNull { nums(it) }?.map { AreaNav.Link(it[0], it[1], it[2]) }.orEmpty()
@@ -54,10 +54,7 @@ object CatRoute {
             continent = v["continent"]?.toString(),
             place = v["place"]?.toString() ?: location,
             sub = v["sub"]?.toString() ?: "",
-            worldMap = wm?.let { m ->
-                val tap = pt(m["tap"]) ?: return@let null
-                WorldMap((m["pans"] as? List<*>)?.mapNotNull { nums(it) }?.map { it[0] to it[1] }.orEmpty(), tap)
-            },
+            walkTo = v["walk_to"]?.toString(),
             layout = segs?.let { AreaNav.Layout(it, links) },
             arrival = pt(area?.get("arrival")),
             cat = pt(area?.get("cat")),
@@ -83,31 +80,18 @@ object CatRoute {
 
     // --- 1-2. the world map ---------------------------------------------------------------
     /**
-     * From point zero by the spot's fixed pans and tap. False when the label isn't where the data
-     * says (the caller then searches by OCR, with the world map still open).
+     * Point zero, then the spot's era tab and (only if set) its continent, then the place's label
+     * by OCR: the view each era tab opens on is where that era's last trip went (measured on the
+     * phone, 2026-11-03), so a label has no fixed screen spot; the search starts from that view.
      */
     fun travel(ctx: Context, s: Spot): Boolean {
-        val wm = s.worldMap ?: return false
         if (!CatDaily.pointZero(ctx)) return false
         if (!s.era.equals("Present", true)) CatDaily.tapEra(ctx, s.era)
         if (s.continent != null && !CatDaily.openContinent(ctx, s.continent)) {
             MacroLog.i("${s.place}: no '${s.continent}' in the Expand list"); return false
         }
-        for ((dx, dy) in wm.pans) {
-            val from = Point(0.5 - dx / 2, 0.55 - dy / 2)
-            ctx.drag(from, Point(from.x + dx, from.y + dy), 700); ctx.wait(1.0)
-        }
-        val label = ctx.readText().filter { Ocr.norm(it.text) == Ocr.norm(s.place) || Ocr.similarity(it.text, s.place) >= 0.85 }
-            .minByOrNull { abs(it.center.x - wm.tap.x) + abs(it.center.y - wm.tap.y) }
-        if (label == null || abs(label.center.x - wm.tap.x) > 0.08 || abs(label.center.y - wm.tap.y) > 0.08) {
-            MacroLog.i("${s.place}: label not at ${fmt(wm.tap)} from point zero (saw ${label?.let { fmt(it.center) } ?: "none"}): " +
-                "fix world_map in cat_spots.yaml; searching instead")
-            return false
-        }
-        if (abs(label.center.x - wm.tap.x) > 0.02 || abs(label.center.y - wm.tap.y) > 0.02)
-            MacroLog.i("${s.place}: label at ${fmt(label.center)}, data ${fmt(wm.tap)}")
-        MacroLog.i("${s.place}: fixed trip from point zero (${s.era}, ${s.continent ?: "Baruoki's map"}, ${wm.pans.size} pans)")
-        return CatDaily.goVia(ctx, label, s.place, s.sub)
+        MacroLog.i("${s.place}: trip from point zero (${s.era}, ${s.continent ?: "no Expand"})")
+        return CatDaily.searchAndGo(ctx, s.place, s.sub)
     }
 
     // --- 3. the area map ------------------------------------------------------------------
@@ -122,13 +106,15 @@ object CatRoute {
      */
     fun walk(ctx: Context, s: Spot, fight: () -> Boolean): Triple<Double, Double, Double>? {
         if (!s.fixedWalk) return null
-        val view = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png").take(1) }
+        // every feather-like icon: a big grey quill-in-a-circle icon (seen in Ratle) matches the
+        // feather template nearly as well, so the one nearest the cat's start is taken
+        val view = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png") }
         val arrival = s.arrival!!
         val party = view.candidates.minByOrNull { abs(it.x - arrival.x) + 3 * abs(it.y - arrival.y) }
         val shift = if (party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL && abs(party.x - arrival.x) < 0.025) party.x - arrival.x else 0.0
         val l = AreaNav.Layout(s.layout!!.segs.map { it.copy(x1 = it.x1 + shift, x2 = it.x2 + shift) }, s.layout.links.map { it.copy(x = it.x + shift) })
         val cat = Point(s.cat!!.x + shift, s.cat.y)
-        val feather = view.targets.firstOrNull()
+        val feather = view.targets.minByOrNull { abs(it.x - cat.x) + 2 * abs(it.y - cat.y) }
         MacroLog.i("${s.location}: party ${party?.let { fmt(it) } ?: "not seen"} (arrival ${fmt(arrival)}, offset ${"%.3f".format(shift)}), " +
             "feather ${feather?.let { fmt(it) } ?: "not seen"} (cat start ${fmt(s.cat)})")
         val catSeg = Route.segOf(l, cat) ?: return null

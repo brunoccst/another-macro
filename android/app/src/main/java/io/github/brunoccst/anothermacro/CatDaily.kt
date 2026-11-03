@@ -37,7 +37,8 @@ object CatDaily {
             val (pending, unknown) = readClues(ctx, riddles)
             MacroLog.i("clues: " + (pending.joinToString { "${it.location} (${it.era})" }.ifEmpty { "none left" }) +
                 if (unknown.isNotEmpty()) "; unreadable: ${unknown.joinToString(" | ")}" else "")
-            val next = pending.firstOrNull { it.key !in failed && supported(it) }
+            // a cat on a map past the travel point (cat_spots.yaml walk_to) isn't reachable yet: left open
+            val next = pending.firstOrNull { it.key !in failed && supported(it) && CatRoute.spot(ctx, it.location)?.walkTo == null }
             if (next == null) {
                 val left = pending.filter { it.key !in done }
                 return if (left.isEmpty() && unknown.isEmpty()) "all cats found today (${done.size} this run)"
@@ -185,25 +186,25 @@ object CatDaily {
         return true
     }
 
-    /** Where point zero puts Baruoki's label on the screen. */
-    internal val ZERO = Point(0.5, 0.55)
-
     /**
-     * Point zero (Bruno): the World Map on the Present era with Baruoki's label dragged to [ZERO].
-     * Baruoki is the game's first map, so every account has it (other places, and even the Expand
-     * button, only show once the story unlocks them). False if Baruoki can't be found.
+     * Point zero (Bruno): the World Map on the Present era with Baruoki's label on screen. Baruoki
+     * is the game's first map, so every account has it (other places, and even the Expand button,
+     * only show once the story unlocks them). It sits by the map's west edge: the Present tab
+     * opens with it at about (0.185, 0.509) and a drag doesn't move the map further (phone,
+     * 2026-11-03); after a Present trip elsewhere the map is dragged west until it shows.
      */
     internal fun pointZero(ctx: Context): Boolean {
         if (!openWorldMap(ctx, "Present")) return false
         fun baruoki() = ctx.readText().firstOrNull { it.center.y > 0.12 && Ocr.similarity(it.text, "Baruoki") >= 0.8 }
         var label = baruoki()
         if (label == null && openContinent(ctx, "Migleina Continent")) label = baruoki()
-        if (label == null) { MacroLog.i("point zero: no Baruoki label on the Present map"); return false }
-        if (abs(label.center.x - ZERO.x) > 0.01 || abs(label.center.y - ZERO.y) > 0.01) {
-            ctx.drag(label.center, ZERO, 900); ctx.wait(1.2)
-            label = baruoki() ?: return false
-            MacroLog.i("point zero: Baruoki at (${"%.3f".format(label.center.x)}, ${"%.3f".format(label.center.y)})")
+        repeat(4) {
+            if (label != null) return@repeat
+            ctx.drag(Point(0.3, 0.55), Point(0.8, 0.55), 700); ctx.wait(1.0)
+            label = baruoki()
         }
+        val at = label ?: run { MacroLog.i("point zero: no Baruoki label on the Present map"); return false }
+        MacroLog.i("point zero: Baruoki at (${"%.3f".format(at.center.x)}, ${"%.3f".format(at.center.y)})")
         return true
     }
 
@@ -228,7 +229,7 @@ object CatDaily {
     /** Pan around the visible map looking for [place]'s label; tap it and confirm the trip. */
     private fun isYes(l: Ocr.Line) = Ocr.norm(l.text) == "yes" && l.center.y > 0.4
 
-    private fun searchAndGo(ctx: Context, place: String, sub: String, region: String? = null): Boolean {
+    internal fun searchAndGo(ctx: Context, place: String, sub: String, region: String? = null): Boolean {
         // look here first; then from the top-left corner, sweep the map row by row (snake order)
         val pans = ArrayList<Pair<Double, Double>>()
         pans += 0.0 to 0.0
