@@ -36,7 +36,9 @@ from pathlib import Path
 
 from . import config
 
-LINE = re.compile(r"^\[\s*(\d+\.\d+)\]\s+(/dev/input/\S+):\s+(\S+)\s+(\S+)\s+(\S+)")
+# `getevent -lt` lines; reading a single device (`getevent -lt /dev/input/event2`) leaves the path out
+LINE = re.compile(r"^\[\s*(\d+\.\d+)\]\s+(?:(/dev/input/\S+):\s+)?(\S+)\s+(\S+)\s+(\S+)")
+NAME = re.compile(r'name:\s+"([^"]*)"')
 DEVICE = re.compile(r"add device \d+:\s+(/dev/input/\S+)")
 AXIS = re.compile(r"(ABS_MT_POSITION_[XY])\s*:\s*value\s+-?\d+,\s*min\s+(-?\d+),\s*max\s+(-?\d+)")
 UP = 0xFFFFFFFF
@@ -57,18 +59,28 @@ class Touchscreen:
     max_x: int
     min_y: int
     max_y: int
+    name: str = ""
 
 
-def parse_devices(text: str) -> Touchscreen | None:
-    """The touchscreen (the device with multi-touch positions) from `getevent -pl`."""
-    blocks = re.split(r"(?=add device \d+:)", text)
-    for b in blocks:
+def parse_devices(text: str, log: str = "") -> Touchscreen | None:
+    """The touchscreen from `getevent -pl`: of the devices with multi-touch positions (a phone can
+    also have a touchpad one, e.g. Samsung's "sec_touchpad"), the one named *touchscreen*, else
+    the one with the most events in [log], else the first."""
+    found: list[Touchscreen] = []
+    for b in re.split(r"(?=add device \d+:)", text):
         m = DEVICE.search(b)
         axes = {a: (int(lo), int(hi)) for a, lo, hi in AXIS.findall(b)}
         if m and "ABS_MT_POSITION_X" in axes and "ABS_MT_POSITION_Y" in axes:
             (x0, x1), (y0, y1) = axes["ABS_MT_POSITION_X"], axes["ABS_MT_POSITION_Y"]
-            return Touchscreen(m.group(1), x0, x1, y0, y1)
-    return None
+            n = NAME.search(b)
+            found.append(Touchscreen(m.group(1), x0, x1, y0, y1, n.group(1) if n else ""))
+    if not found:
+        return None
+    named = [t for t in found if "touchscreen" in t.name.lower()]
+    if named:
+        return named[0]
+    counts = {t.path: log.count(t.path + ":") for t in found}
+    return max(found, key=lambda t: counts[t.path]) if any(counts.values()) else found[0]
 
 
 def to_screen(rx: float, ry: float, rotation: int) -> tuple[float, float]:
@@ -111,7 +123,7 @@ def parse_events(log: str, ts: Touchscreen, rotation: int) -> list[dict]:
     span_y = max(1, ts.max_y - ts.min_y)
     for raw in log.splitlines():
         m = LINE.match(raw.strip())
-        if not m or m.group(2) != ts.path:
+        if not m or (m.group(2) is not None and m.group(2) != ts.path):
             continue
         t = float(m.group(1))
         kind, code, value = m.group(3), m.group(4), m.group(5)
@@ -175,7 +187,7 @@ def clock_kind(down_s: float) -> str:
 
 
 def convert(device_txt: str, log: str, rotation: int) -> dict:
-    ts = parse_devices(device_txt)
+    ts = parse_devices(device_txt, log)
     if ts is None:
         return {"error": "no touchscreen found in `getevent -pl`"}
     gestures = parse_events(log, ts, rotation)

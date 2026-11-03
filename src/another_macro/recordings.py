@@ -35,7 +35,9 @@ What this module makes of it:
   legs.
 
 Route moves use the notation of walk.yaml / dungeons.yaml: "R 1180" / "L 2950" = hold
-right/left that many ms, "U" / "D" = flick up/down at stairs. A recorded hold is
+right/left that many ms, "U" / "D" = flick up/down at stairs. A swipe that turns without
+lifting adds "+U 400" / "+L 720": keep the finger down and turn that way for that long
+(already walking, so no ramp-up, and an up/down there is a turn onto stairs, not a flick). A recorded hold is
 counted from the press, so it matches the table when the party was standing still
 when the finger went down (it is after a tap, a flick or a pause).
 """
@@ -216,9 +218,11 @@ def classify(g: dict, aspect: float = 0.45) -> Move:
     elif dur < FLICK_MAX_MS and abs(dy) > abs(dx) and abs(dy) >= FLICK_MIN_MOVE:
         kind, direction = "flick", ("U" if dy < 0 else "D")
     elif dur >= FLICK_MAX_MS and len(runs := stick_runs(pts, aspect)) > 1:
-        # turned without lifting the finger: one move per direction (a vertical one takes stairs)
+        # turned without lifting the finger: one move per direction held, all with their ms.
+        # Only the first starts from rest; "+" marks a turn made while already walking
+        # (no flick, no ramp-up: the party keeps its speed)
         kind, direction = "walk", runs[0][0]
-        turns = [f"{d} {_ms(b - a)}" if d in "LR" else d for d, a, b in runs]
+        turns = [("+" if k else "") + f"{d} {_ms(b - a)}" for k, (d, a, b) in enumerate(runs)]
     elif dur >= FLICK_MAX_MS and abs(dx) >= abs(dy):
         kind, direction = "walk", ("R" if dx > 0 else "L")
     else:

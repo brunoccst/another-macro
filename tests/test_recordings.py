@@ -128,5 +128,5 @@ def test_a_walk_that_turns_without_lifting(tmp_path):
     rec = recordings.load(_recording(tmp_path, gs, "dogma-map-1"))
     m = recordings.moves(rec)[0]
     assert m.kind == "walk"
-    assert m.tokens == ["L 1260", "U", "L 720"]
-    assert recordings.dungeon_legs(rec) == [["tap (0.6, 0.4)", "L 1260", "U", "L 720"]]
+    assert m.tokens == ["L 1260", "+U 420", "+L 720"]
+    assert recordings.dungeon_legs(rec) == [["tap (0.6, 0.4)", "L 1260", "+U 420", "+L 720"]]

@@ -23,6 +23,32 @@ def syn(t):
     return ev(t, "SYN_REPORT", "00000000", kind="EV_SYN")
 
 
+TOUCHPAD_FIRST = """add device 1: /dev/input/event3
+  name:     "sec_touchpad"
+  events:
+    ABS (0003): ABS_MT_POSITION_X     : value 0, min 0, max 4095, fuzz 0, flat 0, resolution 0
+                ABS_MT_POSITION_Y     : value 0, min 0, max 4095, fuzz 0, flat 0, resolution 0
+""" + DEVICES
+
+
+def test_the_touchscreen_wins_over_a_touchpad():
+    assert tr.parse_devices(TOUCHPAD_FIRST).path == "/dev/input/event2"
+    unnamed = TOUCHPAD_FIRST.replace("sec_touchscreen", "panel")
+    log = "\n".join([ev(1.0, "ABS_MT_POSITION_X", "00000001"), syn(1.0)])
+    assert tr.parse_devices(unnamed, log).path == "/dev/input/event2"
+
+
+def test_single_device_lines_without_a_path():
+    lines = [f"[{1.0:14.6f}] EV_ABS       ABS_MT_TRACKING_ID   00000001",
+             f"[{1.0:14.6f}] EV_ABS       ABS_MT_POSITION_X    0000021c",
+             f"[{1.0:14.6f}] EV_ABS       ABS_MT_POSITION_Y    000004b0",
+             f"[{1.0:14.6f}] EV_SYN       SYN_REPORT           00000000",
+             f"[{1.05:14.6f}] EV_ABS       ABS_MT_TRACKING_ID   ffffffff",
+             f"[{1.05:14.6f}] EV_SYN       SYN_REPORT           00000000"]
+    (g,) = tr.convert(DEVICES, "\n".join(lines), 1)["gestures"]
+    assert g["dur_ms"] == 50
+
+
 def test_touchscreen_found():
     ts = tr.parse_devices(DEVICES)
     assert (ts.path, ts.max_x, ts.max_y) == ("/dev/input/event2", 1079, 2399)
