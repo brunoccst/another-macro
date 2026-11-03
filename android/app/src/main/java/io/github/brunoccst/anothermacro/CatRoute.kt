@@ -127,7 +127,10 @@ object CatRoute {
         if (feather != null && (abs(feather.y - catSeg.y) > AreaNav.ROW_TOL * 2 || feather.x < lo - 0.03 || feather.x > hi + 0.03))
             MacroLog.i("${s.location}: the feather icon read at ${fmt(feather)} isn't where this cat starts or wanders " +
                 "(a look-alike icon, or fix area.cat/drift); following the path anyway")
-        val start = if (party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL) Point(party.x, Route.segOf(l, party)?.y ?: arrival.y)
+        // only a marker read close to the arrival counts (in Ratle a gold inn icon at (0.548, 0.509)
+        // passes the marker filter while the real marker is faint)
+        val start = if (party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL && abs(party.x - arrival.x) < 0.025)
+            Point(party.x, Route.segOf(l, party)?.y ?: arrival.y)
             else Point(arrival.x + shift, arrival.y).also { MacroLog.i("${s.location}: party marker not read at the arrival; taking the arrival spot") }
         val w = Walk(l, table(ctx, s.walkScale), start, Point(arrival.x + shift, arrival.y))
         MacroLog.i("${s.location}: path to the cat: ${s.path!!.joinToString(", ")}")
