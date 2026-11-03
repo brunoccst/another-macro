@@ -3,15 +3,25 @@
 Instead of working a route out (a cat in the Cat Scratchbook, a dungeon map's walk),
 play it once by hand while the app records it.
 
-## One-time setup
+## One-time setup: pair the app with Wireless debugging
 
-Recording reads the touchscreen through ADB, which Termux already has (the app can't):
+Recording reads the touchscreen through ADB. The app has its own ADB client (libadb-android,
+the one App Manager uses) and pairs with Android's Wireless debugging like Shizuku or LADB do:
+no Termux, no PC, no root.
 
-1. In Termux, update another-macro (`termux/install.sh`) and check ADB: `another-macro connect`.
-2. Let other apps run commands in Termux:
-   `mkdir -p ~/.termux && echo "allow-external-apps = true" >> ~/.termux/termux.properties && termux-reload-settings`
-3. The first ⏺ asks to allow Another Macro to "run commands in Termux environment": allow it,
-   then ⏺ again.
+1. Settings → About phone → tap **Build number** 7 times (unlocks Developer options).
+2. Settings → Developer options → turn on **Wireless debugging** (needs Wi-Fi, not internet).
+3. In the app: **Settings → Set up recording → Show pairing notification**.
+4. In Wireless debugging, tap **Pair device with pairing code**. Pull the notification down (the
+   code dialog stays open), tap **Enter code** and type the six digits. Or put the app and
+   Settings in split screen and type the code (and port) in the setup screen.
+5. **Test the connection** shows the touchscreen it found.
+
+After a restart or a Wi-Fi change Android turns Wireless debugging off: turn it back on (step 2);
+the pairing stays. ⏺ without a pairing opens the setup screen.
+
+(Termux still works as a fallback when the app isn't paired: if Termux may run commands, ⏺ uses
+`another-macro record-touches` there.)
 
 ## On the phone
 
@@ -36,15 +46,11 @@ timing. Its params:
 Android doesn't let an app see touches meant for another app, and a gesture an app plays
 is cancelled as soon as a real finger touches the screen, so the app can't pass touches on
 live either. ADB's shell can read the touchscreen itself (`getevent`) without getting in
-the way. So ⏺ asks Termux to run `another-macro record-touches start` (it reads
-`adb shell getevent -lt` in the background), and the app keeps a frame of the screen every
-0.4 s. ⏹ runs `another-macro record-touches stop`, which turns the log into moves and
-`adb push`es them (`touches.json`) into the app's folder; the app gives each move the frame
-before it and the text under each tap, and writes `recording.json`. Moves on the floating
-buttons (the ⏹ press) are left out.
-
-Without Termux the app falls back to catching each touch and passing it on when the
-finger lifts: fine for taps and menus, not for walking.
+the way. So ⏺ connects the app's ADB to Wireless debugging and runs `getevent -lt`, while the
+app keeps a frame of the screen every 0.4 s. ⏹ stops it; the app turns the log into moves
+(`TouchLog.kt`, the Kotlin twin of `touch_recorder.py`), gives each move the frame before it
+and the text under each tap, and writes `recording.json`. Moves on the floating buttons
+(the ⏹ press) are left out.
 
 ## Where recordings are, and what not to do with them
 

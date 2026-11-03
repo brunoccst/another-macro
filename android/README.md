@@ -52,8 +52,9 @@ the APK), and users can **Import macro** their own. The format (screens, handler
 expressions) is documented at the top of `Flow.kt`; `macros/grind-battles.yaml` is a full example.
 
 ## Recording a run
-⏺ on the floating buttons records a manual run: Termux reads the touchscreen through ADB
-(`another-macro record-touches`) while you play normally, and the app keeps a frame every 0.4 s.
+⏺ on the floating buttons records a manual run: the app reads the touchscreen through its own
+ADB (paired once with Wireless debugging: Settings → Set up recording; libadb-android, used under
+Apache-2.0) while you play normally, and keeps a frame every 0.4 s.
 ⏹ asks for a name, saves it under `Android/data/<app>/files/recordings/<name>` and makes a macro
 of the same name (group Recorded) that replays it (`replay:` action). See `docs/recording.md`.
 

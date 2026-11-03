@@ -32,14 +32,12 @@ import kotlin.math.hypot
 /**
  * Record a manual run (⏺ on the floating buttons) so it can become a fixed macro.
  *
- * Android gives an app no way to watch touches meant for another app (an accessibility
- * service can only see them by taking them over, and an overlay that lets them through
- * gets no coordinates). So while recording, a see-through accessibility overlay covers
- * the screen and **catches** each touch: when the finger lifts, the overlay steps aside
- * and the same gesture (same path, same timing) is played to the game with the
- * accessibility gestures the macros use. The game sees every move a moment late (a tap
- * ~0.1 s, a hold after the finger lifts), and the recording is exactly what was played,
- * so replaying it does what the run did.
+ * Android gives an app no way to watch the touches another app gets, but ADB's shell can
+ * read the touchscreen itself (`getevent`) without getting in the way. So while recording the
+ * game gets every touch as usual (live, long holds, turns mid-swipe) and the touchscreen is read
+ * through the app's own ADB ([AppAdb], paired once with Wireless debugging), or through Termux
+ * (`another-macro record-touches`, if the app isn't paired and Termux may run commands). A
+ * frame of the screen is kept every [FRAME_EVERY_MS].
  *
  * Saved per recording, in the app's external files folder (adb can pull it; never commit it):
  *   recordings/<name>/recording.json   the moves (see [toJson])
@@ -94,26 +92,24 @@ object Recorder {
             .map { it.name }.sorted()
 
     /**
-     * Start recording. Call on the main thread. With Termux the touches go to the game as usual
-     * and are read through ADB ([LiveSession]); without it they are caught and passed on when
-     * the finger lifts ([Session]: fine for taps, not for walking).
+     * Start recording (call on the main thread): through the app's own ADB when it is paired,
+     * else through Termux when it may run commands, else open the pairing setup.
      */
     fun start(service: InputService): Boolean {
         if (session != null) return false
         if (Runner.isRunning) { MacroLog.i("stop the macro before recording"); return false }
-        if (Termux.installed(service) && !Termux.allowed(service)) {
-            toast(service, "Allow Another Macro to run commands in Termux, then ⏺ again")
-            Termux.ask(service)
-            return false
+        val source = when {
+            AppAdb.paired(service) -> Source.APP_ADB
+            Termux.installed(service) && Termux.allowed(service) -> Source.TERMUX
+            else -> {
+                toast(service, "Set up recording once: pair the app with Wireless debugging")
+                service.startActivity(android.content.Intent(service, AdbSetupActivity::class.java).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+                return false
+            }
         }
         root(service).listFiles().orEmpty().filter { it.name.startsWith(".pending") }.forEach { it.deleteRecursively() }
         val dir = File(root(service), ".pending-${System.currentTimeMillis()}").apply { mkdirs() }
-        val s: Recording = if (Termux.installed(service)) {
-            LiveSession(service, dir).takeIf { it.start() } ?: return false
-        } else {
-            MacroLog.i("recording without Termux: each move reaches the game when the finger lifts (walking won't record well)")
-            Session(service, dir).takeIf { it.show() } ?: return false
-        }
+        val s = LiveSession(service, dir, source).takeIf { it.start() } ?: return false
         session = s
         if (MacroService.capture == null) MacroLog.i("recording touches without the screen (allow screen capture to keep a frame per move)")
         MacroLog.status("recording: make your moves, then ⏹")
@@ -209,166 +205,33 @@ object Recorder {
 
     private fun round4(v: Double) = Math.round(v * 10000) / 10000.0
 
-    /** The see-through overlay that catches touches and plays them on to the game. */
-    class Session(private val service: InputService, val dir: File) : Recording {
-        private val wm = service.getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        private val main = Handler(Looper.getMainLooper())
-        private val worker = Executors.newSingleThreadExecutor()
-        private val startedAt = SystemClock.uptimeMillis()
-        private val gestures = java.util.Collections.synchronizedList(ArrayList<Gesture>())
-        private var width = 0
-        private var height = 0
-        @Volatile private var echoing = false
-        private var lastEchoEnd = 0L
-        private val catcher = Catcher(service)
-        private val params = WindowManager.LayoutParams(
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.MATCH_PARENT,
-            WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
-            WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE or WindowManager.LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS,
-            PixelFormat.TRANSLUCENT,
-        )
+    /** Who reads the touchscreen: the app's own ADB, or Termux's. */
+    enum class Source { APP_ADB, TERMUX }
 
-        // the move being made
-        private var downAt = 0L
-        private var points = ArrayList<Triple<Long, Double, Double>>()
-        private var multi = false
-        private var frameMat: Mat? = null
-
-        @SuppressLint("ClickableViewAccessibility")
-        fun show(): Boolean {
-            catcher.setOnTouchListener { _, e -> onTouch(e); true }
-            return runCatching { wm.addView(catcher, params); true }
-                .onFailure { MacroLog.e("could not start recording", it) }.getOrDefault(false)
-        }
-
-        private fun screenSize() {
-            val p = android.graphics.Point()
-            @Suppress("DEPRECATION") wm.defaultDisplay.getRealSize(p)
-            width = p.x; height = p.y
-        }
-
-        private fun onTouch(e: MotionEvent) {
-            if (echoing) return
-            val now = SystemClock.uptimeMillis()
-            when (e.actionMasked) {
-                MotionEvent.ACTION_DOWN -> {
-                    screenSize()
-                    downAt = now
-                    points = ArrayList()
-                    multi = false
-                    add(0L, e.rawX, e.rawY)
-                    // the screen as it was when the move started (the game gets nothing while the finger is down)
-                    frameMat?.release()
-                    frameMat = MacroService.capture?.grabColor()
-                }
-                MotionEvent.ACTION_MOVE -> {
-                    // rawX/rawY of the history aren't available on API < 29: offset the view-relative ones
-                    val dx = e.rawX - e.x
-                    val dy = e.rawY - e.y
-                    for (h in 0 until e.historySize) add(e.getHistoricalEventTime(h) - e.downTime, e.getHistoricalX(h) + dx, e.getHistoricalY(h) + dy)
-                    add(e.eventTime - e.downTime, e.rawX, e.rawY)
-                }
-                MotionEvent.ACTION_POINTER_DOWN -> multi = true
-                MotionEvent.ACTION_UP -> {
-                    add(e.eventTime - e.downTime, e.rawX, e.rawY)
-                    finishGesture()
-                }
-                MotionEvent.ACTION_CANCEL -> { frameMat?.release(); frameMat = null }
-            }
-        }
-
-        private fun add(t: Long, xPx: Float, yPx: Float) {
-            val x = (xPx / width.coerceAtLeast(1)).toDouble().coerceIn(0.0, 1.0)
-            val y = (yPx / height.coerceAtLeast(1)).toDouble().coerceIn(0.0, 1.0)
-            val last = points.lastOrNull()
-            // keep a point every 16 ms (one per frame) at most; always the last one
-            if (last != null && t - last.first < 16 && points.size > 1) points[points.size - 1] = Triple(t, x, y)
-            else if (last == null || t > last.first || x != last.second || y != last.third) points += Triple(t, x, y)
-        }
-
-        private fun finishGesture() {
-            val g = Gesture(downAt - startedAt, points, multi)
-            g.gapMs = (downAt - lastEchoEnd.coerceAtLeast(startedAt)).coerceAtLeast(0)
-            val index = gestures.size
-            gestures += g
-            val mat = frameMat
-            frameMat = null
-            if (multi) MacroLog.i("recording: move ${index + 1} used two fingers; only the first is played")
-            // step aside, then play the move to the game
-            echoing = true
-            params.flags = params.flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-            runCatching { wm.updateViewLayout(catcher, params) }
-            val w = width; val h = height
-            Thread {
-                Thread.sleep(60) // let the window manager apply it first, or the move lands on the overlay
-                g.echoMs = SystemClock.uptimeMillis() - startedAt
-                g.echoOk = Replay.play(service, g.points, w, h)
-                lastEchoEnd = SystemClock.uptimeMillis()
-                if (!g.echoOk) MacroLog.i("recording: move ${index + 1} was cut short (touch the screen only after the last move finished)")
-                main.post {
-                    params.flags = params.flags and WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE.inv()
-                    if (catcher.isAttachedToWindow) runCatching { wm.updateViewLayout(catcher, params) }
-                    echoing = false
-                }
-            }.start()
-            MacroLog.status("recording: move ${index + 1} (${describe(g)})")
-            if (mat != null) worker.execute { saveFrame(g, index, mat) }
-        }
-
-        /** Save the frame of move [index] (scaled down) and, for a tap, the text under the finger. */
-        private fun saveFrame(g: Gesture, index: Int, bgr: Mat) {
-            try {
-                val frames = File(dir, "frames").apply { mkdirs() }
-                val name = "%03d.jpg".format(index)
-                val small = Mat()
-                val scale = FRAME_WIDTH.toDouble() / bgr.cols()
-                Imgproc.resize(bgr, small, Size(FRAME_WIDTH.toDouble(), Math.round(bgr.rows() * scale).toDouble()), 0.0, 0.0, Imgproc.INTER_AREA)
-                Imgcodecs.imwrite(File(frames, name).path, small, MatOfInt(Imgcodecs.IMWRITE_JPEG_QUALITY, 80))
-                small.release()
-                g.frame = "frames/$name"
-                if (isTap(g)) g.label = labelAt(bgr, g.points.first().second, g.points.first().third)
-            } catch (e: Exception) {
-                MacroLog.e("recording: could not save the frame of move ${index + 1}", e)
-            } finally {
-                bgr.release()
-            }
-        }
-
-        /** Stop catching touches (main thread). */
-        override fun close() {
-            runCatching { wm.removeView(catcher) }
-            frameMat?.release(); frameMat = null
-        }
-
-        override fun finish(exclude: Region?): File? {
-            // let the last echo and frame finish
-            val until = SystemClock.uptimeMillis() + 15000
-            while (echoing && SystemClock.uptimeMillis() < until) Thread.sleep(20)
-            worker.shutdown()
-            worker.awaitTermination(15, TimeUnit.SECONDS)
-            val endMs = SystemClock.uptimeMillis() - startedAt
-            val list = synchronized(gestures) { gestures.toList() }
-            if (list.isEmpty()) {
-                dir.deleteRecursively()
-                MacroLog.status("recording: nothing recorded")
-                return null
-            }
-            File(dir, "recording.json").writeText(toJson(list, width, height, endMs).toString(1))
-            MacroLog.status("recording: ${list.size} moves, ${endMs / 1000}s; name it to save")
-            return dir
+    /** Ends a recording that couldn't start reading touches (from any thread). */
+    internal fun abort(s: Recording, why: String) {
+        Handler(Looper.getMainLooper()).post {
+            if (session !== s) return@post
+            session = null
+            s.close()
+            MacroLog.i("recording failed: $why")
+            toast((s as LiveSession).service, "Recording failed: $why")
+            changed()
         }
     }
 
     /**
-     * Live recording: the touches go to the game as usual, and Termux reads them from the
-     * touchscreen through ADB (`another-macro record-touches`, touch_recorder.py), so walking,
-     * long holds and turns mid-swipe work. Meanwhile the app keeps a frame of the screen every
-     * [FRAME_EVERY_MS]. On ⏹ Termux pushes touches.json into [dir]; each move gets the last frame
+     * Live recording: the touches go to the game as usual, and `getevent` reads them from the
+     * touchscreen, through the app's own ADB ([Source.APP_ADB]: the log comes straight into
+     * [dir]) or Termux's (`another-macro record-touches`, touch_recorder.py: on ⏹ it pushes
+     * touches.json into [dir]). So walking, long holds and turns mid-swipe work. Meanwhile the
+     * app keeps a frame of the screen every [FRAME_EVERY_MS]; each move gets the last frame
      * before it and, for a tap, the text under the finger.
      */
-    class LiveSession(private val service: InputService, val dir: File) : Recording {
+    class LiveSession(internal val service: InputService, val dir: File, private val source: Source) : Recording {
+        @Volatile private var stream: io.github.muntashirakon.adb.AdbStream? = null
+        private var reader: Thread? = null
+        @Volatile private var failed: String? = null
         private val startUptime = SystemClock.uptimeMillis()
         private val startWall = System.currentTimeMillis()
         @Volatile private var running = true
@@ -384,14 +247,37 @@ object Recorder {
             width = p.x; height = p.y
             @Suppress("DEPRECATION") rotation = wm.defaultDisplay.rotation
             frames.mkdirs()
-            val cmd = "another-macro record-touches start --out ${Termux.quote(dir.path)} --rotation $rotation"
-            if (!Termux.run(service, cmd)) {
-                toast(service, "Termux didn't take the command: see the app's log")
-                dir.deleteRecursively()
-                return false
+            if (source == Source.TERMUX) {
+                val cmd = "another-macro record-touches start --out ${Termux.quote(dir.path)} --rotation $rotation"
+                if (!Termux.run(service, cmd)) {
+                    toast(service, "Termux didn't take the command: see the app's log")
+                    dir.deleteRecursively()
+                    return false
+                }
+            } else {
+                reader = Thread { readTouches() }.apply { isDaemon = true; start() }
             }
             Thread { saveFrames() }.apply { isDaemon = true }.start()
             return true
+        }
+
+        /** The app's own ADB: `getevent -pl` once, then `getevent -lt` line by line into touches.log. */
+        private fun readTouches() {
+            val err = AppAdb.connect(service)
+            if (err != null) { failed = err; abort(this, err); return }
+            try {
+                File(dir, "device.txt").writeText(AppAdb.shell(service, "getevent -pl"))
+                val s = AppAdb.stream(service, "getevent -lt")
+                stream = s
+                MacroLog.i("recording: reading the touchscreen")
+                File(dir, "touches.log").bufferedWriter().use { out ->
+                    s.openInputStream().bufferedReader().forEachLine { line ->
+                        out.write(line.trimEnd('\r')); out.newLine(); out.flush()
+                    }
+                }
+            } catch (e: Exception) {
+                if (running) { failed = "the touch reader stopped (${e.javaClass.simpleName})"; MacroLog.e("recording: touch reader", e) }
+            }
         }
 
         private fun saveFrames() {
@@ -420,16 +306,13 @@ object Recorder {
 
         override fun close() {
             running = false
-            Termux.run(service, "another-macro record-touches stop --out ${Termux.quote(dir.path)}")
+            if (source == Source.TERMUX) Termux.run(service, "another-macro record-touches stop --out ${Termux.quote(dir.path)}")
+            else Thread { runCatching { stream?.close() } }.start()
         }
 
         override fun finish(exclude: Region?): File? {
             val endMs = SystemClock.uptimeMillis() - startUptime
-            val file = File(dir, "touches.json")
-            val until = SystemClock.uptimeMillis() + 30000
-            while (!file.isFile && SystemClock.uptimeMillis() < until) Thread.sleep(200)
-            Thread.sleep(300) // adb push may still be writing it
-            val data = runCatching { JSONObject(file.readText()) }.getOrNull()
+            val data = if (source == Source.TERMUX) termuxResult() else appResult()
             if (data == null || data.has("error")) {
                 val why = data?.optString("error")
                     ?: "no touches came back from Termux (allow-external-apps = true in ~/.termux/termux.properties? another-macro connect?)"
@@ -438,6 +321,40 @@ object Recorder {
                 dir.deleteRecursively()
                 return null
             }
+            return build(data, exclude, endMs)
+        }
+
+        /** The app's own reader: parse touches.log here (TouchLog, the Kotlin twin of touch_recorder.py). */
+        private fun appResult(): JSONObject? {
+            reader?.join(5000)
+            failed?.let { return JSONObject().put("error", it) }
+            val device = File(dir, "device.txt").takeIf { it.isFile }?.readText()
+                ?: return JSONObject().put("error", "the touch reader never started")
+            val log = File(dir, "touches.log").takeIf { it.isFile }?.readText().orEmpty()
+            val ts = TouchLog.parseDevices(device, log) ?: return JSONObject().put("error", "no touchscreen found in getevent")
+            val moves = TouchLog.parseEvents(log, ts, rotation)
+            val arr = JSONArray()
+            for (m in moves) arr.put(JSONObject().apply {
+                put("down_s", m.downS)
+                put("multi_touch", m.multiTouch)
+                put("points", JSONArray().apply { m.points.forEach { (t, x, y) -> put(JSONArray().put(t).put(x).put(y)) } })
+            })
+            val clock = if (moves.firstOrNull()?.let { it.downS > 1e8 } == true) "realtime" else "monotonic"
+            // keep the raw log out of the saved recording (it is big); touches are in recording.json
+            File(dir, "touches.log").delete()
+            return JSONObject().put("clock", clock).put("device", ts.path).put("gestures", arr)
+        }
+
+        /** Termux's reader: wait for the touches.json it pushes. */
+        private fun termuxResult(): JSONObject? {
+            val file = File(dir, "touches.json")
+            val until = SystemClock.uptimeMillis() + 30000
+            while (!file.isFile && SystemClock.uptimeMillis() < until) Thread.sleep(200)
+            Thread.sleep(300) // adb push may still be writing it
+            return runCatching { JSONObject(file.readText()) }.getOrNull()
+        }
+
+        private fun build(data: JSONObject, exclude: Region?, endMs: Long): File? {
             // getevent's clock: since boot (same as uptimeMillis) or wall time
             val offset = if (data.optString("clock") == "realtime") startUptime - startWall else 0L
             val shots = frames.listFiles().orEmpty().mapNotNull { f ->
@@ -475,7 +392,8 @@ object Recorder {
                 dir.deleteRecursively()
                 return null
             }
-            val json = toJson(list, width, height, endMs).put("source", "getevent").put("rotation", rotation)
+            val json = toJson(list, width, height, endMs)
+                .put("source", if (source == Source.APP_ADB) "app-adb" else "termux").put("rotation", rotation)
             File(dir, "recording.json").writeText(json.toString(1))
             MacroLog.status("recording: ${list.size} moves, ${endMs / 1000}s; name it to save")
             return dir
@@ -501,32 +419,10 @@ object Recorder {
                 .filter { it.second < 0.04 }.minByOrNull { it.second }?.first?.text
     }
 
-    /** Fully see-through, with a thin red frame so it's clear the screen is being recorded. */
-    private class Catcher(context: Context) : View(context) {
-        private val paint = Paint().apply {
-            style = Paint.Style.STROKE
-            color = Color.parseColor("#C62828")
-            strokeWidth = 3 * context.resources.displayMetrics.density
-        }
-        override fun onDraw(canvas: Canvas) {
-            canvas.drawRect(0f, 0f, width.toFloat(), height.toFloat(), paint)
-        }
-    }
-
     internal fun isTap(g: Gesture): Boolean {
         val (_, x0, y0) = g.points.first()
         val far = g.points.maxOf { hypot(it.second - x0, (it.third - y0) * 0.45) }
         return g.durMs < 500 && far < 0.012
-    }
-
-    private fun describe(g: Gesture): String {
-        if (isTap(g)) return "tap"
-        val (_, x0, y0) = g.points.first()
-        val (_, x1, y1) = g.points.last()
-        val dx = x1 - x0
-        val dy = (y1 - y0) * 0.45
-        val dir = if (abs(dx) >= abs(dy)) (if (dx > 0) "right" else "left") else (if (dy > 0) "down" else "up")
-        return "$dir ${g.durMs} ms"
     }
 
     const val FRAME_WIDTH = 1200
