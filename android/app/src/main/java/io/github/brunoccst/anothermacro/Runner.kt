@@ -137,6 +137,35 @@ class Context(
         input.stroke(x1, y1, x2, y2, durationMs)
     }
 
+    /**
+     * What a [hold] did: how long the finger was down, and when [watch] asked to stop
+     * (ms after the press; null when it ran its full time), [cancelled] if the system ended it early.
+     */
+    data class HoldResult(val heldMs: Long, val stoppedAtMs: Long?, val cancelled: Boolean)
+
+    /**
+     * Like [drag], but the screen can be watched while the finger is down: [watch] runs over and
+     * over with the ms held so far, and returning true lifts the finger there (a battle started).
+     */
+    fun hold(start: Point, end: Point, durationMs: Long, watch: (Long) -> Boolean): HoldResult {
+        val (x1, y1) = px(start)
+        val (x2, y2) = px(end)
+        val h = input.startHold(x1, y1, x2, y2, durationMs)
+        var stoppedAt: Long? = null
+        val giveUp = System.currentTimeMillis() + durationMs + 5000
+        while (h.done.count > 0 && System.currentTimeMillis() < giveUp) {
+            if (stopRequested.get()) h.stop.set(true)
+            if (stoppedAt == null && h.startedAt != 0L) {
+                val t = h.heldMs
+                if (watch(t)) { stoppedAt = t; h.stop.set(true) }
+            } else h.done.await(20, java.util.concurrent.TimeUnit.MILLISECONDS)
+        }
+        h.stop.set(true)
+        h.done.await(2000, java.util.concurrent.TimeUnit.MILLISECONDS)
+        if (stopRequested.get()) throw StopScenario("stop requested")
+        return HoldResult(h.heldMs.coerceAtMost(durationMs + 500), stoppedAt, h.cancelled)
+    }
+
     fun back() { input.back() }
 
     /** Tap exactly at [p] (no jitter): for moving targets aimed at precisely. */
