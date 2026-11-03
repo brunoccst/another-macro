@@ -93,7 +93,8 @@ object CatRoute {
             if (ctx.readText().none { Ocr.norm(it.text) == "world map" }) return false
         }
         MacroLog.i("${s.place}: trip from point zero (${s.era}, ${s.continent ?: "no Expand"})")
-        return CatDaily.searchAndGo(ctx, s.place, s.sub)
+        // an island's places (Konium on Snake Bone Island) sit in the island label's panel
+        return CatDaily.searchAndGo(ctx, s.place, s.sub, CatDaily.regionOf(s.place))
     }
 
     // --- 3. the area map ------------------------------------------------------------------

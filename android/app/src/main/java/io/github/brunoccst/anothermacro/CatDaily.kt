@@ -88,6 +88,9 @@ object CatDaily {
     )
     private val REGION_NAMES = REGIONS.keys + listOf("Snake Bone", "Astra", "Ogres Spike")
 
+    /** The island a place is on (its label on the continent map opens a panel of its places), or null. */
+    internal fun regionOf(place: String) = REGIONS.entries.firstOrNull { (_, places) -> places.any { Ocr.norm(it) == Ocr.norm(place) } }?.key
+
     private fun supported(c: Clue) = c.era in ERA && !c.location.contains("Enter from") && !c.location.contains("quick destination")
 
     // --- 1. clues ----------------------------------------------------------------
@@ -129,7 +132,7 @@ object CatDaily {
         val sub = Regex("""\(([^)]*)\)|[–-] (.+)$""").find(clue.location)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }?.trim() ?: ""
         if (!openWorldMap(ctx, clue.era)) return false
         // the place's own region (from the wiki's map list): islands show as a label on a continent's map
-        val region = REGIONS.entries.firstOrNull { (_, places) -> places.any { Ocr.norm(it) == Ocr.norm(place) } }?.key
+        val region = regionOf(place)
         // learned before: go straight to its continent
         val known = KnownPlaces.continent(ctx, place, clue.era)
         if (known != null) {

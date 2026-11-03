@@ -253,7 +253,7 @@ Snake Spine Gabaraki:
 Konium:
   era: Present
   continent: Migleina Continent  # learned on the phone (known_places.yaml)
-  place: Konium
+  place: Konium  # on Snake Bone Island: its label on the continent map opens a panel with Konium (2026-11-03)
   sub: null
   area: null
 Purgatory:
