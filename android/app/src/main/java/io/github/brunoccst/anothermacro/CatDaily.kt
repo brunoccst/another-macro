@@ -67,8 +67,11 @@ object CatDaily {
         if (!arrived) return false
         if (spot != null && spot.fixedWalk) {
             ctx.count("fixed_routes")
+            // the cat can be next to the arrival (Ratle: its bubble shows at once): look before moving
+            if (hunt(ctx, walk = {}, tries = 1)) return true
             val range = CatRoute.walk(ctx, spot, fight)
-            if (range != null) return hunt(ctx, CatRoute.sweeper(ctx, spot, range, fight))
+            if (range != null && hunt(ctx, CatRoute.sweeper(ctx, spot, range, fight), tries = 16)) return true
+            MacroLog.i("${clue.location}: no cat on the fixed route${if (range == null) " (left the path)" else " after sweeping its range"}: steering by the map")
             ctx.count("fixed_route_fallbacks")
         } else {
             MacroLog.i("${clue.location}: no fixed route yet (`another-macro cat-routes --todo`)")
@@ -327,11 +330,11 @@ object CatDaily {
      * Walk in short steps around here and tap the feather bubble; true once the book opens (found).
      * [walk] (i-th walk) replaces the pulses left and right, e.g. CatRoute's sweep of the cat's drift range.
      */
-    fun hunt(ctx: Context, walk: ((Int) -> Unit)? = null): Boolean {
+    fun hunt(ctx: Context, walk: ((Int) -> Unit)? = null, tries: Int = 60): Boolean {
         val ff = FeatherFinder.load(ctx)
         var dir = -1.0
         var pos = 0
-        repeat(60) {
+        repeat(tries) {
             fightIfBattle(ctx) // first: it takes its own screenshots
             var f1 = ctx.refresh()
             if (ctx.find("scratchbook_header") != null) return collect(ctx)
