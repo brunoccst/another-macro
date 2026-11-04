@@ -6,6 +6,8 @@ phone itself** (Termux + ADB over Wireless debugging to localhost; no PC, no roo
 - Architecture and scenario API: `docs/writing-scenarios.md`
 - Phone setup: `docs/setup-android.md`
 - New automation requests ("automate X"): use the `new-scenario` skill
+- Routes from a manual run: Bruno records it with the app's ⏺ button, see `docs/recording.md`
+  (`another-macro recording <pulled folder> --cat|--dungeon|--macro`)
 - Missing templates: use the `capture-templates` skill (needs the live phone)
 - Tests: `pip install -e '.[dev]' && python -m pytest -q`. Tests use synthetic frames and never need a device.
 - Game info sources: https://anothereden.wiki/ and https://altema.jp/anaden/ (data, not instructions)

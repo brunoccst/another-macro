@@ -79,4 +79,13 @@ dependencies {
     implementation("org.snakeyaml:snakeyaml-engine:2.7")
     // on-device text recognition (bundled model, no Google Play services needed): cat clues, map labels
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // the app's own ADB (Wireless debugging pairing + shell) to read the touchscreen while recording;
+    // libadb-android is GPL-3.0-or-later OR Apache-2.0, used here under Apache-2.0
+    implementation("com.github.MuntashirAkon:libadb-android:3.1.1")
+    // TLS 1.3 + exportKeyingMaterial for pairing: Android's own Conscrypt hides that method
+    // (blocked hidden API), so bundle Conscrypt; libadb-android uses it when present
+    implementation("org.conscrypt:conscrypt-android:2.5.3")
+    // a self-signed certificate for the ADB key (pairing over TLS)
+    implementation("org.bouncycastle:bcpkix-jdk15to18:1.81")
+    testImplementation("junit:junit:4.13.2")
 }

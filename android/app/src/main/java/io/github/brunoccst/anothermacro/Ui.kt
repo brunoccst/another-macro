@@ -123,6 +123,8 @@ object Groups {
         Group("dungeon", "Another Dungeon", R.drawable.ic_keycard),
         Group("farm", "Farming", R.drawable.ic_swords),
         Group("game", "Game", R.drawable.ic_power),
+        // made with the floating ⏺ button (Recorder)
+        Group("recorded", "Recorded", R.drawable.ic_puzzle),
         Group("other", "Other", R.drawable.ic_puzzle),
     )
 

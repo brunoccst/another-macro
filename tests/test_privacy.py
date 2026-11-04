@@ -33,6 +33,6 @@ def test_committed_images_are_small_crops():
 
 
 def test_no_run_data_or_keys_committed():
-    banned = [p for p in _tracked("*") if any(part in {"runs", ".another-macro", ".android"} for part in p.parts)]
-    banned += [p for p in _tracked("*") if p.name in {"adbkey", "adbkey.pub", "serial", "log.txt"}]
+    banned = [p for p in _tracked("*") if any(part in {"runs", "recordings", ".another-macro", ".android"} for part in p.parts)]
+    banned += [p for p in _tracked("*") if p.name in {"adbkey", "adbkey.pub", "serial", "log.txt", "recording.json"}]
     assert not banned, f"local run data / keys must not be committed: {banned}"

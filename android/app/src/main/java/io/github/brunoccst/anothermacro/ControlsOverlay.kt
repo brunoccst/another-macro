@@ -38,6 +38,10 @@ class ControlsOverlay(private val service: InputService) {
     private val stop = round("■", Color.parseColor("#C62828"))
     private val restart = round("↻", Color.parseColor("#1565C0"))
     private val camera = round("📷", Color.parseColor("#6A1B9A"))
+    /** ⏺ record a manual run (see Recorder); while recording only ⏹ shows, under the handle. */
+    private val record = round("⏺", Color.parseColor("#B71C1C"))
+    private val recordStop = round("⏹", Color.parseColor("#B71C1C")).apply { visibility = View.GONE }
+    private val recordListener: () -> Unit = { main.post { refresh() } }
     /** Live log on/off: a line at the bottom right saying what the macro is doing. */
     private val liveToggle = round("💬", Color.GRAY)
     private val liveLog = LiveLogOverlay(service)
@@ -59,6 +63,7 @@ class ControlsOverlay(private val service: InputService) {
     }
     private val listener: () -> Unit = { main.post { refresh() } }
     private var wasRunning = false
+    private var wasRecording = false
 
     init {
         buttons.addView(selected)
@@ -67,14 +72,17 @@ class ControlsOverlay(private val service: InputService) {
         buttons.addView(playPause)
         buttons.addView(stop)
         buttons.addView(restart)
-        // 📷 and 💬 side by side: a taller column would run off a landscape screen
+        // 💬, 📷 and ⏺ side by side: a taller column would run off a landscape screen
         buttons.addView(LinearLayout(service).apply {
             orientation = LinearLayout.HORIZONTAL
             addView(liveToggle)
             addView(camera)
+            addView(record)
             (liveToggle.layoutParams as LinearLayout.LayoutParams).rightMargin = dp(6)
+            (camera.layoutParams as LinearLayout.LayoutParams).rightMargin = dp(6)
         }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         root.addView(handle)
+        root.addView(recordStop)
         root.addView(buttons, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         root.alpha = 0.85f
 
@@ -87,6 +95,8 @@ class ControlsOverlay(private val service: InputService) {
         stop.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_STOP_RUN)) }
         restart.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_RESTART)) }
         camera.setOnClickListener { captureTemplate() }
+        record.setOnClickListener { startRecording() }
+        recordStop.setOnClickListener { stopRecording() }
         liveToggle.setOnClickListener { LiveLog.setEnabled(service, !LiveLog.enabled(service)) }
         selected.setOnClickListener { togglePicker() }
         dragAndFold()
@@ -96,12 +106,14 @@ class ControlsOverlay(private val service: InputService) {
     fun show() {
         runCatching { wm.addView(root, params) }.onFailure { MacroLog.e("could not show the controls", it) }
         Runner.listeners += listener
+        Recorder.listeners += recordListener
         LiveLog.listeners += liveListener
         liveLog.start()
     }
 
     fun hide() {
         Runner.listeners -= listener
+        Recorder.listeners -= recordListener
         LiveLog.listeners -= liveListener
         liveLog.stop()
         runCatching { wm.removeView(root) }
@@ -165,6 +177,38 @@ class ControlsOverlay(private val service: InputService) {
         relayout()
     }
 
+    /** ⏺: catch the next touches and pass them on to the game, recording each (see Recorder). */
+    private fun startRecording() {
+        if (Runner.isRunning) { MacroLog.i("stop the macro before recording"); return }
+        if (!Recorder.start(service)) return
+        // the recorder's overlay was added last and would cover these buttons: put them back on top
+        runCatching { wm.removeView(root); wm.addView(root, params) }
+        MacroLog.i("recording: play as usual, then ⏹")
+        refresh()
+    }
+
+    /** ⏹: stop recording and ask for a name. */
+    private fun stopRecording() {
+        recordStop.isEnabled = false
+        // leave out the moves made on these buttons (the ⏹ press itself)
+        val loc = IntArray(2).also { root.getLocationOnScreen(it) }
+        val p = android.graphics.Point().also { @Suppress("DEPRECATION") wm.defaultDisplay.getRealSize(it) }
+        val pad = dp(8)
+        val exclude = Region(
+            (loc[0] - pad).toDouble() / p.x, (loc[1] - pad).toDouble() / p.y,
+            (root.width + 2 * pad).toDouble() / p.x, (root.height + 2 * pad).toDouble() / p.y,
+        )
+        Recorder.stop(exclude) { dir ->
+            recordStop.isEnabled = true
+            if (dir == null) { MacroLog.i("recording: no moves recorded"); return@stop }
+            service.startActivity(
+                android.content.Intent(service, RecordingActivity::class.java)
+                    .putExtra(RecordingActivity.EXTRA_DIR, dir.path)
+                    .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            )
+        }
+    }
+
     /** Grab the game screen (without these buttons) and open the crop screen. */
     private fun captureTemplate() {
         if (Runner.isRunning) { MacroLog.i("stop the macro before capturing a template"); return }
@@ -193,7 +237,16 @@ class ControlsOverlay(private val service: InputService) {
             buttons.visibility = if (wasRunning) View.GONE else View.VISIBLE
             if (wasRunning) picker.visibility = View.GONE
         }
+        // while recording only ⏹ shows: the other buttons would be recorded over
+        val recording = Recorder.isRecording
+        if (recording != wasRecording) {
+            wasRecording = recording
+            recordStop.visibility = if (recording) View.VISIBLE else View.GONE
+            buttons.visibility = if (recording || Runner.isRunning) View.GONE else View.VISIBLE
+            if (recording) picker.visibility = View.GONE
+        }
         val color = when {
+            Recorder.isRecording -> Color.parseColor("#B71C1C")
             Runner.isPaused -> Color.parseColor("#F9A825")
             Runner.isRunning -> Color.parseColor("#2E7D32")
             else -> Color.GRAY
@@ -221,7 +274,7 @@ class ControlsOverlay(private val service: InputService) {
                         runCatching { wm.updateViewLayout(root, params) }
                     }
                 }
-                MotionEvent.ACTION_UP -> if (!moved) {
+                MotionEvent.ACTION_UP -> if (!moved && !Recorder.isRecording) {
                     buttons.visibility = if (buttons.visibility == View.VISIBLE) View.GONE else View.VISIBLE
                     relayout()
                 }

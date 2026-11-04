@@ -8,9 +8,13 @@
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
-    <!-- Android 11+ package visibility: needed to launch the game -->
+    <!-- recording a run (⏺): Termux reads the touchscreen through ADB (see Termux.kt) -->
+    <uses-permission android:name="com.termux.permission.RUN_COMMAND" />
+
+    <!-- Android 11+ package visibility: needed to launch the game, and to find Termux -->
     <queries>
         <package android:name="games.wfs.anothereden" />
+        <package android:name="com.termux" />
     </queries>
 
     <application
@@ -33,6 +37,23 @@
             android:exported="false"
             android:screenOrientation="sensorLandscape"
             android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
+
+        <!-- pair the app's own ADB with Wireless debugging (recording runs) -->
+        <activity
+            android:name=".AdbSetupActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
+        <receiver
+            android:name=".AdbPairReceiver"
+            android:exported="false" />
+
+        <!-- name a recording made with the floating ⏺ button -->
+        <activity
+            android:name=".RecordingActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@android:style/Theme.Material.NoActionBar" />
 
         <receiver
             android:name=".Updater$InstallResult"

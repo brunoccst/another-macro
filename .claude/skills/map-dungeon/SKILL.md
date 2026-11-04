@@ -65,6 +65,29 @@ it (walks each way in short steps, taps every "!", answers the boss's "Proceed?"
 it properly, sweep it once with the area map open after each step and write down what
 appears.
 
+## 3b. Or: Bruno records the run (preferred for the walking route)
+
+Bruno's rule (2026-11-04): when he asks for a new dungeon, he plays each map once by hand
+with the app's ⏺ (see `docs/recording.md`) and Claude turns that into the deterministic
+`path:`. On the phone:
+
+1. ⏺ at the arrival, walk to each chest, tap its "!", close "Obtained …", walk on to the
+   stairs down, ⏹, save as `<dungeon>-map-<n>`.
+2. `adb pull /sdcard/Android/data/io.github.brunoccst.anothermacro/files/recordings/<name>/`
+   into the scratchpad (never into the repo: it's screenshots of the account).
+3. `another-macro recording <dir> --dungeon`: the `path:` legs (`chest 1`, `chest 2`, …,
+   `exit`), each chest leg noting its move and where the chest was tapped.
+
+Then, for each leg:
+
+- Follow what Bruno pressed: the walk and the chest tap as recorded. No chest images or
+  crops (Bruno, 2026-11-04).
+- The one thing to check actively: the chest's **"Obtained …"** text. It is the trigger
+  for the next leg (the next chest or the exit). Never use the recorded pause for it,
+  because each phone takes its own time to show it.
+- Compare the recorded legs with the planner's (`another-macro dungeon-routes`) and check
+  the chest/exit positions in `dungeons.yaml` against where the recorded walks ended.
+
 ## 4. Write the data and the macro
 
 ```yaml

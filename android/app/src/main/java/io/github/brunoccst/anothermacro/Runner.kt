@@ -146,6 +146,15 @@ class Context(
         input.tap(x, y)
     }
 
+    /**
+     * Play a recorded move (points: ms since the press, x, y as fractions of the screen) with its
+     * own path and timing (see Replay.play). A short one is a tap at a fixed spot: checked like a blind tap.
+     */
+    fun gesture(points: List<Triple<Long, Double, Double>>): Boolean {
+        guardPurchases(null, blind = (points.lastOrNull()?.first ?: 0L) < 500)
+        return Replay.play(input, points, capture.width, capture.height)
+    }
+
     fun launchApp(pkg: String) = input.launchApp(pkg)
 
     /** Package of the app in front (from accessibility window events), or null if unknown. */
