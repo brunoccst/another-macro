@@ -34,8 +34,13 @@ class AdbSetupActivity : Activity() {
         super.onCreate(savedInstanceState)
         val pad = (14 * resources.displayMetrics.density).toInt()
         status = text("")
+        val connectPort = EditText(this).apply {
+            hint = "Wireless debugging port (optional)"; inputType = InputType.TYPE_CLASS_NUMBER; setSingleLine()
+            setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
+            AppAdb.savedPort(this@AdbSetupActivity)?.let { setText(it.toString()) }
+        }
         val port = EditText(this).apply {
-            hint = "port (optional)"; inputType = InputType.TYPE_CLASS_NUMBER; setSingleLine()
+            hint = "pairing port (optional)"; inputType = InputType.TYPE_CLASS_NUMBER; setSingleLine()
             setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
         }
         val code = EditText(this).apply {
@@ -56,13 +61,14 @@ class AdbSetupActivity : Activity() {
                         "3. Tap \"Show pairing notification\" below.\n" +
                         "4. In Wireless debugging, tap \"Pair device with pairing code\".\n" +
                         "5. Pull the notification down (the code dialog stays open), tap Enter code, type the 6 digits.\n\n" +
-                        "After a restart or a Wi-Fi change, only step 2 is needed again."
+                        "After a restart or a Wi-Fi change, only step 2 is needed again. If Test the connection can't find it, " +
+                        "type the port from Wireless debugging's \"IP address & Port\" (the number after the colon) below."
                 ))
                 addView(button("Show pairing notification") { showPairingNotification(this@AdbSetupActivity); status.text = "Now open Wireless debugging → Pair device with pairing code." })
                 addView(button("Open Developer options") {
                     runCatching { startActivity(Intent(Settings.ACTION_APPLICATION_DEVELOPMENT_SETTINGS)) }
                 })
-                addView(text("\nOr in split screen with Settings: type the code (and the port shown under it) here."))
+                addView(text("\nOr in split screen with Settings: type the code (and the port shown under it in the code dialog) here."))
                 addView(code)
                 addView(port)
                 addView(button("Pair") {
@@ -70,11 +76,13 @@ class AdbSetupActivity : Activity() {
                     val p = port.text.toString().trim().toIntOrNull()
                     status.text = "Pairing…"
                     Thread {
-                        val err = AppAdb.pair(this@AdbSetupActivity, c, p) ?: AppAdb.connect(this@AdbSetupActivity)
+                        val err = AppAdb.pair(this@AdbSetupActivity, c, p) ?: AppAdb.connect(this@AdbSetupActivity, connectPort.text.toString().trim().toIntOrNull())
                         runOnUiThread { status.text = err ?: "Paired and connected. ⏺ now records your touches." }
                     }.start()
                 })
-                addView(button("Test the connection") { test() })
+                addView(text("\nIP address & Port on the Wireless debugging screen: the port after the colon."))
+                addView(connectPort)
+                addView(button("Test the connection") { test(connectPort.text.toString().trim().toIntOrNull()) })
                 addView(button("Forget the pairing") { AppAdb.forget(this@AdbSetupActivity); refresh() })
                 addView(status)
             })
@@ -92,12 +100,12 @@ class AdbSetupActivity : Activity() {
         status.text = if (AppAdb.paired(this)) "Paired. ⏺ records with the app's own ADB (Wireless debugging must be on)." else "Not paired yet."
     }
 
-    private fun test() {
-        status.text = "Connecting…"
+    private fun test(port: Int?) {
+        status.text = "Connecting… (up to a minute if it has to look for the port)"
         Thread {
-            val msg = AppAdb.connect(this) ?: runCatching {
+            val msg = AppAdb.connect(this, port) ?: runCatching {
                 val dev = TouchLog.parseDevices(AppAdb.shell(this, "getevent -pl"))
-                if (dev == null) "Connected, but no touchscreen found in getevent." else "Connected. Touchscreen: ${dev.name} (${dev.path})."
+                if (dev == null) "Connected, but no touchscreen found in getevent." else "Connected on port ${AppAdb.savedPort(this)}. Touchscreen: ${dev.name} (${dev.path})."
             }.getOrElse { "Connected, but the shell failed: ${it.message}" }
             runOnUiThread { status.text = msg }
         }.start()

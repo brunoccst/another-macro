@@ -15,7 +15,9 @@ no Termux, no PC, no root.
 4. In Wireless debugging, tap **Pair device with pairing code**. Pull the notification down (the
    code dialog stays open), tap **Enter code** and type the six digits. Or put the app and
    Settings in split screen and type the code (and port) in the setup screen.
-5. **Test the connection** shows the touchscreen it found.
+5. **Test the connection** shows the port and the touchscreen it found. The app finds Wireless
+   debugging's port by itself (last port, mDNS, then a scan of localhost). If it can't, type the port
+   from **IP address & Port** (the number after the colon) into the port field and test again.
 
 After a restart or a Wi-Fi change Android turns Wireless debugging off: turn it back on (step 2);
 the pairing stays. ⏺ without a pairing opens the setup screen.

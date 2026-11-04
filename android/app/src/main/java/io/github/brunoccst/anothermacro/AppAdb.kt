@@ -10,6 +10,8 @@ import org.bouncycastle.cert.jcajce.JcaX509CertificateConverter
 import org.bouncycastle.cert.jcajce.JcaX509v3CertificateBuilder
 import org.bouncycastle.operator.jcajce.JcaContentSignerBuilder
 import java.io.File
+import java.net.InetSocketAddress
+import java.net.Socket
 import java.math.BigInteger
 import java.security.KeyFactory
 import java.security.KeyPairGenerator
@@ -20,7 +22,10 @@ import java.security.cert.CertificateFactory
 import java.security.spec.PKCS8EncodedKeySpec
 import java.util.Date
 import java.util.concurrent.CountDownLatch
+import java.util.concurrent.ExecutionException
+import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.TimeoutException
 import java.util.concurrent.atomic.AtomicInteger
 
 /**
@@ -82,7 +87,8 @@ object AppAdb {
 
     fun forget(context: Context) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean("paired", false).apply()
-        runCatching { manager?.disconnect() }
+        val m = synchronized(this) { manager.also { manager = null } } ?: return
+        pool.execute { runCatching { m.disconnect() } }
     }
 
     /** Find the "Pair device with pairing code" port (shown while that dialog is open) by mDNS. */
@@ -116,14 +122,68 @@ object AppAdb {
         }
     }
 
-    /** Connect if not connected (Wireless debugging must be on). Returns null when connected, else why not. Blocking. */
-    fun connect(context: Context): String? {
+    /** The last port that connected (Wireless debugging's "IP address & Port"; it changes when it is turned off). */
+    fun savedPort(context: Context): Int? =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getInt("port", 0).takeIf { it > 0 }
+
+    private fun savePort(context: Context, port: Int) =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putInt("port", port).apply()
+
+    private val pool = Executors.newCachedThreadPool { r -> Thread(r, "app-adb").apply { isDaemon = true } }
+
+    private class PairingRequired : Exception()
+
+    /**
+     * Try one port, giving up after [timeoutMs]. A connection that hangs keeps libadb's lock, so the
+     * manager is dropped (a new one loads the same key) instead of being reused.
+     */
+    private fun tryPort(context: Context, port: Int, timeoutMs: Long): Boolean {
         val m = manager(context)
-        if (m.isConnected) return null
+        val f = pool.submit<Boolean> { m.connect("127.0.0.1", port) || m.isConnected }
         return try {
-            if (m.connectTls(context.applicationContext, 10000) || m.isConnected) null
-            else "couldn't connect: turn on Wireless debugging (Settings → Developer options)"
-        } catch (e: io.github.muntashirakon.adb.AdbPairingRequiredException) {
+            f.get(timeoutMs, TimeUnit.MILLISECONDS).also { if (it) { savePort(context, port); MacroLog.i("adb: connected on port $port") } }
+        } catch (e: TimeoutException) {
+            MacroLog.i("adb: port $port timed out after ${timeoutMs}ms")
+            f.cancel(true); drop(m); false
+        } catch (e: ExecutionException) {
+            if (e.cause is io.github.muntashirakon.adb.AdbPairingRequiredException) throw PairingRequired()
+            MacroLog.i("adb: port $port failed: ${e.cause?.javaClass?.simpleName}: ${e.cause?.message}")
+            drop(m); false
+        }
+    }
+
+    private fun drop(m: Manager) = synchronized(this) { if (manager === m) manager = null }
+
+    /** Open TCP ports on localhost in Wireless debugging's range (refused ports answer at once on loopback). */
+    private fun openPorts(skip: Set<Int>): List<Int> {
+        val parts = (30000..65535).chunked(2200)
+        return parts.map { range ->
+            pool.submit<List<Int>> {
+                range.filter { p ->
+                    p !in skip && runCatching { Socket().use { it.connect(InetSocketAddress("127.0.0.1", p), 30) }; true }.getOrDefault(false)
+                }
+            }
+        }.flatMap { runCatching { it.get(20, TimeUnit.SECONDS) }.getOrDefault(emptyList()) }
+    }
+
+    /**
+     * Connect if not connected (Wireless debugging must be on). Tries [port] (typed in the setup
+     * screen), then the last port that worked, then mDNS, then the open localhost ports. Gives up
+     * within about a minute and a half. Returns null when connected, else why not. Blocking.
+     */
+    fun connect(context: Context, port: Int? = null): String? {
+        manager?.let { if (it.isConnected) return null }
+        val tried = HashSet<Int>()
+        fun attempt(p: Int?, timeoutMs: Long): Boolean = p != null && p > 0 && tried.add(p) && tryPort(context, p, timeoutMs)
+        return try {
+            if (attempt(port, 10_000) || attempt(savedPort(context), 10_000)) return null
+            MacroLog.i("adb: looking for the Wireless debugging port by mDNS")
+            if (attempt(discover(context, AdbMdns.SERVICE_TYPE_TLS_CONNECT, 4000), 10_000)) return null
+            val open = openPorts(tried)
+            MacroLog.i("adb: open localhost ports: $open")
+            if (open.take(10).any { attempt(it, 5000) }) return null
+            "couldn't connect: turn on Wireless debugging (Settings → Developer options), or type the port shown under \"IP address & Port\" in Set up recording"
+        } catch (e: PairingRequired) {
             forget(context)
             "pair the app again (Wireless debugging forgot it)"
         } catch (e: Exception) {
@@ -132,9 +192,13 @@ object AppAdb {
         }
     }
 
-    /** Run [command] as the shell user and return its output. Blocking; connect first. */
-    fun shell(context: Context, command: String): String =
-        manager(context).openStream("shell:$command").use { s -> s.openInputStream().bufferedReader().readText() }
+    /** Run [command] as the shell user and return its output (gives up after [timeoutMs]). Blocking; connect first. */
+    fun shell(context: Context, command: String, timeoutMs: Long = 15_000): String {
+        val f = pool.submit<String> { manager(context).openStream("shell:$command").use { s -> s.openInputStream().bufferedReader().readText() } }
+        return try { f.get(timeoutMs, TimeUnit.MILLISECONDS) } catch (e: TimeoutException) {
+            f.cancel(true); throw java.io.IOException("adb shell timed out: $command")
+        } catch (e: ExecutionException) { throw e.cause ?: e }
+    }
 
     /** A running shell [command] whose output is read as it comes (close it to stop the command). */
     fun stream(context: Context, command: String): AdbStream = manager(context).openStream("shell:$command")
