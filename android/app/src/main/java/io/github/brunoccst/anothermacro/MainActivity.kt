@@ -91,6 +91,14 @@ class MainActivity : Activity() {
         }
         column.addView(setupCard)
 
+        // --- Claude: play a task or write a macro with the user's own API key ---------------
+        column.addView(Ui.card(this).apply {
+            (layoutParams as LinearLayout.LayoutParams).topMargin = dp(14)
+            addView(Ui.text(this@MainActivity, "Claude", 17f, bold = true))
+            addView(Ui.text(this@MainActivity, "Ask Claude to play a task or write a new macro for you (uses your own Claude API key).", 13f, Ui.MUTED).apply { setPadding(0, dp(4), 0, dp(4)) })
+            addView(Ui.button(this@MainActivity, "Open Claude", primary = true) { startActivity(Intent(this@MainActivity, ClaudeActivity::class.java)) })
+        })
+
         // --- macros, grouped ---------------------------------------------------------
         macros = Scenarios.all(this)
         for ((group, list) in Groups.sort(macros)) {

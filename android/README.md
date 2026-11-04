@@ -9,8 +9,41 @@ Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
 - **Macros:** `grind-battles`, `dogma-tower`, `start-game` (with the daily ad, `watch_ad`), `stop-game`,
   `cat-scratchbook` (`mode=read` reports today's clues and where the cats are; `mode=hunt`
   finds the cat on the current map). Pick one on the main screen; its params are remembered.
+- **Claude:** play a task or write a macro with your own Claude API key (see below).
 - **Floating controls** over the game (start/pause/stop/restart the last macro), shown
   while screen capture is on.
+
+## Claude in the app
+The **Claude** screen (button on the main screen) lets Claude play a task or write a new
+macro, with the user's **own Claude API key** (create one at platform.claude.com; usage is
+billed to that Console account). Signing in with a Claude Pro/Max subscription isn't
+possible: Anthropic doesn't allow third-party apps to offer claude.ai login.
+
+- **Key:** stored only on the phone, encrypted with an Android Keystore AES key
+  (`ClaudeSettings.kt`), sent only to `api.anthropic.com`, never logged. Nothing about keys
+  is in the repo or CI.
+- **Loop** (`ClaudeAgent.kt`): Messages API with `claude-opus-5-5` (default) or
+  `claude-sonnet-5-5`, adaptive thinking (effort low/medium/high), prompt caching, old
+  screenshots cleared server-side (context editing), server-side fallback on refusals.
+  Screens go to Claude as 1280-px-wide JPEGs; coordinates are scaled back.
+- **Tools** (`ClaudeRequest.kt`): the computer use toolset (`computer_toolset_20260801`:
+  screenshot, zoom, click, drag, scroll, key = Back, wait; keyboard and mouse-only members
+  off) plus `walk`, `read_text` (OCR), `find_template`, `list_templates`, `list_macros`,
+  `run_macro`, `save_template`, `save_macro`, `ask_user`, `launch_game`.
+- **Safety** (`ClaudeSafety.kt`, enforced in code, not just the prompt): taps only while
+  Another Eden is in front; every tap goes through `Context.tap`'s purchase guard; screens
+  offering a purchase are refused (a second purchase refusal stops the task); taps on
+  sell/discard/release/exchange/... or on screens mentioning Chronos Stones ask the user
+  first (`AskOverlay.kt`); each task stops at its step cap (default 150) and cost cap
+  (default US$3, from the API's usage numbers). The floating ■ and ❚❚ work as for macros.
+- **Cost:** roughly US$0.02 a step on Opus 5.5, US$0.01 on Sonnet 5.5 and under US$0.001
+  on Haiku 5.5, the economy choice for fine-tuning macros (list prices, estimates). Usage is
+  billed to the API key's Console account, not to a Claude Pro/Max subscription. Let Claude explore and write macros; macros then replay for free.
+- **Macros Claude writes** are ordinary `.yaml` files in the app's storage, listed with the
+  others; built-in macro names can't be replaced.
+- Screenshots go to Anthropic's API only while a task runs and aren't saved on the phone.
+- Unit tests (`gradle -p android testDebugUnitTest`, no device) check the request the SDK
+  sends and the safety word checks.
 
 ## Install / first run
 1. Download `another-macro.apk` from the latest GitHub Release and install it.

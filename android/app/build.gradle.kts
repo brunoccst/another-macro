@@ -53,6 +53,10 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    packaging {
+        // the Anthropic SDK's Jackson / OkHttp / Kotlin jars all carry these
+        resources.excludes += listOf("META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*", "META-INF/*.kotlin_module", "META-INF/versions/9/previous-compilation-data.bin")
+    }
     kotlinOptions {
         jvmTarget = "17"
     }
@@ -79,4 +83,7 @@ dependencies {
     implementation("org.snakeyaml:snakeyaml-engine:2.7")
     // on-device text recognition (bundled model, no Google Play services needed): cat clues, map labels
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // Claude (the user's own API key): Messages API with the computer use toolset, see ClaudeAgent.kt
+    implementation("com.anthropic:anthropic-java:3.4.0")
+    testImplementation("junit:junit:4.13.2")
 }

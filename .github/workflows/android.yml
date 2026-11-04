@@ -33,6 +33,8 @@ jobs:
           else
             echo "::warning::ANDROID_KEYSTORE_B64 secret not set: APK is signed with a throwaway debug key and cannot update an installed copy"
           fi
+      - name: Unit tests (no device)
+        run: gradle -p android testDebugUnitTest --stacktrace
       - name: Build debug APK
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
