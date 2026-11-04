@@ -39,8 +39,8 @@ Saving keeps the recording on the phone and makes a macro with the same name in 
 **Recorded** group: ▶ replays it right away, each move with the finger's own path and
 timing. Its params:
 
-- `sync` (on): before each move, wait (up to 20 s) until the screen looks like it did when
-  that move was recorded, so slow loading doesn't make the replay run ahead.
+- `sync` (off): before each tap, wait (up to 20 s) until the screen looks like it did when
+  that tap was recorded. Walks never wait: after fights the party is never in quite the same spot.
 - `pace` (1): how much of the recorded pause before each move to keep.
 
 A tap that ends a walk (a chest's "!") is replayed where it was pressed. Then the replay

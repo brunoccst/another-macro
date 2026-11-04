@@ -163,7 +163,7 @@ object Recorder {
             |description: "Recorded run, $summary"
             |group: recorded
             |params:
-            |  sync: {default: true, type: bool, help: "before each move, wait until the screen looks like it did when it was recorded"}
+            |  sync: {default: false, type: bool, help: "before each tap, wait until the screen looks like it did when it was recorded"}
             |  pace: {default: 1.0, help: "how much of the recorded pause to keep between moves (1 = all, 0.5 = half)"}
             |screens: []
             |setup:
@@ -435,8 +435,8 @@ object Recorder {
  * recording as a macro step (`replay: {name: cat-acteul, sync: true, pace: 1}` in a macro).
  */
 object Replay {
-    /** Parts of a long move: the finger stays down between them (continued strokes), so timing is kept. */
-    private const val PART_MS = 40L
+    /** Parts of a long move: the finger stays down between them (continued strokes), so timing is kept (as in Route holds). */
+    private const val PART_MS = 150L
 
     /**
      * Play one move: [points] are (ms since the press, x, y) with x, y as fractions of a
@@ -467,38 +467,57 @@ object Replay {
             return ok
         }
 
-        // a hold or a slide: parts of ~40 ms chained as one continued stroke
-        val ends = ArrayList<Triple<Long, Double, Double>>()
-        var lastT = 0L
-        for (p in points.drop(1)) if (p.first - lastT >= PART_MS) { ends += p; lastT = p.first }
-        if (ends.isEmpty() || ends.last().first != total) {
-            if (ends.isNotEmpty() && total - ends.last().first < PART_MS / 2) ends[ends.size - 1] = points.last() else ends += points.last()
+        // a hold or a slide: parts of ~150 ms chained as one continued stroke, each part following
+        // the recorded path inside it. Parts much shorter than that get cancelled on the phone
+        // (the next part arrives too late), which is what cut the recorded walks short.
+        data class Part(val endT: Long, val path: List<Pair<Float, Float>>)
+        val parts = ArrayList<Part>()
+        var segStart = 0L
+        var seg = ArrayList<Pair<Float, Float>>()
+        for (p in points.drop(1)) {
+            seg += px(p)
+            if (p.first - segStart >= PART_MS || p == points.last()) {
+                parts += Part(p.first, seg); seg = ArrayList(); segStart = p.first
+            }
+        }
+        if (parts.isEmpty()) parts += Part(total, listOf(px(points.last())))
+        // a last part shorter than half a part joins the one before it
+        if (parts.size > 1 && parts.last().endT - parts[parts.size - 2].endT < PART_MS / 2) {
+            val l = parts.removeAt(parts.size - 1); val k = parts.removeAt(parts.size - 1)
+            parts += Part(l.endT, k.path + l.path)
         }
         var cur = px(points.first())
         var prevT = 0L
         var nudge = 1f
         var prev: GestureDescription.StrokeDescription? = null
         fun send(i: Int) {
-            val target = ends[i]
-            var (bx, by) = px(target)
+            val part = parts[i]
+            val path = Path().apply { moveTo(cur.first, cur.second) }
+            var end = cur
+            for (q in part.path) if (q != end) { path.lineTo(q.first, q.second); end = q }
             // a continued part needs a length: stand still by moving one pixel back and forth
-            if (bx == cur.first && by == cur.second) { bx = (cur.first + nudge).coerceIn(0f, width - 1f); nudge = -nudge }
-            val path = Path().apply { moveTo(cur.first, cur.second); lineTo(bx, by) }
-            val dur = (target.first - prevT).coerceAtLeast(1)
-            val last = i == ends.size - 1
+            if (end == cur) {
+                end = (cur.first + nudge).coerceIn(0f, width - 1f) to cur.second; nudge = -nudge
+                path.lineTo(end.first, end.second)
+            }
+            val dur = (part.endT - prevT).coerceAtLeast(1)
+            val last = i == parts.size - 1
             val stroke = try {
                 prev?.continueStroke(path, 0, dur, !last) ?: GestureDescription.StrokeDescription(path, 0, dur, !last)
             } catch (e: Exception) {
                 MacroLog.e("could not continue the move", e); null
             } ?: return done.countDown()
             prev = stroke
-            cur = bx to by
-            prevT = target.first
+            cur = end
+            prevT = part.endT
             val accepted = service.dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), object : AccessibilityService.GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription?) {
                     if (last) { ok = true; done.countDown() } else send(i + 1)
                 }
-                override fun onCancelled(gestureDescription: GestureDescription?) { done.countDown() }
+                override fun onCancelled(gestureDescription: GestureDescription?) {
+                    MacroLog.i("replay: the move was cancelled at ${prevT}ms of ${total}ms (part ${i + 1}/${parts.size})")
+                    done.countDown()
+                }
             }, null)
             if (!accepted) done.countDown()
         }
@@ -522,10 +541,12 @@ object Replay {
             val pts = g.getJSONArray("points").let { a ->
                 (0 until a.length()).map { k -> a.getJSONArray(k).let { Triple(it.getLong(0), it.getDouble(1), it.getDouble(2)) } }
             }
-            if (!skipPause) ctx.wait(g.optLong("gap_ms", 0) * pace / 1000.0)
+            val afterReward = skipPause
+            if (!afterReward) ctx.wait(g.optLong("gap_ms", 0) * pace / 1000.0)
             skipPause = false
             val frame = g.optString("frame").takeIf { it.isNotBlank() }?.let { File(dir, it) }?.takeIf { it.isFile }
-            if (sync && frame != null) waitForScreen(ctx, frame, i)
+            // walks never wait for the recorded screen: the party is never in quite the same spot
+            if (sync && frame != null && isTap(pts) && !afterReward) waitForScreen(ctx, frame, i)
             MacroLog.show("$name: move ${i + 1}/${all.length()}" + (g.optString("label").takeIf { it.isNotBlank() }?.let { " ('$it')" } ?: ""))
             if (!ctx.gesture(pts)) MacroLog.i("$name: move ${i + 1} was cut short")
             if (afterWalk && isTap(pts)) {
@@ -550,7 +571,7 @@ object Replay {
             ctx.wait(0.3)
             ctx.refresh()
             val text = ctx.readText().joinToString(" ") { it.text }
-            if ("obtained" in Ocr.norm(text)) { MacroLog.i("$name: after move ${i + 1}: ${text.take(100)}"); return }
+            if ("obtained" in Ocr.norm(text)) { MacroLog.i("$name: after move ${i + 1}: ${text.take(100)}"); ctx.wait(0.5); return }
         }
         MacroLog.i("$name: no \"Obtained\" after move ${i + 1} (not a chest?); going on")
     }
