@@ -151,23 +151,12 @@ def test_a_hold_that_ends_with_a_flick_down(tmp_path):
     assert recordings.dungeon_legs(rec) == [["exit", "R 5120", "+D"]]
 
 
-def test_chest_stops_carry_the_recorded_frame_and_crop(tmp_path):
-    import cv2
-    import numpy as np
-
+def test_chest_stops_skip_the_close_taps(tmp_path):
     gs = [_hold(0, 0.5, 0.65, 0.4, 0.65, 3000), _tap(1, 0.48, 0.36, gap=400), _tap(2, 0.6, 0.6, gap=900),
           _hold(3, 0.5, 0.65, 0.6, 0.65, 2000)]
-    gs[1]["frame"] = "frames/t1.jpg"
-    folder = _recording(tmp_path, gs, "dogma-map-1")
-    (folder / "frames").mkdir()
-    cv2.imwrite(str(folder / "frames" / "t1.jpg"), np.full((540, 1200, 3), 90, np.uint8))
-    rec = recordings.load(folder)
+    rec = recordings.load(_recording(tmp_path, gs, "dogma-map-1"))
     stops = recordings.dungeon_stops(rec)
     # the tap closing "Obtained" (move 3) is not a stop
     assert [s["leg"] for s in stops] == [["chest 1", "L 3000"], ["exit", "R 2000"]]
-    assert stops[0]["move"] == 2 and stops[0]["frame"] == "frames/t1.jpg"
-    assert "frame frames/t1.jpg" in recordings.dungeon_yaml(rec)
-    crops = recordings.chest_crops(rec, tmp_path / "crops")
-    assert [c.name for c in crops] == ["dogma-map-1-chest1.png"]
-    h, w = cv2.imread(str(crops[0])).shape[:2]
-    assert 80 <= w <= 86 and 120 <= h <= 128
+    assert stops[0]["move"] == 2 and stops[0]["tap"] == (0.48, 0.36)
+    assert "Obtained" in recordings.dungeon_yaml(rec)

@@ -425,40 +425,6 @@ def dungeon_legs(rec: Recording) -> list[list[str]]:
     return [s["leg"] for s in dungeon_stops(rec)]
 
 
-# a chest crop around the tapped "!": the bubble and the chest under it (fractions of the screen)
-CHEST_CROP_W = 0.07
-CHEST_CROP_UP = 0.07
-CHEST_CROP_DOWN = 0.16
-
-
-def chest_crops(rec: Recording, out: Path) -> list[Path]:
-    """Cut the chest under each chest tap out of the frame recorded just before it.
-
-    The crops are screenshots of the game: keep them on the phone or in a local folder
-    (never commit them unless Bruno says game crops are fine).
-    """
-    import cv2  # noqa: PLC0415  (the cv extra)
-
-    out.mkdir(parents=True, exist_ok=True)
-    written = []
-    for s in dungeon_stops(rec):
-        if not s["frame"] or rec.folder is None:
-            continue
-        img = cv2.imread(str(rec.folder / s["frame"]))
-        if img is None:
-            continue
-        h, w = img.shape[:2]
-        x, y = s["tap"]
-        x0, x1 = max(0, int((x - CHEST_CROP_W / 2) * w)), min(w, int((x + CHEST_CROP_W / 2) * w))
-        y0, y1 = max(0, int((y - CHEST_CROP_UP) * h)), min(h, int((y + CHEST_CROP_DOWN) * h))
-        if x1 - x0 < 4 or y1 - y0 < 4:
-            continue
-        p = out / f"{rec.name}-{s['leg'][0].replace(' ', '')}.png"
-        cv2.imwrite(str(p), img[y0:y1, x0:x1])
-        written.append(p)
-    return written
-
-
 def _yaml_list(items: list[str]) -> str:
     return "[" + ", ".join(items) + "]"
 
@@ -481,13 +447,13 @@ def cat_spot_yaml(rec: Recording, key: str | None = None) -> str:
 def dungeon_yaml(rec: Recording) -> str:
     lines = [
         f"# path legs from the recording '{rec.name}'",
-        "# each chest leg ends at the chest's \"!\": find it by its image (not the recorded spot), tap it,",
-        "# and wait for \"Obtained ...\" before the next leg; the exit leg ends at the stairs down",
+        "# each chest leg ends with the tap on the chest's \"!\" where it was pressed; the next leg",
+        "# starts when \"Obtained ...\" shows (not after the recorded pause). The exit leg ends at the stairs down",
         "path:",
     ]
     for s in dungeon_stops(rec):
         note = ""
         if s["move"]:
-            note = f"   # move {s['move']}: tapped at {s['tap']}" + (f", frame {s['frame']}" if s["frame"] else "")
+            note = f"   # move {s['move']}: tapped at {s['tap']}"
         lines.append(f"  - {_yaml_list(s['leg'])}{note}")
     return "\n".join(lines) + "\n"

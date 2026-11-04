@@ -165,7 +165,6 @@ object Recorder {
             |params:
             |  sync: {default: true, type: bool, help: "before each move, wait until the screen looks like it did when it was recorded"}
             |  pace: {default: 1.0, help: "how much of the recorded pause to keep between moves (1 = all, 0.5 = half)"}
-            |templates: [another_dungeon]
             |screens: []
             |setup:
             |  - status: "replaying $name"
@@ -516,65 +515,44 @@ object Replay {
         val data = JSONObject(json.readText())
         val all = data.getJSONArray("gestures")
         val last = (to ?: all.length()).coerceAtMost(all.length())
+        var afterWalk = false
+        var skipPause = false
         for (i in from.coerceAtLeast(0) until last) {
             val g = all.getJSONObject(i)
             val pts = g.getJSONArray("points").let { a ->
                 (0 until a.length()).map { k -> a.getJSONArray(k).let { Triple(it.getLong(0), it.getDouble(1), it.getDouble(2)) } }
             }
-            ctx.wait(g.optLong("gap_ms", 0) * pace / 1000.0)
+            if (!skipPause) ctx.wait(g.optLong("gap_ms", 0) * pace / 1000.0)
+            skipPause = false
             val frame = g.optString("frame").takeIf { it.isNotBlank() }?.let { File(dir, it) }?.takeIf { it.isFile }
             if (sync && frame != null) waitForScreen(ctx, frame, i)
             MacroLog.show("$name: move ${i + 1}/${all.length()}" + (g.optString("label").takeIf { it.isNotBlank() }?.let { " ('$it')" } ?: ""))
-            val bubble = if (frame != null && isTap(pts)) recordedBubble(ctx, frame, pts.first()) else null
-            if (bubble != null) {
-                openChest(ctx, name, i, Point(pts.first().second, pts.first().third))
-                continue
-            }
             if (!ctx.gesture(pts)) MacroLog.i("$name: move ${i + 1} was cut short")
+            if (afterWalk && isTap(pts)) {
+                // a tap that ends a walk (a chest's "!"): the next move waits for the reward text,
+                // not the recorded pause (each phone shows it after its own time)
+                waitForReward(ctx, name, i)
+                skipPause = true
+            }
+            afterWalk = !isTap(pts)
         }
     }
-
-    /** The "!" over something the party can use (a chest, a door): shared with the dungeon macros. */
-    private const val BUBBLE = "field_interact_bubble"
 
     private fun isTap(pts: List<Triple<Long, Double, Double>>): Boolean {
         val (x0, y0) = pts.first().second to pts.first().third
         return pts.last().first < 500 && pts.all { hypot(it.second - x0, (it.third - y0) * 0.45) < 0.012 }
     }
 
-    /** True when the recorded [frame] showed the "!" bubble right where the move tapped. */
-    private fun recordedBubble(ctx: io.github.brunoccst.anothermacro.Context, frame: File, tap: Triple<Long, Double, Double>): Boolean {
-        val tpl = ctx.vision.library.templates[BUBBLE]?.takeIf { it.available } ?: return false
-        val img = Imgcodecs.imread(frame.path, Imgcodecs.IMREAD_GRAYSCALE)
-        if (img.empty()) return false
-        val m = try { tpl.match(img) } finally { img.release() } ?: return false
-        return abs(m.center.x - tap.second) < 0.08 && abs(m.center.y - tap.third) < 0.15
-    }
-
-    /**
-     * A recorded tap on a "!" (a chest): tap the "!" where it is now, found by its image (the walk
-     * can end a little off the recorded spot), then wait for the chest's "Obtained …" before the
-     * next leg starts. No "!" at all means the walk went wrong: stop rather than tap blind.
-     */
-    private fun openChest(ctx: io.github.brunoccst.anothermacro.Context, name: String, i: Int, recorded: Point) {
-        var found: Match? = null
-        val until = System.currentTimeMillis() + 6000
-        while (found == null && System.currentTimeMillis() < until) {
-            ctx.refresh()
-            found = ctx.find(BUBBLE)
-            if (found == null) ctx.wait(0.3)
-        }
-        val b = found ?: throw StopScenario("$name: no \"!\" on screen before move ${i + 1} (recorded at ${"%.3f".format(recorded.x)}, ${"%.3f".format(recorded.y)}): the walk ended somewhere else")
-        MacroLog.i("$name: move ${i + 1}: \"!\" at (${"%.3f".format(b.center.x)}, ${"%.3f".format(b.center.y)}), recorded at (${"%.3f".format(recorded.x)}, ${"%.3f".format(recorded.y)})")
-        ctx.tap(b)
-        val wait = System.currentTimeMillis() + 10000
-        while (System.currentTimeMillis() < wait) {
-            ctx.wait(0.5)
+    /** After a chest tap: wait (up to 15 s) for its "Obtained …" text; that starts the next leg. */
+    private fun waitForReward(ctx: io.github.brunoccst.anothermacro.Context, name: String, i: Int) {
+        val until = System.currentTimeMillis() + 15000
+        while (System.currentTimeMillis() < until) {
+            ctx.wait(0.3)
             ctx.refresh()
             val text = ctx.readText().joinToString(" ") { it.text }
-            if ("obtained" in Ocr.norm(text)) { MacroLog.i("$name: ${text.take(100)}"); return }
+            if ("obtained" in Ocr.norm(text)) { MacroLog.i("$name: after move ${i + 1}: ${text.take(100)}"); return }
         }
-        MacroLog.i("$name: no \"Obtained\" after the \"!\" of move ${i + 1}; going on")
+        MacroLog.i("$name: no \"Obtained\" after move ${i + 1} (not a chest?); going on")
     }
 
     /** Wait (up to 20 s) until the screen looks like [frame] did when the move was recorded. */
