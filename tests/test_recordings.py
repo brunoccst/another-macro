@@ -86,8 +86,8 @@ def test_dungeon_legs_split_at_taps(tmp_path):
           _tap(2, 0.48, 0.36, "!"),
           _hold(3, 0.5, 0.65, 0.6, 0.65, 6690)]
     legs = recordings.dungeon_legs(recordings.load(_recording(tmp_path, gs, "dogma-map-1")))
-    assert legs == [["tap '!'", "L 5250", "U"], ["end", "R 6690"]]
-    assert yaml.safe_load(recordings.dungeon_yaml(recordings.load(tmp_path / "dogma-map-1")))["path"][1] == ["end", "R 6690"]
+    assert legs == [["chest 1", "L 5250", "U"], ["exit", "R 6690"]]
+    assert yaml.safe_load(recordings.dungeon_yaml(recordings.load(tmp_path / "dogma-map-1")))["path"][1] == ["exit", "R 6690"]
 
 
 def test_to_macro_is_a_valid_flow_macro(tmp_path):
@@ -129,7 +129,7 @@ def test_a_walk_that_turns_without_lifting(tmp_path):
     m = recordings.moves(rec)[0]
     assert m.kind == "walk"
     assert m.tokens == ["L 1260", "+U 420", "+L 720"]
-    assert recordings.dungeon_legs(rec) == [["tap (0.6, 0.4)", "L 1260", "+U 420", "+L 720"]]
+    assert recordings.dungeon_legs(rec) == [["chest 1", "L 1260", "+U 420", "+L 720"]]
 
 
 def test_a_long_hold_down_is_a_walk_not_a_swipe(tmp_path):
@@ -138,7 +138,7 @@ def test_a_long_hold_down_is_a_walk_not_a_swipe(tmp_path):
     rec = recordings.load(_recording(tmp_path, gs, "dogma-map-1"))
     m = recordings.moves(rec)[1]
     assert m.kind == "walk" and m.tokens == ["D 5220"]
-    assert recordings.dungeon_legs(rec) == [["end", "D 5220"]]
+    assert recordings.dungeon_legs(rec) == [["exit", "D 5220"]]
 
 
 def test_a_hold_that_ends_with_a_flick_down(tmp_path):
@@ -148,4 +148,26 @@ def test_a_hold_that_ends_with_a_flick_down(tmp_path):
     rec = recordings.load(_recording(tmp_path, gs, "dogma-map-1"))
     m = recordings.moves(rec)[1]
     assert m.kind == "walk" and m.tokens == ["R 5120", "+D"]
-    assert recordings.dungeon_legs(rec) == [["end", "R 5120", "+D"]]
+    assert recordings.dungeon_legs(rec) == [["exit", "R 5120", "+D"]]
+
+
+def test_chest_stops_carry_the_recorded_frame_and_crop(tmp_path):
+    import cv2
+    import numpy as np
+
+    gs = [_hold(0, 0.5, 0.65, 0.4, 0.65, 3000), _tap(1, 0.48, 0.36, gap=400), _tap(2, 0.6, 0.6, gap=900),
+          _hold(3, 0.5, 0.65, 0.6, 0.65, 2000)]
+    gs[1]["frame"] = "frames/t1.jpg"
+    folder = _recording(tmp_path, gs, "dogma-map-1")
+    (folder / "frames").mkdir()
+    cv2.imwrite(str(folder / "frames" / "t1.jpg"), np.full((540, 1200, 3), 90, np.uint8))
+    rec = recordings.load(folder)
+    stops = recordings.dungeon_stops(rec)
+    # the tap closing "Obtained" (move 3) is not a stop
+    assert [s["leg"] for s in stops] == [["chest 1", "L 3000"], ["exit", "R 2000"]]
+    assert stops[0]["move"] == 2 and stops[0]["frame"] == "frames/t1.jpg"
+    assert "frame frames/t1.jpg" in recordings.dungeon_yaml(rec)
+    crops = recordings.chest_crops(rec, tmp_path / "crops")
+    assert [c.name for c in crops] == ["dogma-map-1-chest1.png"]
+    h, w = cv2.imread(str(crops[0])).shape[:2]
+    assert 80 <= w <= 86 and 120 <= h <= 128

@@ -206,6 +206,9 @@ def cmd_recording(args) -> None:
         text = recordings.cat_spot_yaml(rec)
     elif args.dungeon:
         text = recordings.dungeon_yaml(rec)
+        if args.crops:
+            for c in recordings.chest_crops(rec, Path(args.crops)):
+                print(f"chest crop: {c}  (a game screenshot: don't commit it)")
     else:
         text = recordings.summary(rec) + "\n"
     if args.output:
@@ -294,6 +297,7 @@ def build_parser() -> argparse.ArgumentParser:
     g.add_argument("--cat", action="store_true", help="cat_spots.yaml fields + the walk to the cat")
     g.add_argument("--dungeon", action="store_true", help="the walks as dungeons.yaml path legs")
     s.add_argument("-o", "--output", help="write to this file instead of printing")
+    s.add_argument("--crops", metavar="DIR", help="with --dungeon: cut each chest out of its recorded frame into DIR")
     s.set_defaults(fn=cmd_recording)
 
     s = sub.add_parser("record-touches", help="read the touchscreen through ADB (the app's record button runs this in Termux)")

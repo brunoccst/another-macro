@@ -82,6 +82,7 @@ class Move:
     gap_ms: int
     label: str | None = None
     direction: str | None = None   # R/L for walks, U/D for flicks, R/L/U/D for swipes
+    frame: str | None = None       # the screen just before the move (frames/....jpg in the recording)
     echo_ok: bool = True
     points: list[list[float]] = field(default_factory=list)
     # a walk that turns without lifting the finger: one route move per direction
@@ -259,6 +260,7 @@ def classify(g: dict, aspect: float = 0.45) -> Move:
         gap_ms=int(g.get("gap_ms", 0)),
         label=(g.get("label") or None),
         direction=direction,
+        frame=(g.get("frame") or None),
         echo_ok=bool(g.get("echo_ok", True)),
         points=pts,
         turns=turns,
@@ -395,23 +397,66 @@ def cat_spot(rec: Recording) -> dict:
     return out
 
 
-def dungeon_legs(rec: Recording) -> list[list[str]]:
-    """The walks of a dungeon map as ``path:`` legs: one per stop, split at each tap.
+def dungeon_stops(rec: Recording) -> list[dict]:
+    """The walks of a dungeon map, one per stop, split at the tap that ends each walk.
 
-    Each leg is ``[what ended it, moves...]``: "tap 'label'" (a chest, a door) or "end".
-    Rename the first item to "chest N" / "exit" to match dungeons.yaml.
+    Each stop is ``{"leg": [what, moves...], "move": n, "tap": (x, y), "frame": path}``.
+    The first tap after a walk is the chest's "!" ("chest N"); taps right after it close the
+    "Obtained …" box and are left out. The last walk is the "exit".
     """
-    legs: list[list[str]] = []
+    stops: list[dict] = []
     cur: list[str] = []
+    chests = 0
     for m in moves(rec):
         if m.tokens:
             cur.extend(m.tokens)
         elif m.kind == "tap" and cur:
-            legs.append([f"tap '{m.label}'" if m.label else f"tap ({_r(m.start[0])}, {_r(m.start[1])})", *cur])
+            chests += 1
+            stops.append({"leg": [f"chest {chests}", *cur], "move": m.i + 1,
+                          "tap": (_r(m.start[0]), _r(m.start[1])), "frame": m.frame, "label": m.label})
             cur = []
     if cur:
-        legs.append(["end", *cur])
-    return legs
+        stops.append({"leg": ["exit", *cur], "move": None, "tap": None, "frame": None, "label": None})
+    return stops
+
+
+def dungeon_legs(rec: Recording) -> list[list[str]]:
+    """The ``path:`` legs of :func:`dungeon_stops` (dungeons.yaml form)."""
+    return [s["leg"] for s in dungeon_stops(rec)]
+
+
+# a chest crop around the tapped "!": the bubble and the chest under it (fractions of the screen)
+CHEST_CROP_W = 0.07
+CHEST_CROP_UP = 0.07
+CHEST_CROP_DOWN = 0.16
+
+
+def chest_crops(rec: Recording, out: Path) -> list[Path]:
+    """Cut the chest under each chest tap out of the frame recorded just before it.
+
+    The crops are screenshots of the game: keep them on the phone or in a local folder
+    (never commit them unless Bruno says game crops are fine).
+    """
+    import cv2  # noqa: PLC0415  (the cv extra)
+
+    out.mkdir(parents=True, exist_ok=True)
+    written = []
+    for s in dungeon_stops(rec):
+        if not s["frame"] or rec.folder is None:
+            continue
+        img = cv2.imread(str(rec.folder / s["frame"]))
+        if img is None:
+            continue
+        h, w = img.shape[:2]
+        x, y = s["tap"]
+        x0, x1 = max(0, int((x - CHEST_CROP_W / 2) * w)), min(w, int((x + CHEST_CROP_W / 2) * w))
+        y0, y1 = max(0, int((y - CHEST_CROP_UP) * h)), min(h, int((y + CHEST_CROP_DOWN) * h))
+        if x1 - x0 < 4 or y1 - y0 < 4:
+            continue
+        p = out / f"{rec.name}-{s['leg'][0].replace(' ', '')}.png"
+        cv2.imwrite(str(p), img[y0:y1, x0:x1])
+        written.append(p)
+    return written
 
 
 def _yaml_list(items: list[str]) -> str:
@@ -434,7 +479,15 @@ def cat_spot_yaml(rec: Recording, key: str | None = None) -> str:
 
 
 def dungeon_yaml(rec: Recording) -> str:
-    lines = [f"# path legs from the recording '{rec.name}'", "path:"]
-    for leg in dungeon_legs(rec):
-        lines.append(f"  - {_yaml_list(leg)}")
+    lines = [
+        f"# path legs from the recording '{rec.name}'",
+        "# each chest leg ends at the chest's \"!\": find it by its image (not the recorded spot), tap it,",
+        "# and wait for \"Obtained ...\" before the next leg; the exit leg ends at the stairs down",
+        "path:",
+    ]
+    for s in dungeon_stops(rec):
+        note = ""
+        if s["move"]:
+            note = f"   # move {s['move']}: tapped at {s['tap']}" + (f", frame {s['frame']}" if s["frame"] else "")
+        lines.append(f"  - {_yaml_list(s['leg'])}{note}")
     return "\n".join(lines) + "\n"

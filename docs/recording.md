@@ -43,6 +43,10 @@ timing. Its params:
   that move was recorded, so slow loading doesn't make the replay run ahead.
 - `pace` (1): how much of the recorded pause before each move to keep.
 
+A recorded tap on a "!" (a chest, a door) isn't replayed at its recorded spot: the replay
+finds the "!" on screen by its image and taps it there, then waits for the chest's
+"Obtained …" before the next move. If no "!" shows, it stops rather than tap blind.
+
 ## How it works
 
 Android doesn't let an app see touches meant for another app, and a gesture an app plays
@@ -88,6 +92,7 @@ another-macro recording ~/.another-macro/touchrec/touches.json --dungeon
 another-macro recording /tmp/cat-acteul              # every move: tap/walk/flick/swipe, labels, pauses
 another-macro recording /tmp/cat-acteul --cat        # cat_spots.yaml fields + the walk as route moves
 another-macro recording /tmp/dogma-map-1 --dungeon   # the walks as dungeons.yaml path legs
+another-macro recording /tmp/dogma-map-1 --dungeon --crops /tmp/crops   # + each chest cut from its frame
 another-macro recording /tmp/cat-acteul --macro cat-acteul -o macros/cat-acteul.yaml
 ```
 
@@ -95,8 +100,12 @@ another-macro recording /tmp/cat-acteul --macro cat-acteul -o macros/cat-acteul.
   the labels under the taps (read by OCR on the phone: check them), the walk from the
   arrival to the cat as `"L 800", "U", "R 1600"` moves (walk.yaml notation), and where the
   cat bubble was tapped.
-- `--dungeon` splits the walks at each tap (a chest, a door) into `path:` legs. Rename each
-  leg's first item to `chest N` / `exit`.
+- `--dungeon` splits the walks at the tap that ends each one (the chest's "!") into `path:`
+  legs, `chest 1`, `chest 2`, …, then `exit`. Taps right after a chest (closing "Obtained …")
+  are left out. Each chest leg notes the move and the frame recorded just before its tap, and
+  `--crops DIR` cuts that chest out of the frame to make a template from. The dungeon macro
+  finds each chest by its image and waits for "Obtained …" before the next leg. The crops are
+  game screenshots: don't commit them unless Bruno says so.
 - `--macro` writes a plain macro (`tap_exact` / `drag` / `gesture` / `wait` steps,
   coordinates and timings only), safe to commit. Then fine-tune it: replace pauses with screen checks
   (`if: found('...')`) where loading times vary, using the frames to pick templates.

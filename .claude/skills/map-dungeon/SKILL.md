@@ -65,6 +65,33 @@ it (walks each way in short steps, taps every "!", answers the boss's "Proceed?"
 it properly, sweep it once with the area map open after each step and write down what
 appears.
 
+## 3b. Or: Bruno records the run (preferred for the walking route)
+
+Bruno's rule (2026-11-04): when he asks for a new dungeon, he plays each map once by hand
+with the app's ⏺ (see `docs/recording.md`) and Claude turns that into the deterministic
+`path:`, adapting it with the recorded images. On the phone:
+
+1. ⏺ at the arrival, walk to each chest, tap its "!", close "Obtained …", walk on to the
+   stairs down, ⏹, save as `<dungeon>-map-<n>`.
+2. `adb pull /sdcard/Android/data/io.github.brunoccst.anothermacro/files/recordings/<name>/`
+   into the scratchpad (never into the repo: it's screenshots of the account).
+3. `another-macro recording <dir> --dungeon --crops <scratch>/crops`: the `path:` legs
+   (`chest 1`, `chest 2`, …, `exit`), each chest leg noting its move and recorded frame,
+   and each chest cut out of the frame just before its tap.
+
+Then, for each leg:
+
+- A chest is found **by its image**, never tapped at the recorded or measured coordinates:
+  after a chest leg, look for the "!" (`field_interact_bubble`, or the dungeon's own chest
+  template made from the crop) near where the leg ends, and tap where it is found.
+- The next leg (the next chest or the exit) starts only after the chest's **"Obtained …"**
+  message has shown and been closed.
+- Ask Bruno before committing any chest crop (game art; the repo is public). Until he says
+  yes, keep crops local and rely on the "!" bubble template already in the repo.
+- Compare the recorded legs with the planner's (`another-macro dungeon-routes`): use the
+  recording where it is shorter or takes stairs more reliably, and check the chest/exit
+  positions in `dungeons.yaml` against where the recorded walks ended.
+
 ## 4. Write the data and the macro
 
 ```yaml
