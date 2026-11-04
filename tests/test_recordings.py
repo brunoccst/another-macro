@@ -130,3 +130,22 @@ def test_a_walk_that_turns_without_lifting(tmp_path):
     assert m.kind == "walk"
     assert m.tokens == ["L 1260", "+U 420", "+L 720"]
     assert recordings.dungeon_legs(rec) == [["tap (0.6, 0.4)", "L 1260", "+U 420", "+L 720"]]
+
+
+def test_a_long_hold_down_is_a_walk_not_a_swipe(tmp_path):
+    # the exit leg: a 5.2 s hold whose finger ends far below the press (stairs down)
+    gs = [_tap(0, 0.6, 0.4), _hold(1, 0.70, 0.59, 0.70, 0.92, 5220)]
+    rec = recordings.load(_recording(tmp_path, gs, "dogma-map-1"))
+    m = recordings.moves(rec)[1]
+    assert m.kind == "walk" and m.tokens == ["D 5220"]
+    assert recordings.dungeon_legs(rec) == [["end", "D 5220"]]
+
+
+def test_a_hold_that_ends_with_a_flick_down(tmp_path):
+    # dogma1's exit: right for 4.7 s, then the finger drops below the press just before lifting
+    pts = [[0, 0.699, 0.592], [270, 0.821, 0.587], [4696, 0.820, 0.590], [5119, 0.728, 0.917], [5219, 0.728, 0.917]]
+    gs = [_tap(0, 0.6, 0.4), {"i": 1, "gap_ms": 600, "dur_ms": 5219, "points": pts}]
+    rec = recordings.load(_recording(tmp_path, gs, "dogma-map-1"))
+    m = recordings.moves(rec)[1]
+    assert m.kind == "walk" and m.tokens == ["R 5120", "+D"]
+    assert recordings.dungeon_legs(rec) == [["end", "R 5120", "+D"]]

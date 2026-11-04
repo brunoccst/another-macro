@@ -122,7 +122,7 @@ object Recorder {
      * or null if nothing was, on the main thread once the last move has been played and saved.
      */
     fun stop(exclude: Region?, done: (File?) -> Unit) {
-        val s = session ?: return done(null)
+        val s = session ?: return  // a second ⏹ while the first one saves
         session = null
         s.close()
         val main = Handler(Looper.getMainLooper())

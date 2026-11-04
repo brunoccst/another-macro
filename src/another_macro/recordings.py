@@ -37,7 +37,9 @@ What this module makes of it:
 Route moves use the notation of walk.yaml / dungeons.yaml: "R 1180" / "L 2950" = hold
 right/left that many ms, "U" / "D" = flick up/down at stairs. A swipe that turns without
 lifting adds "+U 400" / "+L 720": keep the finger down and turn that way for that long
-(already walking, so no ramp-up, and an up/down there is a turn onto stairs, not a flick). A recorded hold is
+(already walking, so no ramp-up, and an up/down there is a turn onto stairs, not a flick). A "+D" / "+U"
+with no ms ends such a hold: a quick slide down/up just before lifting (onto stairs). A long
+hold up/down alone is "D 5220". A recorded hold is
 counted from the press, so it matches the table when the party was standing still
 when the finger went down (it is after a tap, a flick or a pause).
 """
@@ -202,6 +204,17 @@ def _from_touches(data: dict, p: Path) -> dict:
     return {"version": 1, "name": p.parent.name, "screen": data.get("screen") or [2400, 1080], "end_ms": end, "gestures": gestures}
 
 
+def _end_flick(pts: list, aspect: float, runs: list) -> str | None:
+    """U/D when the finger ends up/down of the press after the last held direction, too briefly to be a hold."""
+    if not runs or runs[-1][0] in ("U", "D"):
+        return None
+    x0, y0 = pts[0][1], pts[0][2]
+    dx, dy = pts[-1][1] - x0, (pts[-1][2] - y0) * aspect
+    if math.hypot(dx, dy) < STICK_DEAD or abs(dy) <= abs(dx):
+        return None
+    return "D" if dy > 0 else "U"
+
+
 def classify(g: dict, aspect: float = 0.45) -> Move:
     pts = g["points"]
     t_end = int(pts[-1][0])
@@ -212,17 +225,26 @@ def classify(g: dict, aspect: float = 0.45) -> Move:
     far = max(math.hypot(p[1] - x0, (p[2] - y0) * aspect) for p in pts)
     dur = int(g.get("dur_ms", t_end))
     turns: list[str] = []
+    runs = stick_runs(pts, aspect) if dur >= FLICK_MAX_MS and far >= TAP_MAX_MOVE else []
+    end_flick = _end_flick(pts, aspect, runs)
     if far < TAP_MAX_MOVE:
         kind = "tap" if dur < TAP_MAX_MS else "long_press"
         direction = None
     elif dur < FLICK_MAX_MS and abs(dy) > abs(dx) and abs(dy) >= FLICK_MIN_MOVE:
         kind, direction = "flick", ("U" if dy < 0 else "D")
-    elif dur >= FLICK_MAX_MS and len(runs := stick_runs(pts, aspect)) > 1:
+    elif runs and end_flick:
+        # held a direction, then a quick up/down at the very end (onto stairs) before lifting
+        kind, direction = "walk", runs[0][0]
+        turns = [("+" if k else "") + f"{d} {_ms(b - a)}" for k, (d, a, b) in enumerate(runs)] + [f"+{end_flick}"]
+    elif len(runs) > 1:
         # turned without lifting the finger: one move per direction held, all with their ms.
         # Only the first starts from rest; "+" marks a turn made while already walking
         # (no flick, no ramp-up: the party keeps its speed)
         kind, direction = "walk", runs[0][0]
         turns = [("+" if k else "") + f"{d} {_ms(b - a)}" for k, (d, a, b) in enumerate(runs)]
+    elif runs:
+        # one direction held: a walk (an up/down hold is the party going along stairs)
+        kind, direction = "walk", runs[0][0]
     elif dur >= FLICK_MAX_MS and abs(dx) >= abs(dy):
         kind, direction = "walk", ("R" if dx > 0 else "L")
     else:
