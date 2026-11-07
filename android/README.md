@@ -45,6 +45,24 @@ possible: Anthropic doesn't allow third-party apps to offer claude.ai login.
 - Unit tests (`gradle -p android testDebugUnitTest`, no device) check the request the SDK
   sends and the safety word checks.
 
+## Phone connector (Claude from your chat, no API key)
+The Claude screen's **Use from your Claude chat** section turns the app into a remote MCP
+server that the user adds in claude.ai as a custom connector, so their own Claude chat (any
+plan, any Claude app) can see and control the game. A phone has no public address, so the app
+keeps a WebSocket open to the user's relay, a small Cloudflare Worker on their own account
+(`relay/`, with a Deploy button and setup steps in `relay/README.md`).
+- `PhoneConnector.kt`: the socket (reconnects with backoff), turns itself off after 30 minutes
+  without tool calls, and maps the connector's tools (screenshot, zoom, tap, swipe, back, wait,
+  walk, read_text, find_template, list_templates, list_macros, read_macro, start_macro,
+  macro_status, stop_macro, save_template, save_macro, launch_game) onto `PhoneTools`.
+- `PhoneTools.kt`: the tool code shared with the in-app agent, so both get the same safety
+  layer (game in front, purchase guard, Allow/Deny overlay, which here denies after 2 minutes
+  because connector tool calls time out at 240 s). Macros run in the background
+  (`start_macro` / `macro_status`) for the same reason.
+- `McpServer.kt`: the MCP JSON-RPC (initialize, ping, tools/list, tools/call), unit tested.
+- Tokens: a phone token (app → relay) and a connector token (Claude → relay), 256-bit random,
+  stored encrypted with the Keystore key like the API key.
+
 ## Install / first run
 1. Download `another-macro.apk` from the latest GitHub Release and install it.
 2. In the app: **1. Turn on taps** → enable *Another Macro* in Accessibility. On Android 13+,

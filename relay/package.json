@@ -1,0 +1,14 @@
+{
+  "name": "another-macro-relay",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Gives the Another Macro phone connector a public HTTPS address for Claude's custom connectors.",
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/relay.test.js",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

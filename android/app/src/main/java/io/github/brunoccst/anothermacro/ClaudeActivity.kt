@@ -21,12 +21,17 @@ import com.anthropic.client.okhttp.AnthropicOkHttpClient
  * progress notes show on the live log and in the log below.
  */
 class ClaudeActivity : Activity() {
+    companion object {
+        const val RELAY_GUIDE = "https://github.com/brunoccst/another-macro/blob/main/relay/README.md"
+    }
     private fun dp(v: Int) = Ui.dp(this, v)
     private lateinit var keyStatus: TextView
     private lateinit var keyField: EditText
     private lateinit var taskField: EditText
     private lateinit var status: TextView
     private lateinit var log: TextView
+    private lateinit var connectorStatus: TextView
+    private lateinit var connectorButton: TextView
     private val logListener: (String) -> Unit = { text -> if (::log.isInitialized) log.text = text.lines().takeLast(40).joinToString("\n") }
     private val agentListener: () -> Unit = { runOnUiThread { refresh() } }
 
@@ -39,10 +44,36 @@ class ClaudeActivity : Activity() {
             setPadding(dp(16), dp(20), dp(16), dp(32))
         }
         column.addView(Ui.text(this, "Claude", 26f, bold = true))
-        column.addView(Ui.text(this, "Tell Claude what to do in the game, or ask it to write a macro for you. It plays by looking at the screen and tapping, with your own Claude API key.", 13f, Ui.MUTED).apply { setPadding(0, dp(2), 0, dp(8)) })
+        column.addView(Ui.text(this, "Tell Claude what to do in the game, or ask it to write a macro for you. It plays by looking at the screen and tapping: from your Claude chat through the phone connector, or here with your own Claude API key.", 13f, Ui.MUTED).apply { setPadding(0, dp(2), 0, dp(8)) })
+
+        // --- phone connector -----------------------------------------------------------
+        column.addView(Ui.section(this, "Use from your Claude chat"))
+        column.addView(Ui.card(this).apply {
+            addView(Ui.text(this@ClaudeActivity,
+                "Chat with Claude in the Claude app or claude.ai, on your own plan, and let it see and control the game through this app. No API key is needed. It reaches the phone through your relay, a small free Cloudflare Worker on your account.", 13f, Ui.MUTED))
+            connectorStatus = Ui.text(this@ClaudeActivity, "", 13f).apply { setPadding(0, dp(6), 0, 0) }
+            addView(connectorStatus)
+            connectorButton = Ui.button(this@ClaudeActivity, "Turn on", primary = true) { toggleConnector() }
+            addView(connectorButton)
+            addView(Ui.text(this@ClaudeActivity, "Relay address", 15f, bold = true).apply { setPadding(0, dp(10), 0, 0) })
+            addView(field("https://another-macro-relay.<you>.workers.dev", multiLine = false).apply {
+                inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
+                setText(ClaudeSettings.relayUrl(this@ClaudeActivity))
+                onChange { ClaudeSettings.setRelayUrl(this@ClaudeActivity, it) }
+            })
+            addView(Ui.text(this@ClaudeActivity,
+                "Setup, once: 1) Make tokens. 2) Deploy the relay and paste the two tokens into it (guide below). 3) Paste the relay address above. 4) In claude.ai → Settings → Connectors → Add custom connector, paste the connector address.", 12.5f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
+            addView(Ui.button(this@ClaudeActivity, "Make new tokens") { newTokens() })
+            addView(Ui.button(this@ClaudeActivity, "Copy phone token (for the relay)") { copy("phone token", ClaudeSettings.phoneToken(this@ClaudeActivity)) })
+            addView(Ui.button(this@ClaudeActivity, "Copy connector token (for the relay)") { copy("connector token", ClaudeSettings.connectorToken(this@ClaudeActivity)) })
+            addView(Ui.button(this@ClaudeActivity, "Copy connector address (for claude.ai)") { copyConnectorAddress() })
+            addView(Ui.button(this@ClaudeActivity, "Relay setup guide") { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(RELAY_GUIDE))) })
+            addView(Ui.text(this@ClaudeActivity,
+                "The connector address holds the secret token: keep it private. Making new tokens cuts off the old ones once the relay has the new pair. The connector turns itself off after 30 minutes without use, and the floating ■ stops what Claude is doing.", 12f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
+        })
 
         // --- task ------------------------------------------------------------------
-        column.addView(Ui.section(this, "Task"))
+        column.addView(Ui.section(this, "Task (with your API key)"))
         column.addView(Ui.card(this).apply {
             taskField = field("e.g. \"Finish today's cat scratchbook\" or \"Make a macro that farms battles on the current map until 30 wins\"", multiLine = true).apply { setText(ClaudeSettings.lastTask(this@ClaudeActivity)) }
             addView(taskField)
@@ -71,7 +102,7 @@ class ClaudeActivity : Activity() {
         column.addView(Ui.section(this, "Model and limits"))
         column.addView(Ui.card(this).apply {
             addView(Ui.text(this@ClaudeActivity, "Model", 15f, bold = true))
-            addView(Ui.text(this@ClaudeActivity, "Opus reads busy screens best (about 2 US cents a step); Sonnet costs about half.", 12.5f, Ui.MUTED))
+            addView(Ui.text(this@ClaudeActivity, "Opus reads busy screens best (about 2 US cents a step); Sonnet costs about half; Haiku, the economy choice, well under a tenth of a cent, good for fine-tuning macros.", 12.5f, Ui.MUTED))
             addView(pills(ClaudeSettings.MODELS.map { it.id to it.label }, ClaudeSettings.model(this@ClaudeActivity).id) { ClaudeSettings.setModel(this@ClaudeActivity, it) })
             addView(Ui.divider(this@ClaudeActivity))
             addView(Ui.text(this@ClaudeActivity, "Effort", 15f, bold = true))
@@ -119,6 +150,7 @@ class ClaudeActivity : Activity() {
         super.onResume()
         MacroLog.listen(logListener)
         ClaudeAgent.listeners += agentListener
+        PhoneConnector.listeners += agentListener
         log.text = MacroLog.text().lines().takeLast(40).joinToString("\n")
         refresh()
     }
@@ -126,10 +158,17 @@ class ClaudeActivity : Activity() {
     override fun onPause() {
         MacroLog.unlisten(logListener)
         ClaudeAgent.listeners -= agentListener
+        PhoneConnector.listeners -= agentListener
         super.onPause()
     }
 
     private fun refresh() {
+        connectorStatus.text = when (PhoneConnector.state) {
+            PhoneConnector.State.ONLINE -> "● On: ${PhoneConnector.detail}"
+            PhoneConnector.State.CONNECTING -> "◌ Connecting: ${PhoneConnector.detail}"
+            PhoneConnector.State.OFF -> "Off" + PhoneConnector.detail.let { if (it.isEmpty() || it == "off") "." else ": $it" }
+        }
+        connectorButton.text = if (PhoneConnector.isOn) "Turn off" else "Turn on"
         keyStatus.text = if (ClaudeSettings.hasKey(this)) "Saved key: ${ClaudeSettings.keyHint(this)}" else "No key saved yet."
         val cost = "${"$%.2f".format(ClaudeAgent.costUsd)} in ${ClaudeAgent.steps} steps"
         status.text = when {
@@ -180,6 +219,42 @@ class ClaudeActivity : Activity() {
                 )
             }
         }.start()
+    }
+
+    private fun toggleConnector() {
+        if (PhoneConnector.isOn) { PhoneConnector.stopConnector(); return }
+        when {
+            ClaudeSettings.phoneToken(this) == null -> toast("Make tokens first.")
+            ClaudeSettings.relayUrl(this).isEmpty() -> toast("Paste your relay address first.")
+            MacroService.capture == null -> toast("Allow screen capture first (main screen, step 2).")
+            InputService.instance == null -> toast("Turn on taps first (main screen, step 1).")
+            else -> PhoneConnector.start(this)
+        }
+        refresh()
+    }
+
+    private fun newTokens() {
+        if (PhoneConnector.isOn) { toast("Turn the connector off first."); return }
+        ClaudeSettings.newTokens(this)
+        toast("New tokens made. Put both in the relay, then update the connector address in claude.ai.")
+    }
+
+    private fun copyConnectorAddress() {
+        val url = ClaudeSettings.relayUrl(this)
+        val token = ClaudeSettings.connectorToken(this)
+        if (url.isEmpty() || token == null) { toast("Paste the relay address and make tokens first."); return }
+        copy("connector address", "$url/mcp/$token")
+    }
+
+    private fun copy(what: String, text: String?) {
+        if (text == null) { toast("Make tokens first."); return }
+        val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+        val clip = android.content.ClipData.newPlainText(what, text)
+        if (android.os.Build.VERSION.SDK_INT >= 33) {
+            clip.description.extras = android.os.PersistableBundle().apply { putBoolean("android.content.extra.IS_SENSITIVE", true) }
+        }
+        cm.setPrimaryClip(clip)
+        toast("Copied the $what.")
     }
 
     private fun toast(s: String) = android.widget.Toast.makeText(this, s, android.widget.Toast.LENGTH_LONG).show()

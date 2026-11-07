@@ -85,5 +85,8 @@ dependencies {
     implementation("com.google.mlkit:text-recognition:16.0.1")
     // Claude (the user's own API key): Messages API with the computer use toolset, see ClaudeAgent.kt
     implementation("com.anthropic:anthropic-java:3.4.0")
+    // the phone connector: WebSocket to the relay, JSON-RPC (both already come with the SDK)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.19.4")
     testImplementation("junit:junit:4.13.2")
 }
