@@ -65,23 +65,10 @@ android {
     kotlinOptions {
         jvmTarget = "17"
     }
-    sourceSets["main"].assets.srcDir(layout.buildDirectory.dir("generated/macroAssets"))
 }
 
-// The templates and screen libraries are shared with the Python tool: copy them
-// from the repo into the APK's assets at build time instead of duplicating them.
-val copyMacroAssets by tasks.registering(Copy::class) {
-    val repo = rootProject.projectDir.parentFile
-    from(File(repo, "src/another_macro/assets/templates")) { into("templates/common") }
-    from(File(repo, "src/another_macro/scenarios")) {
-        include("*/templates/**", "*/riddles.yaml")
-        eachFile { path = "templates/" + path.replace("/templates/", "/") }
-        includeEmptyDirs = false
-    }
-    from(File(repo, "macros")) { into("macros") }
-    into(layout.buildDirectory.dir("generated/macroAssets"))
-}
-tasks.named("preBuild") { dependsOn(copyMacroAssets) }
+// Macros, templates and their data are not built in: the app downloads them from the GitHub
+// project (the "macros-<branch>" packs CI publishes, see MacroLibrary.kt and macros.yml).
 
 dependencies {
     implementation("org.opencv:opencv:4.10.0")

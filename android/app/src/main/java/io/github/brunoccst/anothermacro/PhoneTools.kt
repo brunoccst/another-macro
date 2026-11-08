@@ -29,8 +29,8 @@ class PhoneTools(
     private val jpegQuality: Int = 80,
     private val confirmTimeoutMs: Long = 5 * 60_000L,
 ) {
-    val library = Library.load(app.assets, *templateFolders(app)).apply { addDir(Scenarios.userTemplates(app)) }
-    val ctx = Context(capture, app.assets, Vision(library), emptyMap(), stop)
+    val library = Library.load(MacroLibrary.files(app), *templateFolders(app)).apply { addDir(Scenarios.userTemplates(app)) }
+    val ctx = Context(capture, MacroLibrary.files(app), Vision(library), emptyMap(), stop)
     val shotW = minOf(shotMax, capture.width)
     val shotH = (capture.height * shotW.toDouble() / capture.width).roundToInt()
     private var refusals = 0
@@ -158,7 +158,7 @@ class PhoneTools(
         Background.name = s.name
         MacroLog.i("Claude started macro ${s.name}")
         Background.thread = Thread({
-            val reason = Runner.run(s, given, capture, app.assets, Scenarios.userTemplates(app))
+            val reason = Runner.run(s, MacroParams.load(app, s.name) + given, capture, app)
             Background.result = reason
         }, "macro").apply { start() }
         Thread.sleep(500)
@@ -198,24 +198,21 @@ class PhoneTools(
 
     fun saveMacro(yaml: String): ToolResult {
         val macro = try { FlowScenario.parse(yaml, "claude") } catch (e: Exception) { return ToolResult("not a valid macro: ${e.message}", isError = true) }
-        val builtIn = app.assets.list("macros").orEmpty().any { f ->
-            runCatching { FlowScenario.parse(app.assets.open("macros/$f").bufferedReader().use { it.readText() }, f).name }.getOrNull() == macro.name
-        }
-        if (builtIn) return ToolResult("'${macro.name}' is a built-in macro; pick another name", isError = true)
+        if (macro.unsupported.isNotEmpty()) return ToolResult("this app doesn't know these steps: ${macro.unsupported.joinToString()}", isError = true)
+        val inLibrary = Scenarios.parseAll(MacroLibrary.files(app)).any { it.name == macro.name }
+        if (inLibrary) return ToolResult("'${macro.name}' is a macro of the library; pick another name", isError = true)
         java.io.File(Scenarios.userDir(app), "${macro.name}.yaml").writeText(yaml)
-        MacroLog.i("Claude saved macro '${macro.name}'")
-        return ToolResult("saved macro '${macro.name}' (screens: ${macro.screens.joinToString()}; params: ${macro.params.keys.joinToString()})")
+        MacroLog.i("Claude saved custom macro '${macro.name}'")
+        return ToolResult("saved custom macro '${macro.name}' (listed under Custom; screens: ${macro.screens.joinToString()}; params: ${macro.params.keys.joinToString()})")
     }
 
     fun readMacro(input: Map<String, Any?>): ToolResult {
         val name = input["name"]?.toString().orEmpty()
         val user = java.io.File(Scenarios.userDir(app), "$name.yaml")
         if (user.isFile) return ToolResult(user.readText())
-        for (f in app.assets.list("macros").orEmpty()) {
-            val text = app.assets.open("macros/$f").bufferedReader().use { it.readText() }
-            if (runCatching { FlowScenario.parse(text, f).name }.getOrNull() == name) return ToolResult(text)
-        }
-        return ToolResult("no YAML macro named '$name' (built-in Kotlin macros have no YAML)", isError = true)
+        val s = Scenarios.parseAll(MacroLibrary.files(app)).firstOrNull { it.name == name } as? FlowScenario
+            ?: return ToolResult("no macro named '$name' (see list_macros)", isError = true)
+        return ToolResult(MacroLibrary.files(app).open(s.source).bufferedReader().use { it.readText() })
     }
 
     // --- helpers ---------------------------------------------------------------------------
@@ -248,6 +245,6 @@ class PhoneTools(
         const val MAX_REFUSALS = 2
 
         fun templateFolders(app: android.content.Context): Array<String> =
-            (listOf("templates/common") + app.assets.list("templates").orEmpty().filter { it != "common" }.map { "templates/$it" }).toTypedArray()
+            (listOf("templates/common") + MacroLibrary.files(app).list("templates").filter { it != "common" }.map { "templates/$it" }).toTypedArray()
     }
 }

@@ -62,7 +62,7 @@ object TemplateCapture {
 
     /** Best match score of [name] on the screen at [screenPath] (to check a new template). */
     fun test(context: Context, screenPath: String, name: String): Match? {
-        val lib = Library.load(context.assets).apply { addDir(Scenarios.userTemplates(context)) }
+        val lib = Library.load(MacroLibrary.files(context)).apply { addDir(Scenarios.userTemplates(context)) }
         val tpl = lib.templates[name] ?: return null
         val gray = Imgcodecs.imread(screenPath, Imgcodecs.IMREAD_GRAYSCALE)
         return try { tpl.match(gray) } finally { gray.release() }

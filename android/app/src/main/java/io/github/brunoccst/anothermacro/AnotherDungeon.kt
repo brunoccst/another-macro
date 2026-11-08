@@ -450,7 +450,7 @@ object AnotherDungeon {
         ctx.wait(2.0)
         // "Using Green Key×1 to move to Dogma Tower (Hard)."
         val lines = ctx.readText()
-        // "In order to move to Dogma Tower (Hard) please include: Poporo": Move stays greyed out
+        // "In order to move to Dogma Tower (Hard) please include: <a character>": Move stays greyed out
         val include = lines.indexOfFirst { Ocr.norm(it.text).contains("please include") }
         if (include >= 0) {
             val who = lines.getOrNull(include + 1)?.text?.takeIf { lines[include].text.trimEnd().endsWith(":") }

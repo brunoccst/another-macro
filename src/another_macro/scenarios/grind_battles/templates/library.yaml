@@ -1,8 +1,8 @@
 # Templates only grind-battles uses (skill mode). Captured on a 2400x1080 phone.
 templates:
-  verdanta_last_skill_selected:
-    notes: Label above the first front-row portrait once Verdanta's last skill (Sprinting Raid) is chosen. Recapture for another character/skill.
-    file: verdanta_last_skill_selected.png
+  slot1_skill_selected:
+    notes: Label above the first front-row portrait once its chosen skill is selected. Recapture it for your own party (it shows the skill's name).
+    file: slot1_skill_selected.png
     ref: [2400, 1080]
     region: [0.0642, 0.7148, 0.1958, 0.15]
 

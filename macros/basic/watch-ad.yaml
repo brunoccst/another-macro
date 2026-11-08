@@ -1,0 +1,62 @@
+# Basic macro: watch the commercial that was just started, close it, take its reward.
+# Other macros run it right after tapping a "watch" button (`run: watch-ad`), then go on:
+#   - while the commercial plays (nothing of the game on screen): wait; after ad_wait_s press
+#     Back to close it, again every retry_s if it doesn't close (some play a few in a row)
+#   - the game's reward dialog (or the premium thank-you): tap OK / Close and stop
+#   - the caller's own screen back (its `until:`): stop there
+# Never taps inside a commercial: only Back closes it.
+name: watch-ad
+group: basic
+icon: chest
+description: "Basic: watch the commercial that just started, close it and take the reward. Other macros run it after tapping a watch button."
+templates: [start_game, daily_ads]
+params:
+  ad_wait_s: {default: 45, help: "how long to let a commercial play before pressing Back to close it"}
+  retry_s: {default: 15, help: "after a Back that didn't end it (or the next commercial in a row), press Back again after this long"}
+  max_backs: {default: 6, help: "give up after this many Backs"}
+screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog]
+unknown_timeout_s: 300
+
+setup:
+  - set: {since: now(), backs: 0}
+  - status: "watching the commercial (closing it after {ad_wait_s}s)"
+
+handlers:
+  premium_thanks:   # premium subscribers: a thank-you instead of the commercial
+    - count: premium_skips
+    - tap: dialog_close_button
+    - wait: 2
+    - stop: "premium: no commercial"
+
+  ad_reward:        # "Thank you for watching" (the reward goes to the inbox)
+    - count: ad_rewards
+    - status: "commercial watched: {screen_text(0.25, 0.8)}"
+    - tap: dialog_ok_button
+    - wait: 1.5
+    - stop: rewarded
+
+  reward_confirm:   # "Rewards received: ..."
+    - count: ad_rewards
+    - status: "commercial watched: {screen_text(0.25, 0.8)}"
+    - tap: confirm_ok_button
+    - wait: 1.5
+    - stop: rewarded
+
+  ok_dialog:        # "Thank you for watching. You have been rewarded ..."
+    - count: ad_rewards
+    - status: "commercial watched: {screen_text(0.25, 0.8)}"
+    - tap: dialog_ok_button
+    - wait: 1.5
+    - stop: rewarded
+
+unknown:
+  # the commercial is playing: let it run, then Back closes it; never tap inside it
+  - if: now() - since > ad_wait_s + backs * retry_s
+    then:
+      - if: backs >= max_backs
+        then: [{stop: "the commercial didn't close after {backs} Backs"}]
+      - set: {backs: backs + 1}
+      - count: ad_backs
+      - log: "the commercial is still on after {ad_wait_s + (backs - 1) * retry_s}s: pressing Back ({backs}/{max_backs})"
+      - back: true
+  - wait: 2

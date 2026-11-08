@@ -21,7 +21,7 @@ import kotlin.math.abs
  *     notice board open the paw stamp menu, which is cancelled (claiming is left to you);
  *  3. bonus worlds (Ratle shop, Nuaru Uplands, Izana) move on by themselves once emptied;
  *  4. the Cape or the final world: its chests, then the "!" on the stairs out; Congratulations;
- *  5. the Sensationalist (final world, sometimes the Cape) offers a free Treatise/Codex/Opus of
+ *  5. an NPC (final world, sometimes the Cape) offers a free Treatise/Codex/Opus of
  *     your choice: the run stops there for you to choose.
  *
  * There are no enemies and no area map. Nothing is bought: every tap goes through the same
@@ -178,7 +178,7 @@ object PhantomCrystal {
         val lines = ctx.readText()
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         when {
-            "treatise" in all || "codex" in all || "opus" in all -> ctx.stop("the Sensationalist offers a free Treatise/Codex/Opus: choose it yourself")
+            "treatise" in all || "codex" in all || "opus" in all -> ctx.stop("an NPC offers a free Treatise/Codex/Opus: choose it yourself")
             "stamp" in all && ("you got" in all || "filled out" in all) -> {
                 r.stamps++; MacroLog.i("paw stamp"); dismiss(ctx); return Taken.SOME
             }

@@ -83,6 +83,7 @@ class MacroService : Service() {
         capture = Capture(p, w, h, metrics.densityDpi)
         MacroLog.i("screen capture on (${w}x$h)")
         InputService.instance?.showControls(true)
+        MacroLibrary.updateAsync(this, force = !MacroLibrary.isInstalled(this))
     }
 
     /** Stop the running macro (if any) and start the last one again with the same params. */
@@ -100,6 +101,7 @@ class MacroService : Service() {
         val cap = capture ?: run { MacroLog.i("allow screen capture first"); return }
         if (Runner.isRunning || worker?.isAlive == true) { MacroLog.i("a macro is already running"); return }
         val name = intent.getStringExtra(EXTRA_SCENARIO) ?: return
+        if (!MacroLibrary.isInstalled(this)) { MacroLog.i("no macros yet: open the app with internet to download them"); MacroLibrary.updateAsync(this, force = true); return }
         val params = HashMap<String, String>()
         intent.getBundleExtra(EXTRA_PARAMS)?.let { b -> b.keySet().forEach { k -> b.getString(k)?.let { params[k] = it } } }
         val scenario = try { Scenarios.get(this, name) } catch (e: Exception) { MacroLog.e(e.message ?: "unknown macro"); return }
@@ -108,7 +110,7 @@ class MacroService : Service() {
         val steps = (scenario as? FlowScenario)?.steps.orEmpty()
         worker = Thread({
             if (steps.isEmpty()) {
-                val reason = Runner.run(scenario, params, cap, assets, Scenarios.userTemplates(this))
+                val reason = Runner.run(scenario, params, cap, this)
                 updateNotification("Stopped: $reason")
                 return@Thread
             }
@@ -120,7 +122,7 @@ class MacroService : Service() {
                     updateNotification("${scenario.name}: $step (${i + 1}/${steps.size})")
                     MacroLog.prefix = "${scenario.name} ${i + 1}/${steps.size}"
                     MacroLog.i("${scenario.name}: step ${i + 1}/${steps.size} $step")
-                    val reason = Runner.run(sub, emptyMap(), cap, assets, Scenarios.userTemplates(this))
+                    val reason = Runner.run(sub, MacroParams.load(this, step), cap, this)
                     results += "$step: $reason"
                     if (reason == "stop requested") break
                     if (reason.startsWith("safety stop")) { MacroLog.i("${scenario.name}: safety stop, skipping the remaining steps"); break }
