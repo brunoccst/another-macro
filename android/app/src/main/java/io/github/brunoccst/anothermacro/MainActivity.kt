@@ -112,6 +112,7 @@ class MainActivity : Activity() {
         val start = savedInstanceState?.getString(STATE_PAGE) ?: intent?.getStringExtra(EXTRA_PAGE)
         show(Page.values().firstOrNull { it.id == start } ?: Page.HOME)
         if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2)
+        Updater.clearNotification(this)
         handleAdbIntent(intent)
     }
 
