@@ -14,7 +14,7 @@ screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, ad_chest, menu_o
 unknown_timeout_s: 120
 
 setup:
-  - set: {menu_taps: 0}
+  - set: {game_starts: 0, menu_taps: 0}
 
 handlers:
   ad_chest:
@@ -71,13 +71,18 @@ handlers:
     - wait: 2.5
 
   field:
-    - status: "opening the menu"
-    - tap: field_menu_button
-    - wait: 2
+    - run: open-menu
+    - if: result != 'menu open'
+      then: [{stop: "{result}"}]
 
 unknown:
+  # the game isn't open: the basic macro start-game opens it (once)
   - if: not game_in_front()
-    then: [{stop: "the game is not in front (open it first, e.g. with start-game)"}]
+    then:
+      - if: game_starts > 0
+        then: [{stop: "the game is not in front"}]
+      - set: {game_starts: game_starts + 1}
+      - run: start-game
   # the chest opening: tap through it
   - status: "opening the chest"
   - tap: [0.5, 0.65]

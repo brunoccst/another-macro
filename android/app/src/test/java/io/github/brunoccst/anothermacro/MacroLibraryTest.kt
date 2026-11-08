@@ -50,7 +50,20 @@ class MacroLibraryTest {
         val macros = Scenarios.parseAll(LibraryFiles(repo)).associateBy { it.name }
         for (n in listOf("start-game", "daily-ads", "shop-ad")) assertTrue(n, "watch-ad" in (macros.getValue(n) as FlowScenario).uses)
         assertEquals("basic", macros.getValue("watch-ad").group)
-        assertEquals("basic", macros.getValue("grind-battles").group)
+        for (n in listOf("watch-ad", "grind-battles", "open-menu", "back-to-field")) assertEquals(n, "basic", macros.getValue(n).group)
+        // battles on the way go through grind-battles
+        assertTrue("grind-battles" in (macros.getValue("cat-scratchbook") as FlowScenario).uses)
+        assertTrue("back-to-field" in (macros.getValue("stop-game") as FlowScenario).uses)
+        for (n in listOf("daily-ads", "shop-ad")) assertTrue(n, (macros.getValue(n) as FlowScenario).uses.containsAll(listOf("open-menu", "start-game")))
+    }
+
+    @Test fun resultsCompareAsText() {
+        val env = object : Expr.Env {
+            override fun variable(name: String): Any? = if (name == "result") "on the field" else null
+            override fun call(name: String, args: List<Any?>): Any? = null
+        }
+        assertFalse(Expr.truthy(Expr.eval("result != 'on the field'", env)))
+        assertTrue(Expr.truthy(Expr.eval("result != 'menu open' and result != 'x'", env)))
     }
 
     @Test fun unknownStepsMarkAMacroUnsupported() {

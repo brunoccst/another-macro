@@ -1,0 +1,28 @@
+# Basic macro: press Back until the field shows (closes menus, pages and most dialogs).
+# Never presses Back on the field itself (that asks to close the game).
+name: back-to-field
+group: basic
+icon: power
+description: "Basic: press Back until the field shows (closes menus and dialogs). Other macros run it to start from the field."
+params:
+  max_backs: {default: 12, help: "give up after this many Backs"}
+screens: [field]
+unknown_timeout_s: 60
+
+setup:
+  - set: {backs: 0}
+
+handlers:
+  field:
+    - stop: on the field
+
+unknown:
+  # the game is landscape-only: a portrait app in front means it isn't
+  - if: not game_in_front()
+    then: [{stop: the game is not in front}]
+  - set: {backs: backs + 1}
+  - if: backs > max_backs
+    then: [{stop: "could not reach the field after {max_backs} Backs"}]
+  - status: "pressing Back to reach the field ({backs}/{max_backs})"
+  - back: true
+  - wait: 1.5

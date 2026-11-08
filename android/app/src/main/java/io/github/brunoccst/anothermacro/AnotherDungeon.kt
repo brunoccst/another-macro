@@ -81,7 +81,8 @@ object AnotherDungeon {
     }
 
     private class Run(val ctx: Context, val spec: Spec) {
-        val mobs = Battle.Setup.from(ctx.params, "skill_")
+        // the mobs: the skills set on the basic macro grind-battles (one place for every battle)
+        val mobs = Battle.Setup.from(ctx.optionsOf("grind-battles") + ctx.params.filterKeys { it.startsWith("skill_") }, "skill_")
         val bossSetup = if (ctx.bool("boss_setup")) Battle.Setup.from(ctx.params, "boss_skill_") else mobs
         var map = -1
         var shift = 0.0
