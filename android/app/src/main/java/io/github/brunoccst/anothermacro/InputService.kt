@@ -49,6 +49,10 @@ class InputService : AccessibilityService() {
         val words = when {
             "packageinstaller" in pkg -> listOf("update", "install")
             pkg == "com.android.systemui" -> listOf("start now", "start")
+            // Play Protect blocking the update: only dismiss it ("Got it" keeps the block; never
+            // "Install anyway", that is the user's call), so the game is usable again; the next
+            // automatic check tries the install again
+            pkg == "com.android.vending" -> listOf("got it")
             else -> return
         }
         fun attempt(left: Int) {
