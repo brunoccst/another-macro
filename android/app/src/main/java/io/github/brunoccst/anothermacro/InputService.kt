@@ -27,8 +27,8 @@ class InputService : AccessibilityService() {
         instance = this
         MacroLog.i("accessibility service connected (taps enabled)")
         if (MacroService.capture != null) showControls(true)
-        // the app was just replaced by an update Claude started: bring it back up by itself
-        if (System.currentTimeMillis() < Updater.resumeUntil(this) && MacroService.capture == null) {
+        // the app was just replaced by an unattended update (Claude or the automatic check): bring it back up
+        if (MacroService.capture == null && Updater.resumePending(this)) {
             main.postDelayed({
                 runCatching {
                     startActivity(android.content.Intent(this, MainActivity::class.java)

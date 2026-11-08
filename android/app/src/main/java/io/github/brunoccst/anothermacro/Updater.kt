@@ -88,6 +88,19 @@ object Updater {
      * restart it should turn capture and the connector back on. Set only by [update].
      */
     fun resumeUntil(c: Context) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).getLong("resume_until", 0)
+
+    /**
+     * True only right after an unattended update really replaced the app: inside the window AND this
+     * build is the one that was being installed. A failed or blocked install leaves nothing behind, so
+     * turning taps on later never starts screen capture by itself (the user turns it on).
+     */
+    fun resumePending(c: Context): Boolean {
+        val p = c.getSharedPreferences("updates", Context.MODE_PRIVATE)
+        if (System.currentTimeMillis() >= p.getLong("resume_until", 0)) return false
+        if (p.getString("installing_version", null) == BuildConfig.VERSION_NAME) return true
+        clearResume(c)
+        return false
+    }
     fun clearResume(c: Context) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).edit().remove("resume_until").remove("auto_confirm_until").apply()
 
     /**
@@ -114,9 +127,11 @@ object Updater {
             openInstallPermission(c)
             return "the phone doesn't let Another Macro install apps yet: the user must allow \"Install unknown apps\" for it once (the settings page is open on the phone)"
         }
+        // the user started it: every dialog and screen capture afterwards is theirs to answer
+        val until = if (userStarted) 0L else System.currentTimeMillis() + 4 * 60_000L
         c.getSharedPreferences("updates", Context.MODE_PRIVATE).edit()
-            .putLong("resume_until", System.currentTimeMillis() + 4 * 60_000L)
-            .putLong("auto_confirm_until", if (userStarted) 0L else System.currentTimeMillis() + 4 * 60_000L)
+            .putLong("resume_until", until)
+            .putLong("auto_confirm_until", until)
             .putString("installing_version", r.version)
             .putBoolean("resume_connector", PhoneConnector.isOn)
             .apply()
@@ -192,6 +207,8 @@ object Updater {
                 else -> {
                     val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                     MacroLog.e("update failed ($status): $message")
+                    // whatever went wrong, the app was not replaced: nothing may be pressed or resumed later
+                    clearResume(context)
                     // Play Protect said no: the automatic check must not loop on it (each try pops the
                     // dialog again and closes it); the user installs this one with "Install anyway"
                     if (message?.contains("VERIFICATION", ignoreCase = true) == true || status == PackageInstaller.STATUS_FAILURE_BLOCKED) {
