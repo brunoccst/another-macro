@@ -64,6 +64,7 @@ class PhoneTools(
 
     /** A tap Claude asked for, after the safety checks. */
     fun tap(p: Point, times: Int): ToolResult {
+        clearControls(p)?.let { return it }
         ctx.refresh()
         when (val v = ClaudeSafety.check(ctx, p)) {
             is ClaudeSafety.Verdict.Refuse -> return refused(v.reason)
@@ -82,6 +83,7 @@ class PhoneTools(
     }
 
     fun swipe(from: Point, to: Point, ms: Long): ToolResult {
+        clearControls(from)?.let { return it }
         ctx.refresh()
         when (val v = ClaudeSafety.check(ctx, from)) {
             is ClaudeSafety.Verdict.Refuse -> return refused(v.reason)
@@ -92,6 +94,51 @@ class PhoneTools(
         }
         ctx.drag(from, to, ms)
         return ToolResult("OK")
+    }
+
+    // --- the app's own floating buttons ---------------------------------------------------------
+
+    /** Is [p] (screen fractions) inside [r] (screen pixels)? */
+    private fun inside(p: Point, r: android.graphics.Rect?): Boolean {
+        if (r == null) return false
+        val (x, y) = p.toPx(capture.width, capture.height)
+        return r.contains(x.roundToInt(), y.roundToInt())
+    }
+
+    /**
+     * The unfolded floating buttons' window swallows every tap inside it (the empty part too,
+     * e.g. over the World Map's Expand button): fold them before a tap or swipe that starts
+     * there. Null = go ahead; a result = the point is under the ≡ handle itself.
+     */
+    private fun clearControls(p: Point): ToolResult? {
+        val input = InputService.instance ?: return null
+        val (folded, area) = input.controls() ?: return null
+        if (!inside(p, area)) return null
+        if (!folded) {
+            MacroLog.i("Claude: folded the floating buttons, they covered the tap")
+            input.controls(fold = true)
+            Thread.sleep(400) // the window shrinks on the next layout
+            if (!inside(p, input.controls()?.second)) return null
+        }
+        return ToolResult("that point is under this app's floating ≡ handle, not the game; ask the user to drag the handle elsewhere", isError = true)
+    }
+
+    /** Fold, unfold or report the app's floating buttons (connector tool floating_controls). */
+    fun floatingControls(input: Map<String, Any?>): ToolResult {
+        val svc = InputService.instance ?: return ToolResult("the floating buttons aren't on screen (taps are off)", isError = true)
+        val action = input["action"]?.toString() ?: "status"
+        val fold = when (action) {
+            "fold" -> true; "unfold" -> false; "status" -> null
+            else -> throw IllegalArgumentException("action must be fold, unfold or status")
+        }
+        if (svc.controls(fold) == null) return ToolResult("the floating buttons aren't on screen (screen capture is off)", isError = true)
+        if (fold != null) Thread.sleep(400)
+        val (folded, area) = svc.controls() ?: return ToolResult("the floating buttons are gone", isError = true)
+        val where = area?.let { r ->
+            val f = shotW.toDouble() / capture.width
+            " They cover [${(r.left * f).roundToInt()}, ${(r.top * f).roundToInt()}, ${(r.right * f).roundToInt()}, ${(r.bottom * f).roundToInt()}] in screenshot pixels."
+        }.orEmpty()
+        return ToolResult((if (folded) "folded (only the ≡ handle shows)." else "unfolded.") + where)
     }
 
     private fun refused(reason: String): ToolResult {

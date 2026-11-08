@@ -289,6 +289,27 @@ class InputService : AccessibilityService() {
         }
     }
 
+    /**
+     * Fold (true) or unfold (false) the floating buttons, or leave them as they are (null), and
+     * answer whether they are shown and folded, and the area they cover (screen pixels).
+     * Null when the buttons aren't on screen. Any thread.
+     */
+    fun controls(fold: Boolean? = null): Pair<Boolean, android.graphics.Rect?>? {
+        var out: Pair<Boolean, android.graphics.Rect?>? = null
+        val done = CountDownLatch(1)
+        main.post {
+            runCatching {
+                controls?.let { c ->
+                    if (fold != null && fold != c.folded) c.setFolded(fold)
+                    out = c.folded to c.area()
+                }
+            }
+            done.countDown()
+        }
+        done.await(2, TimeUnit.SECONDS)
+        return out
+    }
+
     companion object {
         @Volatile
         var instance: InputService? = null
