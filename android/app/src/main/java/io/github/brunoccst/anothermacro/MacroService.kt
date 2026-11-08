@@ -41,8 +41,7 @@ class MacroService : Service() {
         when (intent?.action) {
             ACTION_START_CAPTURE -> startCapture(intent)
             ACTION_RUN -> runMacro(intent)
-            ACTION_STOP_RUN -> { Runner.requestStop(); ClaudeAgent.requestStop(); PhoneConnector.requestStop(); MacroLog.i("stop requested") }
-            ACTION_CLAUDE -> runClaude(intent)
+            ACTION_STOP_RUN -> { Runner.requestStop(); PhoneConnector.requestStop(); MacroLog.i("stop requested") }
             ACTION_PAUSE -> Runner.setPaused(!Runner.isPaused)
             ACTION_RESTART -> restart()
             ACTION_SHUTDOWN -> shutdown()
@@ -132,22 +131,8 @@ class MacroService : Service() {
         }, "macro").apply { start() }
     }
 
-    /** Claude plays the task in the intent, on the worker thread (see ClaudeAgent). */
-    private fun runClaude(intent: Intent) {
-        val cap = capture ?: run { MacroLog.i("allow screen capture first"); return }
-        if (Runner.isRunning || worker?.isAlive == true) { MacroLog.i("a macro or Claude is already running"); return }
-        val task = intent.getStringExtra(EXTRA_TASK)?.trim().orEmpty()
-        if (task.isEmpty()) return
-        updateNotification("Claude is playing")
-        worker = Thread({
-            val reason = ClaudeAgent.run(this, task, cap)
-            updateNotification("Claude: ${reason.take(80)}")
-        }, "claude").apply { start() }
-    }
-
     private fun shutdown() {
         PhoneConnector.stopConnector("screen capture turned off")
-        ClaudeAgent.requestStop()
         Runner.requestStop()
         InputService.instance?.showControls(false)
         capture?.release(); capture = null
@@ -158,7 +143,6 @@ class MacroService : Service() {
 
     override fun onDestroy() {
         PhoneConnector.stopConnector("the app's service stopped")
-        ClaudeAgent.requestStop()
         Runner.requestStop()
         capture?.release(); capture = null
         projection?.stop(); projection = null
@@ -199,8 +183,6 @@ class MacroService : Service() {
         const val ACTION_SHUTDOWN = "shutdown"
         const val ACTION_PAUSE = "pause"
         const val ACTION_RESTART = "restart"
-        const val ACTION_CLAUDE = "claude"
-        const val EXTRA_TASK = "task"
         const val EXTRA_RESULT_CODE = "result_code"
         const val EXTRA_RESULT_DATA = "result_data"
         const val EXTRA_SCENARIO = "scenario"

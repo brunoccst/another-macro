@@ -10,10 +10,13 @@ import org.opencv.imgproc.Imgproc
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.math.roundToInt
 
+/** A tool's answer: text, or a JPEG screenshot (base64), and whether it failed. */
+class ToolResult(val text: String, val imageJpegB64: String? = null, val isError: Boolean = false)
+
 /**
- * What Claude can do on the phone, shared by the in-app agent (ClaudeAgent, the user's
- * API key) and the phone connector (PhoneConnector, the user's Claude chat through the
- * relay). Every tap and swipe goes through ClaudeSafety and Context.tap's purchase guard.
+ * What Claude can do on the phone through the phone connector (PhoneConnector, the user's
+ * Claude chat through the relay). Every tap and swipe goes through ClaudeSafety and
+ * Context.tap's purchase guard.
  *
  * Coordinates are screenshot pixels: screenshots are at most [shotMax] px on the long side.
  * [confirmTimeoutMs] is how long the Allow/Deny overlay waits before a risky tap is denied.
@@ -31,36 +34,6 @@ class PhoneTools(
     val shotW = minOf(shotMax, capture.width)
     val shotH = (capture.height * shotW.toDouble() / capture.width).roundToInt()
     private var refusals = 0
-
-    // --- the computer use toolset, mapped onto the phone ---------------------------------
-    fun computer(name: String, input: Map<String, Any?>): ToolResult = when (name) {
-        "screenshot" -> ToolResult("screenshot", screenshot(null))
-        "zoom" -> ToolResult("zoom", screenshot(box(input["region"]) ?: throw IllegalArgumentException("region [x0, y0, x1, y1] needed")))
-        "left_click" -> tap(point(input["coordinate"]), times = 1)
-        "double_click" -> tap(point(input["coordinate"]), times = 2)
-        "left_click_drag" -> swipe(point(input["start_coordinate"]), point(input["coordinate"]), 450)
-        "scroll" -> {
-            val from = input["coordinate"]?.let { point(it) } ?: Point(0.5, 0.5)
-            val amount = (num(input["scroll_amount"]) ?: 3.0).coerceIn(1.0, 10.0)
-            val d = (0.06 * amount).coerceAtMost(0.45)
-            // scrolling down moves the content up: the finger slides up
-            val to = when (input["scroll_direction"]) {
-                "down" -> Point(from.x, from.y - d)
-                "up" -> Point(from.x, from.y + d)
-                "left" -> Point(from.x + d, from.y)
-                "right" -> Point(from.x - d, from.y)
-                else -> throw IllegalArgumentException("scroll_direction must be up, down, left or right")
-            }
-            swipe(from, Point(to.x.coerceIn(0.01, 0.99), to.y.coerceIn(0.01, 0.99)), 400)
-        }
-        "key" -> {
-            val k = input["text"]?.toString()?.lowercase().orEmpty()
-            if (k in setOf("escape", "esc", "back", "browserback", "browser_back", "alt+left", "xf86back")) back()
-            else ToolResult("only Back is available on the phone (key: Escape)", isError = true)
-        }
-        "wait" -> wait(num(input["duration"]))
-        else -> ToolResult("$name is not available on the phone", isError = true)
-    }
 
     fun back(): ToolResult { ctx.back(); Thread.sleep(600); return ToolResult("OK (Android Back)") }
     fun wait(seconds: Double?): ToolResult { ctx.wait((seconds ?: 1.0).coerceIn(0.1, 60.0)); return ToolResult("OK") }
@@ -177,15 +150,6 @@ class PhoneTools(
         return s to given
     }
 
-    /** Run a macro to its end on this thread (the in-app agent). */
-    fun runMacro(input: Map<String, Any?>): ToolResult {
-        val (s, given) = macro(input)
-        MacroLog.status("Claude: running macro ${s.name}")
-        val reason = Runner.run(s, given, capture, app.assets, Scenarios.userTemplates(app))
-        if (stop.get()) throw StopScenario("stopped by the user")
-        return ToolResult("${s.name} stopped: $reason")
-    }
-
     /** Start a macro in the background and return at once (the connector: tool calls time out after 240 s). */
     fun startMacro(input: Map<String, Any?>): ToolResult {
         if (Runner.isRunning) return ToolResult("a macro is already running (${Runner.current}); see macro_status or stop_macro", isError = true)
@@ -252,14 +216,6 @@ class PhoneTools(
             if (runCatching { FlowScenario.parse(text, f).name }.getOrNull() == name) return ToolResult(text)
         }
         return ToolResult("no YAML macro named '$name' (built-in Kotlin macros have no YAML)", isError = true)
-    }
-
-    fun askUser(input: Map<String, Any?>): ToolResult {
-        @Suppress("UNCHECKED_CAST")
-        val options = (input["options"] as? List<Any?>)?.map { it.toString() }?.take(4)?.ifEmpty { null } ?: listOf("Yes", "No")
-        MacroLog.status("Claude: waiting for you to answer")
-        val i = AskOverlay.ask(input["question"]?.toString().orEmpty(), options, stop)
-        return ToolResult(if (i == null) "no answer (the user didn't respond)" else "the user answered: ${options[i]}")
     }
 
     // --- helpers ---------------------------------------------------------------------------

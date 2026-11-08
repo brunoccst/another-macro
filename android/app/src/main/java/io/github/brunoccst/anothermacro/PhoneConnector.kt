@@ -11,14 +11,14 @@ import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * The phone connector: lets the user's own Claude chat (claude.ai, the Claude apps)
- * control the game, with no Termux and no API key.
+ * The phone connector: lets the user's own Claude chat (claude.ai, the Claude apps,
+ * Claude Code threads) control the game, with no Termux and no API key.
  *
  * Claude's servers call a remote MCP server, which a phone can't host (no public address).
  * So the phone keeps a WebSocket open to the user's relay (relay/, a Cloudflare Worker on
  * their own account). The relay passes each MCP request from Claude to the phone and
  * the answer back. Requests run one at a time on one thread, through PhoneTools, so the
- * same safety layer as the in-app agent applies to every tap.
+ * same safety layer applies to every tap.
  *
  * Off by default; turns itself off after [IDLE_OFF_MS] without tool calls.
  */
@@ -166,7 +166,6 @@ object PhoneConnector {
 
     private fun call(t: PhoneTools, name: String, a: Map<String, Any?>): ToolResult {
         lastCall = System.currentTimeMillis()
-        if (ClaudeAgent.isRunning) return ToolResult("the in-app Claude agent is running on the phone; wait for it to finish", isError = true)
         if (Runner.isRunning && name in DRIVES) {
             return ToolResult("a macro (${Runner.current}) is running; use macro_status, or stop_macro first", isError = true)
         }
@@ -174,8 +173,8 @@ object PhoneConnector {
         if (!Runner.isRunning) MacroLog.show("Claude (connector): $name") // a running macro keeps its own status line
         return try {
             when (name) {
-                "screenshot" -> t.computer("screenshot", a)
-                "zoom" -> t.computer("zoom", a)
+                "screenshot" -> ToolResult("screenshot", t.screenshot(null))
+                "zoom" -> ToolResult("zoom", t.screenshot(t.box(a["region"]) ?: throw IllegalArgumentException("region [x0, y0, x1, y1] needed")))
                 "tap" -> t.tap(t.point(listOf(a["x"], a["y"])), if (a["double"] == true) 2 else 1)
                 "swipe" -> t.swipe(t.point(a["from"]), t.point(a["to"]), (t.num(a["ms"]) ?: 450.0).coerceIn(100.0, 6000.0).toLong())
                 "back" -> t.back()

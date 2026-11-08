@@ -34,7 +34,7 @@
             android:screenOrientation="sensorLandscape"
             android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
 
-        <!-- Claude: the user's own API key, a task, and Claude plays (see ClaudeAgent) -->
+        <!-- Claude: the phone connector settings (see PhoneConnector) -->
         <activity
             android:name=".ClaudeActivity"
             android:exported="false"

@@ -9,44 +9,12 @@ Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
 - **Macros:** `grind-battles`, `dogma-tower`, `start-game` (with the daily ad, `watch_ad`), `stop-game`,
   `cat-scratchbook` (`mode=read` reports today's clues and where the cats are; `mode=hunt`
   finds the cat on the current map). Pick one on the main screen; its params are remembered.
-- **Claude:** play a task or write a macro with your own Claude API key (see below).
+- **Claude:** let your own Claude chat play or write macros through the phone connector (see below).
 - **Floating controls** over the game (start/pause/stop/restart the last macro), shown
   while screen capture is on.
 
-## Claude in the app
-The **Claude** screen (button on the main screen) lets Claude play a task or write a new
-macro, with the user's **own Claude API key** (create one at platform.claude.com; usage is
-billed to that Console account). Signing in with a Claude Pro/Max subscription isn't
-possible: Anthropic doesn't allow third-party apps to offer claude.ai login.
-
-- **Key:** stored only on the phone, encrypted with an Android Keystore AES key
-  (`ClaudeSettings.kt`), sent only to `api.anthropic.com`, never logged. Nothing about keys
-  is in the repo or CI.
-- **Loop** (`ClaudeAgent.kt`): Messages API with `claude-opus-5-5` (default) or
-  `claude-sonnet-5-5`, adaptive thinking (effort low/medium/high), prompt caching, old
-  screenshots cleared server-side (context editing), server-side fallback on refusals.
-  Screens go to Claude as 1280-px-wide JPEGs; coordinates are scaled back.
-- **Tools** (`ClaudeRequest.kt`): the computer use toolset (`computer_toolset_20260801`:
-  screenshot, zoom, click, drag, scroll, key = Back, wait; keyboard and mouse-only members
-  off) plus `walk`, `read_text` (OCR), `find_template`, `list_templates`, `list_macros`,
-  `run_macro`, `save_template`, `save_macro`, `ask_user`, `launch_game`.
-- **Safety** (`ClaudeSafety.kt`, enforced in code, not just the prompt): taps only while
-  Another Eden is in front; every tap goes through `Context.tap`'s purchase guard; screens
-  offering a purchase are refused (a second purchase refusal stops the task); taps on
-  sell/discard/release/exchange/... or on screens mentioning Chronos Stones ask the user
-  first (`AskOverlay.kt`); each task stops at its step cap (default 150) and cost cap
-  (default US$3, from the API's usage numbers). The floating ■ and ❚❚ work as for macros.
-- **Cost:** roughly US$0.02 a step on Opus 5.5, US$0.01 on Sonnet 5.5 and under US$0.001
-  on Haiku 5.5, the economy choice for fine-tuning macros (list prices, estimates). Usage is
-  billed to the API key's Console account, not to a Claude Pro/Max subscription. Let Claude explore and write macros; macros then replay for free.
-- **Macros Claude writes** are ordinary `.yaml` files in the app's storage, listed with the
-  others; built-in macro names can't be replaced.
-- Screenshots go to Anthropic's API only while a task runs and aren't saved on the phone.
-- Unit tests (`gradle -p android testDebugUnitTest`, no device) check the request the SDK
-  sends and the safety word checks.
-
-## Phone connector (Claude from your chat, no API key)
-The Claude screen's **Use from your Claude chat** section turns the app into a remote MCP
+## Claude in the app: the phone connector
+The **Claude** screen's **Phone connector** section turns the app into a remote MCP
 server that the user adds in claude.ai as a custom connector, so their own Claude chat (any
 plan, any Claude app) can see and control the game. A phone has no public address, so the app
 keeps a WebSocket open to the user's relay, a small Cloudflare Worker on their own account
@@ -55,13 +23,19 @@ keeps a WebSocket open to the user's relay, a small Cloudflare Worker on their o
   without tool calls, and maps the connector's tools (screenshot, zoom, tap, swipe, back, wait,
   walk, read_text, find_template, list_templates, list_macros, read_macro, start_macro,
   macro_status, stop_macro, save_template, save_macro, launch_game) onto `PhoneTools`.
-- `PhoneTools.kt`: the tool code shared with the in-app agent, so both get the same safety
-  layer (game in front, purchase guard, Allow/Deny overlay, which here denies after 2 minutes
-  because connector tool calls time out at 240 s). Macros run in the background
-  (`start_macro` / `macro_status`) for the same reason.
+- `PhoneTools.kt`: the tools, behind the safety layer (`ClaudeSafety.kt`, enforced in code,
+  not just the prompt): taps only while Another Eden is in front; every tap goes through
+  `Context.tap`'s purchase guard; screens offering a purchase are refused (a second purchase
+  attempt turns the connector off); taps on sell/discard/release/exchange/... or on screens
+  mentioning Chronos Stones ask the user on the phone (`AskOverlay.kt`, denied after 2
+  minutes because connector tool calls time out at 240 s). Macros run in the background
+  (`start_macro` / `macro_status`) for the same reason; macros Claude writes are ordinary
+  `.yaml` files in the app's storage, and built-in macro names can't be replaced.
 - `McpServer.kt`: the MCP JSON-RPC (initialize, ping, tools/list, tools/call), unit tested.
 - Tokens: a phone token (app → relay) and a connector token (Claude → relay), 256-bit random,
-  stored encrypted with the Keystore key like the API key.
+  stored encrypted with an Android Keystore AES key (`ClaudeSettings.kt`), never logged.
+- Unit tests (`gradle -p android testDebugUnitTest`, no device): the MCP answers and the
+  safety word checks.
 
 ## Install / first run
 1. Download `another-macro.apk` from the latest GitHub Release and install it.
