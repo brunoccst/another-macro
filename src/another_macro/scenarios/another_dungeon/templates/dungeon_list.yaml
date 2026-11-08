@@ -1,0 +1,753 @@
+# Every Another Dungeon in the game (anothereden.wiki "Another Dungeon" page, saved 2026-11-08;
+# data only). 80 dungeons, the ones with both difficulties listed once. This is the to-do list
+# for one macro per dungeon; the maps and routes a macro walks go in dungeons.yaml (same id)
+# once the dungeon is mapped (skill map-dungeon). See docs/dungeon-macros-plan.md.
+#
+#   kind:  standard = Spacetime Rift door → era tab → the dungeon's label;
+#          otherlands / mysterious_vortex / kairos / sealed_realm = families with their own
+#          entry and rules (to be learned per family when the first one is mapped)
+#   era:   the era tab on the Another Dungeon map (none = not in an era tab)
+#   hard / very_hard: recommended level and the enemies' element/weapon weaknesses,
+#          resistances and absorptions (read from the wiki's icons: fire, earth, wind, water,
+#          thunder, shade, crystal; slash/blunt/pierce; "varies" = mixed per map)
+#   light_shadow: which points the completion's 3rd reward counts (light, shadow or both)
+#   drops: tomes/psalms (and All Treatises/Codices/Opuses at 0.1% each) the dungeon drops
+#   wiki:  the dungeon's own wiki page (map names, minimaps, chests, boss); the wiki blocks
+#          automated fetches, so Bruno saves the page and uploads it
+#   macro: the macros/dungeon/<name>.yaml that runs it, or todo
+#
+# Wiki notes for every dungeon: 1-2 key cards per run (green = Hard, red = Very Hard), 5 fights
+# per map before "The enemy has disappeared..." (more in some: every 2x green key dungeon,
+# Home's Lost Atelier, Toto Theater World), Very Hard unlocks after Chapter 25 and the Hard
+# clear (side-story dungeons unlock with their story), 10% White Key chance per run.
+moonlight_forest:
+  name: Moonlight Forest
+  kind: standard
+  era: Present
+  hard: {level: "21", weak: [fire], resist: [wind]}
+  very_hard: {level: "58", weak: [fire], resist: [earth, wind]}
+  light_shadow: [shadow]
+  drops: [Adept Fencer Tome, Amazon Tome, Battler Tome, Mercenary Tome, Monk Tome, Mystic Tome, Phalanx Tome, Sniper Tome, Sword Master Tome, Vanguard Tome, "Wu-Shu Tome", Raven Tengu Tome, Yaobikuni Tome, Wenefica Tome, Utsutahime Tome, Titan Tome, Sun Goddess Tome, Shadow Lord Tome, Murasame Tome, Lapin Tome, Golden Flower Cat Tome, All Treatises, All Codices, All Opuses]
+  wiki: Moonlight Forest (Another Dungeon)
+  macro: todo
+industrial_ruins:
+  name: Industrial Ruins
+  kind: standard
+  era: Future
+  hard: {level: "24", weak: [wind], resist: [earth]}
+  very_hard: {level: "60", weak: [wind], resist: [earth, water]}
+  light_shadow: [light]
+  drops: [Alchemist Tome, "Assassin's Fist Tome", Bard Tome, Berserker Tome, Channeler Tome, Diviner Tome, Druid Tome, Elven Knight Tome, Era Blaster Tome, Forerunner Tome, Master Fencer Tome, Patriarch Tome, Warlock Tome, Aqua Ruler Tome, Arachne Tome, Arcturus Tome, Armiger Tome, Taiyi Zhenren Tome, Slayer Tome, Brionac Tome, Kommandeur Tome, Hoplon Delta Tome, Empress Tome, Fenrir Tome, All Treatises, All Codices, All Opuses]
+  wiki: Industrial Ruins (Another Dungeon)
+  macro: todo
+transitory_time_space:
+  name: Transitory Time Space
+  kind: sealed_realm
+  era: none
+  hard: {level: "25"}
+  very_hard: {level: "60"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Sealed Realm/Transitory Time Space (Another Dungeon)
+  macro: todo
+nadara_volcano:
+  name: Nadara Volcano
+  kind: standard
+  era: Antiquity
+  hard: {level: "28", weak: [water], absorb: [fire]}
+  very_hard: {level: "62", weak: [water], resist: [wind], absorb: [fire]}
+  light_shadow: [light]
+  drops: [Bishop Tome, Dark Knight Tome, Elementalist Tome, Griffin Lance Tome, Marksman Tome, Rakshasa Tome, Rune Knight Tome, Troubadour Tome, Warrior Tome, Wizard Tome, Judgment Tome, Paradoxonikès Tome, Oraculum Tome, Nirvana Tome, Minstrel Tome, Sirenaria Tome, Mal’akh Tome, Lovely Chef Tome, Lazuli Medea Tome, Flame Lord Tome, Ullr Tome, Dragon Reaper Tome, Divinator Tome, Abyssal Devotee Tome, Bastet Tome, Mighty Maiden Tome, All Treatises, All Codices, All Opuses]
+  wiki: Nadara Volcano (Another Dungeon)
+  macro: todo
+man_eating_marsh:
+  name: "Man-eating Marsh"
+  kind: standard
+  era: Antiquity
+  hard: {level: "33", weak: [earth], resist: [water]}
+  very_hard: {level: "64", weak: [earth], resist: [fire, water]}
+  light_shadow: [shadow]
+  drops: [Amazon Tome, Bard Tome, Diviner Tome, Elementalist Tome, Forerunner Tome, Griffin Lance Tome, Mercenary Tome, Mystic Tome, Rakshasa Tome, Troubadour Tome, Warrior Tome, Octofighter Tome, Oracle Tome, Brave Storm Psalm, Carmilla Tome, Citrinitas Tome, Sukunahikona Tome, Dragon Ruler Tome, Dream Digger Tome, Isaiah Tome, Enma Tome, Protector Tome, Geomancer Tome, "Aima-Arravones Tome", Hermes Tome, Hrungnir Tome, All Treatises, All Codices, All Opuses]
+  wiki: "Man-eating Marsh (Another Dungeon)"
+  macro: todo
+miglance_labyrinth:
+  name: Miglance Labyrinth
+  kind: standard
+  era: Present
+  hard: {level: "33", weak: [earth], resist: [fire]}
+  very_hard: {level: "40", weak: [earth], resist: [fire]}
+  light_shadow: [light, shadow]
+  wiki: Miglance Labyrinth (Another Dungeon)
+  macro: todo
+sakis_dream_world:
+  name: "Saki's Dream World"
+  kind: standard
+  era: Future
+  hard: {level: "35", weak: [fire], resist: [earth]}
+  very_hard: {level: "42", weak: [fire], resist: [earth]}
+  light_shadow: [light, shadow]
+  wiki: "Saki's Dream World (Another Dungeon)"
+  macro: todo
+tower_of_time:
+  name: Tower of Time
+  kind: standard
+  era: Antiquity
+  hard: {level: "36", weak: [varies], resist: [varies]}
+  light_shadow: [shadow]
+  drops: [Adept Fencer Tome, Druid Tome, Elven Knight Tome, Era Blaster Tome, Marksman Tome, Patriarch Tome, Phalanx Tome, Rune Knight Tome, Troubadour Tome, Vanguard Tome, Warlock Tome]
+  wiki: Tower of Time (Another Dungeon)
+  macro: todo
+dragon_palace:
+  name: Dragon Palace
+  kind: standard
+  era: Antiquity
+  hard: {level: "40", weak: [earth], resist: [water]}
+  very_hard: {level: "50", weak: [earth], resist: [water]}
+  light_shadow: [light, shadow]
+  wiki: Dragon Palace (Another Dungeon)
+  macro: todo
+miglance_castle:
+  name: Miglance Castle
+  kind: standard
+  era: Present
+  hard: {level: "40"}
+  very_hard: {level: "66"}
+  light_shadow: [light]
+  drops: ["Assassin's Fist Tome", Battler Tome, Berserker Tome, Bishop Tome, Dark Knight Tome, Master Fencer Tome, Monk Tome, Sniper Tome, Sword Master Tome, Wizard Tome, "Wu-Shu Tome", Watatsumi Tome, Crimson Knight Tome, Galeforce Tome, Grand General Tome, Kagutsuchi Tome, Magister Tome, Mailed Sheep Tome, String Puller Tome, Oathmaiden Tome, Paladin Tome, All Treatises, All Codices, All Opuses]
+  wiki: Miglance Castle (Another Dungeon)
+  macro: todo
+xeno_domain:
+  name: "Xeno-Domain"
+  kind: standard
+  era: Future
+  hard: {level: "44", weak: [fire], resist: [wind]}
+  very_hard: {level: "68", weak: [fire], resist: [earth, wind]}
+  light_shadow: [light]
+  drops: [Alchemist Tome, Bard Tome, Channeler Tome, Elven Knight Tome, Master Fencer Tome, Mystic Tome, Patriarch Tome, Rune Knight Tome, Sniper Tome, Vanguard Tome, Warrior Tome, Wizard Tome, Detective Tome, Narukami Tome, Inspector Tome, Gratinel Psalm, Dual Persona Tome, Dragoon Tome, Dáinsleif Tome, Bladesaint Tome, Alphecca Tome, Admiral Tome, Agent Tome, All Treatises, All Codices, All Opuses]
+  wiki: "Xeno-Domain (Another Dungeon)"
+  macro: todo
+mementos:
+  name: Mementos
+  kind: standard
+  era: Present
+  hard: {level: "45"}
+  very_hard: {level: "65"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Mementos (Another Dungeon)
+  macro: todo
+corridor_of_time_layers:
+  name: Corridor of Time Layers
+  kind: standard
+  era: Future
+  hard: {level: "48"}
+  light_shadow: [shadow]
+  drops: [Amazon Tome, Berserker Tome, Bishop Tome, Diviner Tome, Druid Tome, Monk Tome, Phalanx Tome, Rakshasa Tome, Sword Master Tome, Troubadour Tome]
+  wiki: Corridor of Time Layers (Another Dungeon)
+  macro: todo
+darkrealm_wyrmkings_domain:
+  name: "Darkrealm - Wyrmking's Domain"
+  kind: standard
+  era: Antiquity
+  hard: {level: "50", resist: [shade]}
+  very_hard: {level: "70", resist: [shade]}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Darkrealm - Wyrmking's Domain (Another Dungeon)"
+  macro: todo
+dream_flower:
+  name: Dream Flower
+  kind: standard
+  era: Antiquity
+  hard: {level: "50", resist: [earth, water, wind]}
+  very_hard: {level: "70", resist: [earth, water, wind]}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Dream Flower (Another Dungeon)
+  macro: todo
+dreamslip_tower_of_time:
+  name: Dreamslip Tower of Time
+  kind: standard
+  era: Present
+  hard: {level: "50"}
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Dreamslip Tower of Time (Another Dungeon)
+  macro: todo
+edge_of_contradiction:
+  name: Edge of Contradiction
+  kind: standard
+  era: Present
+  hard: {level: "50"}
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Edge of Contradiction (Another Dungeon)
+  macro: todo
+evils_nest_arena:
+  name: "Evil's Nest Arena"
+  kind: standard
+  era: Future
+  hard: {level: "50"}
+  very_hard: {level: "70", weak: [pierce]}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Evil's Nest Arena (Another Dungeon)"
+  macro: todo
+forgotten_tale_unborn_visions:
+  name: "Forgotten Tale: Unborn Visions"
+  kind: standard
+  era: Antiquity
+  hard: {level: "50"}
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Forgotten Tale: Unborn Visions (Another Dungeon)"
+  macro: todo
+path_of_avarice:
+  name: Path of Avarice
+  kind: standard
+  era: Antiquity
+  hard: {level: "50"}
+  very_hard: {level: "70", weak: [pierce, fire, thunder, water]}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Path of Avarice (Another Dungeon)
+  macro: todo
+riftbreaker_ark:
+  name: Riftbreaker Ark
+  kind: standard
+  era: Future
+  hard: {level: "50"}
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Riftbreaker Ark (Another Dungeon)
+  macro: todo
+wyrmrest_isle_dragons_depths:
+  name: "Wyrmrest Isle - Dragon's Depths"
+  kind: standard
+  era: Antiquity
+  hard: {level: "50"}
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Wyrmrest Isle - Dragon's Depths (Another Dungeon)"
+  macro: todo
+wyrmrest_isle_quadra_wastes:
+  name: "Wyrmrest Isle - Quadra Wastes"
+  kind: standard
+  era: Antiquity
+  hard: {level: "50"}
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Wyrmrest Isle - Quadra Wastes (Another Dungeon)"
+  macro: todo
+otherlands_baruoki_area_1:
+  name: "Otherlands: Baruoki Region. Area 1"
+  kind: otherlands
+  era: Present
+  hard: {level: "50-70", weak: [fire, slash, wind], resist: [earth, water, wind]}
+  light_shadow: [light, shadow]
+  wiki: "Otherlands: Baruoki Region/Area 1"
+  macro: todo
+otherlands_elzion_area_1:
+  name: "Otherlands: Elzion Region. Area 1"
+  kind: otherlands
+  era: Future
+  hard: {level: "50-70", weak: [pierce, wind], resist: [pierce, earth, slash]}
+  light_shadow: [light, shadow]
+  wiki: "Otherlands: Elzion Region/Area 1"
+  macro: todo
+otherlands_ratle_area_1:
+  name: "Otherlands: Ratle Region. Area 1"
+  kind: otherlands
+  era: Antiquity
+  hard: {level: "50-70", weak: [earth, fire, slash, water], resist: [fire, water, wind]}
+  light_shadow: [light, shadow]
+  wiki: "Otherlands: Ratle Region/Area 1"
+  macro: todo
+mayus_dream_world:
+  name: "Mayu's Dream World"
+  kind: standard
+  era: Future
+  hard: {level: "52", weak: [wind]}
+  very_hard: {level: "62", weak: [wind]}
+  light_shadow: [light]
+  wiki: "Mayu's Dream World (Another Dungeon)"
+  macro: todo
+the_riftbreaker:
+  name: The Riftbreaker
+  kind: standard
+  era: Future
+  hard: {level: "52", weak: [earth], resist: [water]}
+  very_hard: {level: "70", weak: [earth], resist: [fire, water]}
+  light_shadow: [light]
+  drops: [Adept Fencer Tome, "Assassin's Fist Tome", Channeler Tome, Dark Knight Tome, Elementalist Tome, Era Blaster Tome, Forerunner Tome, Griffin Lance Tome, Marksman Tome, Mercenary Tome, Warlock Tome, "Wu-Shu Tome", Gray Hound Tome, "Xeno-Legion Psalm", White Knight Tome, Nemesis Tome, Negotiator Tome, Hierophant Tome, Grim Reaper Tome, Drago Mirage Tome, Budding Dawn Tome, Boyne Lord Tome, Arc Knight Tome, Anomaly Debris Tome, All Treatises, All Codices, All Opuses]
+  wiki: The Riftbreaker (Another Dungeon)
+  macro: todo
+tower_of_stars:
+  name: Tower of Stars
+  kind: standard
+  era: Antiquity
+  hard: {level: "55", weak: [wind], resist: [earth]}
+  light_shadow: [shadow]
+  drops: [Master Fencer Tome, "Wu-Shu Tome", Wizard Tome, Warrior Tome, Warlock Tome, Vanguard Tome, Troubadour Tome, Sword Master Tome, Sniper Tome, Rune Knight Tome, Rakshasa Tome, Phalanx Tome, Patriarch Tome, Mystic Tome, Monk Tome, Mercenary Tome, Adept Fencer Tome, Marksman Tome, Griffin Lance Tome, Forerunner Tome, Era Blaster Tome, Elven Knight Tome, Elementalist Tome, Druid Tome, Diviner Tome, Dark Knight Tome, Bishop Tome, Berserker Tome, Bard Tome, "Assassin's Fist Tome", Amazon Tome, Alchemist Tome]
+  wiki: Tower of Stars (Another Dungeon)
+  macro: todo
+otherlands_baruoki_area_2:
+  name: "Otherlands: Baruoki Region. Area 2"
+  kind: otherlands
+  era: Present
+  hard: {level: "55-75", weak: [fire, slash], resist: [wind]}
+  light_shadow: [light, shadow]
+  wiki: "Otherlands: Baruoki Region/Area 2"
+  macro: todo
+otherlands_elzion_area_2:
+  name: "Otherlands: Elzion Region. Area 2"
+  kind: otherlands
+  era: Future
+  hard: {level: "55-75", weak: [pierce, fire, wind], resist: [earth]}
+  light_shadow: [light, shadow]
+  wiki: "Otherlands: Elzion Region/Area 2"
+  macro: todo
+otherlands_ratle_area_2:
+  name: "Otherlands: Ratle Region. Area 2"
+  kind: otherlands
+  era: Antiquity
+  hard: {level: "55-75", weak: [earth, fire, slash, water], resist: [fire, water, wind]}
+  light_shadow: [light, shadow]
+  wiki: "Otherlands: Ratle Region/Area 2"
+  macro: todo
+dogma_tower:
+  name: Dogma Tower
+  kind: standard
+  era: Present
+  hard: {level: "60", weak: [fire], resist: [pierce]}
+  very_hard: {level: "65", weak: [fire], resist: [pierce]}
+  light_shadow: [light, shadow]
+  wiki: Dogma Tower (Another Dungeon)
+  macro: dogma-tower
+otherlands_baruoki_area_3:
+  name: "Otherlands: Baruoki Region. Area 3"
+  kind: otherlands
+  era: Present
+  hard: {level: "60-80", weak: [fire, slash, wind], resist: [earth, water, wind], absorb: [wind]}
+  light_shadow: [light, shadow]
+  wiki: "Otherlands: Baruoki Region/Area 3"
+  macro: todo
+otherlands_baruoki_area_4:
+  name: "Otherlands: Baruoki Region. Area 4"
+  kind: otherlands
+  era: Present
+  hard: {level: "60-80", weak: [magic, wind]}
+  light_shadow: [shadow]
+  wiki: "Otherlands: Baruoki Region/Area 4"
+  macro: todo
+otherlands_elzion_area_3:
+  name: "Otherlands: Elzion Region. Area 3"
+  kind: otherlands
+  era: Future
+  hard: {level: "60-80", weak: [pierce, fire, wind], resist: [earth]}
+  light_shadow: [light, shadow]
+  wiki: "Otherlands: Elzion Region/Area 3"
+  macro: todo
+otherlands_elzion_area_4:
+  name: "Otherlands: Elzion Region. Area 4"
+  kind: otherlands
+  era: Future
+  hard: {level: "60-80", weak: [wind], resist: [earth, water]}
+  light_shadow: [light]
+  wiki: "Otherlands: Elzion Region/Area 4"
+  macro: todo
+otherlands_ratle_area_3:
+  name: "Otherlands: Ratle Region. Area 3"
+  kind: otherlands
+  era: Antiquity
+  hard: {level: "60-80", weak: [water], resist: [earth, fire, blunt, wind], absorb: [fire]}
+  light_shadow: [light, shadow]
+  wiki: "Otherlands: Ratle Region/Area 3"
+  macro: todo
+otherlands_ratle_area_4:
+  name: "Otherlands: Ratle Region. Area 4"
+  kind: otherlands
+  era: Antiquity
+  hard: {level: "60-80", weak: [water], resist: [wind], absorb: [fire]}
+  light_shadow: [light]
+  wiki: "Otherlands: Ratle Region/Area 4"
+  macro: todo
+beast_kings_castle:
+  name: "Beast King's Castle"
+  kind: standard
+  era: Present
+  hard: {level: "64"}
+  very_hard: {level: "72"}
+  light_shadow: [shadow]
+  drops: [Alchemist Tome, Amazon Tome, "Assassin's Fist Tome", Bard Tome, Bishop Tome, Channeler Tome, Diviner Tome, Druid Tome, Elementalist Tome, Elven Knight Tome, Forerunner Tome, Master Fencer Tome, Mystic Tome, Sniper Tome, Warlock Tome, Walkure Tome, Sovereign Psalm, Skadi Tome, Shadowcaster Tome, Ninetails Fox Tome, Indra Tome, All Treatises, All Codices, All Opuses]
+  wiki: "Beast King's Castle (Another Dungeon)"
+  macro: todo
+burning_beast_kings_castle:
+  name: "Burning Beast King's Castle"
+  kind: standard
+  era: Present
+  hard: {level: "65"}
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  drops: [Griffin Lance Tome, "Areth's Diamond Tome"]
+  wiki: "Burning Beast King's Castle (Another Dungeon)"
+  macro: burning-beast-kings-castle
+former_kms_hq:
+  name: Former KMS HQ
+  kind: standard
+  era: Future
+  hard: {level: "65"}
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  wiki: Former KMS HQ (Another Dungeon)
+  macro: todo
+ruins_of_rucyana:
+  name: Ruins of Rucyana
+  kind: standard
+  era: Present
+  hard: {level: "66"}
+  light_shadow: [light, shadow]
+  wiki: Ruins of Rucyana (Another Dungeon)
+  macro: todo
+snake_liver_damaku:
+  name: Snake Liver Damaku
+  kind: standard
+  era: Present
+  hard: {level: "66", resist: [wind]}
+  very_hard: {level: "72", resist: [wind]}
+  light_shadow: [shadow]
+  drops: [Adept Fencer Tome, Battler Tome, Berserker Tome, Dark Knight Tome, Griffin Lance Tome, Marksman Tome, Mercenary Tome, Monk Tome, Phalanx Tome, Rakshasa Tome, Rune Knight Tome, Sword Master Tome, Vanguard Tome, Warrior Tome, Wizard Tome, "Wu-Shu Tome", Atlas Tome, Demon Reaper Tome, Djinn Tome, Dragon Bearer Psalms, Eurydice Tome, Juggernaut Tome, Soul Bringer Tome, All Treatises, All Codices, All Opuses]
+  wiki: Snake Liver Damaku (Another Dungeon)
+  macro: todo
+proto_eden:
+  name: Proto Eden
+  kind: standard
+  era: Future
+  hard: {level: "70"}
+  very_hard: {level: "90"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Proto Eden (Another Dungeon)
+  macro: todo
+toto_dreamland:
+  name: Toto Dreamland
+  kind: standard
+  era: Future
+  hard: {level: "70"}
+  very_hard: {level: "76"}
+  light_shadow: [light]
+  drops: [Alchemist Tome, "Assassin's Fist Tome", Bard Tome, Berserker Tome, Channeler Tome, Diviner Tome, Druid Tome, Elven Knight Tome, Era Blaster Tome, Forerunner Tome, Patriarch Tome, Sniper Tome, Ameretat Tome, Stormbreaker Tome, Lila Blitz Tome, Grimoire Tome, Brawler Psalm, All Treatises, All Codices, All Opuses]
+  wiki: Toto Dreamland (Another Dungeon)
+  macro: todo
+antiquity_garulea_continent:
+  name: Antiquity Garulea Continent
+  kind: standard
+  era: Antiquity
+  hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices]
+  wiki: Antiquity Garulea Continent (Another Dungeon)
+  macro: todo
+edax_unigan:
+  name: Edax Unigan
+  kind: standard
+  era: none
+  hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices]
+  wiki: Edax Unigan (Another Dungeon)
+  macro: todo
+entrana:
+  name: Entrana
+  kind: standard
+  era: none
+  hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices]
+  wiki: Entrana (Another Dungeon)
+  macro: todo
+future_garulea_continent:
+  name: Future Garulea Continent
+  kind: standard
+  era: Future
+  hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices]
+  wiki: Future Garulea Continent (Another Dungeon)
+  macro: todo
+jasmond:
+  name: Jasmond
+  kind: standard
+  era: none
+  hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices]
+  wiki: Jasmond (Another Dungeon)
+  macro: todo
+omegapolis:
+  name: Omegapolis
+  kind: standard
+  era: none
+  hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices]
+  wiki: Omegapolis (Another Dungeon)
+  macro: todo
+present_garulea_continent:
+  name: Present Garulea Continent
+  kind: standard
+  era: Present
+  hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices]
+  wiki: Present Garulea Continent (Another Dungeon)
+  macro: todo
+underworld:
+  name: Underworld
+  kind: standard
+  era: none
+  hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [Dragon Bearer Psalms, All Treatises, All Codices]
+  wiki: Underworld (Another Dungeon)
+  macro: todo
+mysterious_vortex_warped_cochlea:
+  name: "Mysterious Vortex - Warped Cochlea"
+  kind: mysterious_vortex
+  era: none
+  very_hard: {level: "?"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Mysterious Vortex - Warped Cochlea (Another Dungeon)"
+  macro: todo
+mysterious_vortex_dust_city:
+  name: "Mysterious Vortex - Dust City"
+  kind: mysterious_vortex
+  era: none
+  very_hard: {level: "50-70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Mysterious Vortex (Another Dungeon) Chp 4-6"
+  macro: todo
+mysterious_vortex_isle_of_gospel:
+  name: "Mysterious Vortex - Isle of Gospel"
+  kind: mysterious_vortex
+  era: none
+  very_hard: {level: "50-70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Mysterious Vortex (Another Dungeon) Chp 4-6"
+  macro: todo
+mysterious_vortex_land_of_ro:
+  name: "Mysterious Vortex - Land of Ro"
+  kind: mysterious_vortex
+  era: none
+  very_hard: {level: "50-70", weak: [fire]}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Mysterious Vortex (Another Dungeon) Chp 4-6/Land of Ro"
+  macro: todo
+mysterious_vortex_the_tower_argentauri:
+  name: "Mysterious Vortex - The Tower Argentauri"
+  kind: mysterious_vortex
+  era: none
+  very_hard: {level: "50-70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Mysterious Vortex (Another Dungeon) Chp 1-3/The Tower Argentauri"
+  macro: todo
+mysterious_vortex_thundering_fortress:
+  name: "Mysterious Vortex - Thundering Fortress"
+  kind: mysterious_vortex
+  era: none
+  very_hard: {level: "50-70", weak: [thunder]}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Mysterious Vortex (Another Dungeon) Chp 1-3/Thundering Fortress"
+  macro: todo
+mysterious_vortex_tower_of_selection:
+  name: "Mysterious Vortex - Tower of Selection"
+  kind: mysterious_vortex
+  era: none
+  very_hard: {level: "50-70", weak: [earth, wind]}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Mysterious Vortex (Another Dungeon) Chp 1-3"
+  macro: todo
+forest_of_forgetfulness:
+  name: Forest of Forgetfulness
+  kind: standard
+  era: Present
+  very_hard: {level: "65", weak: [slash], absorb: [earth, fire, water, wind]}
+  light_shadow: [light]
+  drops: [Princess Psalm]
+  wiki: Forest of Forgetfulness (Another Dungeon)
+  macro: todo
+hanging_garden:
+  name: Hanging Garden
+  kind: standard
+  era: Future
+  very_hard: {level: "67"}
+  light_shadow: [light]
+  drops: [Melodist Psalm]
+  wiki: Hanging Garden (Another Dungeon)
+  macro: todo
+astral_ruins:
+  name: Astral Ruins
+  kind: standard
+  era: Present
+  very_hard: {level: "70", weak: [fire]}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Astral Ruins (Another Dungeon)
+  macro: todo
+burning_kurosagi_castle:
+  name: Burning Kurosagi Castle
+  kind: standard
+  era: Present
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Burning Kurosagi Castle (Another Dungeon)
+  macro: todo
+meigoku:
+  name: Meigoku
+  kind: standard
+  era: Present
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Meigoku (Another Dungeon)
+  macro: todo
+what_the_planet_dreamt:
+  name: What the Planet Dreamt
+  kind: standard
+  era: Present
+  very_hard: {level: "70"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: What the Planet Dreamt (Another Dungeon)
+  macro: todo
+homes_lost_atelier:
+  name: "Home's Lost Atelier"
+  kind: standard
+  era: none
+  very_hard: {level: "72", weak: [pierce, earth, thunder], resist: [shade, water]}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: "Home's Lost Atelier (Another Dungeon)"
+  macro: todo
+ephemeral_time_space:
+  name: Ephemeral Time Space
+  kind: sealed_realm
+  era: none
+  very_hard: {level: "75"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Sealed Realm/Ephemeral Time Space (Another Dungeon)
+  macro: todo
+antiquity_zerberiya_continent_crystal:
+  name: "Antiquity Zerberiya Continent: Crystal"
+  kind: standard
+  era: Antiquity
+  very_hard: {level: "80", weak: [crystal]}
+  light_shadow: [light, shadow]
+  drops: [Abyssal Devotee Tome, "Aima-Arravones Tome", Isaiah Tome, Judgment Tome, Mal’akh Tome, Bard Tome, Bishop Tome, Mercenary Tome, Mystic Tome, Rakshasa Tome, Rune Knight Tome, Sword Master Tome, Wizard Tome, All Treatises, All Codices, All Opuses]
+  wiki: "Antiquity Zerberiya Continent: Crystal (Another Dungeon)"
+  macro: todo
+antiquity_zerberiya_continent_thunder:
+  name: "Antiquity Zerberiya Continent: Thunder"
+  kind: standard
+  era: Antiquity
+  very_hard: {level: "80", weak: [shade], absorb: [thunder]}
+  light_shadow: [light, shadow]
+  drops: ["Aima-Arravones Tome", Abyssal Devotee Tome, Isaiah Tome, Judgment Tome, Mal’akh Tome, Wizard Tome, Warlock Tome, Troubadour Tome, Sword Master Tome, Rune Knight Tome, Rakshasa Tome, Mystic Tome, Mercenary Tome, Master Fencer Tome, Bishop Tome, Bard Tome, Amazon Tome, All Treatises, All Codices, All Opuses]
+  wiki: "Antiquity Zerberiya Continent: Thunder (Another Dungeon)"
+  macro: todo
+city_of_lost_paradise:
+  name: City of Lost Paradise
+  kind: standard
+  era: Antiquity
+  very_hard: {level: "80", weak: [crystal]}
+  light_shadow: [light, shadow]
+  drops: [Abyssal Devotee Tome, "Aima-Arravones Tome", Isaiah Tome, Judgment Tome, Mal’akh Tome, All Treatises, All Codices, All Opuses]
+  wiki: City of Lost Paradise (Another Dungeon)
+  macro: todo
+iscariot:
+  name: Iscariot
+  kind: standard
+  era: Future
+  very_hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [Admiral Tome, Dragoon Tome, Dual Persona Tome, Geomancer Tome, Stormbreaker Tome, All Treatises, All Codices, All Opuses]
+  wiki: Iscariot (Another Dungeon)
+  macro: todo
+sapient_complex_midnight:
+  name: "Sapient Complex: Midnight"
+  kind: standard
+  era: Future
+  very_hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [Dragoon Tome, Dual Persona Tome, Geomancer Tome, Admiral Tome, Stormbreaker Tome, Mercenary Tome, Wizard Tome, Warlock Tome, Troubadour Tome, Sword Master Tome, Rune Knight Tome, Rakshasa Tome, Mystic Tome, Master Fencer Tome, Bishop Tome, Bard Tome, Amazon Tome, All Treatises, All Codices, All Opuses]
+  wiki: "Sapient Complex: Midnight (Another Dungeon)"
+  macro: todo
+sea_of_ice:
+  name: Sea of Ice
+  kind: standard
+  era: Antiquity
+  very_hard: {level: "80", weak: [crystal]}
+  light_shadow: [light, shadow]
+  drops: [Sirenaria Tome, All Treatises, All Codices, All Opuses]
+  wiki: Sea of Ice (Another Dungeon)
+  macro: todo
+temporal_surveillance_ship_kairos_blood_ritual_site:
+  name: "Temporal Surveillance Ship Kairos - Blood Ritual Site"
+  kind: kairos
+  era: Present
+  very_hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Kairos (Another Dungeon)/Blood Ritual Site
+  macro: todo
+temporal_surveillance_ship_kairos_holy_meadow:
+  name: "Temporal Surveillance Ship Kairos - Holy Meadow"
+  kind: kairos
+  era: Present
+  very_hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Kairos (Another Dungeon)/Holy Meadow
+  macro: todo
+temporal_surveillance_ship_kairos_institute_of_despair:
+  name: "Temporal Surveillance Ship Kairos - Institute of Despair"
+  kind: kairos
+  era: Present
+  very_hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Kairos (Another Dungeon)/Institute of Despair
+  macro: todo
+temporal_surveillance_ship_kairos_ruins_of_glory:
+  name: "Temporal Surveillance Ship Kairos - Ruins of Glory"
+  kind: kairos
+  era: Present
+  very_hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Kairos (Another Dungeon)/Ruins of Glory
+  macro: todo
+toto_theater_world:
+  name: Toto Theater World
+  kind: standard
+  era: Future
+  very_hard: {level: "80"}
+  light_shadow: [light, shadow]
+  drops: [All Treatises, All Codices, All Opuses]
+  wiki: Toto Theater World (Another Dungeon)
+  macro: todo
