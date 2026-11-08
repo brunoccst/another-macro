@@ -41,7 +41,8 @@ keeps a WebSocket open to the user's relay, a small Cloudflare Worker on their o
 - `PhoneConnector.kt`: the socket (reconnects with backoff), turns itself off after 30 minutes
   without tool calls, and maps the connector's tools (screenshot, zoom, tap, swipe, back, wait,
   walk, read_text, find_template, list_templates, list_macros, read_macro, start_macro,
-  macro_status, stop_macro, save_template, save_macro, launch_game) onto `PhoneTools`.
+  macro_status, stop_macro, save_template, save_macro, launch_game, floating_controls) onto
+  `PhoneTools`. tap and swipe fold the floating buttons first when their window covers the point.
 - `PhoneTools.kt`: the tools, behind the safety layer (`ClaudeSafety.kt`, enforced in code,
   not just the prompt): taps only while Another Eden is in front; every tap goes through
   `Context.tap`'s purchase guard; screens offering a purchase are refused (a second purchase
