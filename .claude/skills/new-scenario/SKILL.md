@@ -43,12 +43,21 @@ rough `region:`, but no `ref`/`file` yet.
 
 ## 3. Write the scenario
 
+For the Android app (what users run), the macro is a YAML file in `macros/<group>/<name>.yaml`
+(format at the top of `android/.../Flow.kt`, see `macros/README.md`). Build it from the basic
+macros instead of copying their steps: `run: {macro: watch-ad, until: [<your screen>]}` right
+after tapping any "watch" button, `run: {macro: grind-battles, params: {battles: N}}` or
+`fight: skill_` for battles. Keep it generic: party slots and skill numbers, never character
+names. `python -m pytest -q tests/test_macro_pack.py` checks the macro set; a push publishes it
+to phones (no app update needed).
+
+For the Python tool:
+
 - `src/another_macro/scenarios/<snake_name>/__init__.py` with `SCENARIO = ...`
 - `screens` ordered from most specific (popups, results) to most general (field)
 - handlers do one step and return; count progress in `ctx.stats`; stop with `ctx.stop(...)`
-- shared behaviour (auto-battling, clearing results) can be copied from
-  `scenarios/grind_battles` or moved into a helper module when a second scenario
-  needs it
+- shared behaviour (auto-battling, clearing results) goes into a helper module
+  when a second scenario needs it, rather than being copied
 
 ## 4. Test offline
 

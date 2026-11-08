@@ -123,8 +123,13 @@ object Groups {
         Group("dungeon", "Another Dungeon", R.drawable.ic_keycard),
         Group("farm", "Farming", R.drawable.ic_swords),
         Group("game", "Game", R.drawable.ic_power),
+        // building blocks other macros run (watch-ad, battle, grind-battles, ...)
+        Group("basic", "Basic", R.drawable.ic_blocks),
         Group("other", "Other", R.drawable.ic_puzzle),
+        // saved by Claude through the phone connector, not from the macro library
+        Group("custom", "Custom", R.drawable.ic_wrench),
     )
+    private val OTHER = ALL.first { it.id == "other" }
 
     /** A macro's own icon (`icon:` in its yaml), else its group's. */
     fun icon(m: Scenario): Int = when (m.icon) {
@@ -138,9 +143,36 @@ object Groups {
         else -> of(m.group).iconRes
     }
 
-    fun of(id: String) = ALL.firstOrNull { it.id == id } ?: ALL.last()
+    fun of(id: String) = ALL.firstOrNull { it.id == id } ?: OTHER
 
     /** Macros by group, in the groups' order. */
     fun sort(macros: List<Scenario>): List<Pair<Group, List<Scenario>>> =
         ALL.map { g -> g to macros.filter { of(it.group).id == g.id } }.filter { it.second.isNotEmpty() }
+}
+
+/**
+ * The macros the user chose to use (Macros page). The others stay in their group's tab but
+ * leave the "In use" tab and the floating buttons' list. Stored as the names switched off,
+ * so new macros start in use.
+ */
+object MacroChoice {
+    private const val PREFS = "macro_choice"
+    private const val KEY = "not_used"
+
+    fun notUsed(c: Context): Set<String> =
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet(KEY, emptySet()).orEmpty()
+
+    fun isUsed(c: Context, name: String) = name !in notUsed(c)
+
+    fun setUsed(c: Context, name: String, used: Boolean) {
+        val set = notUsed(c).toMutableSet()
+        if (used) set -= name else set += name
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet(KEY, set).apply()
+    }
+
+    /** The macros in use (all of them if none is: an empty list helps nobody). */
+    fun used(c: Context, macros: List<Scenario>): List<Scenario> {
+        val off = notUsed(c)
+        return macros.filter { it.name !in off }.ifEmpty { macros }
+    }
 }

@@ -13,7 +13,7 @@ import android.widget.TextView
 /**
  * The live log: one or two lines at the bottom right saying what the running macro is doing
  * (MacroLog.status). Only while a macro runs, and only when switched on (in the app or with
- * the overlay's 💬 button). Taps go through it to the game, and the macro ignores the text
+ * System → Settings). Taps go through it to the game, and the macro ignores the text
  * it covers (Context.readText), so it can sit over a button.
  */
 object LiveLog {
@@ -102,7 +102,7 @@ class LiveLogOverlay(private val service: InputService) {
             val w = (maxOf(dm.widthPixels, dm.heightPixels) * 0.38).toInt()
             params.width = w
             text.maxWidth = w
-            if (text.text.isNullOrEmpty()) text.text = MacroLog.status.ifEmpty { "starting…" }
+            if (text.text.isNullOrEmpty()) text.text = MacroLog.shown.ifEmpty { "starting…" }
             runCatching { wm.addView(text, params); shown = true }.onFailure { MacroLog.e("could not show the live log", it) }
             text.post { updateArea() }
         } else if (!want && shown) hide()

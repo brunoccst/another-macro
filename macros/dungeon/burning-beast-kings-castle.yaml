@@ -1,0 +1,44 @@
+# One run of the Burning Beast King's Castle Another Dungeon (Present era, Parallel Time Layer):
+# every map's enemies first (until "The enemies have disappeared"), then every chest by the map's fixed path, then the boss.
+# Stops when the run ends, and says so when a White Key opened the Phantom Crystal Dimension.
+# Never buys keys: a purchase offer stops it. Start it next to the Another Dungeon door in the
+# Spacetime Rift (or inside the castle).
+name: burning-beast-kings-castle
+group: dungeon
+icon: chest
+description: "Another Dungeon: Burning Beast King's Castle (Ethereal Dewdrop). All enemies, all chests, then the boss."
+templates: [another_dungeon]
+params:
+  key: {default: green, choices: [green, red], help: "key to use: green = Hard, red = Very Hard"}
+  # every dungeon macro: how many runs in a row, and what to do when a White Key drops
+  runs: {default: 1, choices: [1, 2, 3, 5, 10, all], help: "runs in a row; all = until the chosen key runs out"}
+  white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
+  cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
+  clear_max_battles: {default: 15, help: "every map's enemies are fought until the game says \"The enemies have disappeared\"; this is a safety cap on fights per map in case the banner is missed (0 = no cap)"}
+  # the mobs are fought with the skills set on the basic macro battle (one place for every battle)
+  boss_setup: {default: false, type: bool, help: "fight the boss with its own skills (below) instead of the ones set on the battle macro"}
+  boss_skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 1: auto or skill 1-4"}
+  boss_skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 2: auto or skill 1-4"}
+  boss_skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 3: auto or skill 1-4"}
+  boss_skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 4: auto or skill 1-4"}
+screens: [field, battle_command, battle, battle_result]
+unknown_timeout_s: 120
+
+# the whole run is one action (AnotherDungeon.kt); it starts from the field or inside the dungeon
+handlers:
+  field: [{another_dungeon: burning_beast_kings_castle}]
+  battle_command: [{another_dungeon: burning_beast_kings_castle}]
+  battle: [{another_dungeon: burning_beast_kings_castle}]
+  battle_result: [{another_dungeon: burning_beast_kings_castle}]
+
+# nothing recognised for a few seconds (the boss gate's question, the area map left open):
+# the run itself looks at the screen's text; the area map closes with a tap at the bottom
+setup: [{set: {unknown_ticks: 0}}]
+unknown:
+  - set: {unknown_ticks: unknown_ticks + 1}
+  - if: unknown_ticks >= 8
+    then:
+      - set: {unknown_ticks: 0}
+      - if: text_has('Proceed') or text_has('major trial')
+        then: [{another_dungeon: burning_beast_kings_castle}]
+        else: [{tap: [0.5, 0.93]}, {wait: 1.5}]

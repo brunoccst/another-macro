@@ -1,0 +1,100 @@
+# The Shop's daily commercial: Menu → Shop → play button (top-left) → 10 free Chronos Stones.
+# The commercial itself is the basic macro watch-ad (watch it, close it, take the reward); this
+# one only gets to the shop, taps the play button, and closes the shop when there's none left.
+# Only the play button, OK/Close of the reward dialogs and the shop's X are ever tapped:
+# nothing in the shop itself is touched, so nothing can be bought.
+name: shop-ad
+group: daily
+icon: chest
+description: "Watch the Shop's daily commercial (Menu → Shop → play button) for 10 Chronos Stones."
+templates: [start_game, daily_ads, shop_ad]
+params:
+  ad_wait_s: {default: 45, help: "how long to let a commercial play before pressing back to close it"}
+  max_ads: {default: 3, help: "commercials to watch at most (the play button stays while there are more today)"}
+  connecting_wait_s: {default: 30, help: "how long to wait out the shop's \"Connecting\" overlay before deciding there is no commercial button"}
+screens: [premium_thanks, shop_ok_dialog, shop, menu_open, field]
+unknown_timeout_s: 120
+
+setup:
+  - set: {game_starts: 0, done: false, menu_taps: 0, shop_misses: 0, shop_since: 0}
+
+handlers:
+  shop:
+    - if: done or stats.ads_started >= max_ads
+      then:
+        - status: "closing the shop"
+        - tap: shop_close_button
+        - set: {done: true}
+        - wait: 2
+      else:
+        - if: found('shop_watch_button')
+          then:
+            - count: ads_started
+            - status: "shop commercial {stats.ads_started}/{max_ads}"
+            - tap: shop_watch_button
+            - set: {shop_misses: 0}
+            - wait: 3
+            # the commercial and its reward dialog: the basic macro; back here once it's over
+            - run: {macro: watch-ad, params: {ad_wait_s: ad_wait_s}, until: [shop]}
+            - log: "shop commercial {stats.ads_started}: {result}"
+          else:
+            # The shop often opens under a "Connecting" overlay that hides the play button.
+            # A missing button only means "already watched today" once the shop has settled:
+            # wait while "Connecting" is on screen (up to connecting_wait_s), then look a few more times.
+            - if: shop_since == 0
+              then: [{set: {shop_since: now()}}]
+            - set: {shop_misses: shop_misses + 1, connecting: text_has('connecting')}
+            - if: shop_misses < 4 or (connecting and now() - shop_since < connecting_wait_s)
+              then:
+                - status: "{pick(1 + connecting, 'looking for the commercial button', 'the shop is still connecting: waiting for the commercial button')}"
+                - wait: 2
+              else:
+                - status: "no commercial button in the shop (already watched today?)"
+                - tap: shop_close_button
+                - wait: 2
+                - set: {done: true}
+
+  # left over from a commercial watch-ad didn't see end (e.g. started by hand)
+  premium_thanks:   # subscribers: no commercial
+    - count: premium_skips
+    - status: "premium: no commercial, closing the thank-you"
+    - tap: dialog_close_button
+    - set: {done: true}
+    - wait: 2
+
+  shop_ok_dialog:   # "Thank you for watching. You have been rewarded 10 Chronos Stones."
+    - count: ad_rewards
+    - status: "shop commercial watched: {screen_text(0.25, 0.8)}"
+    - tap: dialog_ok_button
+    - wait: 2
+
+  menu_open:
+    - if: done
+      then:
+        - back: true
+        - wait: 1.5
+        - stop: "shop: {stats.ad_rewards} commercial reward(s) this run ({stats.ads_started} started; none = already watched today)"
+    - set: {menu_taps: menu_taps + 1}
+    - if: menu_taps > 4
+      then: [{stop: "the Shop button didn't open the shop"}]
+    - status: "menu: opening the Shop"
+    - tap: menu_shop_button
+    - set: {shop_since: 0, shop_misses: 0}
+    - wait: 3
+
+  field:
+    - if: done
+      then: [{stop: "shop: {stats.ad_rewards} commercial reward(s) this run ({stats.ads_started} started; none = already watched today)"}]
+    - run: open-menu
+    - if: result != 'menu open'
+      then: [{stop: "{result}"}]
+
+unknown:
+  # the game isn't open: the basic macro start-game opens it (once)
+  - if: not game_in_front()
+    then:
+      - if: game_starts > 0
+        then: [{stop: "the game is not in front"}]
+      - set: {game_starts: game_starts + 1}
+      - run: start-game
+  - wait: 2

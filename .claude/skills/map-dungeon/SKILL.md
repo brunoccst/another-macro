@@ -95,7 +95,7 @@ python -m pytest -q tests/test_dungeon_routes.py
 The tests replay every path on the layout: each flick must start on stairs, each leg must
 end by its chest/exit, and the stored paths must match the layout and `walk.yaml`.
 
-Copy `macros/dogma-tower.yaml` to `macros/<dungeon>.yaml`, change `name`,
+Copy `macros/dungeon/dogma-tower.yaml` to `macros/dungeon/<dungeon>.yaml`, change `name`,
 `description` and the `another_dungeon:` id. Keep `group: dungeon` and the standard
 dungeon params every dungeon macro has: `key`, `runs` (1-10 or all: until the key counter on
 the dungeon panel reads 0), `white_key` (phantom / stop / keep_going), `cat_ticket`,
@@ -117,7 +117,7 @@ isn't interrupted by battles).
   "Items Obtained … Continue to skip? End / Skip" box. Always **End**; Skip spends
   another key and ticket (that's where a repeat-runs loop would go). Older dungeons
   (e.g. Miglance Castle) don't show it.
-- **Light/Shadow**: a character who earns Light/Shadow points there (Poporo in Dogma
+- **Light/Shadow**: a character who earns Light/Shadow points there (e.g. in Dogma
   Tower) adds an animation after the rewards; it closes with a tap like the rest.
 - **White Key** (10% per run, also with Skip): a notification at the end; the Another
   Dungeon door then shines and the "???" tab glows. The run stops and says so.
@@ -157,7 +157,7 @@ isn't interrupted by battles).
 
 Seen live on 2026-11-02: door "!" → "???" tab (glows) → "Phantom Crystal Dimension" → Hard
 ("Using White Key×1", Back / Skip / Move: never Skip) → Move. No enemies, no area map; the
-bottom bar has only Menu and Rewards. World I (Aldo's room): no chests; the king cat and the
+bottom bar has only Menu and Rewards. World I (the first room): no chests; the king cat and the
 notice board open the paw stamp menu (Cancel); drawer/window/bed are portals (no
 confirmation, a white fade). Other worlds: the standard red-and-gold chests (their "!" shows
 only when close), one cat with a "!" (a paw stamp), and portals (a "!" on scenery). The Cape:

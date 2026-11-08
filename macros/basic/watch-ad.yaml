@@ -1,0 +1,112 @@
+# Basic macro: watch the commercial that was just started, close it, take its reward.
+# Other macros run it right after tapping a "watch" button (`run: watch-ad`), then go on:
+#   - while the commercial plays (nothing of the game on screen): wait until it shows
+#     "Reward granted" (the ad's own sign that it counted) and press Back then; without that
+#     sign, after ad_wait_s press Back, again every retry_s if it doesn't close
+#   - one watch can be a group of 1 to 3 commercials in a row: each one is closed the same way
+#     (backs and the timer start again for the next), until the game's reward shows
+#   - the game's own screen back after the commercials (the app sees the ad's activity go):
+#     stop, so the caller opens its chest / goes on; never press Back on the game's screens
+#   - the field (the commercials closed straight back to the game, seen for field_s): stop; never press Back on
+#     the field ("Close the app?"), and if that dialog shows anyway, answer No
+#   - the game's reward dialog (or the premium thank-you): tap OK / Close and stop
+#   - the caller's own screen back (its `until:`): stop there
+# Never taps inside a commercial: only Back closes it.
+name: watch-ad
+group: basic
+icon: chest
+description: "Basic: watch the commercial that just started, close it and take the reward. Other macros run it after tapping a watch button."
+templates: [start_game, daily_ads]
+params:
+  ad_wait_s: {default: 45, help: "how long to let a commercial play before pressing Back to close it"}
+  retry_s: {default: 15, help: "after a Back that didn't end it (or the next commercial in a row), press Back again after this long"}
+  max_backs: {default: 10, help: "give up after this many Backs (a group of up to 3 commercials takes a few each)"}
+  field_s: {default: 5, help: "stop once the field has shown this long (a short field between two commercials of a group doesn't count)"}
+screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, close_app, field]
+unknown_timeout_s: 300
+
+setup:
+  - set: {since: now(), backs: 0, tries: 0, last_back: 0, granted: false, ads: 1, field_since: 0, ad_seen: false, gone_since: 0}
+  - status: "watching the commercial (closing it after {ad_wait_s}s)"
+
+handlers:
+  premium_thanks:   # premium subscribers: a thank-you instead of the commercial
+    - count: premium_skips
+    - tap: dialog_close_button
+    - wait: 2
+    - stop: "premium: no commercial"
+
+  ad_reward:        # "Thank you for watching" (the reward goes to the inbox)
+    - count: ad_rewards
+    - status: "commercial watched: {screen_text(0.25, 0.8)}"
+    - tap: dialog_ok_button
+    - wait: 1.5
+    - stop: rewarded
+
+  reward_confirm:   # "Rewards received: ..."
+    - count: ad_rewards
+    - status: "commercial watched: {screen_text(0.25, 0.8)}"
+    - tap: confirm_ok_button
+    - wait: 1.5
+    - stop: rewarded
+
+  ok_dialog:        # "Thank you for watching. You have been rewarded ..."
+    - count: ad_rewards
+    - status: "commercial watched: {screen_text(0.25, 0.8)}"
+    - tap: dialog_ok_button
+    - wait: 1.5
+    - stop: rewarded
+
+  close_app:        # a Back too many reached the field: keep the game open
+    - tap: [0.412, 0.568]
+    - wait: 1.5
+    - stop: "back on the field"
+
+  field:            # the commercials closed straight back to the game (or a pause inside a group)
+    - if: field_since == 0
+      then: [{set: {field_since: now()}}]
+    - if: now() - field_since >= field_s
+      then: [{stop: "back on the field"}]
+    - wait: 1
+
+unknown:
+  - set: {field_since: 0}
+  # the app sees which activity is in front: a commercial is an activity of its own, so once
+  # one was seen, the game's own activity back for a few seconds = the group is over (the
+  # caller goes on: the chest, the shop, ...)
+  - if: ad_in_front()
+    then: [{set: {ad_seen: true, gone_since: 0}}]
+  - if: ad_seen and not ad_in_front()
+    then:
+      - if: gone_since == 0
+        then: [{set: {gone_since: now()}}]
+      - if: now() - gone_since >= 3
+        then: [{stop: "the commercials are over ({ads} in this group)"}]
+      - wait: 1
+    else:
+      # a Back on "Reward granted" that left a commercial on screen: the next one of the group,
+      # with its own timer
+      - if: granted and now() - last_back > 4 and not text_has('reward granted')
+        then:
+          - set: {since: now(), tries: 0, granted: false, ads: ads + 1}
+          - status: "watching commercial {ads} of this group"
+      # the commercial is playing: let it run, then Back closes it; never tap inside it.
+      # "Reward granted" (top right) = it counted: close it now instead of waiting ad_wait_s
+      - if: now() - last_back > 5 and text_has('reward granted')
+        then:
+          - if: backs >= max_backs
+            then: [{stop: "the commercials didn't close after {backs} Backs"}]
+          - set: {backs: backs + 1, last_back: now(), granted: true}
+          - count: ad_backs
+          - log: "commercial {ads} says reward granted: pressing Back ({backs}/{max_backs})"
+          - back: true
+          - wait: 2
+      - if: now() - since > ad_wait_s + tries * retry_s
+        then:
+          - if: backs >= max_backs
+            then: [{stop: "the commercials didn't close after {backs} Backs"}]
+          - set: {backs: backs + 1, tries: tries + 1, last_back: now()}
+          - count: ad_backs
+          - log: "commercial {ads} is still on after {ad_wait_s + (tries - 1) * retry_s}s: pressing Back ({backs}/{max_backs})"
+          - back: true
+      - wait: 2

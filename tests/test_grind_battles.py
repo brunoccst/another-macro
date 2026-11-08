@@ -13,8 +13,8 @@ class FakeGame:
 
     SCREENS = {
         "field": ["field_menu_button"],
-        "battle_command": ["battle_hud", "battle_attack_button", "battle_auto_button"],
-        "battle_command_set": ["battle_hud", "battle_attack_button", "battle_auto_button", "verdanta_last_skill_selected"],
+        "battle_command": ["battle_hud", "battle_attack_button", "battle_speed_button"],
+        "battle_command_set": ["battle_hud", "battle_attack_button", "battle_speed_button", "slot1_skill_selected"],
         "skill_list": ["battle_hud", "skill_list_open"],
         "battle_anim": ["battle_hud"],
         "battle_result": ["result_banner"],
@@ -102,10 +102,11 @@ def test_grinds_until_battle_limit(scenario, tmp_path):
     holds = [a for a in device.actions if a[0] == "swipe"]
     # walking slides left, then right (virtual stick), starting left by default
     assert holds[0][3] < holds[0][1] and holds[1][3] > holds[1][1]
-    # it pressed Auto, not Attack, when Auto was available
+    # it never tapped the ">>" battle speed toggle, only Attack
     w, h = game.size
-    taps_in_battle = [a for a in device.actions if a[0] == "tap" and a[2] / h < 0.85 and a[2] / h > 0.7 and a[1] / w < 0.2]
-    assert taps_in_battle
+    speed_taps = [a for a in device.actions if a[0] == "tap" and 0.7 < a[2] / h < 0.8 and 0.05 < a[1] / w < 0.13]
+    assert not speed_taps
+    assert len(game.attacks) == 3
 
 
 def test_skill_mode_sets_skill_once_per_battle_then_attacks(scenario, tmp_path):

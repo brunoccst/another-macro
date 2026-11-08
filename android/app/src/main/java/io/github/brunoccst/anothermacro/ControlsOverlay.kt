@@ -2,6 +2,7 @@ package io.github.brunoccst.anothermacro
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -17,8 +18,10 @@ import android.widget.TextView
 import kotlin.math.abs
 
 /**
- * Floating controls over the game: the selected macro (tap to pick another), and
- * start / pause-resume / stop / restart it without leaving the game. Drawn as an accessibility overlay (no
+ * Floating controls over the game: the selected macro (tap it to pick another: tabs like the
+ * Macros page, in a list that scrolls), and start / pause-resume / stop / restart it without
+ * leaving the game, and ⌂ swaps between this app and the game: it opens this app, or, when this
+ * app is already in front, brings the game back (no trip through the home screen). Drawn as an accessibility overlay (no
  * "draw over other apps" permission needed). Drag the handle to move it; tap
  * the handle to fold the buttons away. The handle's colour shows the state:
  * grey = idle, green = running, amber = paused.
@@ -37,14 +40,22 @@ class ControlsOverlay(private val service: InputService) {
     private val playPause = round("▶", Color.parseColor("#2E7D32"))
     private val stop = round("■", Color.parseColor("#C62828"))
     private val restart = round("↻", Color.parseColor("#1565C0"))
-    private val camera = round("📷", Color.parseColor("#6A1B9A"))
-    /** Live log on/off: a line at the bottom right saying what the macro is doing. */
-    private val liveToggle = round("💬", Color.GRAY)
+    private val home = round("⌂", Color.parseColor("#455A64"))
     private val liveLog = LiveLogOverlay(service)
     private val liveListener: () -> Unit = { main.post { refresh() } }
     /** The selected macro (what ▶ starts); tap it to pick another. */
     private val selected = pill("—")
-    private val picker = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END; visibility = View.GONE }
+    /** The macro picker: tabs, then the tab's macros in a list that scrolls. */
+    private val picker = LinearLayout(service).apply {
+        orientation = LinearLayout.VERTICAL
+        visibility = View.GONE
+        background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Color.parseColor("#E61A1F26")) }
+        setPadding(dp(6), dp(6), dp(6), dp(6))
+    }
+    private val pickerTabs = LinearLayout(service).apply { orientation = LinearLayout.HORIZONTAL }
+    private val pickerList = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL }
+    private val prefs = service.getSharedPreferences("overlay", Context.MODE_PRIVATE)
+    private var tab: String = prefs.getString("tab", IN_USE) ?: IN_USE
     private val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
@@ -61,19 +72,20 @@ class ControlsOverlay(private val service: InputService) {
     private var wasRunning = false
 
     init {
+        picker.addView(android.widget.HorizontalScrollView(service).apply {
+            isHorizontalScrollBarEnabled = false
+            addView(pickerTabs)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        // the list scrolls on its own: at most about half the screen's height
+        val maxH = (minOf(service.resources.displayMetrics.widthPixels, service.resources.displayMetrics.heightPixels) * 0.55).toInt()
+        picker.addView(MaxHeightScrollView(service, maxH).apply { isVerticalScrollBarEnabled = true; addView(pickerList) },
+            LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(4) })
         buttons.addView(selected)
-        // (a vertical LinearLayout's default child width is MATCH_PARENT, which would clamp the names)
-        buttons.addView(picker, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        buttons.addView(picker, LinearLayout.LayoutParams(dp(PICKER_W), LinearLayout.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.END })
         buttons.addView(playPause)
         buttons.addView(stop)
         buttons.addView(restart)
-        // 📷 and 💬 side by side: a taller column would run off a landscape screen
-        buttons.addView(LinearLayout(service).apply {
-            orientation = LinearLayout.HORIZONTAL
-            addView(liveToggle)
-            addView(camera)
-            (liveToggle.layoutParams as LinearLayout.LayoutParams).rightMargin = dp(6)
-        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
+        buttons.addView(home)
         root.addView(handle)
         root.addView(buttons, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         root.alpha = 0.85f
@@ -86,8 +98,7 @@ class ControlsOverlay(private val service: InputService) {
         }
         stop.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_STOP_RUN)) }
         restart.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_RESTART)) }
-        camera.setOnClickListener { captureTemplate() }
-        liveToggle.setOnClickListener { LiveLog.setEnabled(service, !LiveLog.enabled(service)) }
+        home.setOnClickListener { if (MainActivity.inFront) openGame() else openApp() }
         selected.setOnClickListener { togglePicker() }
         dragAndFold()
         refresh()
@@ -116,6 +127,21 @@ class ControlsOverlay(private val service: InputService) {
         service.startService(LastRun.intent(service, last.first, last.second))
     }
 
+    /** Bring the app's own screen to the front (the macro, if any, keeps running). */
+    private fun openApp() {
+        if (picker.visibility == View.VISIBLE) { picker.visibility = View.GONE; relayout() }
+        runCatching {
+            service.startActivity(Intent(service, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        }.onFailure { MacroLog.e("could not open the app", it) }
+    }
+
+    /** Back to the game from this app's screen (the macro, if any, keeps running). */
+    private fun openGame() {
+        if (picker.visibility == View.VISIBLE) { picker.visibility = View.GONE; relayout() }
+        if (!service.launchApp(ClaudeSafety.GAME)) MacroLog.i("Another Eden isn't installed")
+    }
+
     /** The overlay window keeps the size it was first laid out with: re-measure after the content changes. */
     private fun relayout() {
         root.post {
@@ -131,58 +157,77 @@ class ControlsOverlay(private val service: InputService) {
         }
     }
 
-    /** Show or hide the list of macros; picking one makes it what ▶ starts. */
+    /** Show or hide the macro picker; picking one makes it what ▶ starts. */
     private fun togglePicker() {
         if (picker.visibility == View.VISIBLE) { picker.visibility = View.GONE; relayout(); return }
         if (Runner.isRunning) { MacroLog.i("stop the macro before choosing another"); return }
-        picker.removeAllViews()
-        val current = LastRun.load(service)?.first
-        for ((group, list) in Groups.sort(runCatching { Scenarios.all(service) }.getOrDefault(emptyList()))) {
-          // the group's name above its macros
-          picker.addView(TextView(service).apply {
-              text = " ${group.title}"
-              setCompoundDrawablesWithIntrinsicBounds(service.getDrawable(group.iconRes)?.apply { setBounds(0, 0, dp(14), dp(14)) }, null, null, null)
-              compoundDrawablePadding = dp(4)
-              setTextColor(Color.parseColor("#B0BEC5"))
-              textSize = 11f
-              setPadding(dp(10), dp(6), dp(10), dp(1))
-              layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { gravity = Gravity.END }
-          })
-          for (sc in list) {
-            picker.addView(pill((if (sc.name == current) "● " else "○ ") + sc.name).apply {
-                setOnClickListener {
-                    // keep the saved params when re-picking the same macro; a new one starts with its defaults
-                    val params = LastRun.load(service)?.takeIf { it.first == sc.name }?.second ?: emptyMap()
-                    LastRun.save(service, sc.name, params)
-                    picker.visibility = View.GONE
-                    MacroLog.i("selected macro: ${sc.name}")
-                    refresh()
-                }
-            })
-          }
-        }
+        drawPicker()
         picker.visibility = View.VISIBLE
         relayout()
     }
 
-    /** Grab the game screen (without these buttons) and open the crop screen. */
-    private fun captureTemplate() {
-        if (Runner.isRunning) { MacroLog.i("stop the macro before capturing a template"); return }
-        root.visibility = View.INVISIBLE
-        main.postDelayed({
-            Thread {
-                val path = TemplateCapture.saveScreen(service)
-                main.post {
-                    root.visibility = View.VISIBLE
-                    if (path == null) MacroLog.i("no screen capture yet (allow screen capture first)")
-                    else service.startActivity(
-                        android.content.Intent(service, CaptureActivity::class.java)
-                            .putExtra(CaptureActivity.EXTRA_PATH, path)
-                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
-                    )
+    /** Tabs ("In use", then the groups, as on the Macros page) and the tab's macros. */
+    private fun drawPicker() {
+        val all = runCatching { Scenarios.all(service) }.getOrDefault(emptyList())
+        val groups = Groups.sort(all)
+        if (tab != IN_USE && groups.none { it.first.id == tab }) tab = IN_USE
+        pickerTabs.removeAllViews()
+        for ((id, title) in listOf(IN_USE to "In use") + groups.map { it.first.id to it.first.title }) {
+            val sel = id == tab
+            pickerTabs.addView(TextView(service).apply {
+                text = title
+                textSize = 11.5f
+                setTextColor(if (sel) Color.parseColor("#0B1A22") else Color.WHITE)
+                background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(if (sel) Color.parseColor("#4FC3F7") else Color.parseColor("#DD37474F")) }
+                setPadding(dp(10), dp(5), dp(10), dp(5))
+                setOnClickListener {
+                    tab = id
+                    prefs.edit().putString("tab", id).apply()
+                    drawPicker()
+                    relayout()
                 }
-            }.start()
-        }, 350) // let the hidden buttons leave the screen first
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(4) }
+            })
+        }
+        pickerList.removeAllViews()
+        val sections = if (tab == IN_USE) Groups.sort(MacroChoice.used(service, all)) else groups.filter { it.first.id == tab }
+        if (sections.isEmpty()) pickerList.addView(TextView(service).apply {
+            text = if (all.isEmpty()) "No macros yet: open the app once with internet to download them." else "No macros here."
+            setTextColor(Color.parseColor("#B0BEC5"))
+            textSize = 12f
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+        })
+        val current = LastRun.load(service)?.first
+        for ((group, list) in sections) {
+            // the group's name above its macros (the "In use" tab mixes groups)
+            if (tab == IN_USE) pickerList.addView(TextView(service).apply {
+                text = " ${group.title}"
+                setCompoundDrawablesWithIntrinsicBounds(service.getDrawable(group.iconRes)?.apply { setBounds(0, 0, dp(14), dp(14)) }, null, null, null)
+                compoundDrawablePadding = dp(4)
+                setTextColor(Color.parseColor("#B0BEC5"))
+                textSize = 11f
+                setPadding(dp(6), dp(6), dp(6), dp(1))
+            })
+            for (sc in list) {
+                pickerList.addView(TextView(service).apply {
+                    text = (if (sc.name == current) "● " else "○ ") + sc.name
+                    setTextColor(Color.WHITE)
+                    textSize = 12.5f
+                    isSingleLine = true
+                    ellipsize = android.text.TextUtils.TruncateAt.END
+                    setPadding(dp(10), dp(8), dp(10), dp(8))
+                    background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(if (sc.name == current) Color.parseColor("#DD1D3A4A") else Color.parseColor("#DD37474F")) }
+                    setOnClickListener {
+                        // the macro's own options, as last chosen in the app
+                        LastRun.save(service, sc.name, MacroParams.load(service, sc.name))
+                        picker.visibility = View.GONE
+                        MacroLog.i("selected macro: ${sc.name}")
+                        refresh()
+                    }
+                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { setMargins(0, dp(2), 0, dp(2)) }
+                })
+            }
+        }
     }
 
     private fun refresh() {
@@ -199,7 +244,6 @@ class ControlsOverlay(private val service: InputService) {
             else -> Color.GRAY
         }
         (handle.background as GradientDrawable).setColor(color)
-        (liveToggle.background as GradientDrawable).setColor(if (LiveLog.enabled(service)) Color.parseColor("#00838F") else Color.GRAY)
         playPause.text = if (Runner.isRunning && !Runner.isPaused) "❚❚" else "▶"
         selected.label("▸ " + (Runner.current?.takeIf { Runner.isRunning } ?: LastRun.load(service)?.first ?: "pick a macro"))
         relayout()
@@ -263,4 +307,19 @@ class ControlsOverlay(private val service: InputService) {
     }
 
     private fun dp(v: Int) = (v * density).toInt()
+
+    /** A ScrollView no taller than [maxH] px (the overlay window sizes itself to its content). */
+    private class MaxHeightScrollView(c: Context, private val maxH: Int) : android.widget.ScrollView(c) {
+        override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+            val mode = View.MeasureSpec.getMode(heightMeasureSpec)
+            val size = View.MeasureSpec.getSize(heightMeasureSpec)
+            val cap = if (mode == View.MeasureSpec.UNSPECIFIED) maxH else minOf(maxH, size)
+            super.onMeasure(widthMeasureSpec, View.MeasureSpec.makeMeasureSpec(cap, View.MeasureSpec.AT_MOST))
+        }
+    }
+
+    companion object {
+        private const val IN_USE = "in_use"
+        private const val PICKER_W = 230
+    }
 }

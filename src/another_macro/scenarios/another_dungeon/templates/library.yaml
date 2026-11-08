@@ -10,6 +10,18 @@ templates:
     region: [0.05, 0.1, 0.9, 0.6]
     threshold: 0.8
     scales: [0.9, 1.0, 1.1, 1.2]   # the door's bubble is drawn ~10% larger than a chest's
+  field_interact_bubble_core:
+    notes: >-
+      The inside of the "!" bubble only (no background around it), for bright or busy places where the
+      full bubble scores low (Throne Room's light pillar and fires). Checked by its parts: the "!" bar and
+      dot must be bright and the grey beside and under the bar darker, which rules out look-alikes.
+    file: field_interact_bubble_core.png
+    ref: [2400, 1080]
+    region: [0.05, 0.1, 0.9, 0.6]
+    threshold: 0.85
+    scales: [0.9, 1.0, 1.1, 1.2]
+    bright: [[0.432, 0.048, 0.159, 0.548], [0.432, 0.905, 0.159, 0.071]]   # x, y, w, h in the template
+    dim: [[0.273, 0.048, 0.091, 0.548], [0.659, 0.048, 0.091, 0.548], [0.432, 0.69, 0.159, 0.143]]
   ground_arrow_bars:
     notes: Round sign (bars icon) on the ground at a staircase to another map; tap it to take it.
     file: ground_arrow_bars.png
@@ -22,4 +34,11 @@ templates:
     ref: [2400, 1080]
     region: [0.05, 0.15, 0.8, 0.8]
     threshold: 0.8
+  door_sign:
+    notes: Round sign (door icon) over a grand staircase/doorway to the next map (Burning Beast King's Castle); tap it to take it. Upscaled from a 1024-wide screenshot, hence the lower threshold.
+    file: door_sign.png
+    ref: [2400, 1080]
+    region: [0.05, 0.1, 0.8, 0.9]
+    threshold: 0.72
+    scales: [0.9, 1.0, 1.1]
 screens: {}

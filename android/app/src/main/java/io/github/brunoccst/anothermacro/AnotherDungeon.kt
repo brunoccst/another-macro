@@ -27,17 +27,29 @@ import kotlin.math.abs
 object AnotherDungeon {
     data class MapSpec(val names: List<String>, val layout: AreaNav.Layout?, val chests: List<Point>, val exit: Point?, val boss: Boolean, val arrival: Point? = null, val chestsCount: Int = 0,
                        /** The fixed walk: one leg per chest (in order), then the exit. */
-                       val path: List<Route.Leg>? = null) {
+                       val path: List<Route.Leg>? = null,
+                       /** False for a map without enemies (no fights first). */
+                       val enemies: Boolean = true,
+                       /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000", "boss L" (walk to the boss). */
+                       val steps: List<String>? = null) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
             chests = chests.map { Point(it.x + dx, it.y) }, exit = exit?.let { Point(it.x + dx, it.y) },
         )
     }
-    data class Spec(val id: String, val name: String, val era: String, val boss: String, val maps: List<MapSpec>)
+    data class Spec(
+        val id: String, val name: String, val era: String, val boss: String, val maps: List<MapSpec>,
+        /** A place on the era's map that opens a smaller map holding the dungeon ("Parallel Time Layer"). */
+        val area: String? = null,
+        /** The label's first line when the game wraps the name ("Burning Beast King's" / "Castle"). */
+        val label: String? = null,
+    )
 
     private const val DATA = "templates/another_dungeon/dungeons.yaml"
     private const val BUBBLE = "field_interact_bubble"
+    /** The bubble's inside only, for bright or busy backgrounds (the Throne Room's light pillar and fires). */
+    private const val BUBBLE_CORE = "field_interact_bubble_core"
 
     /** Words that mean the game wants something bought: never tap on, cancel and stop. */
     private val PURCHASE_WORDS = listOf("purchase", "chronos stone", "tsubura", "insufficient", "not enough")
@@ -61,13 +73,18 @@ object AnotherDungeon {
                 nums(m["arrival"])?.let { Point(it[0], it[1]) },
                 (m["chests_count"] as? Number)?.toInt() ?: 0,
                 (m["path"] as? List<*>)?.mapNotNull { (it as? List<*>)?.let { leg -> Route.parseLeg(leg) } }?.takeIf { it.isNotEmpty() },
+                m["enemies"] != false,
+                (m["steps"] as? List<*>)?.map { it.toString() },
             )
         }
-        return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps)
+        return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString())
     }
 
     private class Run(val ctx: Context, val spec: Spec) {
-        val mobs = Battle.Setup.from(ctx.params, "skill_")
+        // every fight is the basic macro battle's step with its skills; the boss with the dungeon's own
+        // boss skills when set. (Done here, not by running that macro: the run must tell the boss by its
+        // name on the first turn and read the White Key off the results while they show.)
+        val mobs = Battle.Setup.from(ctx.optionsOf("battle"), "skill_")
         val bossSetup = if (ctx.bool("boss_setup")) Battle.Setup.from(ctx.params, "boss_skill_") else mobs
         var map = -1
         var shift = 0.0
@@ -208,7 +225,7 @@ object AnotherDungeon {
                     r.pos = null; r.planPos = null
                     r.order = chestOrder(spec.maps[idx].shifted(r.shift), party)
                 }
-                r.map = idx; r.chestsDone = 0; r.cleared = false
+                r.map = idx; r.chestsDone = 0; r.cleared = !spec.maps[idx].enemies
                 r.onBossMap = spec.maps[idx].boss
                 r.chestsTotal += spec.maps[idx].chests.size.takeIf { it > 0 } ?: spec.maps[idx].chestsCount
                 task(r, "Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
@@ -216,6 +233,7 @@ object AnotherDungeon {
             }
             val ms = spec.maps[idx].shifted(r.shift)
             when {
+                ms.steps != null -> runSteps(r, ms)
                 ms.layout == null -> sweep(r)
                 // every map's enemies first: once "the enemies have disappeared", no battle can cut
                 // the fixed path short, so it is walked exactly as planned
@@ -253,10 +271,19 @@ object AnotherDungeon {
      * The dungeon panel's counters, left to right. One OCR line can hold two of them
      * ("5/5 En 16/50"): lines go by x, then the counters in a line by their order in it.
      */
+    /** The chosen key's count and the Cat Express Tickets' count from [panelCounters]; null when not read. */
+    internal fun keysAndTickets(counters: List<List<Int>>, red: Boolean): Pair<Int?, Int?> {
+        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0)
+        val keys = if (red) counters.firstOrNull { it[1] == 5 }?.get(0)
+            else counters.firstOrNull { it[1] != 5 && it[1] != 50 }?.get(0)
+        return keys to tickets
+    }
+
     internal fun panelCounters(lines: List<Ocr.Line>): List<List<Int>> =
         lines.sortedBy { it.center.x }.flatMap { l ->
-            // the denominators are known (10, 5, 50): "5/515/50" (no space read) is 5/5 and 15/50
-            Regex("""(\d{1,2})\s*/\s*(50|10|5)(?=\D|$|\d{1,2}\s*/)""").findAll(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
+            // the denominators are 50, 10 or one digit (green keys "5/9", red "4/5"): "5/515/50" (no space
+            // read) is 5/5 and 15/50
+            Regex("""(\d{1,2})\s*/\s*(50|10|[1-9])(?=\D|$|\d{1,2}\s*/)""").findAll(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
                 .map { m -> m.groupValues.drop(1).map { v -> v.toInt() } }.toList()
         }
 
@@ -298,20 +325,40 @@ object AnotherDungeon {
         for ((raw, n) in obtained(lines)) { val name = sameName(r.items, raw); r.items[name] = (r.items[name] ?: 0) + n }
     }
 
+    /** The screen is one of the end screens that list rewards. */
+    private fun rewardScreen(lines: List<Ocr.Line>): Boolean {
+        val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        return "congratulations" in all || "items obtained" in all
+    }
+
     /**
-     * The end screens: "Congratulations" rows ("Medium Class Scroll  × 2") and "Items Obtained"
-     * ("Dark Residue / Amount 4,250 / Held …").
+     * The end screens: "Congratulations" rows ("Medium Class Scroll  × 2", the count read as its own
+     * line or on the name's line) and "Items Obtained" ("Dark Residue / Amount 4,250 / Held …").
+     * Returns how many rewards were read off this screen.
      */
-    private fun noteRewards(r: Run, lines: List<Ocr.Line>) {
+    private fun noteRewards(r: Run, lines: List<Ocr.Line>): Int {
         fun num(t: String) = t.replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(Regex("[^0-9]"), "").toIntOrNull()
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        var read = 0
         if ("congratulations" in all) {
-            for (c in lines.filter { Regex("""^\s*[x×X]\s*[0-9OoIl,]+\s*$""").matches(it.text) }) {
-                val name = lines.filter { it !== c && abs(it.center.y - c.center.y) < 0.03 && it.center.x < c.center.x && Regex("[A-Za-z]{3}").containsMatchIn(it.text) }
-                    .maxByOrNull { it.center.x }?.text?.let { cleanName(it) } ?: continue
-                val n = num(c.text) ?: continue
+            val count = Regex("""^\s*[x×X]\s*([0-9OoIl,]+)\s*$""")
+            val inline = Regex("""^(.*[A-Za-z]{3}.*?)\s*[x×X]\s*([0-9OoIl,]+)\s*$""")
+            for (c in lines) {
+                val (name, n) = if (count.matches(c.text)) {
+                    // the name to the left on the same row, else just above or below the count (icon grids)
+                    val left = lines.filter { it !== c && abs(it.center.y - c.center.y) < 0.03 && it.center.x < c.center.x && Regex("[A-Za-z]{3}").containsMatchIn(it.text) }
+                        .maxByOrNull { it.center.x }
+                    val near = left ?: lines.filter { it !== c && abs(it.center.x - c.center.x) < 0.12 && abs(it.center.y - c.center.y) < 0.08 &&
+                        Regex("[A-Za-z]{3}").containsMatchIn(it.text) && "congratulations" !in Ocr.norm(it.text) }
+                        .minByOrNull { abs(it.center.y - c.center.y) }
+                    (near?.text?.let { cleanName(it) } ?: continue) to (num(c.text) ?: continue)
+                } else {
+                    val m = inline.find(c.text) ?: continue
+                    (cleanName(m.groupValues[1]) ?: continue) to (num(m.groupValues[2]) ?: continue)
+                }
                 val key = sameName(r.rewards, name)
                 r.rewards[key] = (r.rewards[key] ?: 0) + n
+                read++
             }
         }
         if ("items obtained" in all) {
@@ -322,8 +369,10 @@ object AnotherDungeon {
                     Regex("[A-Za-z]{3}").containsMatchIn(it.text) && !Regex("[0-9]").containsMatchIn(it.text) && !Ocr.norm(it.text).startsWith("items") }
                     .maxByOrNull { it.center.y }?.text?.let { cleanName(it) } ?: continue
                 r.rewards[sameName(r.rewards, name)] = n // the run's total of that item (shown once)
+                read++
             }
         }
+        return read
     }
 
     /** One line about the run: how long, what it got. Also appended to the app's runs.log. */
@@ -372,7 +421,15 @@ object AnotherDungeon {
             return "a White Key is held (the Phantom Crystal Dimension is open): not entering"
         }
         tapText(r, eraLabel(r.spec.era)); ctx.wait(1.5)
-        tapText(r, r.spec.name, minY = 0.2, maxX = 0.62) ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map: ${seen(ctx)}")
+        // a dungeon inside a place of the era's map: open that place's map first (a box over the
+        // map; the dungeon's label can sit right of the middle there)
+        val area = r.spec.area
+        if (area != null) {
+            mapLabel(r, arrayOf(area), 0.62) ?: ctx.stop("$area not on the ${r.spec.era} map: ${seen(ctx)}")
+            ctx.wait(1.5)
+        }
+        mapLabel(r, listOfNotNull(r.spec.name, r.spec.label).toTypedArray(), if (area != null) 0.85 else 0.62)
+            ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map${area?.let { " ($it)" } ?: ""}: ${seen(ctx)}")
         ctx.wait(2.0)
         // the panel's counters at the bottom: green keys, red keys, Cat Express Tickets ("17/50"); their "+" buy more
         // left to right: green keys "10/10", red keys "5/5", Cat Express Tickets "17/50"
@@ -380,9 +437,8 @@ object AnotherDungeon {
         // OCR reads 0 as O at times ("16/5O")
         val counters = panelCounters(bottom)
         // each counter by its denominator, never by its place (a counter OCR missed shifts the rest):
-        // green keys "/10", red keys "/5", Cat Express Tickets "/50"
-        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0)
-        val keys = counters.firstOrNull { it[1] == (if (red) 5 else 10) }?.get(0)
+        // red keys "/5", Cat Express Tickets "/50", green keys the other one ("/10", "/9")
+        val (keys, tickets) = keysAndTickets(counters, red)
         if (keys == null || tickets == null || counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }} → $counters")
         MacroLog.i("keys (${if (red) "red" else "green"}): ${keys ?: "not read"}; Cat Express Tickets: ${tickets ?: "not read"}")
         if (keys == 0) {
@@ -397,6 +453,14 @@ object AnotherDungeon {
         ctx.wait(2.0)
         // "Using Green Key×1 to move to Dogma Tower (Hard)."
         val lines = ctx.readText()
+        // "In order to move to Dogma Tower (Hard) please include: <a character>": Move stays greyed out
+        val include = lines.indexOfFirst { Ocr.norm(it.text).contains("please include") }
+        if (include >= 0) {
+            val who = lines.getOrNull(include + 1)?.text?.takeIf { lines[include].text.trimEnd().endsWith(":") }
+                ?: lines[include].text.substringAfter(":", "").trim()
+            tapText(r, "Back", exact = true)
+            ctx.stop("the party must include ${who.ifEmpty { "a character the game names" }}: add them to the party in front, then start again")
+        }
         val using = lines.firstOrNull { Ocr.norm(it.text).startsWith("using") }?.text ?: ""
         val keyWord = if (red) "red" else "green"
         if (!Ocr.norm(using).contains(keyWord)) {
@@ -424,6 +488,23 @@ object AnotherDungeon {
         return null
     }
 
+    /**
+     * Tap a place's label on the Another Dungeon map. The map keeps its last pan, so a label can sit
+     * half hidden under the era icons at the top right ("Dogma TovSealed") or cut by the left edge
+     * ("lel Time Layer"): then drag what shows of it (else the map) toward the middle and look again.
+     */
+    private fun mapLabel(r: Run, wants: Array<String>, maxX: Double): Ocr.Line? {
+        val ctx = r.ctx
+        tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 2)?.let { return it }
+        val words = Ocr.norm(wants.first()).split(" ").filter { it.length >= 4 }
+        val part = ctx.readText().firstOrNull { l -> val t = Ocr.norm(l.text); words.isNotEmpty() && words.count { it in t } >= (words.size + 1) / 2 }
+        MacroLog.i("${wants.first()} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
+        if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
+        else ctx.drag(Point(0.49, 0.65), Point(0.29, 0.82), 700)
+        ctx.wait(1.2)
+        return tapText(r, *wants, minY = 0.2, maxX = maxX)
+    }
+
     private fun eraLabel(era: String) = when (era.lowercase()) { "present" -> "Pres."; "antiquity" -> "Antiq."; "future" -> "Fut."; else -> era }
 
     /** A dialog over the field: the free daily ad ("Watch Video"), thank-you / OK / Close. */
@@ -443,10 +524,13 @@ object AnotherDungeon {
         val text = ctx.readText()
         ctx.tap(Point(0.5, 0.93)); ctx.wait(1.0)
         val title = text.filter { it.center.y < 0.12 }.joinToString(" ") { it.text }
-        if (!Ocr.norm(title).contains(Ocr.norm(r.spec.name))) return null
-        val part = title.substringAfter("-").trim()
+        // "Dogma Tower - Gloomy Corridor": the dungeon's name, then the map's. Some dungeons title
+        // their maps on their own ("Beast King's Castle Front Guard Tower"): then the whole title
+        // must read as one of the map names
+        val named = Ocr.norm(title).contains(Ocr.norm(r.spec.name))
+        val part = if (named) title.substringAfter("-").trim() else title.trim()
         val best = r.spec.maps.indices.maxByOrNull { i -> r.spec.maps[i].names.maxOf { Ocr.similarity(part, it) } } ?: return null
-        return if (r.spec.maps[best].names.maxOf { Ocr.similarity(part, it) } > 0.6) best else null
+        return if (r.spec.maps[best].names.maxOf { Ocr.similarity(part, it) } > (if (named) 0.6 else 0.85)) best else null
     }
 
     /** Fight what interrupted a walk; true if there was a battle. */
@@ -675,7 +759,7 @@ object AnotherDungeon {
     private fun openBubble(r: Run): Boolean {
         val ctx = r.ctx
         ctx.refresh()
-        val b = ctx.find(BUBBLE) ?: return false
+        val b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE) ?: return false
         ctx.tap(b); ctx.wait(2.0)
         // the banner can be a moment late (the read came back empty): read again for up to ~2 s
         var read = ctx.readText()
@@ -731,41 +815,86 @@ object AnotherDungeon {
         MacroLog.i("the exit didn't take us anywhere yet")
     }
 
-    /** The round signs on the ground where a staircase/door leads to another map. */
-    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps")
+    /** Fights on one map before it is taken as cleared even without the banner (a safety cap). */
+    internal const val CLEAR_MAX_BATTLES = 15
 
-    /** Walk back and forth fighting until the game says no enemies are left (or none come any more). */
+    /** The round signs where a staircase/door leads to another map (on the ground, or a door sign over it). */
+    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps", "door_sign")
+
+    /**
+     * Walk back and forth fighting (like grind-battles with until_cleared) until the game says
+     * "The enemies have disappeared" (Bruno's rule: every enemy first). Safety caps for a missed
+     * banner: [clear_max_battles] fights won on this map (15 by default, 0 = no cap), or no
+     * encounter in 12 walks.
+     */
     private fun grind(r: Run, ms: MapSpec) {
         val ctx = r.ctx
-        task(r, "${ms.names.first()}: fighting the enemies left (back and forth)")
+        task(r, "${ms.names.first()}: fighting the enemies first (back and forth)")
+        val cap = ctx.params["clear_max_battles"]?.trim()?.toIntOrNull() ?: CLEAR_MAX_BATTLES
+        var won = 0
         var dir = 1.0
         var quiet = 0
         // on a path: back and forth between two spots of this street, so the position stays known
         val l = ms.layout
         val seg = r.pos?.let { p -> l?.let { Route.segOf(it, p) } }
         val span = r.pos?.let { p -> seg?.let { s -> if (s.x2 - p.x >= p.x - s.x1) p.x to minOf(s.x2, p.x + 0.05) else maxOf(s.x1, p.x - 0.05) to p.x } }
-        while (quiet < 12) {
-            val p = r.pos
-            var fought = false
-            if (l != null && p != null && span != null) {
-                val t = Route.table(ctx)
-                val to = if (abs(p.x - span.first) < abs(p.x - span.second)) span.second else span.first
-                if (abs(to - p.x) >= t.minWalk) r.pos = Route.hold(ctx, l, t, p, to > p.x, t.holdMs(abs(to - p.x)).toLong()) { fight(r).also { if (it) fought = true } }
-            } else AreaNav.hold(ctx, dir, 0.05)
-            dir = -dir
-            if (fight(r) || fought) quiet = 0 else quiet++
-            if (r.cleared) return
+        // "The enemies have disappeared" shows for a moment, often while the party walks or the game
+        // autosaves: watch the whole screen for it all along, beside the walking and fighting
+        BannerWatch(r).use { watch ->
+            while (quiet < 12) {
+                if (watch.check()) return
+                val p = r.pos
+                var fought = false
+                if (l != null && p != null && span != null) {
+                    val t = Route.table(ctx)
+                    val to = if (abs(p.x - span.first) < abs(p.x - span.second)) span.second else span.first
+                    if (abs(to - p.x) >= t.minWalk) r.pos = Route.hold(ctx, l, t, p, to > p.x, t.holdMs(abs(to - p.x)).toLong()) { fight(r).also { if (it) fought = true } }
+                } else AreaNav.hold(ctx, dir, 0.05)
+                dir = -dir
+                if (fight(r) || fought) { quiet = 0; won++ } else quiet++
+                if (watch.check() || r.cleared) return
+                if (cap > 0 && won >= cap) {
+                    MacroLog.i("$won fights on ${ms.names.first()} and no \"enemies have disappeared\" seen: taking it as cleared (safety cap)")
+                    r.cleared = true
+                    return
+                }
+            }
+            MacroLog.i("no encounter in $quiet walks: taking ${ms.names.first()} as cleared")
+            r.cleared = true
         }
-        MacroLog.i("no encounter in $quiet walks: taking ${ms.names.first()} as cleared")
-        r.cleared = true
     }
 
-    private fun noEnemiesLeft(text: String) = "enemies have disappeared" in text || ("enemies" in text && "disappeared" in text)
+    /** Reads the whole screen over and over on its own thread while a map is being cleared, for the banner. */
+    private class BannerWatch(private val r: Run) : AutoCloseable {
+        @Volatile private var seen = false
+        @Volatile private var done = false
+        private val worker = Thread {
+            while (!done && !seen) {
+                try { if (noEnemiesLeft(r.ctx.readText().joinToString(" ") { Ocr.norm(it.text) })) seen = true }
+                catch (_: Throwable) { }
+                if (!seen) try { Thread.sleep(200) } catch (_: InterruptedException) { return@Thread }
+            }
+        }.apply { isDaemon = true; name = "banner-watch"; start() }
+
+        /** True (and the map marked cleared) once the banner was seen. */
+        fun check(): Boolean {
+            if (seen && !r.cleared) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
+            return r.cleared
+        }
+
+        override fun close() { done = true; worker.interrupt(); runCatching { worker.join(2000) } }
+    }
+
+    /** "The enemies have disappeared" in normalized OCR text (also when OCR splits or clips the line). */
+    internal fun noEnemiesLeft(text: String) = "disappear" in text
+
+    /** Where "The enemies have disappeared" shows: the top middle (kept wide: its exact spot is not measured). */
+    private val BANNER = Region(0.05, 0.0, 0.9, 0.45)
 
     /** One read of the screen after a win: the map's enemies gone, the White Key. */
-    private fun readAfterWin(r: Run, quick: Boolean = false) {
+    private fun readAfterWin(r: Run, quick: Boolean = false): String {
         // the banner sits at the top middle: reading only there is quicker (it shows for a moment)
-        val lines = if (quick) r.ctx.readText(Region(0.15, 0.0, 0.7, 0.25)) else r.ctx.readText()
+        val lines = if (quick) r.ctx.readText(BANNER) else r.ctx.readText()
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         if (!quick) { noteRewards(r, lines); endNotSkip(r, lines) }
         if (!r.cleared && noEnemiesLeft(all)) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
@@ -773,6 +902,7 @@ object AnotherDungeon {
             if (!r.phantom) MacroLog.i("White Key: the Phantom Crystal Dimension is open")
             r.phantom = true
         }
+        return all
     }
 
     /**
@@ -783,6 +913,8 @@ object AnotherDungeon {
         val ctx = r.ctx
         if (!r.cleared && !r.onBossMap) { grind(r, r.spec.maps[r.map]); return }
         task(r, "Map ${r.map + 1}: looking around (chest, boss)")
+        val ms = r.spec.maps[r.map]
+        val hasChests = ms.chests.isNotEmpty() || ms.chestsCount > 0
         for (vertical in listOf(null, true, false)) {
             if (vertical != null) { AreaNav.flick(ctx, vertical); fight(r); if (r.bossBeaten) return }
             for (dir in listOf(-1.0, 1.0)) {
@@ -790,7 +922,14 @@ object AnotherDungeon {
                 var last: Point? = null
                 for (step in 0 until 30) {
                     if (bossGate(r)) { fight(r); if (r.bossBeaten) return }
-                    if (openBubble(r)) ctx.count("bubbles")
+                    // a map without chests (Deliverance Sword): its "!" only leads back, leave it be
+                    if (hasChests && openBubble(r)) {
+                        ctx.count("bubbles")
+                        if (r.bossBeaten) return
+                        // a chest, or a portal to the next map (Throne Room's light pillar): look again
+                        r.moved = true
+                        return
+                    }
                     if (r.bossBeaten) return
                     AreaNav.hold(ctx, dir, 0.025)
                     fight(r)
@@ -802,6 +941,48 @@ object AnotherDungeon {
                 }
             }
         }
+    }
+
+    /**
+     * A small map by its fixed steps (Throne Room: the chest's "!" by the arrival, up to the light
+     * pillar, its "!" to the next map). Then the map is read again: if the party is still here the
+     * steps run again (a chest already open shows no "!", so it costs only a look).
+     */
+    private fun runSteps(r: Run, ms: MapSpec) {
+        val ctx = r.ctx
+        task(r, "Map ${r.map + 1}: ${ms.names.first()}")
+        for (step in ms.steps!!) {
+            val parts = step.trim().split(Regex("\\s+"))
+            when (parts[0].uppercase()) {
+                "BUBBLE" -> {
+                    var tapped = false
+                    for (i in 0 until 3) { if (openBubble(r)) { tapped = true; break }; ctx.wait(0.7) }
+                    if (!tapped) MacroLog.i("step bubble: no \"!\" here")
+                }
+                // "boss L": walk that way in plain holds until the boss's question shows, then fight it
+                // (Burning Beast King's Castle: the boss area has no chest, so no looking around)
+                "BOSS" -> {
+                    val dir = if (parts.getOrNull(1)?.uppercase() == "R") 1.0 else -1.0
+                    for (i in 0 until 20) {
+                        if (bossGate(r)) { fight(r); break }
+                        if (fight(r) && r.bossBeaten) break
+                        ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), 1500)
+                        ctx.wait(0.5)
+                    }
+                }
+                "U" -> AreaNav.flick(ctx, up = true)
+                "D" -> AreaNav.flick(ctx, up = false)
+                "L", "R" -> {
+                    val ms2 = parts.getOrNull(1)?.toLongOrNull() ?: 500
+                    ctx.drag(Point(0.5, 0.65), Point(if (parts[0].uppercase() == "L") 0.4 else 0.6, 0.65), ms2)
+                    ctx.wait(0.5)
+                }
+                else -> MacroLog.i("unknown step '$step'")
+            }
+            fight(r)
+            if (r.bossBeaten) return
+        }
+        r.moved = true
     }
 
     /** Fight a battle if one is on screen: boss setup for the boss. True if there was one. */
@@ -830,9 +1011,13 @@ object AnotherDungeon {
                 ctx.count("battles")
                 if (r.task.isNotEmpty()) MacroLog.status(r.task)
                 if (wasBoss) { r.bossBeaten = true; ctx.count("bosses") }
-                // "The enemies have disappeared" flashes for a moment after a map's last enemy
-                val end = System.currentTimeMillis() + 3000
-                while (!r.cleared && !r.bossBeaten && System.currentTimeMillis() < end) readAfterWin(r, quick = true)
+                // "The enemies have disappeared" flashes for a moment after a map's last enemy: a short
+                // look here (while a map is cleared, BannerWatch keeps looking as the party walks on)
+                val end = System.currentTimeMillis() + 1000
+                val seen = LinkedHashSet<String>()
+                while (!r.cleared && !r.bossBeaten && System.currentTimeMillis() < end) readAfterWin(r, quick = true).takeIf { it.isNotBlank() }?.let { seen += it }
+                // for tuning the banner's spot and timing: what the top of the screen said meanwhile
+                if (!r.cleared && !r.onBossMap && seen.isNotEmpty()) MacroLog.i("top after the win: ${seen.joinToString(" | ").take(160)}")
                 if (r.bossBeaten) checkPhantom(r)
             }
         }
@@ -856,6 +1041,7 @@ object AnotherDungeon {
     /** Tap through the completion screens, noting a White Key / Phantom Crystal Dimension. */
     private fun finish(r: Run): String {
         val ctx = r.ctx
+        var rewardWaits = 0
         repeat(25) {
             ctx.refresh()
             if (ctx.find("field_menu_button") != null) {
@@ -871,7 +1057,12 @@ object AnotherDungeon {
                 ctx.tap(AD_CLOSE); ctx.wait(2.0)
                 return@repeat
             }
-            noteRewards(r, lines)
+            if (rewardScreen(lines) && noteRewards(r, lines) == 0) {
+                // the rows fade in after the title: give them a moment before tapping past the screen
+                if (rewardWaits < 2) { rewardWaits++; ctx.wait(1.5); return@repeat }
+                MacroLog.i("no rewards read on: ${lines.joinToString(" | ") { it.text }.take(400)}")
+            }
+            rewardWaits = 0
             // "Continue to skip?  End / Skip": End (Skip would spend another key and ticket)
             if (endNotSkip(r, lines)) return@repeat
             tapText(r, "OK", "Close", "Next", exact = true, tries = 1)

@@ -27,6 +27,65 @@ class InputService : AccessibilityService() {
         instance = this
         MacroLog.i("accessibility service connected (taps enabled)")
         if (MacroService.capture != null) showControls(true)
+        // the app was just replaced by an unattended update (Claude or the automatic check): bring it back up
+        if (MacroService.capture == null && Updater.resumePending(this)) {
+            main.postDelayed({
+                runCatching {
+                    startActivity(android.content.Intent(this, MainActivity::class.java)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        .putExtra(MainActivity.EXTRA_RESUME, true))
+                }.onFailure { MacroLog.e("could not reopen the app after the update", it) }
+            }, 1500)
+        }
+    }
+
+    /**
+     * During a self-update Claude or the automatic check started (never one the user started; only for a few minutes): press Android's own
+     * "Update" in the package installer and "Start now" in the screen-capture question, which this
+     * app asked for itself. Nothing else is ever pressed.
+     */
+    private fun autoConfirm(pkg: String) {
+        // only for an update nobody is watching: when the user started it, every dialog is theirs
+        if (System.currentTimeMillis() > Updater.autoConfirmUntil(this)) return
+        val words = when {
+            "packageinstaller" in pkg -> listOf("update", "install")
+            pkg == "com.android.systemui" -> listOf("start now", "start")
+            // Play Protect blocking the update: only dismiss it ("Got it" keeps the block; never
+            // "Install anyway", that is the user's call), so the game is usable again; the next
+            // automatic check tries the install again
+            pkg == "com.android.vending" -> listOf("got it")
+            else -> return
+        }
+        fun attempt(left: Int) {
+            if (clickButton(words)) {
+                // dismissing Play Protect ends the update: press nothing more until the next one
+                if (pkg == "com.android.vending") Updater.blocked(this, null)
+                return
+            }
+            if (left > 0) main.postDelayed({ attempt(left - 1) }, 700)
+        }
+        main.postDelayed({ attempt(5) }, 500)
+    }
+
+    private fun clickButton(words: List<String>): Boolean {
+        val roots = (listOfNotNull(rootInActiveWindow) + runCatching { windows.mapNotNull { it.root } }.getOrDefault(emptyList()))
+        for (root in roots) {
+            val queue = ArrayDeque(listOf(root))
+            while (queue.isNotEmpty()) {
+                val n = queue.removeFirst()
+                val label = (n.text ?: n.contentDescription)?.toString()?.trim()?.lowercase()
+                if (label != null && label in words) {
+                    var c: android.view.accessibility.AccessibilityNodeInfo? = n
+                    while (c != null && !c.isClickable) c = c.parent
+                    if (c != null && c.isEnabled && c.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) {
+                        MacroLog.i("pressed '$label' (self-update)")
+                        return true
+                    }
+                }
+                for (i in 0 until n.childCount) n.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        return false
     }
 
     override fun onDestroy() {
@@ -37,16 +96,42 @@ class InputService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // which app is in front (window state changes carry the package name; no screen content is read)
+        // which app is in front (window state changes carry the package name; other apps' content is read
+        // only to press Android's own Update / Start now during a self-update, see autoConfirm)
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             event.packageName?.toString()?.let {
+                autoConfirm(it)
+                // Play Games' "welcome back" banner, Samsung's edge panel and System UI (status bar,
+                // screen-capture chip, heads-up notifications) post window events from small overlay
+                // views but don't take the screen: the game stays in front. Activities (Play's
+                // purchase sheets) still count. Android's "isn't responding" dialog is package "android".
+                if (it in OVERLAYS && event.className?.toString()?.endsWith("Activity") != true) {
+                    MacroLog.i("overlay: $it (${event.className})")
+                    return
+                }
                 if (it != packageName) {
                     if (it != foreground) MacroLog.i("in front: $it (${event.className})")
                     foreground = it
+                    // the activity too: inside the game, a commercial is its own activity
+                    val cls = event.className?.toString()
+                    if (cls != null && cls.endsWith("Activity") && cls != foregroundActivity) {
+                        if (it == ClaudeSafety.GAME && foregroundActivity != null) MacroLog.i("game activity: $cls")
+                        foregroundActivity = cls
+                    }
                 }
             }
         }
     }
+
+    private val OVERLAYS = setOf(
+        "com.android.vending", "com.google.android.gms", "com.samsung.android.app.cocktailbarservice", "com.android.systemui",
+        "com.samsung.android.game.gametools", // Samsung Game Booster's in-game panel and toasts
+    )
+
+    /** Activity class in front (last window change that named an activity). */
+    @Volatile
+    var foregroundActivity: String? = null
+        private set
 
     /** Package of the app in front, as last reported by window changes. */
     @Volatile
