@@ -73,6 +73,12 @@ class MacroLibraryTest {
         }
     }
 
+    @Test fun enemiesGoneBannerIsReadWhenSplitOrClipped() {
+        for (t in listOf("the enemies have disappeared", "enemies have disappeared", "the enemies have disappea"))
+            assertTrue(t, AnotherDungeon.noEnemiesLeft(Ocr.norm(t)))
+        assertFalse(AnotherDungeon.noEnemiesLeft(Ocr.norm("Front Guard Tower")))
+    }
+
     @Test fun resultsCompareAsText() {
         val env = object : Expr.Env {
             override fun variable(name: String): Any? = if (name == "result") "on the field" else null
