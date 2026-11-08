@@ -160,7 +160,7 @@ class CatScratchbook(Scenario):
     # --- battles: a random encounter can start while hunting outside a town ----
     def on_battle_command(self, ctx: Context) -> None:
         self._last_view = None
-        ctx.tap("battle_auto_button" if ctx.find("battle_auto_button") else "battle_attack_button")
+        ctx.tap("battle_attack_button")  # never the ">>" in the top bar: it is the battle speed
         ctx.wait(1.0)
 
     def on_skill_list(self, ctx: Context) -> None:
