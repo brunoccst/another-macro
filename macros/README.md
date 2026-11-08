@@ -34,7 +34,7 @@ A macro runs another one with `run:` and goes on when it ends:
 | Basic macro | What it does | Used by |
 |---|---|---|
 | `watch-ad` | waits out the commercial that just started, presses Back to close it (again if needed), taps the reward dialog's OK (or the premium thank-you's Close) | `start-game`, `daily-ads`, `shop-ad` |
-| `battle` | fights the battle on screen to its end; `skill_1`..`skill_4` = auto or skill 1-4 per party slot (all auto = the Auto button); ends with `won` / `none` / `party was defeated` | `grind-battles`, the cat hunt's and the cat routine's encounters; the Another Dungeon fights use its skills (the boss: the dungeon's boss skills when set) |
+| `battle` | fights the battle on screen to its end; `skill_1`..`skill_4` = auto or skill 1-4 per party slot (all auto = plain Attack every turn; never changes the battle speed); ends with `won` / `none` / `party was defeated` | `grind-battles`, the cat hunt's and the cat routine's encounters; the Another Dungeon fights use its skills (the boss: the dungeon's boss skills when set) |
 | `grind-battles` | walks back and forth and runs `battle` for every encounter, until `battles` are won | for clearing a map |
 | `open-menu` | from the field, opens the game's menu | `daily-ads`, `shop-ad` |
 | `back-to-field` | presses Back until the field shows | `stop-game` |

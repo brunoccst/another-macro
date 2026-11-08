@@ -5,9 +5,9 @@
 name: battle
 group: basic
 icon: swords
-description: "Basic: fight the battle on screen to its end, with a skill per party slot (all auto = the Auto button). Every battle uses it."
+description: "Basic: fight the battle on screen to its end, with a skill per party slot (all auto = plain Attack every turn). Never touches the battle speed.. Every battle uses it."
 params:
-  # the four front-row party slots, left to right; all auto = the battle's Auto button
+  # the four front-row party slots, left to right; all auto = plain Attack every turn
   skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], help: "party slot 1 (front row, left): auto or skill 1-4 (4 = the last skill)"}
   skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], help: "party slot 2: auto or skill 1-4"}
   skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], help: "party slot 3: auto or skill 1-4"}
