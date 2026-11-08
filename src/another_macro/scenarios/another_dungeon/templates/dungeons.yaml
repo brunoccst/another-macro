@@ -117,7 +117,9 @@ burning_beast_kings_castle:
       chests_count: 1
       steps: [bubble, U, bubble]
     # the boss: walk left from the arrival to "A major trial awaits you beyond this point. Proceed?"
-    # (Yes). Its "!" on the right only leads back to the Throne Room.
+    # (Yes). Its "!" on the right only leads back to the Throne Room. No chest here (Bruno
+    # 2026-11-08: the only one is in the Throne Room), so no looking around: straight to the boss.
     - names: [Deliverance Sword]
       boss: true
       enemies: false
+      steps: [boss L]
