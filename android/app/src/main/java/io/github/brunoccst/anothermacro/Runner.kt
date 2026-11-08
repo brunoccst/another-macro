@@ -190,10 +190,22 @@ class Context(
     /** The user's own captured templates, added to every library (set by [Runner.run]). */
     var userTemplates: java.io.File? = null
 
+    /** Another macro's options as the user chose them in the app, over its defaults (set by [Runner.run]). */
+    var optionsOf: (String) -> Map<String, String> = { emptyMap() }
+
+    /**
+     * Run the basic macro [name] here (see [Runner.runInside]) with its own options as the user
+     * chose them, plus [given]; its stop reason.
+     */
+    fun runBasic(name: String, given: Map<String, String> = emptyMap(), until: List<String> = emptyList()): String {
+        val sub = findMacro(name) ?: throw IllegalStateException("the basic macro '$name' is missing: update the macros")
+        return Runner.runInside(sub, given, this, until)
+    }
+
     /** A context for a macro run inside this one: same screen, input, stop and pause. */
     fun child(vision: Vision, params: Map<String, String>) =
         Context(capture, files, vision, params, stopRequested, depth + 1).also {
-            it.debugDir = debugDir; it.findMacro = findMacro; it.userTemplates = userTemplates
+            it.debugDir = debugDir; it.findMacro = findMacro; it.userTemplates = userTemplates; it.optionsOf = optionsOf
         }
 
     /** Where macros may leave debug images (the app's own storage). */
@@ -372,6 +384,7 @@ object Runner {
         ctx.debugDir = java.io.File(app.filesDir, "debug").apply { mkdirs() }
         ctx.userTemplates = userTemplates
         ctx.findMacro = { n -> runCatching { Scenarios.get(app, n) }.getOrNull() }
+        ctx.optionsOf = { n -> ctx.findMacro(n)?.let { resolve(it, MacroParams.load(app, n)) } ?: emptyMap() }
         var reason = "finished"
         InputService.instance?.keepScreenOn(true)
         MacroLog.i("running ${scenario.name} with $params")
@@ -396,7 +409,8 @@ object Runner {
 
     /**
      * Run [sub] inside the running macro (Flow's `run:` step) and return its stop reason, for the
-     * caller to go on. It ends like any macro (its own stop), or as soon as one of [until] (the
+     * caller to go on. It starts from its own options as the user chose them in the app (so a
+     * basic macro's settings, e.g. grind-battles' skills, apply wherever it is run), then [given]. It ends like any macro (its own stop), or as soon as one of [until] (the
      * caller's screens) shows: "back to <screen>". A stop request or a safety stop ends the caller
      * too. Its counters are added to the caller's.
      */
@@ -405,7 +419,7 @@ object Runner {
         val lib = library(sub, parent.assets, parent.userTemplates)
         // the caller's templates and screens too: [until] is made of them
         lib.addMissing(parent.vision.library)
-        val params = resolve(sub, given)
+        val params = resolve(sub, parent.optionsOf(sub.name) + given)
         val ctx = parent.child(Vision(lib), params)
         MacroLog.i("running ${sub.name} inside it with $params")
         val reason = try {

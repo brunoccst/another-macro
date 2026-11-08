@@ -16,7 +16,7 @@ screens: [premium_thanks, shop_ok_dialog, shop, menu_open, field]
 unknown_timeout_s: 120
 
 setup:
-  - set: {done: false, menu_taps: 0, shop_misses: 0, shop_since: 0}
+  - set: {game_starts: 0, done: false, menu_taps: 0, shop_misses: 0, shop_since: 0}
 
 handlers:
   shop:
@@ -85,11 +85,16 @@ handlers:
   field:
     - if: done
       then: [{stop: "shop: {stats.ad_rewards} commercial reward(s) this run ({stats.ads_started} started; none = already watched today)"}]
-    - status: "opening the menu"
-    - tap: field_menu_button
-    - wait: 2
+    - run: open-menu
+    - if: result != 'menu open'
+      then: [{stop: "{result}"}]
 
 unknown:
+  # the game isn't open: the basic macro start-game opens it (once)
   - if: not game_in_front()
-    then: [{stop: "the game is not in front (open it first, e.g. with start-game)"}]
+    then:
+      - if: game_starts > 0
+        then: [{stop: "the game is not in front"}]
+      - set: {game_starts: game_starts + 1}
+      - run: start-game
   - wait: 2

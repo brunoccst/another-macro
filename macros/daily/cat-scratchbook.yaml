@@ -73,18 +73,10 @@ handlers:
         - tap: [0.88, 0.03]
         - wait: 1.5
 
-  # a random encounter while hunting outside a town
-  battle_command:
+  # a random encounter while hunting outside a town: the basic macro grind-battles fights it
+  battle_command: &encounter
+    - run: {macro: grind-battles, params: {battles: 1, walk: false}}
     - reset_view: true
-    - if: found('battle_auto_button')
-      then: [{tap: battle_auto_button}]
-      else: [{tap: battle_attack_button}]
-    - wait: 1
-  skill_list:
-    - if: found('battle_attack_button')
-      then: [{tap: battle_attack_button}]
-      else: [{back: true}]
-    - wait: 0.8
-  battle_result:
-    - tap: [0.5, 0.75]
-    - wait: 0.8
+  skill_list: *encounter
+  battle: *encounter
+  battle_result: *encounter

@@ -1,6 +1,7 @@
 # Basic macro: walk back and forth on the current map, fight every encounter, repeat.
-# Any battle: other macros run it (`run: {macro: grind-battles, params: {battles: 5}}`) to clear
-# enemies, or use its fight step (`fight: skill_`) with the same skill_1..skill_4 options.
+# Any battle: other macros run it, e.g. `run: {macro: grind-battles, params: {battles: 1, walk: false}}`
+# for an encounter on their way. Its skill options (set once in the app) are the ones every
+# battle uses, the Another Dungeon mobs included.
 name: grind-battles
 group: basic
 icon: swords
@@ -8,6 +9,7 @@ description: "Basic: walk back and forth on this map and fight every encounter. 
 templates: [grind_battles]
 params:
   battles: {default: 10, help: "stop after this many battles (0 = no limit)"}
+  walk: {default: true, type: bool, help: "walk to find battles; off = only fight the battle on screen (what other macros use for an encounter on their way)"}
   walk_ms: {default: 1500, help: "how long each walk in one direction lasts"}
   first_walk: {default: -1, choices: [-1, 1], help: "direction of the first walk: -1 = left, 1 = right"}
   stuck_walks: {default: 8, help: "stop if this many walks in a row leave the view unchanged (0 = never)"}
@@ -23,6 +25,8 @@ setup:
 
 handlers:
   field:
+    - if: not walk
+      then: [{stop: "back on the field"}]
     # stop if walking stopped changing the view (wedged against something)
     - if: walked and not view_moved()
       then:

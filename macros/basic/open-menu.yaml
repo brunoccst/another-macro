@@ -1,0 +1,30 @@
+# Basic macro: from the field, open the game's menu. Other macros run it to get to a menu
+# page (the shop, the commercials, the diary): `run: open-menu`, then their own taps.
+name: open-menu
+group: basic
+icon: sun
+description: "Basic: from the field, open the game's menu; stops once it is open. Other macros run it to reach a menu page."
+templates: [daily_ads]
+params:
+  max_taps: {default: 4, help: "give up after this many taps on Menu"}
+screens: [menu_open, field]
+unknown_timeout_s: 30
+
+setup:
+  - set: {taps: 0}
+
+handlers:
+  menu_open:
+    - stop: menu open
+  field:
+    - set: {taps: taps + 1}
+    - if: taps > max_taps
+      then: [{stop: "the Menu button didn't open the menu"}]
+    - status: "opening the menu"
+    - tap: field_menu_button
+    - wait: 2
+
+unknown:
+  - if: not game_in_front()
+    then: [{stop: the game is not in front}]
+  - wait: 1
