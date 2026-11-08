@@ -8,13 +8,26 @@ Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
   Python tool (copied into the APK at build time from `src/another_macro/.../templates`).
 - **Macros:** `grind-battles`, `dogma-tower`, `start-game` (with the daily ad, `watch_ad`), `stop-game`,
   `cat-scratchbook` (`mode=read` reports today's clues and where the cats are; `mode=hunt`
-  finds the cat on the current map). Pick one on the main screen; its params are remembered.
+  finds the cat on the current map). Pick one on the Macros page; its params are remembered.
 - **Claude:** let your own Claude chat play or write macros through the phone connector (see below).
 - **Floating controls** over the game (start/pause/stop/restart the last macro), shown
   while screen capture is on.
 
+## Screens
+A sidebar (≡ at the top left) switches between three pages, all in `MainActivity.kt`:
+- **Home** (`HomePage.kt`): what the app is, what's still missing (taps, capture), the last
+  macro with a Run button, how to use the app, and links (GitHub, docs, relay guide, releases).
+- **Macros** (`MacrosPage.kt`): tabs "In use" plus one per group (Daily, Another Dungeon,
+  Farming, Game, Other). Each macro has a switch to choose whether you use it: the macros in
+  use make up the "In use" tab and the floating buttons' list (`MacroChoice` in `Ui.kt`).
+  Tap a macro to open its options and Run. Importing a `.yaml` macro is here too.
+- **System** (`SystemPage.kt`): setup (taps, screen capture), the Claude phone connector and
+  what Claude may do, settings (live log), updates and the log.
+
+From adb: `am start -n io.github.brunoccst.anothermacro/.MainActivity --es page macros`.
+
 ## Claude in the app: the phone connector
-The **Claude** screen's **Phone connector** section turns the app into a remote MCP
+The **System** page's **Claude phone connector** section turns the app into a remote MCP
 server that the user adds in claude.ai as a custom connector, so their own Claude chat (any
 plan, any Claude app) can see and control the game. A phone has no public address, so the app
 keeps a WebSocket open to the user's relay, a small Cloudflare Worker on their own account

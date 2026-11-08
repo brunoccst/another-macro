@@ -144,3 +144,30 @@ object Groups {
     fun sort(macros: List<Scenario>): List<Pair<Group, List<Scenario>>> =
         ALL.map { g -> g to macros.filter { of(it.group).id == g.id } }.filter { it.second.isNotEmpty() }
 }
+
+/**
+ * The macros the user chose to use (Macros page). The others stay in their group's tab but
+ * leave the "In use" tab and the floating buttons' list. Stored as the names switched off,
+ * so new macros start in use.
+ */
+object MacroChoice {
+    private const val PREFS = "macro_choice"
+    private const val KEY = "not_used"
+
+    fun notUsed(c: Context): Set<String> =
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getStringSet(KEY, emptySet()).orEmpty()
+
+    fun isUsed(c: Context, name: String) = name !in notUsed(c)
+
+    fun setUsed(c: Context, name: String, used: Boolean) {
+        val set = notUsed(c).toMutableSet()
+        if (used) set -= name else set += name
+        c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putStringSet(KEY, set).apply()
+    }
+
+    /** The macros in use (all of them if none is: an empty list helps nobody). */
+    fun used(c: Context, macros: List<Scenario>): List<Scenario> {
+        val off = notUsed(c)
+        return macros.filter { it.name !in off }.ifEmpty { macros }
+    }
+}
