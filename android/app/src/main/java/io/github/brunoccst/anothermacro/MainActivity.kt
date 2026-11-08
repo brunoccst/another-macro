@@ -220,6 +220,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        inFront = true
         Runner.listeners += runListener
         system.onResume()
         macros.onResume()
@@ -227,6 +228,7 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
+        inFront = false
         Runner.listeners -= runListener
         system.onPause()
         macros.onPause()
@@ -310,5 +312,9 @@ class MainActivity : Activity() {
         const val EXTRA_PAGE = "page"
         private const val STATE_PAGE = "page"
         const val REPO = "https://github.com/brunoccst/another-macro"
+        /** This app's screen is the one in front (resumed): the floating ⌂ then goes back to the game. */
+        @Volatile
+        var inFront = false
+            private set
     }
 }

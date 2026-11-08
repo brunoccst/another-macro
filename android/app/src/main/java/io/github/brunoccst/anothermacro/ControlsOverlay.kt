@@ -20,7 +20,8 @@ import kotlin.math.abs
 /**
  * Floating controls over the game: the selected macro (tap it to pick another: tabs like the
  * Macros page, in a list that scrolls), and start / pause-resume / stop / restart it without
- * leaving the game, and ⌂ opens this app (no trip through the home screen). Drawn as an accessibility overlay (no
+ * leaving the game, and ⌂ swaps between this app and the game: it opens this app, or, when this
+ * app is already in front, brings the game back (no trip through the home screen). Drawn as an accessibility overlay (no
  * "draw over other apps" permission needed). Drag the handle to move it; tap
  * the handle to fold the buttons away. The handle's colour shows the state:
  * grey = idle, green = running, amber = paused.
@@ -97,7 +98,7 @@ class ControlsOverlay(private val service: InputService) {
         }
         stop.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_STOP_RUN)) }
         restart.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_RESTART)) }
-        home.setOnClickListener { openApp() }
+        home.setOnClickListener { if (MainActivity.inFront) openGame() else openApp() }
         selected.setOnClickListener { togglePicker() }
         dragAndFold()
         refresh()
@@ -133,6 +134,12 @@ class ControlsOverlay(private val service: InputService) {
             service.startActivity(Intent(service, MainActivity::class.java)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
         }.onFailure { MacroLog.e("could not open the app", it) }
+    }
+
+    /** Back to the game from this app's screen (the macro, if any, keeps running). */
+    private fun openGame() {
+        if (picker.visibility == View.VISIBLE) { picker.visibility = View.GONE; relayout() }
+        if (!service.launchApp(ClaudeSafety.GAME)) MacroLog.i("Another Eden isn't installed")
     }
 
     /** The overlay window keeps the size it was first laid out with: re-measure after the content changes. */
