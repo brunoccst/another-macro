@@ -43,3 +43,44 @@ export function bearer(request) {
 export function text(status, body) {
   return new Response(body, { status, headers: { "Content-Type": "text/plain; charset=utf-8" } });
 }
+
+/** The method of a single JSON-RPC request, or "" for anything else. */
+export function rpcMethod(body) {
+  try {
+    const m = JSON.parse(body);
+    return m && !Array.isArray(m) && typeof m.method === "string" ? m.method : "";
+  } catch {
+    return "";
+  }
+}
+
+/** MCP protocol versions the phone speaks (McpServer.VERSIONS); the first answers any other. */
+export const VERSIONS = ["2025-06-18", "2025-11-25", "2025-03-26"];
+
+/**
+ * The relay's own answer while the phone is offline, so claude.ai can add, check and list the
+ * connector: initialize, ping and tools/list (the phone's last tool list, if the relay has seen
+ * one). Null for anything else, which gets OFFLINE.
+ */
+export function offlineAnswer(body, tools) {
+  let m;
+  try { m = JSON.parse(body); } catch { return null; }
+  if (!m || Array.isArray(m) || m.id === undefined || m.id === null) return null;
+  let result;
+  if (m.method === "initialize") {
+    const asked = m.params?.protocolVersion;
+    result = {
+      protocolVersion: VERSIONS.includes(asked) ? asked : VERSIONS[0],
+      capabilities: { tools: { listChanged: false } },
+      serverInfo: { name: "another-macro-phone", version: "relay" },
+      instructions: OFFLINE,
+    };
+  } else if (m.method === "ping") {
+    result = {};
+  } else if (m.method === "tools/list" && Array.isArray(tools)) {
+    result = { tools };
+  } else {
+    return null;
+  }
+  return JSON.stringify({ jsonrpc: "2.0", id: m.id, result });
+}

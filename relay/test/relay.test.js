@@ -77,7 +77,9 @@ test("other paths are not found and the root says nothing more", async () => {
 /** A relay instance with a fake phone that answers each message with [answer]. */
 function relayWithPhone(answer) {
   const sockets = [];
-  const relay = new PhoneRelay({ getWebSockets: () => sockets, acceptWebSocket: () => {} }, env);
+  const kept = new Map();
+  const storage = { get: async (k) => kept.get(k), put: async (k, v) => { kept.set(k, v); } };
+  const relay = new PhoneRelay({ getWebSockets: () => sockets, acceptWebSocket: () => {}, storage }, env);
   if (answer) {
     sockets.push({
       send(msg) {
@@ -119,4 +121,28 @@ test("a phone that drops mid-request ends the request with the offline error", a
   assert.equal(j.id, 9);
   assert.equal(j.error.message, OFFLINE);
   assert.equal(relay.pending.size, 0);
+});
+
+test("with the phone off the relay still answers initialize and ping, so the connector can be added", async () => {
+  const { relay } = relayWithPhone(null);
+  const init = await (await relay.mcp(JSON.stringify({ jsonrpc: "2.0", id: 1, method: "initialize", params: { protocolVersion: "2025-11-25" } }))).json();
+  assert.equal(init.id, 1);
+  assert.equal(init.result.protocolVersion, "2025-11-25");
+  assert.deepEqual(init.result.capabilities, { tools: { listChanged: false } });
+  assert.equal(init.result.instructions, OFFLINE);
+  const odd = await (await relay.mcp(JSON.stringify({ jsonrpc: "2.0", id: 2, method: "initialize", params: { protocolVersion: "1999-01-01" } }))).json();
+  assert.equal(odd.result.protocolVersion, "2025-06-18");
+  assert.deepEqual((await (await relay.mcp(rpc(3, "ping"))).json()).result, {});
+  const call = await (await relay.mcp(rpc(4, "tools/call"))).json();
+  assert.equal(call.error.message, OFFLINE);
+});
+
+test("the phone's tool list is kept and served while the phone is off", async () => {
+  const tools = [{ name: "screenshot", description: "d", inputSchema: { type: "object", properties: {} } }];
+  const { relay, sockets } = relayWithPhone((body) => JSON.stringify({ jsonrpc: "2.0", id: JSON.parse(body).id, result: { tools } }));
+  await relay.mcp(rpc(5, "tools/list"));
+  sockets.length = 0; // the phone goes offline
+  const j = await (await relay.mcp(rpc(6, "tools/list"))).json();
+  assert.equal(j.id, 6);
+  assert.deepEqual(j.result.tools, tools);
 });
