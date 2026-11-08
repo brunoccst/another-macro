@@ -2,6 +2,7 @@ package io.github.brunoccst.anothermacro
 
 import android.annotation.SuppressLint
 import android.content.Context
+import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
@@ -19,7 +20,7 @@ import kotlin.math.abs
 /**
  * Floating controls over the game: the selected macro (tap it to pick another: tabs like the
  * Macros page, in a list that scrolls), and start / pause-resume / stop / restart it without
- * leaving the game. Drawn as an accessibility overlay (no
+ * leaving the game, and ⌂ opens this app (no trip through the home screen). Drawn as an accessibility overlay (no
  * "draw over other apps" permission needed). Drag the handle to move it; tap
  * the handle to fold the buttons away. The handle's colour shows the state:
  * grey = idle, green = running, amber = paused.
@@ -38,6 +39,7 @@ class ControlsOverlay(private val service: InputService) {
     private val playPause = round("▶", Color.parseColor("#2E7D32"))
     private val stop = round("■", Color.parseColor("#C62828"))
     private val restart = round("↻", Color.parseColor("#1565C0"))
+    private val home = round("⌂", Color.parseColor("#455A64"))
     private val liveLog = LiveLogOverlay(service)
     private val liveListener: () -> Unit = { main.post { refresh() } }
     /** The selected macro (what ▶ starts); tap it to pick another. */
@@ -82,6 +84,7 @@ class ControlsOverlay(private val service: InputService) {
         buttons.addView(playPause)
         buttons.addView(stop)
         buttons.addView(restart)
+        buttons.addView(home)
         root.addView(handle)
         root.addView(buttons, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         root.alpha = 0.85f
@@ -94,6 +97,7 @@ class ControlsOverlay(private val service: InputService) {
         }
         stop.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_STOP_RUN)) }
         restart.setOnClickListener { service.startService(MacroService.intent(service, MacroService.ACTION_RESTART)) }
+        home.setOnClickListener { openApp() }
         selected.setOnClickListener { togglePicker() }
         dragAndFold()
         refresh()
@@ -120,6 +124,15 @@ class ControlsOverlay(private val service: InputService) {
             return
         }
         service.startService(LastRun.intent(service, last.first, last.second))
+    }
+
+    /** Bring the app's own screen to the front (the macro, if any, keeps running). */
+    private fun openApp() {
+        if (picker.visibility == View.VISIBLE) { picker.visibility = View.GONE; relayout() }
+        runCatching {
+            service.startActivity(Intent(service, MainActivity::class.java)
+                .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_REORDER_TO_FRONT))
+        }.onFailure { MacroLog.e("could not open the app", it) }
     }
 
     /** The overlay window keeps the size it was first laid out with: re-measure after the content changes. */
