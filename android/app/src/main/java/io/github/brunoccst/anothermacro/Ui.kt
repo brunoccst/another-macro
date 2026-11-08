@@ -123,7 +123,7 @@ object Groups {
         Group("dungeon", "Another Dungeon", R.drawable.ic_keycard),
         Group("farm", "Farming", R.drawable.ic_swords),
         Group("game", "Game", R.drawable.ic_power),
-        // building blocks other macros run (watch-ad, grind-battles)
+        // building blocks other macros run (watch-ad, battle, grind-battles, ...)
         Group("basic", "Basic", R.drawable.ic_blocks),
         Group("other", "Other", R.drawable.ic_puzzle),
         // saved by Claude through the phone connector, not from the macro library

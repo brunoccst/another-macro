@@ -378,11 +378,11 @@ object CatDaily {
         return false
     }
 
-    /** A random encounter on the way: the basic macro grind-battles fights it (one battle, its skills). */
+    /** A random encounter on the way: the basic macro battle fights it (its skills). */
     private fun fightIfBattle(ctx: Context) {
         ctx.refresh()
         if (!Battle.inBattle(ctx)) return
-        val why = ctx.runBasic("grind-battles", mapOf("battles" to "1", "walk" to "false"))
+        val why = ctx.runBasic("battle")
         if (why == "party was defeated") ctx.stop(why)
     }
 }

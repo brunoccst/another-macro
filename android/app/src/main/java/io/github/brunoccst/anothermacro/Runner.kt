@@ -410,7 +410,7 @@ object Runner {
     /**
      * Run [sub] inside the running macro (Flow's `run:` step) and return its stop reason, for the
      * caller to go on. It starts from its own options as the user chose them in the app (so a
-     * basic macro's settings, e.g. grind-battles' skills, apply wherever it is run), then [given]. It ends like any macro (its own stop), or as soon as one of [until] (the
+     * basic macro's settings, e.g. the battle macro's skills, apply wherever it is run), then [given]. It ends like any macro (its own stop), or as soon as one of [until] (the
      * caller's screens) shows: "back to <screen>". A stop request or a safety stop ends the caller
      * too. Its counters are added to the caller's.
      */

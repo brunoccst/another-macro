@@ -1,23 +1,17 @@
-# Basic macro: walk back and forth on the current map, fight every encounter, repeat.
-# Any battle: other macros run it, e.g. `run: {macro: grind-battles, params: {battles: 1, walk: false}}`
-# for an encounter on their way. Its skill options (set once in the app) are the ones every
-# battle uses, the Another Dungeon mobs included.
+# Basic macro: walk back and forth on the current map, and fight every encounter with the basic
+# macro battle (its skills), until enough battles are won. Other macros run it to clear a map:
+# `run: {macro: grind-battles, params: {battles: 5}}`.
 name: grind-battles
 group: basic
 icon: swords
-description: "Basic: walk back and forth on this map and fight every encounter. Skills per party slot; other macros run it for their battles."
+description: "Basic: walk back and forth on this map and fight every encounter (with the battle macro and its skills), repeat."
 templates: [grind_battles]
 params:
   battles: {default: 10, help: "stop after this many battles (0 = no limit)"}
-  walk: {default: true, type: bool, help: "walk to find battles; off = only fight the battle on screen (what other macros use for an encounter on their way)"}
   walk_ms: {default: 1500, help: "how long each walk in one direction lasts"}
   first_walk: {default: -1, choices: [-1, 1], help: "direction of the first walk: -1 = left, 1 = right"}
   stuck_walks: {default: 8, help: "stop if this many walks in a row leave the view unchanged (0 = never)"}
-  # the four front-row party slots, left to right; all auto = the battle's Auto button
-  skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], help: "party slot 1 (front row, left): auto or skill 1-4 (4 = the last skill)"}
-  skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], help: "party slot 2: auto or skill 1-4"}
-  skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], help: "party slot 3: auto or skill 1-4"}
-  skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], help: "party slot 4: auto or skill 1-4"}
+  # the skills: set them on the basic macro battle
 screens: [title, defeat, battle_result, skill_list, battle_command, battle, field]
 
 setup:
@@ -25,8 +19,6 @@ setup:
 
 handlers:
   field:
-    - if: not walk
-      then: [{stop: "back on the field"}]
     # stop if walking stopped changing the view (wedged against something)
     - if: walked and not view_moved()
       then:
@@ -39,10 +31,12 @@ handlers:
     - walk: {dir: dir, ms: walk_ms}
     - set: {dir: -dir}
 
-  # any battle screen: fight it to the end with the chosen skills (shared with the other fight macros)
+  # any battle screen: the basic macro battle fights it to the end
   battle_command: &fight
-    - fight: skill_
-    - if: outcome == 'won'
+    - run: battle
+    - if: result == 'party was defeated'
+      then: [{stop: party was defeated}]
+    - if: result == 'won'
       then:
         - set: {walked: false, still: 0}
         - reset_view: true

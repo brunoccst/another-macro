@@ -185,8 +185,12 @@ object MacroParams {
 
     fun load(c: Context, name: String): Map<String, String> {
         val saved = c.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getString(name, null)
-        // before options were kept per macro, only the last run's were: take those for that macro
-        if (saved == null) return LastRun.load(c)?.takeIf { it.first == name }?.second ?: emptyMap()
+        if (saved == null) {
+            // before options were kept per macro, only the last run's were: that macro's, and its
+            // skills for any macro with skills (the battle macro took them over from the fight macros)
+            val last = LastRun.load(c) ?: return emptyMap()
+            return if (last.first == name) last.second else last.second.filterKeys { it.startsWith("skill_") }
+        }
         return decode(saved)
     }
 
