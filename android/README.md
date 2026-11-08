@@ -9,8 +9,33 @@ Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
 - **Macros:** `grind-battles`, `dogma-tower`, `start-game` (with the daily ad, `watch_ad`), `stop-game`,
   `cat-scratchbook` (`mode=read` reports today's clues and where the cats are; `mode=hunt`
   finds the cat on the current map). Pick one on the main screen; its params are remembered.
+- **Claude:** let your own Claude chat play or write macros through the phone connector (see below).
 - **Floating controls** over the game (start/pause/stop/restart the last macro), shown
   while screen capture is on.
+
+## Claude in the app: the phone connector
+The **Claude** screen's **Phone connector** section turns the app into a remote MCP
+server that the user adds in claude.ai as a custom connector, so their own Claude chat (any
+plan, any Claude app) can see and control the game. A phone has no public address, so the app
+keeps a WebSocket open to the user's relay, a small Cloudflare Worker on their own account
+(`relay/`, with a Deploy button and setup steps in `relay/README.md`).
+- `PhoneConnector.kt`: the socket (reconnects with backoff), turns itself off after 30 minutes
+  without tool calls, and maps the connector's tools (screenshot, zoom, tap, swipe, back, wait,
+  walk, read_text, find_template, list_templates, list_macros, read_macro, start_macro,
+  macro_status, stop_macro, save_template, save_macro, launch_game) onto `PhoneTools`.
+- `PhoneTools.kt`: the tools, behind the safety layer (`ClaudeSafety.kt`, enforced in code,
+  not just the prompt): taps only while Another Eden is in front; every tap goes through
+  `Context.tap`'s purchase guard; screens offering a purchase are refused (a second purchase
+  attempt turns the connector off); taps on sell/discard/release/exchange/... or on screens
+  mentioning Chronos Stones ask the user on the phone (`AskOverlay.kt`, denied after 2
+  minutes because connector tool calls time out at 240 s). Macros run in the background
+  (`start_macro` / `macro_status`) for the same reason; macros Claude writes are ordinary
+  `.yaml` files in the app's storage, and built-in macro names can't be replaced.
+- `McpServer.kt`: the MCP JSON-RPC (initialize, ping, tools/list, tools/call), unit tested.
+- Tokens: a phone token (app → relay) and a connector token (Claude → relay), 256-bit random,
+  stored encrypted with an Android Keystore AES key (`ClaudeSettings.kt`), never logged.
+- Unit tests (`gradle -p android testDebugUnitTest`, no device): the MCP answers and the
+  safety word checks.
 
 ## Install / first run
 1. Download `another-macro.apk` from the latest GitHub Release and install it.

@@ -91,6 +91,14 @@ class MainActivity : Activity() {
         }
         column.addView(setupCard)
 
+        // --- Claude: the phone connector -------------------------------------------------
+        column.addView(Ui.card(this).apply {
+            (layoutParams as LinearLayout.LayoutParams).topMargin = dp(14)
+            addView(Ui.text(this@MainActivity, "Claude", 17f, bold = true))
+            addView(Ui.text(this@MainActivity, "Let Claude play or write macros for you from your Claude chat, through the phone connector.", 13f, Ui.MUTED).apply { setPadding(0, dp(4), 0, dp(4)) })
+            addView(Ui.button(this@MainActivity, "Open Claude", primary = true) { startActivity(Intent(this@MainActivity, ClaudeActivity::class.java)) })
+        })
+
         // --- macros, grouped ---------------------------------------------------------
         macros = Scenarios.all(this)
         for ((group, list) in Groups.sort(macros)) {

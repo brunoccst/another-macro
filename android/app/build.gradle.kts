@@ -53,6 +53,10 @@ android {
     buildFeatures {
         buildConfig = true
     }
+    packaging {
+        // Jackson / OkHttp / Kotlin jars all carry these
+        resources.excludes += listOf("META-INF/DEPENDENCIES", "META-INF/LICENSE*", "META-INF/NOTICE*", "META-INF/*.kotlin_module", "META-INF/versions/9/previous-compilation-data.bin")
+    }
     kotlinOptions {
         jvmTarget = "17"
     }
@@ -79,4 +83,8 @@ dependencies {
     implementation("org.snakeyaml:snakeyaml-engine:2.7")
     // on-device text recognition (bundled model, no Google Play services needed): cat clues, map labels
     implementation("com.google.mlkit:text-recognition:16.0.1")
+    // the phone connector: WebSocket to the relay (OkHttp), MCP JSON-RPC (Jackson)
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.fasterxml.jackson.core:jackson-databind:2.19.4")
+    testImplementation("junit:junit:4.13.2")
 }

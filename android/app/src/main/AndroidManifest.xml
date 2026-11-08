@@ -34,6 +34,12 @@
             android:screenOrientation="sensorLandscape"
             android:theme="@android:style/Theme.Material.NoActionBar.Fullscreen" />
 
+        <!-- Claude: the phone connector settings (see PhoneConnector) -->
+        <activity
+            android:name=".ClaudeActivity"
+            android:exported="false"
+            android:windowSoftInputMode="adjustResize" />
+
         <receiver
             android:name=".Updater$InstallResult"
             android:exported="false" />

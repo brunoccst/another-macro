@@ -1,0 +1,16 @@
+# Another Macro relay (see README.md). Deploys to your own Cloudflare account, free plan.
+name = "another-macro"
+main = "src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "PhoneRelay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PhoneRelay"]
+
+[observability]
+enabled = false

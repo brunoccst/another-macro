@@ -231,6 +231,7 @@ object Runner {
     private val stopRequested = AtomicBoolean(false)
     private val running = AtomicBoolean(false)
     private val paused = AtomicBoolean(false)
+    /** A macro is running (one at a time: it drives the screen). */
     val isRunning get() = running.get()
     val isPaused get() = paused.get()
     var current: String? = null
@@ -238,12 +239,12 @@ object Runner {
 
     /** Notified (on any thread) whenever running/paused changes. */
     val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
-    private fun changed() = listeners.forEach { runCatching { it() } }
+    internal fun changed() = listeners.forEach { runCatching { it() } }
 
     fun requestStop() { stopRequested.set(true); paused.set(false); changed() }
 
     fun setPaused(p: Boolean) {
-        if (!running.get()) return
+        if (!isRunning) return
         paused.set(p)
         MacroLog.i(if (p) "paused" else "resumed")
         changed()

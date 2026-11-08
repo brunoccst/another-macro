@@ -41,7 +41,7 @@ class MacroService : Service() {
         when (intent?.action) {
             ACTION_START_CAPTURE -> startCapture(intent)
             ACTION_RUN -> runMacro(intent)
-            ACTION_STOP_RUN -> { Runner.requestStop(); MacroLog.i("stop requested") }
+            ACTION_STOP_RUN -> { Runner.requestStop(); PhoneConnector.requestStop(); MacroLog.i("stop requested") }
             ACTION_PAUSE -> Runner.setPaused(!Runner.isPaused)
             ACTION_RESTART -> restart()
             ACTION_SHUTDOWN -> shutdown()
@@ -68,6 +68,7 @@ class MacroService : Service() {
             override fun onStop() {
                 MacroLog.i("screen capture stopped")
                 Runner.requestStop()
+                PhoneConnector.stopConnector("screen capture stopped")
                 capture?.release(); capture = null
             }
         }, Handler(Looper.getMainLooper()))
@@ -131,6 +132,7 @@ class MacroService : Service() {
     }
 
     private fun shutdown() {
+        PhoneConnector.stopConnector("screen capture turned off")
         Runner.requestStop()
         InputService.instance?.showControls(false)
         capture?.release(); capture = null
@@ -140,6 +142,7 @@ class MacroService : Service() {
     }
 
     override fun onDestroy() {
+        PhoneConnector.stopConnector("the app's service stopped")
         Runner.requestStop()
         capture?.release(); capture = null
         projection?.stop(); projection = null
