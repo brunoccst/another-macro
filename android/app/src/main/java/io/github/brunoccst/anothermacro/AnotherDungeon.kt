@@ -815,18 +815,22 @@ object AnotherDungeon {
         MacroLog.i("the exit didn't take us anywhere yet")
     }
 
+    /** Fights on one map before it is taken as cleared even without the banner (a safety cap). */
+    internal const val CLEAR_MAX_BATTLES = 15
+
     /** The round signs where a staircase/door leads to another map (on the ground, or a door sign over it). */
     private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps", "door_sign")
 
     /**
-     * Walk back and forth fighting (like grind-battles) until the game says no enemies are left,
-     * [clear_battles] fights are won on this map (5 by default: Bruno's rule, enough to clear a
-     * map), or none come any more.
+     * Walk back and forth fighting (like grind-battles with until_cleared) until the game says
+     * "The enemies have disappeared" (Bruno's rule: every enemy first). Safety caps for a missed
+     * banner: [clear_max_battles] fights won on this map (15 by default, 0 = no cap), or no
+     * encounter in 12 walks.
      */
     private fun grind(r: Run, ms: MapSpec) {
         val ctx = r.ctx
         task(r, "${ms.names.first()}: fighting the enemies first (back and forth)")
-        val cap = ctx.params["clear_battles"]?.trim()?.toIntOrNull() ?: 5
+        val cap = ctx.params["clear_max_battles"]?.trim()?.toIntOrNull() ?: CLEAR_MAX_BATTLES
         var won = 0
         var dir = 1.0
         var quiet = 0
@@ -843,10 +847,14 @@ object AnotherDungeon {
                 if (abs(to - p.x) >= t.minWalk) r.pos = Route.hold(ctx, l, t, p, to > p.x, t.holdMs(abs(to - p.x)).toLong()) { fight(r).also { if (it) fought = true } }
             } else AreaNav.hold(ctx, dir, 0.05)
             dir = -dir
-            if (fight(r) || fought) { quiet = 0; won++ } else quiet++
+            if (fight(r) || fought) { quiet = 0; won++ } else {
+                quiet++
+                // the banner can come late (after the walk back to the field): look on quiet walks too
+                readBanner(r)
+            }
             if (r.cleared) return
             if (cap > 0 && won >= cap) {
-                MacroLog.i("$won fights on ${ms.names.first()}: taking it as cleared")
+                MacroLog.i("$won fights on ${ms.names.first()} and no \"enemies have disappeared\" seen: taking it as cleared (safety cap)")
                 r.cleared = true
                 return
             }
@@ -855,12 +863,23 @@ object AnotherDungeon {
         r.cleared = true
     }
 
-    private fun noEnemiesLeft(text: String) = "enemies have disappeared" in text || ("enemies" in text && "disappeared" in text)
+    /** "The enemies have disappeared" in normalized OCR text (also when OCR splits or clips the line). */
+    internal fun noEnemiesLeft(text: String) = "disappear" in text
+
+    /** Where "The enemies have disappeared" shows: the top middle (kept wide: its exact spot is not measured). */
+    private val BANNER = Region(0.05, 0.0, 0.9, 0.45)
+
+    /** A quick look for the banner only. */
+    private fun readBanner(r: Run) {
+        if (r.cleared) return
+        val all = r.ctx.readText(BANNER).joinToString(" ") { Ocr.norm(it.text) }
+        if (noEnemiesLeft(all)) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
+    }
 
     /** One read of the screen after a win: the map's enemies gone, the White Key. */
-    private fun readAfterWin(r: Run, quick: Boolean = false) {
+    private fun readAfterWin(r: Run, quick: Boolean = false): String {
         // the banner sits at the top middle: reading only there is quicker (it shows for a moment)
-        val lines = if (quick) r.ctx.readText(Region(0.15, 0.0, 0.7, 0.25)) else r.ctx.readText()
+        val lines = if (quick) r.ctx.readText(BANNER) else r.ctx.readText()
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         if (!quick) { noteRewards(r, lines); endNotSkip(r, lines) }
         if (!r.cleared && noEnemiesLeft(all)) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
@@ -868,6 +887,7 @@ object AnotherDungeon {
             if (!r.phantom) MacroLog.i("White Key: the Phantom Crystal Dimension is open")
             r.phantom = true
         }
+        return all
     }
 
     /**
@@ -966,8 +986,11 @@ object AnotherDungeon {
                 if (r.task.isNotEmpty()) MacroLog.status(r.task)
                 if (wasBoss) { r.bossBeaten = true; ctx.count("bosses") }
                 // "The enemies have disappeared" flashes for a moment after a map's last enemy
-                val end = System.currentTimeMillis() + 3000
-                while (!r.cleared && !r.bossBeaten && System.currentTimeMillis() < end) readAfterWin(r, quick = true)
+                val end = System.currentTimeMillis() + 6000
+                val seen = LinkedHashSet<String>()
+                while (!r.cleared && !r.bossBeaten && System.currentTimeMillis() < end) readAfterWin(r, quick = true).takeIf { it.isNotBlank() }?.let { seen += it }
+                // for tuning the banner's spot and timing: what the top of the screen said meanwhile
+                if (!r.cleared && !r.onBossMap && seen.isNotEmpty()) MacroLog.i("top after the win: ${seen.joinToString(" | ").take(160)}")
                 if (r.bossBeaten) checkPhantom(r)
             }
         }

@@ -60,6 +60,25 @@ class MacroLibraryTest {
         for (n in listOf("daily-ads", "shop-ad")) assertTrue(n, (macros.getValue(n) as FlowScenario).uses.containsAll(listOf("open-menu", "start-game")))
     }
 
+    @Test fun mapsAreFoughtUntilTheEnemiesDisappear() {
+        val macros = Scenarios.parseAll(LibraryFiles(repo)).associateBy { it.name }
+        val grind = macros.getValue("grind-battles").params
+        assertEquals("false", grind.getValue("until_cleared").default)
+        assertEquals("bool", grind.getValue("until_cleared").type)
+        // the dungeons fight until the banner; the fight count is only a safety cap
+        for (n in listOf("dogma-tower", "burning-beast-kings-castle")) {
+            val p = macros.getValue(n).params
+            assertFalse(n, p.containsKey("clear_battles"))
+            assertEquals(n, AnotherDungeon.CLEAR_MAX_BATTLES.toString(), p.getValue("clear_max_battles").default)
+        }
+    }
+
+    @Test fun enemiesGoneBannerIsReadWhenSplitOrClipped() {
+        for (t in listOf("the enemies have disappeared", "enemies have disappeared", "the enemies have disappear", "enemies have disappeared,"))
+            assertTrue(t, AnotherDungeon.noEnemiesLeft(Ocr.norm(t)))
+        assertFalse(AnotherDungeon.noEnemiesLeft(Ocr.norm("Front Guard Tower")))
+    }
+
     @Test fun resultsCompareAsText() {
         val env = object : Expr.Env {
             override fun variable(name: String): Any? = if (name == "result") "on the field" else null
