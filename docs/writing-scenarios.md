@@ -118,6 +118,7 @@ What `ctx` gives a handler:
 | `ctx.tap(x)` | tap a template name, `Match`, `Region` or `Point` (lands randomly in the middle of a button) |
 | `ctx.hold(x, ms)` | press and hold in place |
 | `ctx.drag(a, b, ms)` | press at `a`, slide to `b`, hold until `ms` is up (walking) |
+| `ctx.hold(a, b, ms) { heldMs -> stop? }` | like `drag`, but watches the screen while the finger is down and lifts it when the callback says so (a battle started) |
 | `ctx.device.swipe(a, b, ms)`, `ctx.device.back()` | raw input |
 | `ctx.wait(s)` | sleep (slightly randomised) |
 | `ctx.stats` | counters printed at the end |

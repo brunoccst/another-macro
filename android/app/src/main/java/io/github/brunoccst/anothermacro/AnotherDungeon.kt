@@ -10,10 +10,12 @@ import kotlin.math.abs
  *  1. enter: the "!" over the Another Dungeon door (Spacetime Rift) → era tab → the
  *     dungeon's label → Hard (green key) or Very Hard (red key) → Move, or Skip when a
  *     Cat Express Ticket should be used (skips the whole dungeon);
- *  2. every map: walk its known layout (the area map hides unexplored parts) to each
- *     chest and open it with the "!" bubble, fighting the encounters on the way;
- *  3. "fight all enemies": after a map's chests, walk back and forth fighting until the
- *     game says no enemies are left (or none come any more);
+ *  2. every map: first fight its enemies, walking back and forth by where the party arrived,
+ *     until the game says they have disappeared (then no battle can interrupt the walk);
+ *  3. follow the map's fixed path (dungeons.yaml `path:`, planned from the map's
+ *     layout by `another-macro dungeon-routes`) to each chest and open it with the "!"
+ *     bubble, fighting the encounters on the way, without opening the area map (see
+ *     Route.kt); a map without a path walks its layout looking at the area map;
  *  4. walk to the map's exit and take it;
  *  5. the last map (no layout yet): sweep it, tapping every "!" (its chest, the boss);
  *     the boss battle gets the boss skill setup when one is chosen;
@@ -23,7 +25,9 @@ import kotlin.math.abs
  * and are never tapped, and any purchase offer stops the run.
  */
 object AnotherDungeon {
-    data class MapSpec(val names: List<String>, val layout: AreaNav.Layout?, val chests: List<Point>, val exit: Point?, val boss: Boolean, val arrival: Point? = null, val chestsCount: Int = 0) {
+    data class MapSpec(val names: List<String>, val layout: AreaNav.Layout?, val chests: List<Point>, val exit: Point?, val boss: Boolean, val arrival: Point? = null, val chestsCount: Int = 0,
+                       /** The fixed walk: one leg per chest (in order), then the exit. */
+                       val path: List<Route.Leg>? = null) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
@@ -56,6 +60,7 @@ object AnotherDungeon {
                 m["boss"] == true,
                 nums(m["arrival"])?.let { Point(it[0], it[1]) },
                 (m["chests_count"] as? Number)?.toInt() ?: 0,
+                (m["path"] as? List<*>)?.mapNotNull { (it as? List<*>)?.let { leg -> Route.parseLeg(leg) } }?.takeIf { it.isNotEmpty() },
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps)
@@ -64,7 +69,6 @@ object AnotherDungeon {
     private class Run(val ctx: Context, val spec: Spec) {
         val mobs = Battle.Setup.from(ctx.params, "skill_")
         val bossSetup = if (ctx.bool("boss_setup")) Battle.Setup.from(ctx.params, "boss_skill_") else mobs
-        val fightAll = ctx.bool("fight_all")
         var map = -1
         var shift = 0.0
         var chestsDone = 0
@@ -93,6 +97,15 @@ object AnotherDungeon {
         var heldKey = false
         /** Enter even though a White Key is held (the loop was told to keep going). */
         var ignoreHeldKey = false
+        /** Following a map's path: where the party is (by the walk table) and where the plan has it. */
+        var pos: Point? = null
+        var planPos: Point? = null
+        /** The map the exit led to, already read on the area map (null: read it again). */
+        var nextMap: Int? = null
+        /** The followed position is unsure (a chest was looked for around its spot): read it on the map before the next leg. */
+        var unsure = false
+        /** The direction of the last walk on the path (+1 right, -1 left): a chest is looked for that way first. */
+        var lastDir = 0.0
     }
 
     private fun task(r: Run, text: String) { r.task = text; MacroLog.status(text) }
@@ -161,15 +174,16 @@ object AnotherDungeon {
         val ctx = r.ctx
         val spec = r.spec
         MacroLog.i("${spec.name}: key ${ctx.str("key")}, cat ticket ${ctx.bool("cat_ticket")}, " +
-            "fight all ${r.fightAll}, mobs ${r.mobs}, boss ${r.bossSetup}")
+            "mobs ${r.mobs}, boss ${r.bossSetup}")
         // started on the boss gate's question, or outside: else already inside
         if (!bossGate(r) && whereAmI(r) == null && !Battle.inBattle(ctx)) {
             enter(r)?.let { return it }
         }
         repeat(300) {
             if (r.phantom) return phantomDone(r)
-            val idx = if (r.map >= 0 && !r.moved) r.map else whereAmI(r)
+            val idx = r.nextMap ?: if (r.map >= 0 && !r.moved) r.map else whereAmI(r)
             r.moved = false
+            r.nextMap = null
             if (idx == null) {
                 if (fight(r)) return@repeat
                 if (bossGate(r)) return@repeat
@@ -177,15 +191,25 @@ object AnotherDungeon {
                 return finish(r)
             }
             if (idx != r.map) {
-                // line the layout up with where the party arrived (only when it just came in)
+                val path = spec.maps[idx].path
                 val arrival = spec.maps[idx].arrival
-                val party = arrival?.let { a -> AreaNav.look(ctx) { emptyList() }.candidates.minByOrNull { abs(it.x - a.x) + 3 * abs(it.y - a.y) } }
-                r.shift = if (arrival != null && party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL && abs(party.x - arrival.x) < 0.025)
-                    party.x - arrival.x else 0.0
-                MacroLog.i("layout offset ${"%.3f".format(r.shift)}")
+                if (path != null && arrival != null) {
+                    // a fixed path: no look at the area map, the party starts where it arrives
+                    r.shift = 0.0
+                    r.pos = arrival; r.planPos = arrival
+                    r.order = path.mapNotNull { it.chest }
+                    MacroLog.i("following the path; chest order: ${r.order.map { it + 1 }}")
+                } else {
+                    // line the layout up with where the party arrived (only when it just came in)
+                    val party = arrival?.let { a -> AreaNav.look(ctx) { emptyList() }.candidates.minByOrNull { abs(it.x - a.x) + 3 * abs(it.y - a.y) } }
+                    r.shift = if (arrival != null && party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL && abs(party.x - arrival.x) < 0.025)
+                        party.x - arrival.x else 0.0
+                    MacroLog.i("layout offset ${"%.3f".format(r.shift)}")
+                    r.pos = null; r.planPos = null
+                    r.order = chestOrder(spec.maps[idx].shifted(r.shift), party)
+                }
                 r.map = idx; r.chestsDone = 0; r.cleared = false
                 r.onBossMap = spec.maps[idx].boss
-                r.order = chestOrder(spec.maps[idx].shifted(r.shift), party)
                 r.chestsTotal += spec.maps[idx].chests.size.takeIf { it > 0 } ?: spec.maps[idx].chestsCount
                 task(r, "Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
                 ctx.count("maps")
@@ -193,8 +217,14 @@ object AnotherDungeon {
             val ms = spec.maps[idx].shifted(r.shift)
             when {
                 ms.layout == null -> sweep(r)
+                // every map's enemies first: once "the enemies have disappeared", no battle can cut
+                // the fixed path short, so it is walked exactly as planned
+                !r.cleared && !r.onBossMap -> {
+                    grind(r, ms)
+                    // the fights moved the party a little: read its spot once before the path
+                    if (r.pos != null) { r.unsure = true; r.lastDir = 0.0 }
+                }
                 r.chestsDone < ms.chests.size -> takeChest(r, ms, ms.chests[r.order.getOrElse(r.chestsDone) { r.chestsDone }])
-                r.fightAll && !r.cleared -> grind(r, ms)
                 ms.exit != null -> leave(r, ms, idx)
                 else -> sweep(r)
             }
@@ -225,7 +255,8 @@ object AnotherDungeon {
      */
     internal fun panelCounters(lines: List<Ocr.Line>): List<List<Int>> =
         lines.sortedBy { it.center.x }.flatMap { l ->
-            Regex("""(\d+)\s*/\s*(\d+)""").findAll(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
+            // the denominators are known (10, 5, 50): "5/515/50" (no space read) is 5/5 and 15/50
+            Regex("""(\d{1,2})\s*/\s*(50|10|5)(?=\D|$|\d{1,2}\s*/)""").findAll(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
                 .map { m -> m.groupValues.drop(1).map { v -> v.toInt() } }.toList()
         }
 
@@ -239,14 +270,32 @@ object AnotherDungeon {
         return words.joinToString(" ") { w -> w.lowercase().replaceFirstChar { it.uppercase() } }
     }
 
-    /** "Obtained Dark Residue x200." → items (OCR reads 0 as O at times). One banner line at a time. */
-    private fun noteItems(r: Run, lines: List<Ocr.Line>) {
-        for (l in lines) {
-            val m = Regex("""^\s*Obtained\s+([A-Za-z'\- ]+?)\s*[x×X]\s*([0-9OoIl,]+)""").find(l.text) ?: continue
+    /**
+     * "Obtained Dark Residue x200." → items. The banner can come as several OCR lines and with
+     * junk ("Obtained Dark Residue x e x800", "Obtained Dark Residue Dark Residue x800"): the
+     * lines are read together, the count is the first "x<number>", the name the words before it.
+     */
+    internal fun obtained(lines: List<Ocr.Line>): List<Pair<String, Int>> {
+        val text = lines.sortedWith(compareBy({ (it.center.y * 25).toInt() }, { it.center.x })).joinToString(" ") { it.text }
+        val out = ArrayList<Pair<String, Int>>()
+        for (m in Regex("""Obtained\s+(.+?)\s*[x×X]\s*([0-9OoIl,]*[0-9][0-9OoIl,]*)""").findAll(text)) {
             val n = m.groupValues[2].replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(",", "").toIntOrNull() ?: continue
-            val name = cleanName(m.groupValues[1]) ?: continue
-            r.items[name] = (r.items[name] ?: 0) + n
+            // drop one-letter junk ("x e"), then a name read twice ("Dark Residue Dark Residue")
+            var words = m.groupValues[1].replace(Regex("""[^A-Za-z'\- ]"""), " ").trim().split(Regex("\\s+")).filter { it.length >= 2 }
+            if (words.size % 2 == 0 && words.size >= 2 && words.subList(0, words.size / 2).map { it.lowercase() } == words.subList(words.size / 2, words.size).map { it.lowercase() })
+                words = words.subList(0, words.size / 2)
+            val name = cleanName(words.joinToString(" ")) ?: continue
+            out += name to n
         }
+        return out
+    }
+
+    /** The name already counted that [name] is an OCR variant of ("Medium Class Soroll" → "Medium Class Scroll"), else [name]. */
+    internal fun sameName(seen: Map<String, Int>, name: String): String =
+        seen.keys.filter { Ocr.similarity(it, name) >= 0.85 }.maxByOrNull { Ocr.similarity(it, name) } ?: name
+
+    private fun noteItems(r: Run, lines: List<Ocr.Line>) {
+        for ((raw, n) in obtained(lines)) { val name = sameName(r.items, raw); r.items[name] = (r.items[name] ?: 0) + n }
     }
 
     /** The screen is one of the end screens that list rewards. */
@@ -280,7 +329,8 @@ object AnotherDungeon {
                     val m = inline.find(c.text) ?: continue
                     (cleanName(m.groupValues[1]) ?: continue) to (num(m.groupValues[2]) ?: continue)
                 }
-                r.rewards[name] = (r.rewards[name] ?: 0) + n
+                val key = sameName(r.rewards, name)
+                r.rewards[key] = (r.rewards[key] ?: 0) + n
                 read++
             }
         }
@@ -291,7 +341,7 @@ object AnotherDungeon {
                 val name = lines.filter { it.center.y < a.center.y && a.center.y - it.center.y < 0.1 && abs(it.center.x - a.center.x) < 0.2 &&
                     Regex("[A-Za-z]{3}").containsMatchIn(it.text) && !Regex("[0-9]").containsMatchIn(it.text) && !Ocr.norm(it.text).startsWith("items") }
                     .maxByOrNull { it.center.y }?.text?.let { cleanName(it) } ?: continue
-                r.rewards[name] = n // the run's total of that item (shown once)
+                r.rewards[sameName(r.rewards, name)] = n // the run's total of that item (shown once)
                 read++
             }
         }
@@ -351,10 +401,11 @@ object AnotherDungeon {
         val bottom = LiveLog.without { ctx.readText() }.filter { it.center.y > 0.85 && it.center.x > 0.5 }
         // OCR reads 0 as O at times ("16/5O")
         val counters = panelCounters(bottom)
-        if (counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }}")
-        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0) ?: counters.getOrNull(2)?.get(0)
-        val keyCounters = counters.filter { it[1] != 50 }.take(2)
-        val keys = if (keyCounters.size >= 2) keyCounters[if (red) 1 else 0][0] else null
+        // each counter by its denominator, never by its place (a counter OCR missed shifts the rest):
+        // green keys "/10", red keys "/5", Cat Express Tickets "/50"
+        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0)
+        val keys = counters.firstOrNull { it[1] == (if (red) 5 else 10) }?.get(0)
+        if (keys == null || tickets == null || counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }} → $counters")
         MacroLog.i("keys (${if (red) "red" else "green"}): ${keys ?: "not read"}; Cat Express Tickets: ${tickets ?: "not read"}")
         if (keys == 0) {
             // the game would offer to buy keys: never; the loop ends here
@@ -423,24 +474,223 @@ object AnotherDungeon {
     /** Fight what interrupted a walk; true if there was a battle. */
     private fun onStep(r: Run): () -> Boolean = { fight(r) }
 
+    /**
+     * The party's spot on the area map: the marker-like blob on a street nearest to [near] (the
+     * followed position). Gold chest icons look like the marker too, so the most marker-like blob
+     * isn't taken blindly.
+     */
+    private fun readSpot(r: Run, l: AreaNav.Layout, near: Point): Point? {
+        val seen = AreaNav.look(r.ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
+            .minByOrNull { abs(it.x - near.x) + 2 * abs(it.y - near.y) } ?: return null
+        val seg = Route.segOf(l, seen)!!
+        return Point(seen.x.coerceIn(seg.x1, seg.x2), seg.y)
+    }
+
     private fun takeChest(r: Run, ms: MapSpec, chest: Point) {
         val ctx = r.ctx
         task(r, "Map ${r.map + 1}: chest ${r.chestsDone + 1}/${ms.chests.size}")
         MacroLog.i("chest ${r.chestsDone + 1}/${ms.chests.size} at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)})")
-        AreaNav.walkLayout(ctx, ms.layout!!, chest, onStep(r))
-        // close by: the chest's "!" shows; look around the spot, a little further each side, until it does
-        val party = AreaNav.look(ctx) { emptyList() }.party
-        val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
-        if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
-        for (k in 1..6) {
-            val side = if (k % 2 == 1) dir else -dir
-            AreaNav.hold(ctx, side, 0.006 * k)
-            fight(r)
-            ctx.wait(0.6)
-            if (openBubble(r)) { r.chestsDone++; ctx.count("chests"); return }
+        val leg = ms.path?.firstOrNull { it.chest != null && ms.chests.getOrNull(it.chest) == chest }
+        val party = if (leg != null && r.pos != null) {
+            walkLeg(r, ms, leg, chest)
+            r.pos
+        } else {
+            AreaNav.walkLayout(ctx, ms.layout!!, chest, onStep(r))
+            AreaNav.look(ctx) { emptyList() }.party
         }
-        MacroLog.i("no chest found by (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}); skipping it")
+        // close by: the chest's "!" shows; look around the spot, a little further each side, until it does
+        val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
+        // the "!" pops up a while after the party stops: watch for it before looking around
+        if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
+        // not there: read the real spot on the map and walk to the chest's x from it (a hold can
+        // come up short, a battle can cut it), then look again
+        val l0 = ms.layout
+        val p0 = r.pos
+        if (l0 != null && p0 != null) {
+            val t = Route.table(ctx)
+            repeat(4) {
+                val at = readSpot(r, l0, r.pos ?: p0) ?: return@repeat
+                MacroLog.i("no \"!\" yet: the map shows the party at (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}), chest at ${"%.3f".format(chest.x)}")
+                r.pos = at
+                val d = chest.x - at.x
+                if (Route.segOf(l0, at) != Route.segOf(l0, chest) || abs(d) < 0.004) return@repeat
+                // a read a little behind the way the party walked is a wobbly marker: don't turn back for it
+                if (r.lastDir != 0.0 && d * r.lastDir < 0 && abs(d) <= 0.01) return@repeat
+                r.pos = Route.hold(ctx, l0, t, at, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
+                if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
+            }
+        }
+        // looking around moves the party off the chest's spot: read it on the map before the next leg
+        r.unsure = r.pos != null
+        // forward first (the way the party was walking: the chest is usually just ahead), then back past the spot
+        val fwd = if (r.pos != null && r.lastDir != 0.0) r.lastDir else dir
+        val steps = listOf(1, 1, 1, -1, -1, -1, -1, -1, -1)
+        for (sgn in steps) {
+            val side = fwd * sgn
+            val p = r.pos
+            if (p != null && ms.layout != null) {
+                // (on a path the position is followed through the search too)
+                val t = Route.table(ctx)
+                r.pos = Route.hold(ctx, ms.layout, t, p, side > 0, t.holdMs(0.006).toLong()) { fight(r) }
+            } else AreaNav.hold(ctx, side, 0.006)
+            fight(r)
+            if (waitBubble(r, 1.5)) { r.chestsDone++; ctx.count("chests"); return }
+        }
+        // (where the party stands on the map tells whether the chest's spot in dungeons.yaml is off)
+        val at = r.pos?.let { p -> ms.layout?.let { readSpot(r, it, p) } }
+        // a picture of the screen for working out why (the app's own storage, never shared)
+        runCatching {
+            ctx.colorMat()?.let { m ->
+                val f = java.io.File(ctx.debugDir, "no-chest-map${r.map + 1}-${r.chestsDone + 1}.png")
+                org.opencv.imgcodecs.Imgcodecs.imwrite(f.path, m); m.release()
+                MacroLog.i("saved ${f.name} in the app's debug folder")
+            }
+        }
+        MacroLog.i("no chest found by (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}); skipping it" +
+            (at?.let { " (the map shows the party at (${"%.3f".format(it.x)}, ${"%.3f".format(it.y)}))" } ?: ""))
+        r.unsure = r.pos != null
         r.chestsDone++
+    }
+
+    /**
+     * Follow one leg of the map's path. Each hold aims at the spot the plan puts it at, from
+     * where the party really is (a battle can cut a hold short), so the stored ms are what's
+     * held when nothing gets in the way. A flick that seems to have done nothing (the screen
+     * barely changed) is checked on the area map; when the party isn't where the plan has it,
+     * the rest of the leg is walked the old way (looking at the area map).
+     */
+    private fun walkLeg(r: Run, ms: MapSpec, leg: Route.Leg, goal: Point) {
+        val ctx = r.ctx
+        val l = ms.layout!!
+        val t = Route.table(ctx)
+        var p = r.pos!!
+        var plan = r.planPos ?: p
+        MacroLog.i("path to ${leg.target}: ${leg.steps.joinToString(", ")}")
+        fun offPath(why: String) {
+            MacroLog.i("$why: walking to ${leg.target} by the area map instead")
+            AreaNav.walkLayout(ctx, l, goal, onStep(r))
+            r.pos = Point(goal.x, Route.segOf(l, goal)?.y ?: goal.y)
+            r.planPos = r.pos
+        }
+        /**
+         * Read where the party is on the area map (once, after a battle or a chest search) and
+         * follow from there. False if it isn't on the street the plan has it on.
+         */
+        fun resync(why: String, target: Double? = null): Boolean {
+            val seen = AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
+                .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) }
+            Route.disturbed = false; r.unsure = false
+            if (seen == null) { MacroLog.i("$why: no party marker on the map; keeping (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})"); return true }
+            val seg = Route.segOf(l, seen)!!
+            MacroLog.i("$why: the map shows (${"%.3f".format(seen.x)}, ${"%.3f".format(seen.y)}), followed (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})")
+            var x = seen.x.coerceIn(seg.x1, seg.x2)
+            // the party only walks forward: a read a little past the target (a stale or wobbly marker)
+            // is taken as being there, so the walk doesn't turn back; only clearly past it (>0.01) turns
+            val to = target ?: plan.x
+            if (r.lastDir != 0.0 && seg == Route.segOf(l, plan) && (x - to) * r.lastDir > 0 && abs(x - to) <= 0.01) x = to
+            p = Point(x, seg.y)
+            return seg == Route.segOf(l, plan)
+        }
+        /** Hold toward [x] on this street (into the wall when [x] is the street's end). */
+        fun walkTo(x: Double) {
+            val s = Route.segOf(l, p)
+            var d = x - p.x
+            if (s != null && (abs(x - s.x1) < 1e-6 || abs(x - s.x2) < 1e-6) && abs(d) >= t.minWalk) d += if (d > 0) t.wallMargin else -t.wallMargin
+            if (abs(d) < t.minWalk) return
+            r.lastDir = if (d > 0) 1.0 else -1.0
+            p = Route.hold(ctx, l, t, p, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
+            // a battle the hold didn't see (it came anyway): where the party stopped is unknown, read it and walk the rest
+            repeat(2) {
+                if (!Route.unseen) return
+                Route.unseen = false
+                if (!resync("a battle came during the hold", x)) return
+                val rest = x - p.x
+                if (abs(rest) < t.minWalk) return
+                p = Route.hold(ctx, l, t, p, rest > 0, t.holdMs(abs(rest) + if (s != null && (abs(x - s.x1) < 1e-6 || abs(x - s.x2) < 1e-6)) t.wallMargin else 0.0).toLong()) { fight(r) }
+            }
+        }
+        Route.disturbed = false
+        if (r.unsure && !resync("after looking around for the chest")) { r.pos = p; offPath("not on the street the path expects"); return }
+        for (st in leg.steps) {
+            if (Route.segOf(l, p) != Route.segOf(l, plan)) { r.pos = p; offPath("not on the street the path expects"); return }
+            when (st) {
+                is Route.Step.Hold -> {
+                    plan = Route.walked(l, plan, st.right, t.distance(st.ms.toDouble()))
+                    walkTo(plan.x)
+                }
+                is Route.Step.Flick -> {
+                    // a battle cut a walk short: read the real spot once, stairs need it
+                    if (Route.disturbed && !resync("before the stairs after a battle")) { r.pos = p; offPath("not on the street the path expects"); return }
+                    val next = Route.climbed(l, plan, st.up) ?: run { r.pos = p; offPath("the path has no stairs ${if (st.up) "up" else "down"} here"); return }
+                    var took = false
+                    // the stairs can be a little off in the data: from the 2nd try, flick a little either side
+                    val offsets = listOf(0.0, -0.006, 0.006, -0.012, 0.012)
+                    for (attempt in 1..offsets.size) {
+                        // stairs only take the party standing on them
+                        val at = plan.x + offsets[attempt - 1]
+                        if (abs(p.x - at) >= t.minWalk) walkTo(at)
+                        ctx.wait(0.4) // standing still on the stairs before the flick
+                        val before = ctx.refresh().gray.clone()
+                        AreaNav.flick(ctx, st.up)
+                        val after = ctx.refresh().gray.clone()
+                        val change = Route.change(before, after)
+                        before.release(); after.release()
+                        val battle = fight(r)
+                        MacroLog.i("flick ${st} (try $attempt): screen change ${"%.1f".format(change)}${if (battle) " (a battle came)" else ""}")
+                        if (!battle && change >= t.flickChange) {
+                            took = true
+                            if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in dungeons.yaml")
+                            break
+                        }
+                        // check on the map: on the far end of the stairs, or still at their foot?
+                        val seen = AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
+                            .minByOrNull { minOf(abs(it.x - next.x) + 2 * abs(it.y - next.y), abs(it.x - plan.x) + 2 * abs(it.y - plan.y)) }
+                        Route.disturbed = false
+                        if (seen != null && abs(seen.y - next.y) < AreaNav.ROW_TOL) {
+                            took = true
+                            if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in dungeons.yaml")
+                            break
+                        }
+                        if (seen != null && Route.segOf(l, seen) == Route.segOf(l, plan)) {
+                            // still at the stairs (a battle came first, or the flick missed them): flick again from here
+                            MacroLog.i("still at the stairs (map shows x=${"%.3f".format(seen.x)}, stairs ${"%.3f".format(plan.x)}): again, a little to the side")
+                            p = Point(seen.x, plan.y)
+                            Route.unseen = false
+                            continue
+                        }
+                        r.pos = seen?.let { Point(it.x, Route.segOf(l, it)!!.y) } ?: p
+                        offPath("the flick ${st} didn't take the stairs (map shows ${seen ?: "no marker"})")
+                        return
+                    }
+                    if (!took) { r.pos = p; offPath("the flick ${st} didn't take the stairs in ${offsets.size} tries"); return }
+                    plan = next
+                    p = next
+                }
+            }
+            r.pos = p
+        }
+        // a battle on the last walk of the leg: read the real spot and finish the walk
+        if (Route.disturbed && resync("at the end of the leg after a battle") && abs(p.x - plan.x) >= t.minWalk) walkTo(plan.x)
+        r.pos = p
+        r.planPos = plan
+    }
+
+    /**
+     * Watch for the "!" for up to [seconds] and open it. Logs the best bubble score seen when it
+     * doesn't show (how close the template came).
+     */
+    private fun waitBubble(r: Run, seconds: Double): Boolean {
+        val end = System.currentTimeMillis() + (seconds * 1000).toLong()
+        var best = 0.0
+        var frames = 0
+        while (System.currentTimeMillis() < end) {
+            if (openBubble(r)) return true
+            frames++
+            best = maxOf(best, r.ctx.vision.library.templates[BUBBLE]?.lastScore ?: 0.0)
+            Thread.sleep(200)
+        }
+        MacroLog.i("no \"!\" in ${seconds}s ($frames frames, best bubble score ${"%.2f".format(best)})")
+        return false
     }
 
     /** Tap a "!" bubble on screen and clear what it opens (a chest's "Obtained ..."). True if there was one. */
@@ -449,7 +699,16 @@ object AnotherDungeon {
         ctx.refresh()
         val b = ctx.find(BUBBLE) ?: return false
         ctx.tap(b); ctx.wait(2.0)
-        val read = ctx.readText()
+        // the banner can be a moment late (the read came back empty): read again for up to ~2 s
+        var read = ctx.readText()
+        for (i in 0 until 4) {
+            val all = read.joinToString(" ") { Ocr.norm(it.text) }
+            if ("obtained" in all || "proceed" in all || "major trial" in all) break
+            ctx.refresh()
+            if (Battle.inBattle(ctx)) break
+            ctx.wait(0.5)
+            read = ctx.readText()
+        }
         val text = read.joinToString(" ") { it.text }
         MacroLog.i("\"!\": ${text.take(120)}")
         noteItems(r, read)
@@ -469,7 +728,8 @@ object AnotherDungeon {
         task(r, "Map ${idx + 1}: to the stairs down")
         val exit = ms.exit!!
         MacroLog.i("to the exit at (${"%.3f".format(exit.x)}, ${"%.3f".format(exit.y)})")
-        AreaNav.walkLayout(ctx, ms.layout!!, exit, onStep(r))
+        val leg = ms.path?.firstOrNull { it.target == "exit" }
+        if (leg != null && r.pos != null) walkLeg(r, ms, leg, exit) else AreaNav.walkLayout(ctx, ms.layout!!, exit, onStep(r))
         // the arrow shows on the ground once the party is near; walk on toward the exit until it does
         val toward = if (exit.x > 0.5) 1.0 else -1.0
         for (attempt in 0..7) {
@@ -479,7 +739,9 @@ object AnotherDungeon {
                 MacroLog.i("taking the ground arrow at (${"%.2f".format(arrow.center.x)}, ${"%.2f".format(arrow.center.y)})")
                 ctx.tap(arrow); ctx.wait(4.0)
                 fight(r)
-                if (whereAmI(r) != idx) return
+                val now = whereAmI(r)
+                // (the next map is known now: no second look at the area map for it)
+                if (now != idx) { if (now != null) r.nextMap = now; return }
             }
             when (attempt) {
                 3 -> AreaNav.flick(ctx, up = false)
@@ -500,10 +762,20 @@ object AnotherDungeon {
         task(r, "${ms.names.first()}: fighting the enemies left (back and forth)")
         var dir = 1.0
         var quiet = 0
+        // on a path: back and forth between two spots of this street, so the position stays known
+        val l = ms.layout
+        val seg = r.pos?.let { p -> l?.let { Route.segOf(it, p) } }
+        val span = r.pos?.let { p -> seg?.let { s -> if (s.x2 - p.x >= p.x - s.x1) p.x to minOf(s.x2, p.x + 0.05) else maxOf(s.x1, p.x - 0.05) to p.x } }
         while (quiet < 12) {
-            AreaNav.hold(ctx, dir, 0.05)
+            val p = r.pos
+            var fought = false
+            if (l != null && p != null && span != null) {
+                val t = Route.table(ctx)
+                val to = if (abs(p.x - span.first) < abs(p.x - span.second)) span.second else span.first
+                if (abs(to - p.x) >= t.minWalk) r.pos = Route.hold(ctx, l, t, p, to > p.x, t.holdMs(abs(to - p.x)).toLong()) { fight(r).also { if (it) fought = true } }
+            } else AreaNav.hold(ctx, dir, 0.05)
             dir = -dir
-            if (fight(r)) quiet = 0 else quiet++
+            if (fight(r) || fought) quiet = 0 else quiet++
             if (r.cleared) return
         }
         MacroLog.i("no encounter in $quiet walks: taking ${ms.names.first()} as cleared")
@@ -531,7 +803,7 @@ object AnotherDungeon {
      */
     private fun sweep(r: Run) {
         val ctx = r.ctx
-        if (r.fightAll && !r.cleared && !r.onBossMap) { grind(r, r.spec.maps[r.map]); return }
+        if (!r.cleared && !r.onBossMap) { grind(r, r.spec.maps[r.map]); return }
         task(r, "Map ${r.map + 1}: looking around (chest, boss)")
         for (vertical in listOf(null, true, false)) {
             if (vertical != null) { AreaNav.flick(ctx, vertical); fight(r); if (r.bossBeaten) return }

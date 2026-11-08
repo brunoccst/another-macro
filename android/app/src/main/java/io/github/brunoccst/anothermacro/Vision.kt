@@ -33,6 +33,9 @@ class Template(
 ) {
     val available: Boolean get() = image != null && ref != null
 
+    /** The best score of the last [match], also when it was under the threshold (for the log). */
+    @Volatile var lastScore = 0.0
+
     fun match(frame: Mat): Match? {
         val img = image ?: return null
         val r = ref ?: return null
@@ -57,6 +60,7 @@ class Template(
         }
         area.release()
         val b = best ?: return null
+        lastScore = b[0]
         if (b[0] < threshold) return null
         return Match(name, b[0], Region((left + b[1]) / fw, (top + b[2]) / fh, b[3] / fw, b[4] / fh))
     }
