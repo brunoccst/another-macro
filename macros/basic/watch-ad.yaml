@@ -3,7 +3,9 @@
 #   - while the commercial plays (nothing of the game on screen): wait until it shows
 #     "Reward granted" (the ad's own sign that it counted) and press Back then; without that
 #     sign, after ad_wait_s press Back, again every retry_s if it doesn't close
-#   - the field (the commercial closed straight back to the game): stop; never press Back on
+#   - one watch can be a group of 1 to 3 commercials in a row: each one is closed the same way
+#     (backs and the timer start again for the next), until the game's reward shows
+#   - the field (the commercials closed straight back to the game, seen for field_s): stop; never press Back on
 #     the field ("Close the app?"), and if that dialog shows anyway, answer No
 #   - the game's reward dialog (or the premium thank-you): tap OK / Close and stop
 #   - the caller's own screen back (its `until:`): stop there
@@ -16,12 +18,13 @@ templates: [start_game, daily_ads]
 params:
   ad_wait_s: {default: 45, help: "how long to let a commercial play before pressing Back to close it"}
   retry_s: {default: 15, help: "after a Back that didn't end it (or the next commercial in a row), press Back again after this long"}
-  max_backs: {default: 6, help: "give up after this many Backs"}
+  max_backs: {default: 10, help: "give up after this many Backs (a group of up to 3 commercials takes a few each)"}
+  field_s: {default: 5, help: "stop once the field has shown this long (a short field between two commercials of a group doesn't count)"}
 screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, close_app, field]
 unknown_timeout_s: 300
 
 setup:
-  - set: {since: now(), backs: 0, last_back: 0}
+  - set: {since: now(), backs: 0, tries: 0, last_back: 0, granted: false, ads: 1, field_since: 0}
   - status: "watching the commercial (closing it after {ad_wait_s}s)"
 
 handlers:
@@ -57,27 +60,38 @@ handlers:
     - wait: 1.5
     - stop: "back on the field"
 
-  field:            # the commercial closed straight back to the game
-    - stop: "back on the field"
+  field:            # the commercials closed straight back to the game (or a pause inside a group)
+    - if: field_since == 0
+      then: [{set: {field_since: now()}}]
+    - if: now() - field_since >= field_s
+      then: [{stop: "back on the field"}]
+    - wait: 1
 
 unknown:
+  - set: {field_since: 0}
+  # a Back on "Reward granted" that left a commercial on screen: the next one of the group,
+  # with its own timer
+  - if: granted and now() - last_back > 4 and not text_has('reward granted')
+    then:
+      - set: {since: now(), tries: 0, granted: false, ads: ads + 1}
+      - status: "watching commercial {ads} of this group"
   # the commercial is playing: let it run, then Back closes it; never tap inside it.
   # "Reward granted" (top right) = it counted: close it now instead of waiting ad_wait_s
   - if: now() - last_back > 5 and text_has('reward granted')
     then:
       - if: backs >= max_backs
-        then: [{stop: "the commercial didn't close after {backs} Backs"}]
-      - set: {backs: backs + 1, last_back: now()}
+        then: [{stop: "the commercials didn't close after {backs} Backs"}]
+      - set: {backs: backs + 1, last_back: now(), granted: true}
       - count: ad_backs
-      - log: "the commercial says reward granted: pressing Back ({backs}/{max_backs})"
+      - log: "commercial {ads} says reward granted: pressing Back ({backs}/{max_backs})"
       - back: true
       - wait: 2
-  - if: now() - since > ad_wait_s + backs * retry_s
+  - if: now() - since > ad_wait_s + tries * retry_s
     then:
       - if: backs >= max_backs
-        then: [{stop: "the commercial didn't close after {backs} Backs"}]
-      - set: {backs: backs + 1, last_back: now()}
+        then: [{stop: "the commercials didn't close after {backs} Backs"}]
+      - set: {backs: backs + 1, tries: tries + 1, last_back: now()}
       - count: ad_backs
-      - log: "the commercial is still on after {ad_wait_s + (backs - 1) * retry_s}s: pressing Back ({backs}/{max_backs})"
+      - log: "commercial {ads} is still on after {ad_wait_s + (tries - 1) * retry_s}s: pressing Back ({backs}/{max_backs})"
       - back: true
   - wait: 2
