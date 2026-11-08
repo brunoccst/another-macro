@@ -394,7 +394,17 @@ object AnotherDungeon {
             return "a White Key is held (the Phantom Crystal Dimension is open): not entering"
         }
         tapText(r, eraLabel(r.spec.era)); ctx.wait(1.5)
-        tapText(r, r.spec.name, minY = 0.2, maxX = 0.62) ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map: ${seen(ctx)}")
+        tapText(r, r.spec.name, minY = 0.2, maxX = 0.62, tries = 2) ?: run {
+            // the map keeps its last pan: the label can sit under the era icons at the top right, half
+            // hidden ("Dogma TovSealed"). Drag what shows of it (else the map) toward the middle, look again.
+            val head = Ocr.norm(r.spec.name).take(7)
+            val part = ctx.readText().firstOrNull { head in Ocr.norm(it.text) }
+            MacroLog.i("${r.spec.name} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
+            if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
+            else ctx.drag(Point(0.49, 0.65), Point(0.29, 0.82), 700)
+            ctx.wait(1.2)
+            tapText(r, r.spec.name, minY = 0.2, maxX = 0.62)
+        } ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map: ${seen(ctx)}")
         ctx.wait(2.0)
         // the panel's counters at the bottom: green keys, red keys, Cat Express Tickets ("17/50"); their "+" buy more
         // left to right: green keys "10/10", red keys "5/5", Cat Express Tickets "17/50"
