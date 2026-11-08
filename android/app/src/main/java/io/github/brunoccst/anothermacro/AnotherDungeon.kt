@@ -30,7 +30,7 @@ object AnotherDungeon {
                        val path: List<Route.Leg>? = null,
                        /** False for a map without enemies (no fights first). */
                        val enemies: Boolean = true,
-                       /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000". */
+                       /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000", "boss L" (walk to the boss). */
                        val steps: List<String>? = null) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
@@ -958,6 +958,17 @@ object AnotherDungeon {
                     var tapped = false
                     for (i in 0 until 3) { if (openBubble(r)) { tapped = true; break }; ctx.wait(0.7) }
                     if (!tapped) MacroLog.i("step bubble: no \"!\" here")
+                }
+                // "boss L": walk that way in plain holds until the boss's question shows, then fight it
+                // (Burning Beast King's Castle: the boss area has no chest, so no looking around)
+                "BOSS" -> {
+                    val dir = if (parts.getOrNull(1)?.uppercase() == "R") 1.0 else -1.0
+                    for (i in 0 until 20) {
+                        if (bossGate(r)) { fight(r); break }
+                        if (fight(r) && r.bossBeaten) break
+                        ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), 1500)
+                        ctx.wait(0.5)
+                    }
                 }
                 "U" -> AreaNav.flick(ctx, up = true)
                 "D" -> AreaNav.flick(ctx, up = false)
