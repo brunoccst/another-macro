@@ -37,6 +37,9 @@ handlers:
     - set: {walked: true}
     - walk: {dir: dir, ms: walk_ms}
     - set: {dir: -dir}
+    # the banner can also come a moment later, while the party walks on (only a short look after a win, so no long stop)
+    - if: until_cleared and text_has('disappeared')
+      then: [{stop: "the enemies have disappeared ({stats.battles} battles)"}]
 
   # any battle screen: the basic macro battle fights it to the end
   battle_command: &fight
@@ -52,7 +55,7 @@ handlers:
         - if: until_cleared
           then:
             - repeat:
-                times: 6
+                times: 2
                 do:
                   - if: text_has('disappeared')
                     then: [{stop: "the enemies have disappeared ({stats.battles} battles)"}]
