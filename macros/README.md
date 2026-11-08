@@ -46,6 +46,14 @@ The Another Dungeon map clearing (5 fights per map) stays inside `AnotherDungeon
 by the map's layout to keep the party's position for the fixed chest paths, which plain
 grind-battles walking would lose. It fights with the same battle code and grind-battles' skills.
 
+## Library macros and custom macros
+
+What Claude and Bruno make is for every user, so it belongs here. A macro Claude saves on the
+phone with the connector's `save_macro` lands under **Custom** as a draft for trying it out; once
+it works and fits a category (Daily, Another Dungeon, Farming, Game, Basic), publish it here in
+`macros/<group>/` (a PR), built from the basic macros, and delete the phone copy
+(`delete_macro`). Custom stays for exceptional one-offs and, later, macros users make themselves.
+
 ## Rules
 
 - Generic: party slots and skill numbers, never character names. A user's own choices

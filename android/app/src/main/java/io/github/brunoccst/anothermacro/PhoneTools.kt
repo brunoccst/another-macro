@@ -203,7 +203,21 @@ class PhoneTools(
         if (inLibrary) return ToolResult("'${macro.name}' is a macro of the library; pick another name", isError = true)
         java.io.File(Scenarios.userDir(app), "${macro.name}.yaml").writeText(yaml)
         MacroLog.i("Claude saved custom macro '${macro.name}'")
-        return ToolResult("saved custom macro '${macro.name}' (listed under Custom; screens: ${macro.screens.joinToString()}; params: ${macro.params.keys.joinToString()})")
+        val publish = if (macro.declaredGroup in setOf("custom", "other")) "" else
+            " It is a draft: its group '${macro.declaredGroup}' is a library category, so once it works publish it to the GitHub repo " +
+                "(macros/${macro.declaredGroup}/${macro.name}.yaml, built from the basic macros) and delete this copy with delete_macro."
+        return ToolResult("saved custom macro '${macro.name}' (listed under Custom; screens: ${macro.screens.joinToString()}; params: ${macro.params.keys.joinToString()}).$publish")
+    }
+
+    /** Remove a custom macro (e.g. once it is published to the library). */
+    fun deleteMacro(input: Map<String, Any?>): ToolResult {
+        val name = input["name"]?.toString().orEmpty()
+        val f = Scenarios.userDir(app).listFiles().orEmpty().firstOrNull { f ->
+            f.name.endsWith(".yaml") && runCatching { FlowScenario.parse(f.readText(), f.name).name }.getOrNull() == name
+        } ?: return ToolResult("no custom macro named '$name' (library macros are changed in the repo)", isError = true)
+        f.delete()
+        MacroLog.i("Claude deleted custom macro '$name'")
+        return ToolResult("deleted custom macro '$name'")
     }
 
     fun readMacro(input: Map<String, Any?>): ToolResult {

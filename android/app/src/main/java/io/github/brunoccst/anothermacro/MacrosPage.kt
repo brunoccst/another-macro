@@ -376,7 +376,9 @@ class MacrosPage(private val a: MainActivity) {
         scroll.post { scroll.scrollTo(0, 0) }
         detailTitle.text = s.name
         detailIcon.setImageResource(Groups.icon(s))
-        detailGroup.text = Groups.of(s.group).title
+        detailGroup.text = (s as? FlowScenario)?.takeIf { it.custom }?.let { c ->
+            if (c.declaredGroup in setOf("custom", "other")) "Custom" else "Custom (draft for ${Groups.of(c.declaredGroup).title}: to be published to the library)"
+        } ?: Groups.of(s.group).title
         detailDescription.text = s.description
         detailDescription.visibility = if (s.description.isBlank()) View.GONE else View.VISIBLE
         detailUses.removeAllViews()

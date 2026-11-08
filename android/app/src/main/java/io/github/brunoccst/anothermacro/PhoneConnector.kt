@@ -221,6 +221,7 @@ object PhoneConnector {
                 "stop_macro" -> t.stopMacro()
                 "save_template" -> t.saveTemplate(a)
                 "save_macro" -> t.saveMacro(a["yaml"]?.toString().orEmpty())
+                "delete_macro" -> t.deleteMacro(a)
                 "launch_game" -> t.launchGame()
                 "update_app" -> updateApp(t.app, a)
                 "update_macros" -> updateMacros(t.app)
@@ -304,8 +305,9 @@ object PhoneConnector {
         McpServer.McpTool("stop_macro", "Stop the running macro.", emptyMap()),
         McpServer.McpTool("save_template", "Save a small box of the current screen as a named template (a stable label or icon, no numbers or moving parts), usable in macros by name.",
             mapOf("name" to str("lowercase letters, digits and _, e.g. quest_board_title"), "region" to box(), "notes" to str("what it is")), listOf("name", "region")),
-        McpServer.McpTool("save_macro", "Save a custom macro (YAML in the app's macro format), listed under Custom, replacing the custom macro with that name. Macros of the library (from GitHub) can't be replaced: change them in the repo.",
+        McpServer.McpTool("save_macro", "Save a custom macro (YAML in the app's macro format), listed under Custom, replacing the custom macro with that name. Use it for drafts and exceptional one-offs: a macro that fits a library category (daily, dungeon, farm, game, basic) is published to the GitHub repo once it works, for every user. Library macros can't be replaced here: change them in the repo.",
             mapOf("yaml" to str("the whole macro file")), listOf("yaml")),
+        McpServer.McpTool("delete_macro", "Delete a custom macro (e.g. after publishing it to the library).", mapOf("name" to str("macro name")), listOf("name")),
         McpServer.McpTool("launch_game", "Open Another Eden (or bring it to the front).", emptyMap()),
         McpServer.McpTool("update_app", "Update the Another Macro app itself to the newest CI build of a GitHub branch of brunoccst/another-macro, with no taps from the user. The app restarts; the connector is back in about 90 s.",
             mapOf("branch" to str("branch whose build to install, e.g. main (default: the branch the phone follows now)"))),
