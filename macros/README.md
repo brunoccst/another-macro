@@ -52,7 +52,7 @@ must tell the boss by its name on the first turn and read the White Key off the 
 
 ## Library macros and custom macros
 
-What Claude and Bruno make is for every user, so it belongs here. A macro Claude saves on the
+What Claude and the user make is for every user, so it belongs here. A macro Claude saves on the
 phone with the connector's `save_macro` lands under **Custom** as a draft for trying it out; once
 it works and fits a category (Daily, Another Dungeon, Farming, Game, Basic), publish it here in
 `macros/<group>/` (a PR), built from the basic macros, and delete the phone copy

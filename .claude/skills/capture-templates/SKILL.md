@@ -9,7 +9,7 @@ Run this inside the Termux session on the phone, from `~/another-macro`.
 
 1. `another-macro doctor` shows which templates each scenario still needs. Read
    each one's `notes:` in its `library.yaml`.
-2. Get the game onto the screen that shows the element. Ask Bruno to do it, or
+2. Get the game onto the screen that shows the element. Ask the user to do it, or
    navigate yourself with `another-macro tap X Y` / `hold` / `back`. Coordinates
    from 0 to 1 are fractions of the screen.
 3. `another-macro screenshot -o /tmp/shot.png`, then view it with the Read tool.
@@ -25,5 +25,5 @@ Run this inside the Termux session on the phone, from `~/another-macro`.
    (score at least 0.9 is comfortable) and the right screen. Then take screenshots of
    *other* screens and confirm it is **not** found there. If it is, pick a more
    distinctive element or raise `threshold`.
-7. Never commit screenshots of Bruno's account, only the small template crops.
+7. Never commit screenshots of the user's account, only the small template crops.
    Commit the PNGs and the updated `library.yaml`.
