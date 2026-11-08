@@ -40,12 +40,13 @@ class InputService : AccessibilityService() {
     }
 
     /**
-     * During a self-update Claude started (and only then, for a few minutes): press Android's own
+     * During a self-update Claude or the automatic check started (never one the user started; only for a few minutes): press Android's own
      * "Update" in the package installer and "Start now" in the screen-capture question, which this
      * app asked for itself. Nothing else is ever pressed.
      */
     private fun autoConfirm(pkg: String) {
-        if (System.currentTimeMillis() > Updater.resumeUntil(this)) return
+        // only for an update nobody is watching: when the user started it, every dialog is theirs
+        if (System.currentTimeMillis() > Updater.autoConfirmUntil(this)) return
         val words = when {
             "packageinstaller" in pkg -> listOf("update", "install")
             pkg == "com.android.systemui" -> listOf("start now", "start")
@@ -56,7 +57,11 @@ class InputService : AccessibilityService() {
             else -> return
         }
         fun attempt(left: Int) {
-            if (clickButton(words)) return
+            if (clickButton(words)) {
+                // dismissing Play Protect ends the update: press nothing more until the next one
+                if (pkg == "com.android.vending") Updater.blocked(this, null)
+                return
+            }
             if (left > 0) main.postDelayed({ attempt(left - 1) }, 700)
         }
         main.postDelayed({ attempt(5) }, 500)
