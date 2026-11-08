@@ -48,6 +48,8 @@ object AnotherDungeon {
 
     private const val DATA = "templates/another_dungeon/dungeons.yaml"
     private const val BUBBLE = "field_interact_bubble"
+    /** The bubble's inside only, for bright or busy backgrounds (the Throne Room's light pillar and fires). */
+    private const val BUBBLE_CORE = "field_interact_bubble_core"
 
     /** Words that mean the game wants something bought: never tap on, cancel and stop. */
     private val PURCHASE_WORDS = listOf("purchase", "chronos stone", "tsubura", "insufficient", "not enough")
@@ -754,7 +756,7 @@ object AnotherDungeon {
     private fun openBubble(r: Run): Boolean {
         val ctx = r.ctx
         ctx.refresh()
-        val b = ctx.find(BUBBLE) ?: return false
+        val b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE) ?: return false
         ctx.tap(b); ctx.wait(2.0)
         // the banner can be a moment late (the read came back empty): read again for up to ~2 s
         var read = ctx.readText()
