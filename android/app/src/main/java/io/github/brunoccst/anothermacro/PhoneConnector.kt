@@ -226,6 +226,7 @@ object PhoneConnector {
                 "save_macro" -> t.saveMacro(a["yaml"]?.toString().orEmpty())
                 "delete_macro" -> t.deleteMacro(a)
                 "launch_game" -> t.launchGame()
+                "floating_controls" -> t.floatingControls(a)
                 "update_app" -> updateApp(t.app, a)
                 "update_macros" -> updateMacros(t.app)
                 else -> ToolResult("unknown tool $name", isError = true)
@@ -312,6 +313,9 @@ object PhoneConnector {
             mapOf("yaml" to str("the whole macro file")), listOf("yaml")),
         McpServer.McpTool("delete_macro", "Delete a custom macro (e.g. after publishing it to the library).", mapOf("name" to str("macro name")), listOf("name")),
         McpServer.McpTool("launch_game", "Open Another Eden (or bring it to the front).", emptyMap()),
+        McpServer.McpTool("floating_controls", "Fold or unfold this app's floating buttons near the right edge (never tap them), or see whether they are folded and the area they cover. " +
+            "Unfolded they block game taps under them; tap and swipe fold them by themselves when needed.",
+            mapOf("action" to mapOf("type" to "string", "enum" to listOf("fold", "unfold", "status"), "description" to "default status")), listOf("action")),
         McpServer.McpTool("update_app", "Update the Another Macro app itself to the newest CI build of a GitHub branch of brunoccst/another-macro, with no taps from the user. The app restarts; the connector is back in about 90 s.",
             mapOf("branch" to str("branch whose build to install, e.g. main (default: the branch the phone follows now)"))),
         McpServer.McpTool("update_macros", "Download the newest macro pack (macros, templates, dungeon data) published by CI for the branch the phone follows (falls back to main). No app restart.", emptyMap()),
