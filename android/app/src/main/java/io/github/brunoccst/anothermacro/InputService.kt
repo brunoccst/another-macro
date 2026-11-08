@@ -103,6 +103,12 @@ class InputService : AccessibilityService() {
                 if (it != packageName) {
                     if (it != foreground) MacroLog.i("in front: $it (${event.className})")
                     foreground = it
+                    // the activity too: inside the game, a commercial is its own activity
+                    val cls = event.className?.toString()
+                    if (cls != null && cls.endsWith("Activity") && cls != foregroundActivity) {
+                        if (it == ClaudeSafety.GAME && foregroundActivity != null) MacroLog.i("game activity: $cls")
+                        foregroundActivity = cls
+                    }
                 }
             }
         }
@@ -112,6 +118,11 @@ class InputService : AccessibilityService() {
         "com.android.vending", "com.google.android.gms", "com.samsung.android.app.cocktailbarservice", "com.android.systemui",
         "com.samsung.android.game.gametools", // Samsung Game Booster's in-game panel and toasts
     )
+
+    /** Activity class in front (last window change that named an activity). */
+    @Volatile
+    var foregroundActivity: String? = null
+        private set
 
     /** Package of the app in front, as last reported by window changes. */
     @Volatile

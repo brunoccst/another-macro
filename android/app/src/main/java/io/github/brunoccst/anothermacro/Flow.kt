@@ -42,7 +42,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   read_cat_clues: true        (cat scratchbook: sets `report` to today's clues and their places)
  *   cat_daily: true             (cat scratchbook: read clues by OCR, travel to each cat, find it; stops with a summary)
  *
- * Expression functions: found('t'), captured('t'), text_has('s'), screen_text(y0, y1), game_in_front(), view_moved(), now(), pick(i, a, b, ...)
+ * Expression functions: found('t'), captured('t'), text_has('s'), screen_text(y0, y1), game_in_front(), ad_in_front(), view_moved(), now(), pick(i, a, b, ...)
  */
 class FlowScenario(internal val spec: Map<String, Any?>, val source: String,
                    /** Saved by Claude through the phone connector, not from the macro library: listed under Custom. */
@@ -246,6 +246,10 @@ class FlowScenario(internal val spec: Map<String, Any?>, val source: String,
             "found" -> ctx.find(Expr.str(args[0])) != null
             "captured" -> ctx.vision.library.templates[Expr.str(args[0])]?.available == true
             "game_in_front" -> ctx.frame?.portraitAppInFront != true
+            // a commercial in front: the game's package, but an activity other than the game's own
+            "ad_in_front" -> InputService.instance?.let { s ->
+                s.foreground == ClaudeSafety.GAME && s.foregroundActivity.let { a -> a != null && a != GAME_ACTIVITY }
+            } ?: false
             "view_moved" -> viewMoved(ctx)
             "now" -> System.currentTimeMillis() / 1000.0
             // on-screen text (OCR) contains this, loosely (case and punctuation ignored)
@@ -284,6 +288,9 @@ class FlowScenario(internal val spec: Map<String, Any?>, val source: String,
     }
 
     companion object {
+        /** The game's own activity; a commercial plays in another activity of the game's package. */
+        const val GAME_ACTIVITY = "net.wrightflyer.toybox.AppActivity"
+
         const val FEATHER_MIN = 0.78
 
         /** Every step a macro may use (see the list at the top). */
