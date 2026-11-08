@@ -266,9 +266,11 @@ class SystemPage(private val a: MainActivity) {
     private fun checkForUpdates(automatic: Boolean) {
         if (BuildConfig.VERSION_NAME.contains("-dev")) {
             // test builds from CI: a release would always look newer and replace them
-            updateInfo.text = "Development build (${BuildConfig.VERSION_NAME}): release updates are off." +
-                (if (BuildConfig.BRANCH.isNotEmpty()) " It installs newer builds of ${BuildConfig.BRANCH} by itself while the connector is on and idle." else "")
-            updateButton.isEnabled = false
+            // so it follows its own branch's CI builds instead (also by itself while the connector is idle)
+            val branch = Updater.channel(a)
+            updateInfo.text = "Development build (${BuildConfig.VERSION_NAME}) of $branch: it follows that branch's test builds, " +
+                "not releases. It installs newer ones by itself while the connector is on and idle, or now with the button."
+            updateButton.text = "Install the newest build"
             return
         }
         val prefs = a.getSharedPreferences("updates", android.content.Context.MODE_PRIVATE)
@@ -292,6 +294,7 @@ class SystemPage(private val a: MainActivity) {
     }
 
     private fun onUpdateButton() {
+        if (BuildConfig.VERSION_NAME.contains("-dev")) return updateDevBuild()
         val r = available ?: return checkForUpdates(automatic = false)
         if (!Updater.canInstall(a)) {
             updateInfo.text = "Allow Another Macro to install apps (\"Install unknown apps\"), come back and tap Update again."
@@ -309,6 +312,30 @@ class SystemPage(private val a: MainActivity) {
             a.runOnUiThread {
                 updateButton.isEnabled = true
                 result.onSuccess { updateInfo.text = "Installing ${r.version}: confirm with Update if Android asks." }
+                    .onFailure { updateInfo.text = "Update failed: ${it.message}" }
+            }
+        }.start()
+    }
+
+    /** A dev build: install the newest CI build of the branch it follows, if newer. */
+    private fun updateDevBuild() {
+        if (!Updater.canInstall(a)) {
+            updateInfo.text = "Allow Another Macro to install apps (\"Install unknown apps\"), come back and tap the button again."
+            Updater.openInstallPermission(a)
+            return
+        }
+        if (Runner.isRunning) {
+            updateInfo.text = "Stop the running macro first."
+            return
+        }
+        val branch = Updater.channel(a)
+        updateButton.isEnabled = false
+        updateInfo.text = "Checking the newest build of $branch…"
+        Thread {
+            val result = runCatching { Updater.update(a, branch) }
+            a.runOnUiThread {
+                updateButton.isEnabled = true
+                result.onSuccess { updateInfo.text = it.replaceFirstChar { c -> c.uppercase() } + "." }
                     .onFailure { updateInfo.text = "Update failed: ${it.message}" }
             }
         }.start()

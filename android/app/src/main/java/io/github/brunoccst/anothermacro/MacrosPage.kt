@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.text.InputType
 import android.view.Gravity
 import android.view.View
+import android.view.ViewGroup
 import android.widget.EditText
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
@@ -47,6 +48,7 @@ class MacrosPage(private val a: MainActivity) {
     private val detailUses = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val paramsBox = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val selectButton: TextView
+    private val customCard: LinearLayout
     private val selectHint = Ui.text(a, "", 12.5f, Ui.MUTED).apply { setPadding(dp(6), dp(6), dp(6), 0) }
     private val diagramBox = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val diagramCard: LinearLayout
@@ -119,6 +121,12 @@ class MacrosPage(private val a: MainActivity) {
             setOnClickListener { toggleDiagram() }
         }
         diagramCard = Ui.card(a).apply { addView(diagramBox); visibility = View.GONE }
+        customCard = Ui.card(a).apply {
+            visibility = View.GONE
+            addView(Ui.text(a, "Your own macro, kept only on this phone.", 13f, Ui.MUTED))
+            addView(Ui.button(a, "Export the file") { exportCustom() })
+            addView(Ui.button(a, "Delete this macro") { deleteCustom() })
+        }
         detailScreen = LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(8), dp(16), dp(32))
@@ -161,6 +169,8 @@ class MacrosPage(private val a: MainActivity) {
                 addView(diagramButton)
             })
             addView(diagramCard)
+            addView(Ui.section(a, "Custom macro"))
+            addView(customCard)
         }
 
         scroll = ScrollView(a).apply {
@@ -328,6 +338,59 @@ class MacrosPage(private val a: MainActivity) {
         addView(switch(on, changed))
     }
 
+    // --- custom macros: export, delete ---------------------------------------------------------
+
+    private fun customFile(): java.io.File? {
+        val s = scenario as? FlowScenario ?: return null
+        return java.io.File(Scenarios.userDir(a), s.source).takeIf { s.custom && it.isFile }
+    }
+
+    /** Save the open custom macro's YAML to Downloads (Another Macro folder), then offer to share it. */
+    private fun exportCustom() {
+        val f = customFile() ?: return a.toast("This macro has no file on the phone.")
+        val text = f.readText()
+        val saved = runCatching { exportToDownloads(f.name, text) }
+        saved.onSuccess { a.toast("Saved to Downloads/Another Macro/${f.name}.") }
+            .onFailure { MacroLog.e("export of ${f.name} failed: ${it.message}") }
+        a.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_SUBJECT, f.name)
+            putExtra(android.content.Intent.EXTRA_TEXT, text)
+        }, if (saved.isSuccess) "Saved to Downloads. Also share ${f.name}" else "Share ${f.name}"))
+    }
+
+    private fun exportToDownloads(name: String, text: String) {
+        if (android.os.Build.VERSION.SDK_INT < 29) throw IllegalStateException("Downloads export needs Android 10+")
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/x-yaml")
+            put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/Another Macro")
+        }
+        val resolver = a.contentResolver
+        val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)
+            ?: throw IllegalStateException("could not create the file")
+        resolver.openOutputStream(uri)?.use { it.write(text.toByteArray()) } ?: throw IllegalStateException("could not write the file")
+    }
+
+    /** Delete the open custom macro, after asking. Library macros can't be deleted here. */
+    private fun deleteCustom() {
+        val s = scenario ?: return
+        val f = customFile() ?: return a.toast("This macro has no file on the phone.")
+        if (Runner.isRunning) { a.toast("Stop the running macro first (■ on the floating buttons)."); return }
+        android.app.AlertDialog.Builder(a)
+            .setTitle("Delete ${s.name}?")
+            .setMessage("This removes your custom macro from the phone. Export it first if you want to keep a copy.")
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Delete") { _, _ ->
+                if (!f.delete()) { a.toast("Could not delete ${f.name}."); return@setPositiveButton }
+                MacroChoice.setUsed(a, s.name, false)
+                MacroLog.i("deleted custom macro '${s.name}'")
+                a.toast("Deleted ${s.name}.")
+                Runner.changed()
+                reload()
+            }.show()
+    }
+
     // --- the open macro ---------------------------------------------------------------------
 
     /** Make [s] what the floating ▶ starts, with the options as set here. */
@@ -379,6 +442,9 @@ class MacrosPage(private val a: MainActivity) {
         detailGroup.text = (s as? FlowScenario)?.takeIf { it.custom }?.let { c ->
             if (c.declaredGroup in setOf("custom", "other")) "Custom" else "Custom (draft for ${Groups.of(c.declaredGroup).title}: to be published to the library)"
         } ?: Groups.of(s.group).title
+        val custom = (s as? FlowScenario)?.custom == true
+        customCard.visibility = if (custom) View.VISIBLE else View.GONE
+        (customCard.parent as? ViewGroup)?.let { p -> p.getChildAt(p.indexOfChild(customCard) - 1)?.visibility = customCard.visibility }
         detailDescription.text = s.description
         detailDescription.visibility = if (s.description.isBlank()) View.GONE else View.VISIBLE
         detailUses.removeAllViews()
