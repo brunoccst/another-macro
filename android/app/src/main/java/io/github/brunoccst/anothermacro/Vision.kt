@@ -1,6 +1,5 @@
 package io.github.brunoccst.anothermacro
 
-import android.content.res.AssetManager
 import org.opencv.core.Core
 import org.opencv.core.Mat
 import org.opencv.core.MatOfByte
@@ -119,7 +118,7 @@ class Library private constructor() {
     fun missing(): List<String> = templates.values.filter { !it.available }.map { it.name }.sorted()
 
     companion object {
-        fun load(assets: AssetManager, vararg folders: String): Library {
+        fun load(assets: LibraryFiles, vararg folders: String): Library {
             val lib = Library()
             for (folder in folders) lib.addFolder(assets, folder)
             return lib
@@ -135,7 +134,13 @@ class Library private constructor() {
 
     fun addScreens(defs: Map<String, ScreenDef>) { screens.putAll(defs) }
 
-    private fun addFolder(assets: AssetManager, folder: String) {
+    /** [other]'s templates and screens that this library doesn't have yet. */
+    fun addMissing(other: Library) {
+        for ((k, v) in other.templates) templates.putIfAbsent(k, v)
+        for ((k, v) in other.screens) screens.putIfAbsent(k, v)
+    }
+
+    private fun addFolder(assets: LibraryFiles, folder: String) {
         val yamlText = try {
             assets.open("$folder/library.yaml").bufferedReader().use { it.readText() }
         } catch (e: java.io.IOException) {

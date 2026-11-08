@@ -49,6 +49,10 @@ class InputService : AccessibilityService() {
         val words = when {
             "packageinstaller" in pkg -> listOf("update", "install")
             pkg == "com.android.systemui" -> listOf("start now", "start")
+            // Play Protect blocking the update: only dismiss it ("Got it" keeps the block; never
+            // "Install anyway", that is the user's call), so the game is usable again; the next
+            // automatic check tries the install again
+            pkg == "com.android.vending" -> listOf("got it")
             else -> return
         }
         fun attempt(left: Int) {
@@ -103,6 +107,12 @@ class InputService : AccessibilityService() {
                 if (it != packageName) {
                     if (it != foreground) MacroLog.i("in front: $it (${event.className})")
                     foreground = it
+                    // the activity too: inside the game, a commercial is its own activity
+                    val cls = event.className?.toString()
+                    if (cls != null && cls.endsWith("Activity") && cls != foregroundActivity) {
+                        if (it == ClaudeSafety.GAME && foregroundActivity != null) MacroLog.i("game activity: $cls")
+                        foregroundActivity = cls
+                    }
                 }
             }
         }
@@ -112,6 +122,11 @@ class InputService : AccessibilityService() {
         "com.android.vending", "com.google.android.gms", "com.samsung.android.app.cocktailbarservice", "com.android.systemui",
         "com.samsung.android.game.gametools", // Samsung Game Booster's in-game panel and toasts
     )
+
+    /** Activity class in front (last window change that named an activity). */
+    @Volatile
+    var foregroundActivity: String? = null
+        private set
 
     /** Package of the app in front, as last reported by window changes. */
     @Volatile

@@ -1,6 +1,5 @@
 package io.github.brunoccst.anothermacro
 
-import android.content.res.AssetManager
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.random.Random
 
@@ -19,10 +18,12 @@ data class Param(val default: String, val help: String, val choices: List<String
 /** What a handler gets: the current frame, vision, input and helpers. Mirrors the Python tool's Context. */
 class Context(
     private val capture: Capture,
-    private val assetManager: AssetManager,
+    private val files: LibraryFiles,
     val vision: Vision,
     val params: Map<String, String>,
     private val stopRequested: AtomicBoolean,
+    /** How many macros this one runs inside (Flow's run:); 0 for the macro the user started. */
+    val depth: Int = 0,
 ) {
     val stats = LinkedHashMap<String, Int>()
     var frame: Frame? = null
@@ -180,7 +181,32 @@ class Context(
     /** Package of the app in front (from accessibility window events), or null if unknown. */
     val foreground: String? get() = InputService.instance?.foreground
 
-    val assets get() = assetManager
+    /** The macro library's files (templates, data). */
+    val assets get() = files
+
+    /** Find another macro by name, for Flow's run: (set by [Runner.run]). */
+    var findMacro: (String) -> Scenario? = { null }
+
+    /** The user's own captured templates, added to every library (set by [Runner.run]). */
+    var userTemplates: java.io.File? = null
+
+    /** Another macro's options as the user chose them in the app, over its defaults (set by [Runner.run]). */
+    var optionsOf: (String) -> Map<String, String> = { emptyMap() }
+
+    /**
+     * Run the basic macro [name] here (see [Runner.runInside]) with its own options as the user
+     * chose them, plus [given]; its stop reason.
+     */
+    fun runBasic(name: String, given: Map<String, String> = emptyMap(), until: List<String> = emptyList()): String {
+        val sub = findMacro(name) ?: throw IllegalStateException("the basic macro '$name' is missing: update the macros")
+        return Runner.runInside(sub, given, this, until)
+    }
+
+    /** A context for a macro run inside this one: same screen, input, stop and pause. */
+    fun child(vision: Vision, params: Map<String, String>) =
+        Context(capture, files, vision, params, stopRequested, depth + 1).also {
+            it.debugDir = debugDir; it.findMacro = findMacro; it.userTemplates = userTemplates; it.optionsOf = optionsOf
+        }
 
     /** Where macros may leave debug images (the app's own storage). */
     var debugDir: java.io.File = java.io.File(System.getProperty("java.io.tmpdir") ?: "/data/local/tmp")
@@ -224,9 +250,9 @@ abstract class Scenario {
 }
 
 /**
- * Macros are .yaml files: the built-in ones shipped in the APK (assets/macros, from the
- * repo's macros/ folder) and the user's own in the app's storage (files/macros), which
- * win when a name is used twice.
+ * Macros are .yaml files: the macro library downloaded from the GitHub project
+ * (files/library/macros, see [MacroLibrary]) and the custom ones Claude saved through the
+ * phone connector (files/macros), which are listed under Custom.
  */
 object Scenarios {
     fun userDir(context: android.content.Context) = java.io.File(context.filesDir, "macros").apply { mkdirs() }
@@ -234,29 +260,50 @@ object Scenarios {
 
     fun all(context: android.content.Context): List<Scenario> {
         val found = LinkedHashMap<String, Scenario>()
-        val assets = context.assets
-        for (f in assets.list("macros").orEmpty().filter { it.endsWith(".yaml") }.sorted()) {
-            load({ assets.open("macros/$f").bufferedReader().use { it.readText() } }, "macros/$f")?.let { found[it.name] = it }
-        }
+        for (s in parseAll(MacroLibrary.files(context))) found[s.name] = s
         for (f in userDir(context).listFiles().orEmpty().filter { it.name.endsWith(".yaml") }.sortedBy { it.name }) {
-            load({ f.readText() }, f.name)?.let { found[it.name] = it }
+            // a library macro keeps its name: a custom one can't replace it
+            load({ f.readText() }, f.name, custom = true)?.let { if (it.name !in found) found[it.name] = it }
         }
         return found.values.toList()
+    }
+
+    /** Every macro of a library: the .yaml files under macros/ (one folder per group). */
+    fun parseAll(files: LibraryFiles): List<Scenario> {
+        val out = ArrayList<Scenario>()
+        fun walk(dir: String) {
+            for (n in files.list(dir)) {
+                val path = "$dir/$n"
+                if (files.isDir(path)) walk(path)
+                else if (n.endsWith(".yaml")) load({ files.open(path).bufferedReader().use { it.readText() } }, path)?.let { out += it }
+            }
+        }
+        walk("macros")
+        return out
     }
 
     fun get(context: android.content.Context, name: String) =
         all(context).firstOrNull { it.name == name } ?: throw IllegalArgumentException("unknown macro '$name'")
 
-    private fun load(read: () -> String, source: String): Scenario? = try {
-        FlowScenario.parse(read(), source)
+    // macros are loaded again for every run: say once per file what can't be loaded, not every time
+    private val warned = java.util.Collections.synchronizedSet(HashSet<String>())
+
+    private fun load(read: () -> String, source: String, custom: Boolean = false): Scenario? = try {
+        val s = FlowScenario.parse(read(), source, custom)
+        if (s.unsupported.isNotEmpty()) {
+            if (warned.add("$source:${s.unsupported}")) MacroLog.i("macro ${s.name} needs a newer app (unknown steps: ${s.unsupported.joinToString()})")
+            null
+        } else s
     } catch (e: Exception) {
-        MacroLog.e("could not load macro $source: ${e.message}")
+        if (warned.add("$source:${e.message}")) MacroLog.e("could not load macro $source: ${e.message}")
         null
     }
 }
 
 /** The run loop: screenshot, work out the screen, call its handler, repeat. Same design as the Python runner. */
 object Runner {
+    /** How long a macro run inside another ignores the caller's screen still showing (see [runInside]). */
+    const val UNTIL_GRACE_MS = 12_000L
     private val stopRequested = AtomicBoolean(false)
     private val running = AtomicBoolean(false)
     private val paused = AtomicBoolean(false)
@@ -312,51 +359,41 @@ object Runner {
         return true
     }
 
-    fun run(scenario: Scenario, given: Map<String, String>, capture: Capture, assets: AssetManager, userTemplates: java.io.File? = null): String {
+    /** The params a run uses: the macro's defaults, then [given] (only names it has). */
+    fun resolve(scenario: Scenario, given: Map<String, String>) =
+        scenario.params.mapValues { it.value.default } + given.filterKeys { it in scenario.params }
+
+    private fun library(scenario: Scenario, files: LibraryFiles, userTemplates: java.io.File?): Library {
+        val library = Library.load(files, "templates/common", *scenario.templateFolders.map { "templates/$it" }.toTypedArray())
+        userTemplates?.let { library.addDir(it) }
+        (scenario as? FlowScenario)?.let { library.addScreens(it.screenDefs) }
+        return library
+    }
+
+    /**
+     * Run [scenario] until it stops; the reason. [given] are its params (missing ones: defaults).
+     * Templates and data come from the macro library ([MacroLibrary]).
+     */
+    fun run(scenario: Scenario, given: Map<String, String>, capture: Capture, app: android.content.Context): String {
         if (!running.compareAndSet(false, true)) return "a macro is already running"
         stopRequested.set(false)
         paused.set(false)
         current = scenario.name
         changed()
-        val params = scenario.params.mapValues { it.value.default } + given.filterKeys { it in scenario.params }
-        val library = Library.load(assets, "templates/common", *scenario.templateFolders.map { "templates/$it" }.toTypedArray())
-        userTemplates?.let { library.addDir(it) }
-        (scenario as? FlowScenario)?.let { library.addScreens(it.screenDefs) }
-        val ctx = Context(capture, assets, Vision(library), params, stopRequested)
-        userTemplates?.parentFile?.parentFile?.let { ctx.debugDir = java.io.File(it, "debug").apply { mkdirs() } }
+        val files = MacroLibrary.files(app)
+        val userTemplates = Scenarios.userTemplates(app)
+        val params = resolve(scenario, given)
+        val ctx = Context(capture, files, Vision(library(scenario, files, userTemplates)), params, stopRequested)
+        ctx.debugDir = java.io.File(app.filesDir, "debug").apply { mkdirs() }
+        ctx.userTemplates = userTemplates
+        ctx.findMacro = { n -> runCatching { Scenarios.get(app, n) }.getOrNull() }
+        ctx.optionsOf = { n -> ctx.findMacro(n)?.let { resolve(it, MacroParams.load(app, n)) } ?: emptyMap() }
         var reason = "finished"
         InputService.instance?.keepScreenOn(true)
         MacroLog.i("running ${scenario.name} with $params")
         MacroLog.status("${scenario.name}: starting")
         try {
-            val missing = scenario.screens.flatMap { library.screens[it]?.require ?: emptyList() }.filter { it in library.missing() }
-            if (missing.isNotEmpty()) MacroLog.i("templates not captured yet: ${missing.distinct().joinToString()}")
-            scenario.setup(ctx)
-            var unknownSince: Long? = null
-            var last: String? = "-"
-            while (true) {
-                if (stopRequested.get()) throw StopScenario("stop requested")
-                waitWhilePaused(stopRequested)
-                val frame = ctx.refresh()
-                ctx.screen = ctx.vision.identify(frame, scenario.screens)
-                if (ctx.screen != last) {
-                    MacroLog.i("screen: ${ctx.screen ?: "unknown"}")
-                    last = ctx.screen
-                }
-                val screen = ctx.screen
-                if (screen == null) {
-                    val now = System.currentTimeMillis()
-                    unknownSince = unknownSince ?: now
-                    if (now - unknownSince > scenario.unknownTimeoutS * 1000) {
-                        ctx.stop("stuck on an unrecognised screen for ${scenario.unknownTimeoutS.toInt()}s")
-                    }
-                    if (!closeNotRespondingDialog(ctx)) scenario.onUnknown(ctx)
-                } else {
-                    unknownSince = null
-                    scenario.onScreen(ctx, screen)
-                }
-                Thread.sleep((scenario.tickS * 1000).toLong())
-            }
+            loop(scenario, ctx)
         } catch (s: StopScenario) {
             reason = s.message ?: "stopped"
         } catch (t: Throwable) {
@@ -371,5 +408,77 @@ object Runner {
         }
         MacroLog.i("stopped: $reason — ${scenario.summary(ctx.stats)}")
         return reason
+    }
+
+    /**
+     * Run [sub] inside the running macro (Flow's `run:` step) and return its stop reason, for the
+     * caller to go on. It starts from its own options as the user chose them in the app (so a
+     * basic macro's settings, e.g. the battle macro's skills, apply wherever it is run), then [given]. It ends like any macro (its own stop), or as soon as one of [until] (the
+     * caller's screens) shows: "back to <screen>". A stop request or a safety stop ends the caller
+     * too. Its counters are added to the caller's.
+     */
+    fun runInside(sub: Scenario, given: Map<String, String>, parent: Context, until: List<String>): String {
+        if (parent.depth >= 4) throw IllegalStateException("macros run inside each other too deep (at ${sub.name})")
+        val lib = library(sub, parent.assets, parent.userTemplates)
+        // the caller's templates and screens too: [until] is made of them
+        lib.addMissing(parent.vision.library)
+        val params = resolve(sub, parent.optionsOf(sub.name) + given)
+        val ctx = parent.child(Vision(lib), params)
+        MacroLog.i("running ${sub.name} inside it with $params")
+        val reason = try {
+            loop(sub, ctx, until)
+            "finished"
+        } catch (s: StopScenario) {
+            s.message ?: "stopped"
+        } finally {
+            ctx.frame?.gray?.release()
+            for ((k, v) in ctx.stats) parent.count(k, v)
+        }
+        MacroLog.i("${sub.name} ended: $reason")
+        if (reason == "stop requested" || reason.startsWith("safety stop")) throw StopScenario(reason)
+        return reason
+    }
+
+    /** The run loop proper: setup, then screenshot → screen → handler until a stop. */
+    private fun loop(scenario: Scenario, ctx: Context, until: List<String> = emptyList()) {
+        val library = ctx.vision.library
+        val missing = scenario.screens.flatMap { library.screens[it]?.require ?: emptyList() }.filter { it in library.missing() }
+        if (missing.isNotEmpty()) MacroLog.i("templates not captured yet: ${missing.distinct().joinToString()}")
+        scenario.setup(ctx)
+        var unknownSince: Long? = null
+        var last: String? = "-"
+        // [until] counts once the caller's screen was gone at least once (what was started took
+        // over), or after a grace time (it never did): not while the caller's screen still lingers
+        val started = System.currentTimeMillis()
+        var away = false
+        while (true) {
+            if (stopRequested.get()) throw StopScenario("stop requested")
+            waitWhilePaused(stopRequested)
+            val frame = ctx.refresh()
+            ctx.screen = ctx.vision.identify(frame, scenario.screens)
+            if (ctx.screen == null && until.isNotEmpty()) {
+                val back = ctx.vision.identify(frame, until)
+                if (back == null) away = true
+                else if (away || System.currentTimeMillis() - started > UNTIL_GRACE_MS) ctx.stop("back to $back")
+                else { Thread.sleep((scenario.tickS * 1000).toLong()); continue }
+            } else away = true
+            if (ctx.screen != last) {
+                MacroLog.i("screen: ${ctx.screen ?: "unknown"}")
+                last = ctx.screen
+            }
+            val screen = ctx.screen
+            if (screen == null) {
+                val now = System.currentTimeMillis()
+                unknownSince = unknownSince ?: now
+                if (now - unknownSince > scenario.unknownTimeoutS * 1000) {
+                    ctx.stop("stuck on an unrecognised screen for ${scenario.unknownTimeoutS.toInt()}s")
+                }
+                if (!closeNotRespondingDialog(ctx)) scenario.onUnknown(ctx)
+            } else {
+                unknownSince = null
+                scenario.onScreen(ctx, screen)
+            }
+            Thread.sleep((scenario.tickS * 1000).toLong())
+        }
     }
 }

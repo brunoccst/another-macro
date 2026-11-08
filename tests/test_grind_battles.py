@@ -14,7 +14,7 @@ class FakeGame:
     SCREENS = {
         "field": ["field_menu_button"],
         "battle_command": ["battle_hud", "battle_attack_button", "battle_auto_button"],
-        "battle_command_set": ["battle_hud", "battle_attack_button", "battle_auto_button", "verdanta_last_skill_selected"],
+        "battle_command_set": ["battle_hud", "battle_attack_button", "battle_auto_button", "slot1_skill_selected"],
         "skill_list": ["battle_hud", "skill_list_open"],
         "battle_anim": ["battle_hud"],
         "battle_result": ["result_banner"],

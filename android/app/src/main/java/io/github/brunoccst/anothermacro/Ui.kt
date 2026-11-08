@@ -123,8 +123,13 @@ object Groups {
         Group("dungeon", "Another Dungeon", R.drawable.ic_keycard),
         Group("farm", "Farming", R.drawable.ic_swords),
         Group("game", "Game", R.drawable.ic_power),
+        // building blocks other macros run (watch-ad, battle, grind-battles, ...)
+        Group("basic", "Basic", R.drawable.ic_blocks),
         Group("other", "Other", R.drawable.ic_puzzle),
+        // saved by Claude through the phone connector, not from the macro library
+        Group("custom", "Custom", R.drawable.ic_wrench),
     )
+    private val OTHER = ALL.first { it.id == "other" }
 
     /** A macro's own icon (`icon:` in its yaml), else its group's. */
     fun icon(m: Scenario): Int = when (m.icon) {
@@ -138,7 +143,7 @@ object Groups {
         else -> of(m.group).iconRes
     }
 
-    fun of(id: String) = ALL.firstOrNull { it.id == id } ?: ALL.last()
+    fun of(id: String) = ALL.firstOrNull { it.id == id } ?: OTHER
 
     /** Macros by group, in the groups' order. */
     fun sort(macros: List<Scenario>): List<Pair<Group, List<Scenario>>> =

@@ -3,9 +3,6 @@ on:
   push:
     paths:
       - "android/**"
-      - "macros/**"
-      - "src/another_macro/assets/templates/**"
-      - "src/another_macro/scenarios/*/templates/**"
       - ".github/workflows/android.yml"
   pull_request:
     paths:

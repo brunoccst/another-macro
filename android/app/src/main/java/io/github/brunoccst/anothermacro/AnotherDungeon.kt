@@ -81,7 +81,10 @@ object AnotherDungeon {
     }
 
     private class Run(val ctx: Context, val spec: Spec) {
-        val mobs = Battle.Setup.from(ctx.params, "skill_")
+        // every fight is the basic macro battle's step with its skills; the boss with the dungeon's own
+        // boss skills when set. (Done here, not by running that macro: the run must tell the boss by its
+        // name on the first turn and read the White Key off the results while they show.)
+        val mobs = Battle.Setup.from(ctx.optionsOf("battle"), "skill_")
         val bossSetup = if (ctx.bool("boss_setup")) Battle.Setup.from(ctx.params, "boss_skill_") else mobs
         var map = -1
         var shift = 0.0
@@ -450,7 +453,7 @@ object AnotherDungeon {
         ctx.wait(2.0)
         // "Using Green Key×1 to move to Dogma Tower (Hard)."
         val lines = ctx.readText()
-        // "In order to move to Dogma Tower (Hard) please include: Poporo": Move stays greyed out
+        // "In order to move to Dogma Tower (Hard) please include: <a character>": Move stays greyed out
         val include = lines.indexOfFirst { Ocr.norm(it.text).contains("please include") }
         if (include >= 0) {
             val who = lines.getOrNull(include + 1)?.text?.takeIf { lines[include].text.trimEnd().endsWith(":") }

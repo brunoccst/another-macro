@@ -378,9 +378,12 @@ object CatDaily {
         return false
     }
 
-    /** A random encounter on the way: fight it on auto (shared battle code). */
+    /** A random encounter on the way: the basic macro battle fights it (its skills). */
     private fun fightIfBattle(ctx: Context) {
-        if (Battle.fight(ctx) { Battle.Setup.AUTO } == Battle.Outcome.LOST) ctx.stop("party was defeated")
+        ctx.refresh()
+        if (!Battle.inBattle(ctx)) return
+        val why = ctx.runBasic("battle")
+        if (why == "party was defeated") ctx.stop(why)
     }
 }
 

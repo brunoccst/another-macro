@@ -32,18 +32,26 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   reset_view: true            (forget the last view for view_moved())
  *   fight: skill_       (fight the battle on screen until the field is back, with skills from params
  *                        skill_1..skill_4 = auto|1-4; sets `outcome` to won/lost/none; stops on a wipe)
+ *   run: watch-ad | {macro: watch-ad, params: {ad_wait_s: expr}, until: [shop]}
+ *                       (run another macro here, then go on: the basic macros are made for this. It ends
+ *                        with its own stop, or when one of [until] (this macro's screens) shows; sets
+ *                        `result` to how it ended. A stop request or a safety stop ends this macro too)
  *   another_dungeon: dogma_tower   (run that Another Dungeon; see AnotherDungeon.kt)
  *   phantom_crystal: true          (the Phantom Crystal Dimension with a White Key; see PhantomCrystal.kt)
  *   find_feather: true          (cat scratchbook: tap the feather bubble if visible; sets `tapped`)
  *   read_cat_clues: true        (cat scratchbook: sets `report` to today's clues and their places)
  *   cat_daily: true             (cat scratchbook: read clues by OCR, travel to each cat, find it; stops with a summary)
  *
- * Expression functions: found('t'), captured('t'), text_has('s'), screen_text(y0, y1), game_in_front(), view_moved(), now(), pick(i, a, b, ...)
+ * Expression functions: found('t'), captured('t'), text_has('s'), screen_text(y0, y1), game_in_front(), ad_in_front(), view_moved(), now(), pick(i, a, b, ...)
  */
-class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Scenario() {
+class FlowScenario(internal val spec: Map<String, Any?>, val source: String,
+                   /** Saved by Claude through the phone connector, not from the macro library: listed under Custom. */
+                   val custom: Boolean = false) : Scenario() {
     override val name = spec["name"] as? String ?: throw IllegalArgumentException("$source: missing name")
     override val description = spec["description"] as? String ?: ""
-    override val group = spec["group"] as? String ?: "other"
+    /** The group the file asks for: for a custom macro, where it belongs once it's published to the library. */
+    val declaredGroup = spec["group"] as? String ?: "other"
+    override val group = if (custom) "custom" else declaredGroup
     override val icon = spec["icon"] as? String ?: ""
     override val templateFolders: List<String> = list(spec["templates"]).map { it.toString() }
     override val params: Map<String, Param> = map(spec["params"]).entries.associate { (k, v) ->
@@ -62,6 +70,39 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
         k.toString() to ScreenDef(k.toString(), list(m?.get("require")).map { it.toString() }, list(m?.get("reject")).map { it.toString() })
     }
     private val handlers = map(spec["handlers"]).entries.associate { (k, v) -> k.toString() to list(v) }
+
+    /** Steps this app doesn't know (a macro written for a newer app): it can't run here. */
+    val unsupported: List<String> = buildList {
+        fun walk(actions: Any?) {
+            for (a in list(actions)) {
+                val m = mapOrNull(a) ?: continue
+                m.keys.firstOrNull { it in ACTIONS }?.let { k ->
+                    when (k) {
+                        "if" -> { walk(m["then"]); walk(m["else"]) }
+                        "repeat" -> walk(map(m["repeat"])["do"])
+                        else -> {}
+                    }
+                } ?: add(m.keys.joinToString())
+            }
+        }
+        walk(spec["setup"]); walk(spec["unknown"]); handlers.values.forEach { walk(it) }
+    }.distinct()
+
+    /** The macros this one runs with `run:` (for the app: what it's built from). */
+    val uses: List<String> = buildList {
+        fun walk(actions: Any?) {
+            for (a in list(actions)) {
+                val m = mapOrNull(a) ?: continue
+                when {
+                    "if" in m -> { walk(m["then"]); walk(m["else"]) }
+                    "repeat" in m -> walk(map(m["repeat"])["do"])
+                    "run" in m -> add(runTarget(m["run"]))
+                }
+            }
+        }
+        walk(spec["setup"]); walk(spec["unknown"]); handlers.values.forEach { walk(it) }
+        addAll(steps)
+    }.distinct()
 
     private val vars = HashMap<String, Any?>()
     private var lastView: Mat? = null
@@ -122,6 +163,14 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
                 val outcome = Battle.fight(ctx) { Battle.Setup.from(ctx.params, prefix) }
                 vars["outcome"] = outcome.name.lowercase()
                 if (outcome == Battle.Outcome.LOST) ctx.stop("party was defeated")
+            }
+            "run" in a -> {
+                val target = runTarget(a["run"])
+                val m = mapOrNull(a["run"])
+                val sub = ctx.findMacro(target) ?: throw IllegalArgumentException("$name: run: unknown macro '$target'")
+                val given = map(m?.get("params")).entries.associate { (k, v) -> k to Expr.str(value(ctx, v)) }
+                val until = list(m?.get("until")).map { it.toString() }
+                vars["result"] = Runner.runInside(sub, given, ctx, until)
             }
             "another_dungeon" in a -> ctx.stop(AnotherDungeon.run(ctx, a["another_dungeon"].toString()))
             "phantom_crystal" in a -> ctx.stop(PhantomCrystal.run(ctx))
@@ -197,6 +246,10 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
             "found" -> ctx.find(Expr.str(args[0])) != null
             "captured" -> ctx.vision.library.templates[Expr.str(args[0])]?.available == true
             "game_in_front" -> ctx.frame?.portraitAppInFront != true
+            // a commercial in front: the game's package, but an activity other than the game's own
+            "ad_in_front" -> InputService.instance?.let { s ->
+                s.foreground == ClaudeSafety.GAME && s.foregroundActivity.let { a -> a != null && a != GAME_ACTIVITY }
+            } ?: false
             "view_moved" -> viewMoved(ctx)
             "now" -> System.currentTimeMillis() / 1000.0
             // on-screen text (OCR) contains this, loosely (case and punctuation ignored)
@@ -235,7 +288,17 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
     }
 
     companion object {
+        /** The game's own activity; a commercial plays in another activity of the game's package. */
+        const val GAME_ACTIVITY = "net.wrightflyer.toybox.AppActivity"
+
         const val FEATHER_MIN = 0.78
+
+        /** Every step a macro may use (see the list at the top). */
+        val ACTIONS = setOf("if", "tap", "tap_exact", "drag", "walk", "back", "wait", "launch", "log", "status", "set", "count",
+            "stop", "repeat", "reset_view", "find_feather", "read_cat_clues", "cat_daily", "fight", "run", "another_dungeon", "phantom_crystal")
+
+        /** `run: name` or `run: {macro: name, ...}` -> name. */
+        fun runTarget(v: Any?): String = (mapOrNull(v)?.get("macro") ?: v).toString()
         const val TAP_LATENCY_S = 0.4
 
         @Suppress("UNCHECKED_CAST")
@@ -250,10 +313,10 @@ class FlowScenario(private val spec: Map<String, Any?>, val source: String) : Sc
         }
 
         @Suppress("UNCHECKED_CAST")
-        fun parse(text: String, source: String): FlowScenario {
+        fun parse(text: String, source: String, custom: Boolean = false): FlowScenario {
             val spec = mapOrNull(Load(LoadSettings.builder().build()).loadFromString(text))
                 ?: throw IllegalArgumentException("$source: not a macro file")
-            return FlowScenario(spec, source)
+            return FlowScenario(spec, source, custom)
         }
     }
 }

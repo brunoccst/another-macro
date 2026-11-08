@@ -14,8 +14,9 @@ import android.widget.ScrollView
 import android.widget.TextView
 
 /**
- * System: everything about the app itself. Setup (taps, screen capture), the Claude phone
- * connector (relay address, tokens, on/off) and its safety rules, settings, updates and the log.
+ * System: everything about the app itself, in tabs like the Macros page: Setup (taps, screen
+ * capture), Claude (the phone connector: relay address, tokens, on/off, and its safety rules),
+ * Settings, Updates and the Log.
  */
 class SystemPage(private val a: MainActivity) {
     private fun dp(v: Int) = a.dp(v)
@@ -33,16 +34,25 @@ class SystemPage(private val a: MainActivity) {
     private val logListener: (String) -> Unit = { text -> if (::log.isInitialized) log.text = text }
     private val connectorListener: () -> Unit = { a.runOnUiThread { refreshConnector() } }
     val view: View
+    private val tabsRow = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(16), dp(12), dp(16), dp(4)) }
+    /** Each tab's content, by tab id. */
+    private val tabs = LinkedHashMap<String, LinearLayout>()
+    private val tabTitles = mapOf("setup" to "Setup", "claude" to "Claude", "settings" to "Settings", "updates" to "Updates", "log" to "Log")
+    private var tab = a.getSharedPreferences("system_page", android.content.Context.MODE_PRIVATE).getString("tab", "setup") ?: "setup"
+    private lateinit var scroll: ScrollView
+
+    private fun tab(id: String) = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }.also { tabs[id] = it }
 
     init {
         val column = LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(4), dp(16), dp(32))
         }
+        var into = tab("setup")
 
         // --- setup: taps and screen capture ------------------------------------------------
-        column.addView(Ui.section(a, "Setup"))
-        column.addView(Ui.card(a).apply {
+        into.addView(Ui.section(a, "Setup"))
+        into.addView(Ui.card(a).apply {
             tapsStatus = Ui.text(a, "", 15f, bold = true)
             addView(tapsStatus)
             addView(Ui.text(a, "In Accessibility open Another Macro (Samsung: \"Installed apps\") and switch it on. " +
@@ -62,8 +72,9 @@ class SystemPage(private val a: MainActivity) {
         })
 
         // --- Claude: the phone connector ---------------------------------------------------
-        column.addView(Ui.section(a, "Claude phone connector"))
-        column.addView(Ui.card(a).apply {
+        into = tab("claude")
+        into.addView(Ui.section(a, "Claude phone connector"))
+        into.addView(Ui.card(a).apply {
             addView(Ui.text(a,
                 "Chat with Claude in the Claude app or claude.ai, on your own plan, and let it see and control the game through this app. No API key is needed. It reaches the phone through your relay, a small free Cloudflare Worker on your account.", 13f, Ui.MUTED))
             connectorStatus = Ui.text(a, "", 13f).apply { setPadding(0, dp(6), 0, 0) }
@@ -87,8 +98,8 @@ class SystemPage(private val a: MainActivity) {
                 "The connector address holds the secret token: keep it private. Making new tokens cuts off the old ones once the relay has the new pair. The connector turns itself off after 30 minutes without use, and the floating ■ stops what Claude is doing.", 12f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
         })
 
-        column.addView(Ui.section(a, "What Claude may do"))
-        column.addView(Ui.card(a).apply {
+        into.addView(Ui.section(a, "What Claude may do"))
+        into.addView(Ui.card(a).apply {
             addView(Ui.text(a,
                 "• Claude can only tap inside Another Eden.\n" +
                     "• It never buys anything: purchase screens are refused by the app, not just by Claude.\n" +
@@ -98,26 +109,31 @@ class SystemPage(private val a: MainActivity) {
         })
 
         // --- settings ----------------------------------------------------------------------
-        column.addView(Ui.section(a, "Settings"))
-        column.addView(Ui.card(a).apply {
-            addView(switchRow("Live log", "A line at the bottom right saying what the macro is doing, while it runs. Also on the overlay's 💬.",
+        into = tab("settings")
+        into.addView(Ui.section(a, "Settings"))
+        into.addView(Ui.card(a).apply {
+            addView(switchRow("Live log", "A line at the bottom right saying what the macro is doing, while it runs.",
                 LiveLog.enabled(a)) { on -> LiveLog.setEnabled(a, on) })
             addView(Ui.divider(a))
             addView(Ui.text(a, "Floating buttons", 15f, bold = true))
-            addView(Ui.text(a, "While screen capture is on: ▶ start, ❚❚ pause, ■ stop, ↻ restart the selected macro, 💬 live log, 📷 capture a template. Drag ≡ to move them, tap it to fold them. They list the macros you chose in Macros.", 12.5f, Ui.MUTED))
+            addView(Ui.text(a, "While screen capture is on: the selected macro (tap it to pick another), ▶ start, ❚❚ pause, ■ stop, ↻ restart. Drag ≡ to move them, tap it to fold them.", 12.5f, Ui.MUTED))
         })
 
         // --- updates -----------------------------------------------------------------------
-        column.addView(Ui.section(a, "Updates"))
-        column.addView(Ui.card(a).apply {
+        into = tab("updates")
+        into.addView(Ui.section(a, "App updates"))
+        into.addView(Ui.card(a).apply {
             updateInfo = Ui.text(a, "", 13f, Ui.MUTED)
             addView(updateInfo)
             updateButton = Ui.button(a, "Check for updates") { onUpdateButton() }
             addView(updateButton)
         })
 
+        into.addView(Ui.text(a, "Macros update by themselves, without an app update: Macros → Macro library.", 12.5f, Ui.MUTED).apply { setPadding(dp(6), dp(2), dp(6), 0) })
+
         // --- log -----------------------------------------------------------------------------
-        column.addView(LinearLayout(a).apply {
+        into = tab("log")
+        into.addView(LinearLayout(a).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             addView(Ui.section(a, "Log"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
@@ -127,7 +143,7 @@ class SystemPage(private val a: MainActivity) {
                 setOnClickListener { copy("log", MacroLog.text(), sensitive = false) }
             })
         })
-        column.addView(Ui.card(a, Color.parseColor("#0B0E12")).apply {
+        into.addView(Ui.card(a, Color.parseColor("#0B0E12")).apply {
             log = TextView(a).apply {
                 typeface = Typeface.MONOSPACE
                 textSize = 11f
@@ -137,7 +153,43 @@ class SystemPage(private val a: MainActivity) {
             addView(log)
         })
 
-        view = ScrollView(a).apply { setBackgroundColor(Ui.BG); addView(column) }
+        for (t in tabs.values) column.addView(t)
+        if (tab !in tabs) tab = "setup"
+        drawTabs()
+        scroll = ScrollView(a).apply {
+            setBackgroundColor(Ui.BG)
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(android.widget.HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false; addView(tabsRow) })
+                addView(column)
+            })
+        }
+        view = scroll
+    }
+
+    /** Show the tab [id] (setup, claude, settings, updates, log). */
+    fun showTab(id: String) {
+        if (id !in tabs) return
+        tab = id
+        a.getSharedPreferences("system_page", android.content.Context.MODE_PRIVATE).edit().putString("tab", id).apply()
+        drawTabs()
+        scroll.post { scroll.scrollTo(0, 0) }
+    }
+
+    private fun drawTabs() {
+        for ((id, box) in tabs) box.visibility = if (id == tab) View.VISIBLE else View.GONE
+        tabsRow.removeAllViews()
+        for ((id, title) in tabTitles) {
+            val sel = id == tab
+            tabsRow.addView(Ui.text(a, title, 14f, if (sel) Color.parseColor("#0B1A22") else Ui.TEXT, bold = true).apply {
+                gravity = Gravity.CENTER
+                setPadding(dp(16), dp(9), dp(16), dp(9))
+                background = Ui.pressable(a, if (sel) Ui.ACCENT else Ui.CARD_ALT, 18)
+                isClickable = true
+                setOnClickListener { showTab(id) }
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(8) }
+            })
+        }
     }
 
     fun onResume() {
@@ -178,8 +230,8 @@ class SystemPage(private val a: MainActivity) {
         when {
             ClaudeSettings.phoneToken(a) == null -> a.toast("Make tokens first.")
             ClaudeSettings.relayUrl(a).isEmpty() -> a.toast("Paste your relay address first.")
-            MacroService.capture == null -> a.toast("Allow screen capture first (Setup, above).")
-            InputService.instance == null -> a.toast("Turn on taps first (Setup, above).")
+            MacroService.capture == null -> a.toast("Allow screen capture first (the Setup tab).")
+            InputService.instance == null -> a.toast("Turn on taps first (the Setup tab).")
             else -> PhoneConnector.start(a)
         }
         refreshConnector()
@@ -214,9 +266,11 @@ class SystemPage(private val a: MainActivity) {
     private fun checkForUpdates(automatic: Boolean) {
         if (BuildConfig.VERSION_NAME.contains("-dev")) {
             // test builds from CI: a release would always look newer and replace them
-            updateInfo.text = "Development build (${BuildConfig.VERSION_NAME}): release updates are off." +
-                (if (BuildConfig.BRANCH.isNotEmpty()) " It installs newer builds of ${BuildConfig.BRANCH} by itself while the connector is on and idle." else "")
-            updateButton.isEnabled = false
+            // so it follows its own branch's CI builds instead (also by itself while the connector is idle)
+            val branch = Updater.channel(a)
+            updateInfo.text = "Development build (${BuildConfig.VERSION_NAME}) of $branch: it follows that branch's test builds, " +
+                "not releases. It installs newer ones by itself while the connector is on and idle, or now with the button."
+            updateButton.text = "Install the newest build"
             return
         }
         val prefs = a.getSharedPreferences("updates", android.content.Context.MODE_PRIVATE)
@@ -240,6 +294,7 @@ class SystemPage(private val a: MainActivity) {
     }
 
     private fun onUpdateButton() {
+        if (BuildConfig.VERSION_NAME.contains("-dev")) return updateDevBuild()
         val r = available ?: return checkForUpdates(automatic = false)
         if (!Updater.canInstall(a)) {
             updateInfo.text = "Allow Another Macro to install apps (\"Install unknown apps\"), come back and tap Update again."
@@ -257,6 +312,30 @@ class SystemPage(private val a: MainActivity) {
             a.runOnUiThread {
                 updateButton.isEnabled = true
                 result.onSuccess { updateInfo.text = "Installing ${r.version}: confirm with Update if Android asks." }
+                    .onFailure { updateInfo.text = "Update failed: ${it.message}" }
+            }
+        }.start()
+    }
+
+    /** A dev build: install the newest CI build of the branch it follows, if newer. */
+    private fun updateDevBuild() {
+        if (!Updater.canInstall(a)) {
+            updateInfo.text = "Allow Another Macro to install apps (\"Install unknown apps\"), come back and tap the button again."
+            Updater.openInstallPermission(a)
+            return
+        }
+        if (Runner.isRunning) {
+            updateInfo.text = "Stop the running macro first."
+            return
+        }
+        val branch = Updater.channel(a)
+        updateButton.isEnabled = false
+        updateInfo.text = "Checking the newest build of $branch…"
+        Thread {
+            val result = runCatching { Updater.update(a, branch) }
+            a.runOnUiThread {
+                updateButton.isEnabled = true
+                result.onSuccess { updateInfo.text = it.replaceFirstChar { c -> c.uppercase() } + "." }
                     .onFailure { updateInfo.text = "Update failed: ${it.message}" }
             }
         }.start()

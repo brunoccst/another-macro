@@ -143,6 +143,8 @@ object PhoneConnector {
             if (!enabled.get()) return@postDelayed
             val branch = BuildConfig.BRANCH
             val idle = System.currentTimeMillis() - lastCall > 60_000L
+            // the macro library too (any build): it checks GitHub at most every 15 minutes
+            if (idle && !Runner.isRunning) MacroLibrary.updateAsync(app)
             if (branch.isNotEmpty() && idle && !Runner.isRunning && Updater.canInstall(app) && updating.compareAndSet(false, true)) {
                 Thread {
                     try {
@@ -219,8 +221,10 @@ object PhoneConnector {
                 "stop_macro" -> t.stopMacro()
                 "save_template" -> t.saveTemplate(a)
                 "save_macro" -> t.saveMacro(a["yaml"]?.toString().orEmpty())
+                "delete_macro" -> t.deleteMacro(a)
                 "launch_game" -> t.launchGame()
                 "update_app" -> updateApp(t.app, a)
+                "update_macros" -> updateMacros(t.app)
                 else -> ToolResult("unknown tool $name", isError = true)
             }
         } catch (s: StopScenario) {
@@ -259,6 +263,17 @@ object PhoneConnector {
             "then call macro_status to check.")
     }
 
+    /** Download the newest macro pack (macros, templates, data) of the branch the phone follows. Blocking. */
+    private fun updateMacros(app: android.content.Context): ToolResult {
+        if (Runner.isRunning) return ToolResult("a macro (${Runner.current}) is running: stop_macro first", isError = true)
+        val pack = try { MacroLibrary.checkNewer(app) } catch (e: Exception) { return ToolResult("can't check the macros: ${e.message}", isError = true) }
+            ?: return ToolResult("the macros are up to date (${MacroLibrary.installed(app)?.let { "${it.branch}@${it.commit.take(7)}" }})")
+        return try {
+            MacroLibrary.install(app, pack)
+            ToolResult("macros updated to ${pack.branch}@${pack.commit.take(7)}; the next start_macro uses them (templates for these tools: turn the connector off and on)")
+        } catch (e: Exception) { ToolResult("macro update failed: ${e.message}", isError = true) }
+    }
+
     private fun str(d: String) = mapOf("type" to "string", "description" to d)
     private fun int(d: String) = mapOf("type" to "integer", "description" to d)
     private fun xy(d: String) = mapOf("type" to "array", "items" to mapOf("type" to "integer"), "minItems" to 2, "maxItems" to 2, "description" to d)
@@ -280,20 +295,22 @@ object PhoneConnector {
             mapOf("region" to box())),
         McpServer.McpTool("find_template", "Look for a known UI element (template) on screen; returns its centre in screenshot pixels and the match score.",
             mapOf("name" to str("template name, see list_templates")), listOf("name")),
-        McpServer.McpTool("list_templates", "Names of the UI templates the app knows (built-in and the user's own).", emptyMap()),
-        McpServer.McpTool("list_macros", "The macros installed in the app, with their descriptions and params.", emptyMap()),
-        McpServer.McpTool("read_macro", "The YAML of an installed macro (the user's own or a built-in YAML one; grind-battles is a full example).",
+        McpServer.McpTool("list_templates", "Names of the UI templates the app knows (from the macro library and the user's own).", emptyMap()),
+        McpServer.McpTool("list_macros", "The macros in the app (the macro library downloaded from GitHub, plus custom ones saved with save_macro), with their descriptions and params.", emptyMap()),
+        McpServer.McpTool("read_macro", "The YAML of a macro (battle, grind-battles, watch-ad, open-menu and back-to-field are basic macros other macros run with `run:`).",
             mapOf("name" to str("macro name")), listOf("name")),
-        McpServer.McpTool("start_macro", "Start an installed macro; it runs on the phone without you. Returns at once: follow it with macro_status.",
+        McpServer.McpTool("start_macro", "Start a macro; it runs on the phone without you, with the options the user chose for it in the app plus params. Returns at once: follow it with macro_status.",
             mapOf("name" to str("macro name"), "params" to mapOf("type" to "object", "description" to "param values, e.g. {\"battles\": 5}", "additionalProperties" to mapOf("type" to "string"))), listOf("name")),
         McpServer.McpTool("macro_status", "Whether a macro is running, what it is doing now, why the last one stopped, and the last log lines.", emptyMap()),
         McpServer.McpTool("stop_macro", "Stop the running macro.", emptyMap()),
         McpServer.McpTool("save_template", "Save a small box of the current screen as a named template (a stable label or icon, no numbers or moving parts), usable in macros by name.",
             mapOf("name" to str("lowercase letters, digits and _, e.g. quest_board_title"), "region" to box(), "notes" to str("what it is")), listOf("name", "region")),
-        McpServer.McpTool("save_macro", "Save a macro (YAML in the app's macro format) to the user's macros, replacing their own macro with that name. Built-in macros can't be replaced.",
+        McpServer.McpTool("save_macro", "Save a custom macro (YAML in the app's macro format), listed under Custom, replacing the custom macro with that name. Use it for drafts and exceptional one-offs: a macro that fits a library category (daily, dungeon, farm, game, basic) is published to the GitHub repo once it works, for every user. Library macros can't be replaced here: change them in the repo.",
             mapOf("yaml" to str("the whole macro file")), listOf("yaml")),
+        McpServer.McpTool("delete_macro", "Delete a custom macro (e.g. after publishing it to the library).", mapOf("name" to str("macro name")), listOf("name")),
         McpServer.McpTool("launch_game", "Open Another Eden (or bring it to the front).", emptyMap()),
         McpServer.McpTool("update_app", "Update the Another Macro app itself to the newest CI build of a GitHub branch of brunoccst/another-macro, with no taps from the user. The app restarts; the connector is back in about 90 s.",
             mapOf("branch" to str("branch whose build to install, e.g. main (default: the branch the phone follows now)"))),
+        McpServer.McpTool("update_macros", "Download the newest macro pack (macros, templates, dungeon data) published by CI for the branch the phone follows (falls back to main). No app restart.", emptyMap()),
     )
 }

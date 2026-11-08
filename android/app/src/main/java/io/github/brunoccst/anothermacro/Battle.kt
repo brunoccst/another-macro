@@ -1,7 +1,7 @@
 package io.github.brunoccst.anothermacro
 
 /**
- * Fighting one battle, shared by every macro that can end up in one (grind-battles,
+ * Fighting one battle (the `fight:` step of the basic macro battle), shared by every macro that can end up in one (battle,
  * the cat routine's random encounters, Another Dungeons).
  *
  * A [Setup] says, per front-row character (1-4), which skill to use: "auto" leaves the
