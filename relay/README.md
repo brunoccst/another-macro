@@ -26,6 +26,10 @@ Claude (Anthropic cloud) --HTTPS /mcp/<connector token>--> this Worker <--WebSoc
    dashboard → **Workers & Pages** → **another-macro-relay** → **Settings** →
    **Variables and Secrets** → **Add**, type **Secret**, one for each.
 
+   If the build log shows `pip install .` or "Could not detect a directory containing static
+   files", the build ran from the top of the repo: in the dashboard open the Worker →
+   **Settings** → **Build**, set **Root directory** to `relay`, save, and retry the build.
+
    Without the button: dashboard → **Workers & Pages** → **Create** → **Import a
    repository**, pick your fork of another-macro and set the root directory to `relay`.
 3. **Relay address.** Copy the Worker's address (`https://another-macro-relay.<you>.workers.dev`)
