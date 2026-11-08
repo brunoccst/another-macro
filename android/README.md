@@ -102,7 +102,9 @@ between runs. So a macro fix reaches phones with a push, without an app release.
 top of `Flow.kt`; `macros/basic/grind-battles.yaml` is a full example.
 
 Users don't add macros themselves. Claude can save **custom** macros through the phone connector
-(`save_macro`, listed under Custom); the connector's `update_macros` installs the newest pack now.
+(`save_macro`, listed under Custom) as drafts; one that fits a library category is then published
+to `macros/<group>/` for everyone and removed from the phone (`delete_macro`). The connector's
+`update_macros` installs the newest pack now.
 
 ## Templates captured with Claude
 The connector's `save_template` saves a box of the current screen as a template in the app's

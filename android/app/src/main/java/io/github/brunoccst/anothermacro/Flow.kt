@@ -49,7 +49,9 @@ class FlowScenario(internal val spec: Map<String, Any?>, val source: String,
                    val custom: Boolean = false) : Scenario() {
     override val name = spec["name"] as? String ?: throw IllegalArgumentException("$source: missing name")
     override val description = spec["description"] as? String ?: ""
-    override val group = if (custom) "custom" else spec["group"] as? String ?: "other"
+    /** The group the file asks for: for a custom macro, where it belongs once it's published to the library. */
+    val declaredGroup = spec["group"] as? String ?: "other"
+    override val group = if (custom) "custom" else declaredGroup
     override val icon = spec["icon"] as? String ?: ""
     override val templateFolders: List<String> = list(spec["templates"]).map { it.toString() }
     override val params: Map<String, Param> = map(spec["params"]).entries.associate { (k, v) ->
