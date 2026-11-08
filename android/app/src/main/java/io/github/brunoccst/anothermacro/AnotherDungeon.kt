@@ -27,7 +27,11 @@ import kotlin.math.abs
 object AnotherDungeon {
     data class MapSpec(val names: List<String>, val layout: AreaNav.Layout?, val chests: List<Point>, val exit: Point?, val boss: Boolean, val arrival: Point? = null, val chestsCount: Int = 0,
                        /** The fixed walk: one leg per chest (in order), then the exit. */
-                       val path: List<Route.Leg>? = null) {
+                       val path: List<Route.Leg>? = null,
+                       /** False for a map without enemies (no fights first). */
+                       val enemies: Boolean = true,
+                       /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000". */
+                       val steps: List<String>? = null) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
@@ -67,6 +71,8 @@ object AnotherDungeon {
                 nums(m["arrival"])?.let { Point(it[0], it[1]) },
                 (m["chests_count"] as? Number)?.toInt() ?: 0,
                 (m["path"] as? List<*>)?.mapNotNull { (it as? List<*>)?.let { leg -> Route.parseLeg(leg) } }?.takeIf { it.isNotEmpty() },
+                m["enemies"] != false,
+                (m["steps"] as? List<*>)?.map { it.toString() },
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString())
@@ -214,7 +220,7 @@ object AnotherDungeon {
                     r.pos = null; r.planPos = null
                     r.order = chestOrder(spec.maps[idx].shifted(r.shift), party)
                 }
-                r.map = idx; r.chestsDone = 0; r.cleared = false
+                r.map = idx; r.chestsDone = 0; r.cleared = !spec.maps[idx].enemies
                 r.onBossMap = spec.maps[idx].boss
                 r.chestsTotal += spec.maps[idx].chests.size.takeIf { it > 0 } ?: spec.maps[idx].chestsCount
                 task(r, "Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
@@ -222,6 +228,7 @@ object AnotherDungeon {
             }
             val ms = spec.maps[idx].shifted(r.shift)
             when {
+                ms.steps != null -> runSteps(r, ms)
                 ms.layout == null -> sweep(r)
                 // every map's enemies first: once "the enemies have disappeared", no battle can cut
                 // the fixed path short, so it is walked exactly as planned
@@ -866,6 +873,8 @@ object AnotherDungeon {
         val ctx = r.ctx
         if (!r.cleared && !r.onBossMap) { grind(r, r.spec.maps[r.map]); return }
         task(r, "Map ${r.map + 1}: looking around (chest, boss)")
+        val ms = r.spec.maps[r.map]
+        val hasChests = ms.chests.isNotEmpty() || ms.chestsCount > 0
         for (vertical in listOf(null, true, false)) {
             if (vertical != null) { AreaNav.flick(ctx, vertical); fight(r); if (r.bossBeaten) return }
             for (dir in listOf(-1.0, 1.0)) {
@@ -873,7 +882,14 @@ object AnotherDungeon {
                 var last: Point? = null
                 for (step in 0 until 30) {
                     if (bossGate(r)) { fight(r); if (r.bossBeaten) return }
-                    if (openBubble(r)) ctx.count("bubbles")
+                    // a map without chests (Deliverance Sword): its "!" only leads back, leave it be
+                    if (hasChests && openBubble(r)) {
+                        ctx.count("bubbles")
+                        if (r.bossBeaten) return
+                        // a chest, or a portal to the next map (Throne Room's light pillar): look again
+                        r.moved = true
+                        return
+                    }
                     if (r.bossBeaten) return
                     AreaNav.hold(ctx, dir, 0.025)
                     fight(r)
@@ -885,6 +901,37 @@ object AnotherDungeon {
                 }
             }
         }
+    }
+
+    /**
+     * A small map by its fixed steps (Throne Room: the chest's "!" by the arrival, up to the light
+     * pillar, its "!" to the next map). Then the map is read again: if the party is still here the
+     * steps run again (a chest already open shows no "!", so it costs only a look).
+     */
+    private fun runSteps(r: Run, ms: MapSpec) {
+        val ctx = r.ctx
+        task(r, "Map ${r.map + 1}: ${ms.names.first()}")
+        for (step in ms.steps!!) {
+            val parts = step.trim().split(Regex("\\s+"))
+            when (parts[0].uppercase()) {
+                "BUBBLE" -> {
+                    var tapped = false
+                    for (i in 0 until 3) { if (openBubble(r)) { tapped = true; break }; ctx.wait(0.7) }
+                    if (!tapped) MacroLog.i("step bubble: no \"!\" here")
+                }
+                "U" -> AreaNav.flick(ctx, up = true)
+                "D" -> AreaNav.flick(ctx, up = false)
+                "L", "R" -> {
+                    val ms2 = parts.getOrNull(1)?.toLongOrNull() ?: 500
+                    ctx.drag(Point(0.5, 0.65), Point(if (parts[0].uppercase() == "L") 0.4 else 0.6, 0.65), ms2)
+                    ctx.wait(0.5)
+                }
+                else -> MacroLog.i("unknown step '$step'")
+            }
+            fight(r)
+            if (r.bossBeaten) return
+        }
+        r.moved = true
     }
 
     /** Fight a battle if one is on screen: boss setup for the boss. True if there was one. */

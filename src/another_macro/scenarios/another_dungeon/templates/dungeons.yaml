@@ -110,6 +110,14 @@ burning_beast_kings_castle:
         - [chest 2, R 1880, D, R 3540, U, R 1880]
         - [chest 3, L 1880, D, R 2010, D, L 1580]
         - [exit, R 1240, U, R 2740, U, R 1920]
+    # no enemies; the chest's "!" shows at the arrival; up the middle is a pillar of light whose
+    # "!" leads to Deliverance Sword (seen live 2026-11-08)
     - names: [Beast King's Castle Throne Room]
-      boss: true
+      enemies: false
       chests_count: 1
+      steps: [bubble, U, bubble]
+    # the boss: walk left from the arrival to "A major trial awaits you beyond this point. Proceed?"
+    # (Yes). Its "!" on the right only leads back to the Throne Room.
+    - names: [Deliverance Sword]
+      boss: true
+      enemies: false
