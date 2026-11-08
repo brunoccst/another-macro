@@ -27,6 +27,56 @@ class InputService : AccessibilityService() {
         instance = this
         MacroLog.i("accessibility service connected (taps enabled)")
         if (MacroService.capture != null) showControls(true)
+        // the app was just replaced by an update Claude started: bring it back up by itself
+        if (System.currentTimeMillis() < Updater.resumeUntil(this) && MacroService.capture == null) {
+            main.postDelayed({
+                runCatching {
+                    startActivity(android.content.Intent(this, MainActivity::class.java)
+                        .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                        .putExtra(MainActivity.EXTRA_RESUME, true))
+                }.onFailure { MacroLog.e("could not reopen the app after the update", it) }
+            }, 1500)
+        }
+    }
+
+    /**
+     * During a self-update Claude started (and only then, for a few minutes): press Android's own
+     * "Update" in the package installer and "Start now" in the screen-capture question, which this
+     * app asked for itself. Nothing else is ever pressed.
+     */
+    private fun autoConfirm(pkg: String) {
+        if (System.currentTimeMillis() > Updater.resumeUntil(this)) return
+        val words = when {
+            "packageinstaller" in pkg -> listOf("update", "install")
+            pkg == "com.android.systemui" -> listOf("start now", "start")
+            else -> return
+        }
+        fun attempt(left: Int) {
+            if (clickButton(words)) return
+            if (left > 0) main.postDelayed({ attempt(left - 1) }, 700)
+        }
+        main.postDelayed({ attempt(5) }, 500)
+    }
+
+    private fun clickButton(words: List<String>): Boolean {
+        val roots = (listOfNotNull(rootInActiveWindow) + runCatching { windows.mapNotNull { it.root } }.getOrDefault(emptyList()))
+        for (root in roots) {
+            val queue = ArrayDeque(listOf(root))
+            while (queue.isNotEmpty()) {
+                val n = queue.removeFirst()
+                val label = (n.text ?: n.contentDescription)?.toString()?.trim()?.lowercase()
+                if (label != null && label in words) {
+                    var c: android.view.accessibility.AccessibilityNodeInfo? = n
+                    while (c != null && !c.isClickable) c = c.parent
+                    if (c != null && c.isEnabled && c.performAction(android.view.accessibility.AccessibilityNodeInfo.ACTION_CLICK)) {
+                        MacroLog.i("pressed '$label' (self-update)")
+                        return true
+                    }
+                }
+                for (i in 0 until n.childCount) n.getChild(i)?.let { queue.add(it) }
+            }
+        }
+        return false
     }
 
     override fun onDestroy() {
@@ -37,9 +87,11 @@ class InputService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        // which app is in front (window state changes carry the package name; no screen content is read)
+        // which app is in front (window state changes carry the package name; other apps' content is read
+        // only to press Android's own Update / Start now during a self-update, see autoConfirm)
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             event.packageName?.toString()?.let {
+                autoConfirm(it)
                 // Play Games' "welcome back" banner, Samsung's edge panel and System UI (status bar,
                 // screen-capture chip, heads-up notifications) post window events from small overlay
                 // views but don't take the screen: the game stays in front. Activities (Play's

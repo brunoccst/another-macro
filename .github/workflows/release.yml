@@ -44,6 +44,7 @@ jobs:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
         run: |
           export VERSION_NAME="${TAG#v}"
+          export VERSION_CODE=$(( ($(date +%s) - 1735689600) / 60 ))
           gradle -p android assembleRelease --stacktrace
           cp android/app/build/outputs/apk/release/app-release.apk another-macro.apk
       - name: Publish GitHub Release

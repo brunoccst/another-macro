@@ -30,6 +30,11 @@ class Template(
     val region: Region,
     val threshold: Double,
     val scales: List<Double>,
+    /** Parts of the template (fractions of it) that must be bright on screen, at least [dimBy] above every [dim] part. */
+    val bright: List<Region> = emptyList(),
+    val dim: List<Region> = emptyList(),
+    val minBright: Double = 200.0,
+    val dimBy: Double = 70.0,
 ) {
     val available: Boolean get() = image != null && ref != null
 
@@ -46,23 +51,53 @@ class Template(
         val area = frame.submat(top, bottom, left, right)
         val base = fh.toDouble() / r[1]
         var best: DoubleArray? = null // score, x, y, w, h
+        var seen = 0.0 // best raw score (checked templates)
         for (extra in scales) {
             val tpl = scaled(img, base * extra)
             if (tpl.rows() < 4 || tpl.cols() < 4 || tpl.rows() > area.rows() || tpl.cols() > area.cols()) continue
             val res = Mat()
             Imgproc.matchTemplate(area, tpl, res, Imgproc.TM_CCOEFF_NORMED)
-            val mm = Core.minMaxLoc(res)
-            res.release()
-            if (best == null || mm.maxVal > best[0]) {
-                best = doubleArrayOf(mm.maxVal, mm.maxLoc.x, mm.maxLoc.y, tpl.cols().toDouble(), tpl.rows().toDouble())
+            if (bright.isEmpty()) {
+                val mm = Core.minMaxLoc(res)
+                if (best == null || mm.maxVal > best[0]) {
+                    best = doubleArrayOf(mm.maxVal, mm.maxLoc.x, mm.maxLoc.y, tpl.cols().toDouble(), tpl.rows().toDouble())
+                }
+            } else {
+                // the best few spots over the threshold, each checked for its bright and dim parts
+                for (i in 0 until 6) {
+                    val mm = Core.minMaxLoc(res)
+                    seen = maxOf(seen, mm.maxVal)
+                    if (mm.maxVal < threshold || (best != null && mm.maxVal <= best[0])) break
+                    val x = mm.maxLoc.x.toInt(); val y = mm.maxLoc.y.toInt()
+                    if (looksRight(area.submat(y, y + tpl.rows(), x, x + tpl.cols()))) {
+                        best = doubleArrayOf(mm.maxVal, mm.maxLoc.x, mm.maxLoc.y, tpl.cols().toDouble(), tpl.rows().toDouble())
+                        break
+                    }
+                    // not it: blank that spot and look at the next best
+                    val r0 = maxOf(0, y - tpl.rows() / 2); val c0 = maxOf(0, x - tpl.cols() / 2)
+                    res.submat(r0, minOf(res.rows(), y + tpl.rows() / 2 + 1), c0, minOf(res.cols(), x + tpl.cols() / 2 + 1)).setTo(org.opencv.core.Scalar(-1.0))
+                }
             }
+            res.release()
             if (tpl !== img) tpl.release()
         }
         area.release()
+        if (bright.isNotEmpty()) lastScore = seen
         val b = best ?: return null
-        lastScore = b[0]
+        if (bright.isEmpty()) lastScore = b[0]
         if (b[0] < threshold) return null
         return Match(name, b[0], Region((left + b[1]) / fw, (top + b[2]) / fh, b[3] / fw, b[4] / fh))
+    }
+
+    private fun looksRight(patch: Mat): Boolean {
+        fun mean(r: Region): Double {
+            val x0 = (r.x * patch.cols()).toInt(); val y0 = (r.y * patch.rows()).toInt()
+            val x1 = maxOf(x0 + 1, ((r.x + r.w) * patch.cols()).toInt()); val y1 = maxOf(y0 + 1, ((r.y + r.h) * patch.rows()).toInt())
+            return Core.mean(patch.submat(y0, minOf(y1, patch.rows()), x0, minOf(x1, patch.cols()))).`val`[0]
+        }
+        val b = bright.map(::mean)
+        val d = dim.map(::mean)
+        return b.all { it >= minBright } && d.all { dv -> b.all { it - dv >= dimBy } }
     }
 
     private fun scaled(img: Mat, factor: Double): Mat {
@@ -125,6 +160,8 @@ class Library private constructor() {
                 region = Region.parse(spec["region"]),
                 threshold = (spec["threshold"] as? Number)?.toDouble() ?: DEFAULT_THRESHOLD,
                 scales = (spec["scales"] as? List<*>)?.map { (it as Number).toDouble() } ?: listOf(1.0),
+                bright = (spec["bright"] as? List<*>)?.map { Region.parse(it) } ?: emptyList(),
+                dim = (spec["dim"] as? List<*>)?.map { Region.parse(it) } ?: emptyList(),
             )
         }
         val scr = data["screens"] as? Map<String, Any?> ?: emptyMap()

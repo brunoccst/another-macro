@@ -1,8 +1,11 @@
 <?xml version="1.0" encoding="utf-8"?>
+<!-- window content is read only to press Android's own "Update" / "Start now" during a
+     self-update the app started (InputService.autoConfirm) -->
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/input_service_description"
     android:accessibilityEventTypes="typeWindowStateChanged"
     android:accessibilityFeedbackType="feedbackGeneric"
+    android:accessibilityFlags="flagRetrieveInteractiveWindows"
     android:canPerformGestures="true"
-    android:canRetrieveWindowContent="false"
+    android:canRetrieveWindowContent="true"
     android:notificationTimeout="100" />

@@ -400,6 +400,17 @@ class MainActivity : Activity() {
             .putExtra(MacroService.EXTRA_RESULT_DATA, data)
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc) else startService(svc)
         log.postDelayed({ refreshStatus() }, 800)
+        if (System.currentTimeMillis() < Updater.resumeUntil(this)) log.postDelayed({ resumeAfterUpdate() }, 2000)
+    }
+
+    /** After a self-update: the connector back on (if it was), the game in front. */
+    private fun resumeAfterUpdate() {
+        if (MacroService.capture == null) { log.postDelayed({ resumeAfterUpdate() }, 1000); return }
+        val connector = Updater.resumeConnector(this)
+        Updater.clearResume(this)
+        if (connector) PhoneConnector.start(applicationContext)
+        MacroLog.i("update done (${BuildConfig.VERSION_NAME}): capture on${if (connector) ", connector on" else ""}")
+        InputService.instance?.launchApp(ClaudeSafety.GAME)
     }
 
     /** Copy a picked .yaml into the user's macros (after checking it parses), then reload. */
@@ -426,6 +437,14 @@ class MainActivity : Activity() {
     }
 
     private fun handleAdbIntent(intent: Intent?) {
+        // back from an update Claude started: allow screen capture again (the accessibility
+        // service presses "Start now"), then the connector and the game come back on
+        if (intent?.getBooleanExtra(EXTRA_RESUME, false) == true) {
+            intent.removeExtra(EXTRA_RESUME)
+            if (MacroService.capture == null) { MacroLog.i("updated to ${BuildConfig.VERSION_NAME}: turning screen capture back on"); requestCapture() }
+            else resumeAfterUpdate()
+            return
+        }
         val name = intent?.getStringExtra("run") ?: return
         val params = intent.getStringExtra("params").orEmpty().split(",").mapNotNull {
             val kv = it.split("=", limit = 2)
@@ -437,6 +456,7 @@ class MainActivity : Activity() {
 
     companion object {
         private const val REQUEST_CAPTURE = 1
+        const val EXTRA_RESUME = "resume_after_update"
         private const val REQUEST_IMPORT = 3
     }
 }
