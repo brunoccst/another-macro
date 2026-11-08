@@ -30,7 +30,7 @@ object AnotherDungeon {
                        val path: List<Route.Leg>? = null,
                        /** False for a map without enemies (no fights first). */
                        val enemies: Boolean = true,
-                       /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000". */
+                       /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000", "boss L" (walk to the boss). */
                        val steps: List<String>? = null) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
@@ -838,29 +838,51 @@ object AnotherDungeon {
         val l = ms.layout
         val seg = r.pos?.let { p -> l?.let { Route.segOf(it, p) } }
         val span = r.pos?.let { p -> seg?.let { s -> if (s.x2 - p.x >= p.x - s.x1) p.x to minOf(s.x2, p.x + 0.05) else maxOf(s.x1, p.x - 0.05) to p.x } }
-        while (quiet < 12) {
-            val p = r.pos
-            var fought = false
-            if (l != null && p != null && span != null) {
-                val t = Route.table(ctx)
-                val to = if (abs(p.x - span.first) < abs(p.x - span.second)) span.second else span.first
-                if (abs(to - p.x) >= t.minWalk) r.pos = Route.hold(ctx, l, t, p, to > p.x, t.holdMs(abs(to - p.x)).toLong()) { fight(r).also { if (it) fought = true } }
-            } else AreaNav.hold(ctx, dir, 0.05)
-            dir = -dir
-            if (fight(r) || fought) { quiet = 0; won++ } else {
-                quiet++
-                // the banner can come late (after the walk back to the field): look on quiet walks too
-                readBanner(r)
+        // "The enemies have disappeared" shows for a moment, often while the party walks or the game
+        // autosaves: watch the whole screen for it all along, beside the walking and fighting
+        BannerWatch(r).use { watch ->
+            while (quiet < 12) {
+                if (watch.check()) return
+                val p = r.pos
+                var fought = false
+                if (l != null && p != null && span != null) {
+                    val t = Route.table(ctx)
+                    val to = if (abs(p.x - span.first) < abs(p.x - span.second)) span.second else span.first
+                    if (abs(to - p.x) >= t.minWalk) r.pos = Route.hold(ctx, l, t, p, to > p.x, t.holdMs(abs(to - p.x)).toLong()) { fight(r).also { if (it) fought = true } }
+                } else AreaNav.hold(ctx, dir, 0.05)
+                dir = -dir
+                if (fight(r) || fought) { quiet = 0; won++ } else quiet++
+                if (watch.check() || r.cleared) return
+                if (cap > 0 && won >= cap) {
+                    MacroLog.i("$won fights on ${ms.names.first()} and no \"enemies have disappeared\" seen: taking it as cleared (safety cap)")
+                    r.cleared = true
+                    return
+                }
             }
-            if (r.cleared) return
-            if (cap > 0 && won >= cap) {
-                MacroLog.i("$won fights on ${ms.names.first()} and no \"enemies have disappeared\" seen: taking it as cleared (safety cap)")
-                r.cleared = true
-                return
-            }
+            MacroLog.i("no encounter in $quiet walks: taking ${ms.names.first()} as cleared")
+            r.cleared = true
         }
-        MacroLog.i("no encounter in $quiet walks: taking ${ms.names.first()} as cleared")
-        r.cleared = true
+    }
+
+    /** Reads the whole screen over and over on its own thread while a map is being cleared, for the banner. */
+    private class BannerWatch(private val r: Run) : AutoCloseable {
+        @Volatile private var seen = false
+        @Volatile private var done = false
+        private val worker = Thread {
+            while (!done && !seen) {
+                try { if (noEnemiesLeft(r.ctx.readText().joinToString(" ") { Ocr.norm(it.text) })) seen = true }
+                catch (_: Throwable) { }
+                if (!seen) try { Thread.sleep(200) } catch (_: InterruptedException) { return@Thread }
+            }
+        }.apply { isDaemon = true; name = "banner-watch"; start() }
+
+        /** True (and the map marked cleared) once the banner was seen. */
+        fun check(): Boolean {
+            if (seen && !r.cleared) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
+            return r.cleared
+        }
+
+        override fun close() { done = true; worker.interrupt(); runCatching { worker.join(2000) } }
     }
 
     /** "The enemies have disappeared" in normalized OCR text (also when OCR splits or clips the line). */
@@ -868,13 +890,6 @@ object AnotherDungeon {
 
     /** Where "The enemies have disappeared" shows: the top middle (kept wide: its exact spot is not measured). */
     private val BANNER = Region(0.05, 0.0, 0.9, 0.45)
-
-    /** A quick look for the banner only. */
-    private fun readBanner(r: Run) {
-        if (r.cleared) return
-        val all = r.ctx.readText(BANNER).joinToString(" ") { Ocr.norm(it.text) }
-        if (noEnemiesLeft(all)) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
-    }
 
     /** One read of the screen after a win: the map's enemies gone, the White Key. */
     private fun readAfterWin(r: Run, quick: Boolean = false): String {
@@ -944,6 +959,17 @@ object AnotherDungeon {
                     for (i in 0 until 3) { if (openBubble(r)) { tapped = true; break }; ctx.wait(0.7) }
                     if (!tapped) MacroLog.i("step bubble: no \"!\" here")
                 }
+                // "boss L": walk that way in plain holds until the boss's question shows, then fight it
+                // (Burning Beast King's Castle: the boss area has no chest, so no looking around)
+                "BOSS" -> {
+                    val dir = if (parts.getOrNull(1)?.uppercase() == "R") 1.0 else -1.0
+                    for (i in 0 until 20) {
+                        if (bossGate(r)) { fight(r); break }
+                        if (fight(r) && r.bossBeaten) break
+                        ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), 1500)
+                        ctx.wait(0.5)
+                    }
+                }
                 "U" -> AreaNav.flick(ctx, up = true)
                 "D" -> AreaNav.flick(ctx, up = false)
                 "L", "R" -> {
@@ -985,8 +1011,9 @@ object AnotherDungeon {
                 ctx.count("battles")
                 if (r.task.isNotEmpty()) MacroLog.status(r.task)
                 if (wasBoss) { r.bossBeaten = true; ctx.count("bosses") }
-                // "The enemies have disappeared" flashes for a moment after a map's last enemy
-                val end = System.currentTimeMillis() + 6000
+                // "The enemies have disappeared" flashes for a moment after a map's last enemy: a short
+                // look here (while a map is cleared, BannerWatch keeps looking as the party walks on)
+                val end = System.currentTimeMillis() + 1000
                 val seen = LinkedHashSet<String>()
                 while (!r.cleared && !r.bossBeaten && System.currentTimeMillis() < end) readAfterWin(r, quick = true).takeIf { it.isNotBlank() }?.let { seen += it }
                 // for tuning the banner's spot and timing: what the top of the screen said meanwhile

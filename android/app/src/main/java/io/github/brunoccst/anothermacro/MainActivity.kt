@@ -220,6 +220,7 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
+        inFront = true
         Runner.listeners += runListener
         system.onResume()
         macros.onResume()
@@ -227,6 +228,7 @@ class MainActivity : Activity() {
     }
 
     override fun onPause() {
+        inFront = false
         Runner.listeners -= runListener
         system.onPause()
         macros.onPause()
@@ -255,7 +257,7 @@ class MainActivity : Activity() {
             .putExtra(MacroService.EXTRA_RESULT_DATA, data)
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc) else startService(svc)
         pageTitle.postDelayed({ refreshStatus() }, 800)
-        if (System.currentTimeMillis() < Updater.resumeUntil(this)) pageTitle.postDelayed({ resumeAfterUpdate() }, 2000)
+        if (Updater.resumePending(this)) pageTitle.postDelayed({ resumeAfterUpdate() }, 2000)
     }
 
     /** After a self-update: the connector back on (if it was), the game in front. */
@@ -289,6 +291,7 @@ class MainActivity : Activity() {
         // service presses "Start now"), then the connector and the game come back on
         if (intent?.getBooleanExtra(EXTRA_RESUME, false) == true) {
             intent.removeExtra(EXTRA_RESUME)
+            if (!Updater.resumePending(this)) return
             if (MacroService.capture == null) { MacroLog.i("updated to ${BuildConfig.VERSION_NAME}: turning screen capture back on"); requestCapture() }
             else resumeAfterUpdate()
             return
@@ -309,5 +312,9 @@ class MainActivity : Activity() {
         const val EXTRA_PAGE = "page"
         private const val STATE_PAGE = "page"
         const val REPO = "https://github.com/brunoccst/another-macro"
+        /** This app's screen is the one in front (resumed): the floating ⌂ then goes back to the game. */
+        @Volatile
+        var inFront = false
+            private set
     }
 }

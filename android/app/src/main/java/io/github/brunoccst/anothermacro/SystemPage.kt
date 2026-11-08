@@ -332,7 +332,7 @@ class SystemPage(private val a: MainActivity) {
         updateButton.isEnabled = false
         updateInfo.text = "Checking the newest build of $branch…"
         Thread {
-            val result = runCatching { Updater.update(a, branch) }
+            val result = runCatching { Updater.update(a, branch, userStarted = true) }
             a.runOnUiThread {
                 updateButton.isEnabled = true
                 result.onSuccess { updateInfo.text = it.replaceFirstChar { c -> c.uppercase() } + "." }
