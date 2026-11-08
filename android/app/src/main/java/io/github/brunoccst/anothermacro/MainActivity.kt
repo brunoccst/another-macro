@@ -3,386 +3,245 @@ package io.github.brunoccst.anothermacro
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
-import android.graphics.Color
-import android.graphics.Typeface
 import android.media.projection.MediaProjectionManager
-import android.net.Uri
 import android.os.Build
 import android.os.Bundle
-import android.provider.Settings
-import android.text.InputType
 import android.view.Gravity
 import android.view.View
-import android.widget.EditText
+import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.LinearLayout
-import android.widget.ScrollView
 import android.widget.TextView
 
 /**
- * Main screen: first-run guide (taps, screen capture), updates from GitHub
- * Releases, and the macro with its params. Turn on taps (accessibility), allow screen capture,
- * pick a macro and its parameters, run/stop, and watch the log. Once screen
- * capture is on, floating buttons over the game start/pause/stop/restart the
- * last macro (see ControlsOverlay).
+ * The app: a top bar with ≡, a sidebar (drawer) and three pages:
+ *  - Home: what the app is, how to use it, quick links (HomePage)
+ *  - Macros: the macros in tabs by group, the ones you use, their options and Run (MacrosPage)
+ *  - System: taps / screen capture, the Claude phone connector, settings, updates and the log (SystemPage)
  *
  * Can also be driven from adb for testing:
  *   am start -n io.github.brunoccst.anothermacro/.MainActivity --es run grind-battles --es params "battles=3,mode=skill"
+ *   am start -n io.github.brunoccst.anothermacro/.MainActivity --es page system
  */
 class MainActivity : Activity() {
 
-    private lateinit var log: TextView
-    /** Each param's current value, read from its text box, dropdown or switch. */
-    private val paramFields = LinkedHashMap<String, () -> String>()
-    private var scenario: Scenario? = null
-    private lateinit var macros: List<Scenario>
-    private lateinit var paramsBox: LinearLayout
-    private lateinit var userTemplates: TextView
-    private lateinit var detailCard: LinearLayout
-    private lateinit var detailTitle: TextView
-    private lateinit var detailIcon: android.widget.ImageView
-    private lateinit var detailDescription: TextView
-    private lateinit var runButton: TextView
-    private lateinit var setupCard: LinearLayout
-    private lateinit var tapsChip: TextView
-    private lateinit var captureChip: TextView
-    private lateinit var runChip: TextView
-    private lateinit var scroll: ScrollView
-    private val macroRows = HashMap<String, View>()
-    private val logListener: (String) -> Unit = { text -> if (::log.isInitialized) log.text = text }
+    enum class Page(val id: String, val title: String, val iconRes: Int) {
+        HOME("home", "Home", R.drawable.ic_home),
+        MACROS("macros", "Macros", R.drawable.ic_macros),
+        SYSTEM("system", "System", R.drawable.ic_sliders),
+    }
+
+    internal lateinit var home: HomePage
+    internal lateinit var macros: MacrosPage
+    internal lateinit var system: SystemPage
+    private lateinit var pages: Map<Page, View>
+    var page = Page.HOME
+        private set
+
+    private lateinit var pageTitle: TextView
+    private lateinit var drawer: LinearLayout
+    private lateinit var scrim: View
+    private var drawerOpen = false
+    private val navRows = HashMap<Page, LinearLayout>()
+    /** Every "taps / capture / running" chip trio on screen (Home and the sidebar). */
+    private val chipSets = ArrayList<Triple<TextView, TextView, TextView>>()
     private val runListener: () -> Unit = { runOnUiThread { refreshStatus() } }
 
-    private fun dp(v: Int) = Ui.dp(this, v)
+    internal fun dp(v: Int) = Ui.dp(this, v)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Ui.BG
         window.navigationBarColor = Ui.BG
-        val column = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(20), dp(16), dp(32))
-        }
 
-        // --- header --------------------------------------------------------------
-        column.addView(LinearLayout(this).apply {
+        home = HomePage(this)
+        macros = MacrosPage(this)
+        system = SystemPage(this)
+        pages = mapOf(Page.HOME to home.view, Page.MACROS to macros.view, Page.SYSTEM to system.view)
+
+        // --- top bar: ≡ and the page's name --------------------------------------------
+        pageTitle = Ui.text(this, "", 20f, bold = true)
+        val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.BOTTOM
-            addView(Ui.text(this@MainActivity, "Another Macro", 26f, bold = true))
-            addView(Ui.text(this@MainActivity, "  ${BuildConfig.VERSION_NAME}", 12f, Ui.MUTED).apply { setPadding(0, 0, 0, dp(4)) })
-        })
-        column.addView(Ui.text(this, "Automation for Another Eden, on this phone", 13f, Ui.MUTED).apply { setPadding(0, dp(2), 0, dp(12)) })
-        val chips = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
-        tapsChip = Ui.chip(this); captureChip = Ui.chip(this); runChip = Ui.chip(this)
-        chips.addView(tapsChip); chips.addView(captureChip); chips.addView(runChip)
-        column.addView(android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) })
-
-        // --- first-run guide (only while something is missing) ----------------------
-        setupCard = Ui.card(this, Ui.ACCENT_DIM).apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dp(14)
-            addView(Ui.text(this@MainActivity, "Get started", 17f, bold = true))
-            addView(Ui.text(this@MainActivity,
-                "1. Turn on taps: in Accessibility open Another Macro (Samsung: \"Installed apps\") and switch it on. " +
-                    "Greyed out (\"Restricted setting\")? App info → ⋮ → Allow restricted settings.\n" +
-                    "2. Allow screen capture → \"Start now\" (again after every update).", 13f, Ui.TEXT).apply { setPadding(0, dp(6), 0, dp(4)) })
-            addView(Ui.button(this@MainActivity, "Turn on taps", primary = true) { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) })
-            addView(Ui.button(this@MainActivity, "Allow screen capture", primary = true) { requestCapture() })
-            addView(Ui.button(this@MainActivity, "App info") {
-                startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:$packageName")))
+            gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(Ui.BG)
+            setPadding(dp(6), dp(6), dp(16), dp(6))
+            addView(ImageView(this@MainActivity).apply {
+                setImageResource(R.drawable.ic_menu)
+                contentDescription = "Menu"
+                setPadding(dp(12), dp(12), dp(12), dp(12))
+                background = Ui.pressable(this@MainActivity, Ui.BG, 24)
+                isClickable = true
+                setOnClickListener { if (drawerOpen) closeDrawer() else openDrawer() }
+                layoutParams = LinearLayout.LayoutParams(dp(48), dp(48)).apply { rightMargin = dp(6) }
             })
-        }
-        column.addView(setupCard)
-
-        // --- Claude: the phone connector -------------------------------------------------
-        column.addView(Ui.card(this).apply {
-            (layoutParams as LinearLayout.LayoutParams).topMargin = dp(14)
-            addView(Ui.text(this@MainActivity, "Claude", 17f, bold = true))
-            addView(Ui.text(this@MainActivity, "Let Claude play or write macros for you from your Claude chat, through the phone connector.", 13f, Ui.MUTED).apply { setPadding(0, dp(4), 0, dp(4)) })
-            addView(Ui.button(this@MainActivity, "Open Claude", primary = true) { startActivity(Intent(this@MainActivity, ClaudeActivity::class.java)) })
-        })
-
-        // --- macros, grouped ---------------------------------------------------------
-        macros = Scenarios.all(this)
-        for ((group, list) in Groups.sort(macros)) {
-            column.addView(Ui.withIcon(this, group.iconRes, Ui.section(this, group.title).apply { setPadding(0, dp(18), 0, dp(8)) }, 18).apply { setPadding(dp(6), 0, 0, 0) })
-            val card = Ui.card(this).apply { setPadding(dp(6), dp(6), dp(6), dp(6)) }
-            for ((i, m) in list.withIndex()) {
-                if (i > 0) card.addView(View(this).apply {
-                    setBackgroundColor(Ui.LINE)
-                    layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply { leftMargin = dp(12); rightMargin = dp(12) }
-                })
-                card.addView(macroRow(m))
-            }
-            column.addView(card)
+            addView(pageTitle, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(Ui.text(this@MainActivity, BuildConfig.VERSION_NAME, 11f, Ui.MUTED))
         }
 
-        // --- the selected macro: its options and Run --------------------------------------
-        detailCard = Ui.card(this, Ui.CARD).apply { visibility = View.GONE }
-        detailTitle = Ui.text(this, "", 19f, bold = true)
-        detailDescription = Ui.text(this, "", 13f, Ui.MUTED).apply { setPadding(0, dp(4), 0, dp(6)) }
-        paramsBox = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        runButton = Ui.button(this, "Run", primary = true) { scenario?.let { run(it.name, paramFields.mapValues { f -> f.value() }) } }
-        detailIcon = Ui.icon(this, R.drawable.ic_puzzle, 30)
-        detailCard.addView(LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
-            addView(detailIcon); addView(detailTitle)
-        })
-        detailCard.addView(detailDescription)
-        detailCard.addView(paramsBox)
-        detailCard.addView(runButton)
-        detailCard.addView(Ui.button(this, "Stop", color = Ui.BAD) { startService(MacroService.intent(this, MacroService.ACTION_STOP_RUN)) })
-        column.addView(Ui.section(this, "Selected macro"))
-        column.addView(detailCard)
+        val content = FrameLayout(this).apply { setBackgroundColor(Ui.BG) }
+        for (v in pages.values) content.addView(v, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
 
-        // --- settings ----------------------------------------------------------------------
-        column.addView(Ui.section(this, "Settings"))
-        column.addView(Ui.card(this).apply {
-            addView(switchRow("Live log", "A line at the bottom right saying what the macro is doing, while it runs. Also on the overlay's 💬.",
-                LiveLog.enabled(this@MainActivity)) { on -> LiveLog.setEnabled(this@MainActivity, on) })
-            addView(Ui.divider(this@MainActivity))
-            addView(Ui.text(this@MainActivity, "Floating buttons", 15f, bold = true))
-            addView(Ui.text(this@MainActivity, "While screen capture is on: ▶ start, ❚❚ pause, ■ stop, ↻ restart the selected macro, 💬 live log, 📷 capture a template. Drag ≡ to move them, tap it to fold them.", 13f, Ui.MUTED))
-            addView(Ui.button(this@MainActivity, "Turn off screen capture", color = Ui.MUTED) { startService(MacroService.intent(this@MainActivity, MacroService.ACTION_SHUTDOWN)) })
-        })
+        val main = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setBackgroundColor(Ui.BG)
+            addView(topBar)
+            addView(View(this@MainActivity).apply { setBackgroundColor(Ui.LINE) }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1))
+            addView(content, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        }
 
-        column.addView(Ui.section(this, "Your macros and templates"))
-        column.addView(Ui.card(this).apply {
-            addView(Ui.text(this@MainActivity, "Macros are .yaml files (see macros/ in the repo). Templates you capture with 📷 can be used in them by name.", 13f, Ui.MUTED))
-            userTemplates = Ui.text(this@MainActivity, "", 13f).apply { setPadding(0, dp(6), 0, 0) }
-            addView(userTemplates)
-            addView(Ui.button(this@MainActivity, "Import macro (.yaml)") {
-                @Suppress("DEPRECATION")
-                startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQUEST_IMPORT)
-            })
+        // --- the sidebar, over the page --------------------------------------------------
+        scrim = View(this).apply {
+            setBackgroundColor(android.graphics.Color.parseColor("#99000000"))
+            alpha = 0f
+            visibility = View.GONE
+            isClickable = true
+            setOnClickListener { closeDrawer() }
+        }
+        val width = minOf(dp(300), (resources.displayMetrics.widthPixels * 0.82).toInt())
+        drawer = buildDrawer().apply { translationX = -width.toFloat(); visibility = View.INVISIBLE }
+
+        setContentView(FrameLayout(this).apply {
+            setBackgroundColor(Ui.BG)
+            addView(main, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            addView(scrim, FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.MATCH_PARENT))
+            addView(drawer, FrameLayout.LayoutParams(width, FrameLayout.LayoutParams.MATCH_PARENT, Gravity.START))
         })
 
-        column.addView(Ui.section(this, "Updates"))
-        column.addView(Ui.card(this).apply {
-            updateInfo = Ui.text(this@MainActivity, "", 13f, Ui.MUTED)
-            addView(updateInfo)
-            updateButton = Ui.button(this@MainActivity, "Check for updates") { onUpdateButton() }
-            addView(updateButton)
-        })
-
-        column.addView(Ui.section(this, "Log"))
-        column.addView(Ui.card(this, Color.parseColor("#0B0E12")).apply {
-            log = TextView(this@MainActivity).apply {
-                typeface = Typeface.MONOSPACE
-                textSize = 11f
-                setTextColor(Color.parseColor("#B8C2CC"))
-                setTextIsSelectable(true)
-            }
-            addView(log)
-        })
-
-        scroll = ScrollView(this).apply { setBackgroundColor(Ui.BG); addView(column) }
-        setContentView(scroll)
-        val last = LastRun.load(this)?.first
-        (macros.firstOrNull { it.name == last } ?: macros.firstOrNull())?.let { showMacro(it) }
+        val start = savedInstanceState?.getString(STATE_PAGE) ?: intent?.getStringExtra(EXTRA_PAGE)
+        show(Page.values().firstOrNull { it.id == start } ?: Page.HOME)
         if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2)
         handleAdbIntent(intent)
     }
 
-    /** One macro in its group's list: name and description; tap to select it. */
-    private fun macroRow(m: Scenario): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(12), dp(10), dp(12), dp(10))
-        isClickable = true
-        addView(Ui.icon(this@MainActivity, Groups.icon(m), 30).apply { (layoutParams as LinearLayout.LayoutParams).rightMargin = dp(14) })
-        addView(LinearLayout(this@MainActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(Ui.text(this@MainActivity, m.name, 15f, bold = true))
-            if (m.description.isNotBlank()) addView(Ui.text(this@MainActivity, m.description, 12.5f, Ui.MUTED).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
-        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        setOnClickListener {
-            showMacro(m)
-            scroll.post { scroll.smoothScrollTo(0, detailCard.top - dp(40)) }
+    private fun buildDrawer(): LinearLayout = LinearLayout(this).apply {
+        orientation = LinearLayout.VERTICAL
+        setBackgroundColor(Ui.CARD)
+        isClickable = true // taps on the sidebar don't fall through to the page
+        setPadding(dp(12), dp(24), dp(12), dp(16))
+        addView(Ui.text(this@MainActivity, "Another Macro", 22f, bold = true).apply { setPadding(dp(8), 0, 0, 0) })
+        addView(Ui.text(this@MainActivity, "Automation for Another Eden, on this phone", 12.5f, Ui.MUTED).apply { setPadding(dp(8), dp(2), 0, dp(10)) })
+        addView(statusChips().apply { setPadding(dp(8), 0, 0, dp(14)) })
+        addView(View(this@MainActivity).apply { setBackgroundColor(Ui.LINE) }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply { bottomMargin = dp(10) })
+        for (p in Page.values()) {
+            val row = LinearLayout(this@MainActivity).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(14), dp(12), dp(14), dp(12))
+                isClickable = true
+                addView(Ui.icon(this@MainActivity, p.iconRes, 22).apply { (layoutParams as LinearLayout.LayoutParams).rightMargin = dp(16) })
+                addView(Ui.text(this@MainActivity, p.title, 16f, bold = true))
+                setOnClickListener { show(p); closeDrawer() }
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { bottomMargin = dp(4) }
+            }
+            navRows[p] = row
+            addView(row)
         }
-        macroRows[m.name] = this
+        addView(View(this@MainActivity), LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))
+        addView(Ui.text(this@MainActivity, "Version ${BuildConfig.VERSION_NAME}", 12f, Ui.MUTED).apply { setPadding(dp(8), 0, 0, 0) })
     }
 
-    private fun switchRow(title: String, help: String, on: Boolean, changed: (Boolean) -> Unit): View = LinearLayout(this).apply {
-        orientation = LinearLayout.HORIZONTAL
-        gravity = Gravity.CENTER_VERTICAL
-        addView(LinearLayout(this@MainActivity).apply {
-            orientation = LinearLayout.VERTICAL
-            addView(Ui.text(this@MainActivity, title, 15f, bold = true))
-            if (help.isNotBlank()) addView(Ui.text(this@MainActivity, help, 12.5f, Ui.MUTED))
-        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
-        addView(android.widget.Switch(this@MainActivity).apply {
-            isChecked = on
-            thumbTintList = android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(Ui.ACCENT, Ui.MUTED))
-            trackTintList = android.content.res.ColorStateList(arrayOf(intArrayOf(android.R.attr.state_checked), intArrayOf()), intArrayOf(Ui.ACCENT_DIM, Ui.LINE))
-            setOnCheckedChangeListener { _, v -> changed(v) }
-        })
-    }
-
-    /** Show [s]'s description and its options (prefilled with the last values used). */
-    private fun showMacro(s: Scenario) {
-        scenario = s
-        for ((name, row) in macroRows) row.background = if (name == s.name) Ui.rounded(Ui.ACCENT_DIM, dp(12).toFloat()) else null
-        detailCard.visibility = View.VISIBLE
-        detailTitle.text = s.name
-        detailIcon.setImageResource(Groups.icon(s))
-        detailDescription.text = s.description
-        runButton.text = "▶  Run ${s.name}"
-        paramsBox.removeAllViews()
-        paramFields.clear()
-        val last = LastRun.load(this)?.takeIf { it.first == s.name }?.second
-        // params shown only while a switch is on: their views, by that switch
-        val dependents = HashMap<String, MutableList<View>>()
-        val switches = HashMap<String, Boolean>()
-        val outer = paramsBox
-        for ((key, p) in s.params) {
-            val value = last?.get(key) ?: p.default
-            val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-            outer.addView(box)
-            p.showIf?.let { dependents.getOrPut(it) { ArrayList() } += box; box.visibility = if (switches[it] == true) View.VISIBLE else View.GONE }
-            val paramsBox = box
-            paramsBox.addView(Ui.divider(this))
-            if (p.isBool) {
-                var cur = FlowScenario.typed(value) == true
-                switches[key] = cur
-                paramsBox.addView(switchRow(Ui.title(key), p.help, cur) { on ->
-                    cur = on
-                    dependents[key]?.forEach { it.visibility = if (on) View.VISIBLE else View.GONE }
-                })
-                paramFields[key] = { cur.toString() }
-                continue
-            }
-            paramsBox.addView(Ui.text(this, Ui.title(key), 15f, bold = true))
-            if (p.help.isNotBlank()) paramsBox.addView(Ui.text(this, p.help, 12.5f, Ui.MUTED))
-            if (p.choices.isNotEmpty()) {
-                val options = if (value in p.choices) p.choices else p.choices + value
-                // choices as a row of pills: tap one to pick it
-                var cur = value
-                val row = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; setPadding(0, dp(6), 0, 0) }
-                val pills = ArrayList<TextView>()
-                fun paint() = pills.forEach { t ->
-                    val sel = t.tag == cur
-                    t.setTextColor(if (sel) Color.parseColor("#0B1A22") else Ui.TEXT)
-                    t.background = Ui.pressable(this, if (sel) Ui.ACCENT else Ui.CARD_ALT, 16)
-                }
-                for (o in options) {
-                    val t = Ui.text(this, o, 14f).apply {
-                        tag = o
-                        gravity = Gravity.CENTER
-                        minWidth = dp(44)
-                        setPadding(dp(14), dp(8), dp(14), dp(8))
-                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(8) }
-                        setOnClickListener { cur = o; paint() }
-                    }
-                    pills += t; row.addView(t)
-                }
-                paint()
-                paramsBox.addView(android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(row) })
-                paramFields[key] = { cur }
-                continue
-            }
-            val field = EditText(this).apply {
-                setText(value)
-                inputType = InputType.TYPE_CLASS_TEXT
-                setSingleLine()
-                setTextColor(Ui.TEXT)
-                background = Ui.rounded(Ui.CARD_ALT, dp(12).toFloat())
-                setPadding(dp(12), dp(10), dp(12), dp(10))
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) }
-            }
-            paramFields[key] = { field.text.toString() }
-            paramsBox.addView(field)
+    /** Switch to page [p]. */
+    fun show(p: Page) {
+        page = p
+        for ((k, v) in pages) v.visibility = if (k == p) View.VISIBLE else View.GONE
+        pageTitle.text = p.title
+        for ((k, row) in navRows) {
+            val sel = k == p
+            row.background = if (sel) Ui.rounded(Ui.ACCENT_DIM, dp(14).toFloat()) else Ui.pressable(this, Ui.CARD, 14)
+            ((row.getChildAt(0) as ImageView)).imageTintList = android.content.res.ColorStateList.valueOf(if (sel) Ui.ACCENT else Ui.MUTED)
+            (row.getChildAt(1) as TextView).setTextColor(if (sel) Ui.ACCENT else Ui.TEXT)
         }
     }
 
-    // --- updates ---------------------------------------------------------------
-    private lateinit var updateInfo: TextView
-    private lateinit var updateButton: TextView
-    private var available: Updater.Release? = null
-
-    private fun checkForUpdates(automatic: Boolean) {
-        if (BuildConfig.VERSION_NAME.contains("-dev")) {
-            // test builds from CI: a release would always look newer and replace them
-            updateInfo.text = "Development build (${BuildConfig.VERSION_NAME}): updates are off."
-            updateButton.isEnabled = false
-            return
-        }
-        val prefs = getSharedPreferences("updates", MODE_PRIVATE)
-        if (automatic && System.currentTimeMillis() - prefs.getLong("last_check", 0) < 6 * 3600_000L) return
-        prefs.edit().putLong("last_check", System.currentTimeMillis()).apply()
-        updateInfo.text = "Checking GitHub for updates…"
-        Thread {
-            val result = runCatching { Updater.checkNewer() }
-            runOnUiThread {
-                result.onSuccess { r ->
-                    available = r
-                    updateInfo.text = if (r == null) "Up to date (${BuildConfig.VERSION_NAME})."
-                    else "Version ${r.version} is available (you have ${BuildConfig.VERSION_NAME}).\n${r.notes.take(400)}"
-                    updateButton.text = if (r == null) "Check for updates" else "Update to ${r.version}"
-                }.onFailure { updateInfo.text = "Could not check for updates: ${it.message}" }
-            }
-        }.start()
+    private fun openDrawer() {
+        drawerOpen = true
+        drawer.visibility = View.VISIBLE
+        scrim.visibility = View.VISIBLE
+        drawer.animate().translationX(0f).setDuration(200).start()
+        scrim.animate().alpha(1f).setDuration(200).start()
     }
 
-    private fun onUpdateButton() {
-        val r = available ?: return checkForUpdates(automatic = false)
-        if (!Updater.canInstall(this)) {
-            updateInfo.text = "Allow Another Macro to install apps (\"Install unknown apps\"), come back and tap Update again."
-            Updater.openInstallPermission(this)
-            return
+    private fun closeDrawer() {
+        if (!drawerOpen) return
+        drawerOpen = false
+        drawer.animate().translationX(-drawer.width.toFloat()).setDuration(180).withEndAction { if (!drawerOpen) drawer.visibility = View.INVISIBLE }.start()
+        scrim.animate().alpha(0f).setDuration(180).withEndAction { if (!drawerOpen) scrim.visibility = View.GONE }.start()
+    }
+
+    @Deprecated("Back: close the sidebar, then the open macro, then Home, then leave")
+    override fun onBackPressed() {
+        when {
+            drawerOpen -> closeDrawer()
+            page == Page.MACROS && macros.back() -> {}
+            page != Page.HOME -> show(Page.HOME)
+            else -> @Suppress("DEPRECATION") super.onBackPressed()
         }
-        if (Runner.isRunning) {
-            updateInfo.text = "Stop the running macro first."
-            return
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putString(STATE_PAGE, page.id)
+    }
+
+    // --- status chips: taps, capture, running ---------------------------------------------
+
+    /** A row of three status chips, kept up to date by [refreshStatus]. */
+    internal fun statusChips(): View {
+        val chips = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
+        val set = Triple(Ui.chip(this), Ui.chip(this), Ui.chip(this))
+        chips.addView(set.first); chips.addView(set.second); chips.addView(set.third)
+        chipSets += set
+        return android.widget.HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false; addView(chips) }
+    }
+
+    internal fun refreshStatus() {
+        val taps = InputService.instance != null
+        val cap = MacroService.capture != null
+        for ((tapsChip, captureChip, runChip) in chipSets) {
+            Ui.setChip(tapsChip, if (taps) "Taps on" else "Taps off", if (taps) Ui.GOOD else Ui.BAD)
+            Ui.setChip(captureChip, if (cap) "Capture on" else "Capture off", if (cap) Ui.GOOD else Ui.BAD)
+            Ui.setChip(runChip, when {
+                Runner.isPaused -> "Paused: ${Runner.current}"
+                Runner.isRunning -> "Running: ${Runner.current}"
+                else -> "Idle"
+            }, when { Runner.isPaused -> Ui.WARN; Runner.isRunning -> Ui.ACCENT; else -> Ui.MUTED })
         }
-        updateButton.isEnabled = false
-        updateInfo.text = "Downloading ${r.version}…"
-        Thread {
-            val result = runCatching { Updater.downloadAndInstall(this, r) }
-            runOnUiThread {
-                updateButton.isEnabled = true
-                result.onSuccess { updateInfo.text = "Installing ${r.version}: confirm with Update if Android asks." }
-                    .onFailure { updateInfo.text = "Update failed: ${it.message}" }
-            }
-        }.start()
+        home.refresh(taps, cap)
+        system.refreshSetup(taps, cap)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
+        intent.getStringExtra(EXTRA_PAGE)?.let { id -> Page.values().firstOrNull { it.id == id }?.let { show(it) } }
         handleAdbIntent(intent)
     }
 
     override fun onResume() {
         super.onResume()
-        MacroLog.listen(logListener)
         Runner.listeners += runListener
-        log.text = MacroLog.text()
+        system.onResume()
+        macros.onResume()
         refreshStatus()
-        checkForUpdates(automatic = true)
-        val mine = TemplateCapture.list(this)
-        userTemplates.text = if (mine.isEmpty()) "Captured templates: none yet." else "Captured templates: ${mine.joinToString()}"
     }
 
     override fun onPause() {
-        MacroLog.unlisten(logListener)
         Runner.listeners -= runListener
+        system.onPause()
         super.onPause()
     }
 
-    private fun refreshStatus() {
-        val taps = InputService.instance != null
-        val cap = MacroService.capture
-        Ui.setChip(tapsChip, if (taps) "Taps on" else "Taps off", if (taps) Ui.GOOD else Ui.BAD)
-        Ui.setChip(captureChip, if (cap != null) "Capture on" else "Capture off", if (cap != null) Ui.GOOD else Ui.BAD)
-        Ui.setChip(runChip, when {
-            Runner.isPaused -> "Paused: ${Runner.current}"
-            Runner.isRunning -> "Running: ${Runner.current}"
-            else -> "Idle"
-        }, when { Runner.isPaused -> Ui.WARN; Runner.isRunning -> Ui.ACCENT; else -> Ui.MUTED })
-        setupCard.visibility = if (taps && cap != null) View.GONE else View.VISIBLE
-    }
+    // --- screen capture, import, run -----------------------------------------------------
 
-    private fun requestCapture() {
+    internal fun requestCapture() {
         val mpm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         @Suppress("DEPRECATION")
         startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_CAPTURE)
+    }
+
+    internal fun pickMacroFile() {
+        @Suppress("DEPRECATION")
+        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQUEST_IMPORT)
     }
 
     @Deprecated("startActivityForResult is enough here")
@@ -399,13 +258,13 @@ class MainActivity : Activity() {
             .putExtra(MacroService.EXTRA_RESULT_CODE, resultCode)
             .putExtra(MacroService.EXTRA_RESULT_DATA, data)
         if (Build.VERSION.SDK_INT >= 26) startForegroundService(svc) else startService(svc)
-        log.postDelayed({ refreshStatus() }, 800)
-        if (System.currentTimeMillis() < Updater.resumeUntil(this)) log.postDelayed({ resumeAfterUpdate() }, 2000)
+        pageTitle.postDelayed({ refreshStatus() }, 800)
+        if (System.currentTimeMillis() < Updater.resumeUntil(this)) pageTitle.postDelayed({ resumeAfterUpdate() }, 2000)
     }
 
     /** After a self-update: the connector back on (if it was), the game in front. */
     private fun resumeAfterUpdate() {
-        if (MacroService.capture == null) { log.postDelayed({ resumeAfterUpdate() }, 1000); return }
+        if (MacroService.capture == null) { pageTitle.postDelayed({ resumeAfterUpdate() }, 1000); return }
         val connector = Updater.resumeConnector(this)
         Updater.clearResume(this)
         if (connector) PhoneConnector.start(applicationContext)
@@ -422,18 +281,27 @@ class MainActivity : Activity() {
             val macro = FlowScenario.parse(text, uri.lastPathSegment ?: "import")
             java.io.File(Scenarios.userDir(this), "${macro.name}.yaml").writeText(text)
             MacroLog.i("imported macro '${macro.name}'")
-            recreate()
+            macros.reload()
+            macros.open(macro.name)
+            show(Page.MACROS)
         } catch (e: Exception) {
             MacroLog.e("could not import: ${e.message}")
         }
     }
 
-    private fun run(name: String, params: Map<String, String>) {
-        if (MacroService.capture == null) { MacroLog.i("allow screen capture first (step 2)"); return }
-        if (InputService.instance == null) { MacroLog.i("turn on taps first (step 1)"); return }
+    internal fun run(name: String, params: Map<String, String>) {
+        if (MacroService.capture == null) { MacroLog.i("allow screen capture first (System → Setup)"); toast("Allow screen capture first: System → Setup."); return }
+        if (InputService.instance == null) { MacroLog.i("turn on taps first (System → Setup)"); toast("Turn on taps first: System → Setup."); return }
         startService(LastRun.intent(this, name, params))
         // get out of the way so the game is in front
         moveTaskToBack(true)
+    }
+
+    internal fun toast(s: String) = android.widget.Toast.makeText(this, s, android.widget.Toast.LENGTH_LONG).show()
+
+    internal fun openUrl(url: String) {
+        runCatching { startActivity(Intent(Intent.ACTION_VIEW, android.net.Uri.parse(url))) }
+            .onFailure { toast("No browser to open $url") }
     }
 
     private fun handleAdbIntent(intent: Intent?) {
@@ -456,7 +324,11 @@ class MainActivity : Activity() {
 
     companion object {
         private const val REQUEST_CAPTURE = 1
-        const val EXTRA_RESUME = "resume_after_update"
         private const val REQUEST_IMPORT = 3
+        const val EXTRA_RESUME = "resume_after_update"
+        /** Open on this page: home, macros or system. */
+        const val EXTRA_PAGE = "page"
+        private const val STATE_PAGE = "page"
+        const val REPO = "https://github.com/brunoccst/another-macro"
     }
 }

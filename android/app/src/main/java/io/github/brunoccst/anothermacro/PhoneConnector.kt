@@ -64,7 +64,7 @@ object PhoneConnector {
         val token = ClaudeSettings.phoneToken(app)
         if (url.isEmpty() || token == null) { set(State.OFF, "set the relay address and make tokens first"); return }
         if (!url.startsWith("https://")) { set(State.OFF, "the relay address must start with https://"); return }
-        if (MacroService.capture == null) { set(State.OFF, "allow screen capture first (main screen)"); return }
+        if (MacroService.capture == null) { set(State.OFF, "allow screen capture first (System → Setup)"); return }
         if (!enabled.compareAndSet(false, true)) return
         lastCall = System.currentTimeMillis()
         retryMs = 2000L

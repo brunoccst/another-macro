@@ -18,6 +18,7 @@ import javax.crypto.spec.GCMParameterSpec
  * so they aren't copied to cloud backups either. They are never logged.
  */
 object ClaudeSettings {
+    const val RELAY_GUIDE = "https://github.com/brunoccst/another-macro/blob/main/relay/README.md"
     private const val PREFS = "claude"
     private const val KEY_ALIAS = "another_macro_claude_key"
 
