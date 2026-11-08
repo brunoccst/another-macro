@@ -171,7 +171,7 @@ object PhoneConnector {
             return ToolResult("a macro (${Runner.current}) is running; use macro_status, or stop_macro first", isError = true)
         }
         stop.set(false)
-        MacroLog.show("Claude (connector): $name")
+        if (!Runner.isRunning) MacroLog.show("Claude (connector): $name") // a running macro keeps its own status line
         return try {
             when (name) {
                 "screenshot" -> t.computer("screenshot", a)

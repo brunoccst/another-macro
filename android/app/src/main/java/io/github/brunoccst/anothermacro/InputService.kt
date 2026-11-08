@@ -40,6 +40,13 @@ class InputService : AccessibilityService() {
         // which app is in front (window state changes carry the package name; no screen content is read)
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             event.packageName?.toString()?.let {
+                // Play Games' "welcome back" banner and Samsung's edge panel post window events
+                // from small overlay views but don't take the screen: the game stays in front.
+                // Play's purchase sheets are Activities, so they still count.
+                if (it in OVERLAYS && event.className?.toString()?.endsWith("Activity") != true) {
+                    MacroLog.i("overlay: $it (${event.className})")
+                    return
+                }
                 if (it != packageName) {
                     if (it != foreground) MacroLog.i("in front: $it (${event.className})")
                     foreground = it
@@ -47,6 +54,8 @@ class InputService : AccessibilityService() {
             }
         }
     }
+
+    private val OVERLAYS = setOf("com.android.vending", "com.google.android.gms", "com.samsung.android.app.cocktailbarservice")
 
     /** Package of the app in front, as last reported by window changes. */
     @Volatile
