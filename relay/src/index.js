@@ -3,13 +3,14 @@
 // Claude's custom connectors call a remote MCP server from Anthropic's cloud, and a phone
 // has no public address. So the Another Macro app keeps a WebSocket open to this Worker
 // (GET /phone), and the Worker passes every MCP request Claude sends (POST /mcp) to the
-// phone and the phone's answer back. It stores nothing and logs no request bodies.
+// phone and the phone's answer back. It logs no request bodies and stores only the phone's
+// tool list, so that claude.ai can still add and check the connector while the phone is off.
 //
 // Secrets (Worker settings -> Variables and Secrets), both made by the app:
 //   PHONE_TOKEN      the app sends it to open its socket
 //   CONNECTOR_TOKEN  Claude sends it: in the connector address (/mcp/<token>) or as a Bearer header
 
-import { PHONE_TIMEOUT_MS, OFFLINE, safeEqual, rpcError, isNotification, bearer, text } from "./relay.js";
+import { PHONE_TIMEOUT_MS, OFFLINE, safeEqual, rpcError, isNotification, bearer, text, offlineAnswer, rpcMethod } from "./relay.js";
 
 export default {
   async fetch(request, env) {
@@ -63,7 +64,7 @@ export class PhoneRelay {
 
   async mcp(body) {
     const phone = this.state.getWebSockets()[0];
-    if (!phone) return isNotification(body) ? new Response(null, { status: 202 }) : rpcError(body, OFFLINE);
+    if (!phone) return this.offline(body);
     const id = crypto.randomUUID();
     const answer = new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -79,9 +80,24 @@ export class PhoneRelay {
     }
     const r = await answer;
     if (r.timeout) return rpcError(body, "The phone didn't answer in time (it may be waiting for you to Allow or Deny a tap on the phone).");
-    if (r.offline) return rpcError(body, OFFLINE);
+    if (r.offline) return this.offline(body);
     if (r.body === null || r.body === undefined || r.body === "") return new Response(null, { status: 202 });
+    if (rpcMethod(body) === "tools/list") {
+      try {
+        const tools = JSON.parse(r.body)?.result?.tools;
+        if (Array.isArray(tools)) await this.state.storage.put("tools", tools);
+      } catch { /* not JSON: nothing to keep */ }
+    }
     return new Response(r.body, { status: 200, headers: { "Content-Type": "application/json" } });
+  }
+
+  /** With the phone off, answer the handshake (initialize, ping, tools/list) here; other calls get OFFLINE. */
+  async offline(body) {
+    if (isNotification(body)) return new Response(null, { status: 202 });
+    const tools = await this.state.storage.get("tools");
+    const answer = offlineAnswer(body, tools);
+    if (answer) return new Response(answer, { status: 200, headers: { "Content-Type": "application/json" } });
+    return rpcError(body, OFFLINE);
   }
 
   settle(id, value) {
