@@ -81,8 +81,10 @@ object AnotherDungeon {
     }
 
     private class Run(val ctx: Context, val spec: Spec) {
-        // the mobs: the skills set on the basic macro grind-battles (one place for every battle)
-        val mobs = Battle.Setup.from(ctx.optionsOf("grind-battles") + ctx.params.filterKeys { it.startsWith("skill_") }, "skill_")
+        // every fight is the basic macro battle's step with its skills; the boss with the dungeon's own
+        // boss skills when set. (Done here, not by running that macro: the run must tell the boss by its
+        // name on the first turn and read the White Key off the results while they show.)
+        val mobs = Battle.Setup.from(ctx.optionsOf("battle"), "skill_")
         val bossSetup = if (ctx.bool("boss_setup")) Battle.Setup.from(ctx.params, "boss_skill_") else mobs
         var map = -1
         var shift = 0.0

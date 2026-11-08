@@ -297,7 +297,7 @@ object PhoneConnector {
             mapOf("name" to str("template name, see list_templates")), listOf("name")),
         McpServer.McpTool("list_templates", "Names of the UI templates the app knows (from the macro library and the user's own).", emptyMap()),
         McpServer.McpTool("list_macros", "The macros in the app (the macro library downloaded from GitHub, plus custom ones saved with save_macro), with their descriptions and params.", emptyMap()),
-        McpServer.McpTool("read_macro", "The YAML of a macro (grind-battles and watch-ad are basic macros other macros run with `run:`).",
+        McpServer.McpTool("read_macro", "The YAML of a macro (battle, grind-battles, watch-ad, open-menu and back-to-field are basic macros other macros run with `run:`).",
             mapOf("name" to str("macro name")), listOf("name")),
         McpServer.McpTool("start_macro", "Start a macro; it runs on the phone without you, with the options the user chose for it in the app plus params. Returns at once: follow it with macro_status.",
             mapOf("name" to str("macro name"), "params" to mapOf("type" to "object", "description" to "param values, e.g. {\"battles\": 5}", "additionalProperties" to mapOf("type" to "string"))), listOf("name")),

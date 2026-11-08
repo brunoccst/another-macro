@@ -9,7 +9,8 @@ Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
 - **Macros are downloaded, not built in:** the app installs the macro pack (macros, templates,
   dungeon data) CI publishes from the repo, and updates it by itself (see *The macro library*).
 - **Basic macros** other macros run: `watch-ad` (watch a commercial, close it, take the reward),
-  `grind-battles` (walk and fight; skill per party slot: every battle uses its skills),
+  `battle` (one battle, skill per party slot: every battle uses its skills), `grind-battles`
+  (walk and run `battle` for every encounter),
   `open-menu`, `back-to-field`, and `start-game` when the game isn't open. See `macros/README.md`.
 - **Claude:** let your own Claude chat play or write macros through the phone connector (see below).
 - **Floating controls** over the game: the selected macro (tap it to pick another, in tabs like

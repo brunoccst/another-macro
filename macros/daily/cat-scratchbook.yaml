@@ -73,9 +73,11 @@ handlers:
         - tap: [0.88, 0.03]
         - wait: 1.5
 
-  # a random encounter while hunting outside a town: the basic macro grind-battles fights it
+  # a random encounter while hunting outside a town: the basic macro battle fights it
   battle_command: &encounter
-    - run: {macro: grind-battles, params: {battles: 1, walk: false}}
+    - run: battle
+    - if: result == 'party was defeated'
+      then: [{stop: party was defeated}]
     - reset_view: true
   skill_list: *encounter
   battle: *encounter
