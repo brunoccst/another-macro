@@ -74,7 +74,7 @@ class MacroLibraryTest {
     }
 
     @Test fun enemiesGoneBannerIsReadWhenSplitOrClipped() {
-        for (t in listOf("the enemies have disappeared", "enemies have disappeared", "the enemies have disappea"))
+        for (t in listOf("the enemies have disappeared", "enemies have disappeared", "the enemies have disappear", "enemies have disappeared,"))
             assertTrue(t, AnotherDungeon.noEnemiesLeft(Ocr.norm(t)))
         assertFalse(AnotherDungeon.noEnemiesLeft(Ocr.norm("Front Guard Tower")))
     }
