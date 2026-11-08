@@ -30,6 +30,10 @@ Claude (Anthropic cloud) --HTTPS /mcp/<connector token>--> this Worker <--WebSoc
    files", the build ran from the top of the repo: in the dashboard open the Worker →
    **Settings** → **Build**, set **Root directory** to `relay`, save, and retry the build.
 
+   Builds of a branch other than the Worker's production branch run as previews
+   (`wrangler preview`), which can't create the relay's Durable Object: build the
+   production branch (Settings → Build → Branch control).
+
    Without the button: dashboard → **Workers & Pages** → **Create** → **Import a
    repository**, pick your fork of another-macro and set the root directory to `relay`.
 3. **Relay address.** Copy the Worker's address (`https://another-macro.<you>.workers.dev`)
