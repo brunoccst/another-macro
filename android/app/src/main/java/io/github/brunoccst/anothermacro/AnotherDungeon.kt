@@ -253,10 +253,19 @@ object AnotherDungeon {
      * The dungeon panel's counters, left to right. One OCR line can hold two of them
      * ("5/5 En 16/50"): lines go by x, then the counters in a line by their order in it.
      */
+    /** The chosen key's count and the Cat Express Tickets' count from [panelCounters]; null when not read. */
+    internal fun keysAndTickets(counters: List<List<Int>>, red: Boolean): Pair<Int?, Int?> {
+        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0)
+        val keys = if (red) counters.firstOrNull { it[1] == 5 }?.get(0)
+            else counters.firstOrNull { it[1] != 5 && it[1] != 50 }?.get(0)
+        return keys to tickets
+    }
+
     internal fun panelCounters(lines: List<Ocr.Line>): List<List<Int>> =
         lines.sortedBy { it.center.x }.flatMap { l ->
-            // the denominators are known (10, 5, 50): "5/515/50" (no space read) is 5/5 and 15/50
-            Regex("""(\d{1,2})\s*/\s*(50|10|5)(?=\D|$|\d{1,2}\s*/)""").findAll(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
+            // the denominators are 50, 10 or one digit (green keys "5/9", red "4/5"): "5/515/50" (no space
+            // read) is 5/5 and 15/50
+            Regex("""(\d{1,2})\s*/\s*(50|10|[1-9])(?=\D|$|\d{1,2}\s*/)""").findAll(l.text.replace(Regex("[Oo]"), "0").replace(Regex("[Il|]"), "1"))
                 .map { m -> m.groupValues.drop(1).map { v -> v.toInt() } }.toList()
         }
 
@@ -412,9 +421,8 @@ object AnotherDungeon {
         // OCR reads 0 as O at times ("16/5O")
         val counters = panelCounters(bottom)
         // each counter by its denominator, never by its place (a counter OCR missed shifts the rest):
-        // green keys "/10", red keys "/5", Cat Express Tickets "/50"
-        val tickets = counters.firstOrNull { it[1] == 50 }?.get(0)
-        val keys = counters.firstOrNull { it[1] == (if (red) 5 else 10) }?.get(0)
+        // red keys "/5", Cat Express Tickets "/50", green keys the other one ("/10", "/9")
+        val (keys, tickets) = keysAndTickets(counters, red)
         if (keys == null || tickets == null || counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }} → $counters")
         MacroLog.i("keys (${if (red) "red" else "green"}): ${keys ?: "not read"}; Cat Express Tickets: ${tickets ?: "not read"}")
         if (keys == 0) {
