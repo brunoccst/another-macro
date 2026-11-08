@@ -149,7 +149,10 @@ object PhoneConnector {
                 Thread {
                     try {
                         val newer = runCatching { Updater.checkDev(branch) }.getOrNull()
-                        if (newer != null && !Runner.isRunning && enabled.get()) {
+                        // a build Play Protect blocked waits for the user (System → Updates → Install anyway)
+                        if (newer != null && newer.version == Updater.blockedVersion(app)) {
+                            // nothing: no retry loop of dialogs opening and closing
+                        } else if (newer != null && !Runner.isRunning && enabled.get()) {
                             MacroLog.i("auto-update: ${newer.version} from '$branch' (this is ${BuildConfig.VERSION_NAME})")
                             runCatching { Updater.update(app, branch) }.onSuccess { MacroLog.i(it) }.onFailure { MacroLog.e("auto-update failed: ${it.message}") }
                         }

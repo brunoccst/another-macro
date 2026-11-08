@@ -88,10 +88,26 @@ object Updater {
      * restart it should turn capture and the connector back on. Set only by [update].
      */
     fun resumeUntil(c: Context) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).getLong("resume_until", 0)
-    fun clearResume(c: Context) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).edit().remove("resume_until").apply()
+    fun clearResume(c: Context) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).edit().remove("resume_until").remove("auto_confirm_until").apply()
+
+    /**
+     * Until when (ms) the accessibility service may press the installer's Update and Play Protect's
+     * "Got it" by itself. Only for an update nobody is watching (Claude's update_app or the automatic
+     * check), never for one the user started: then every dialog is the user's.
+     */
+    fun autoConfirmUntil(c: Context) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).getLong("auto_confirm_until", 0)
+
+    /** Play Protect blocked [version]: stop pressing anything and don't retry it by itself (the user installs it). */
+    fun blocked(c: Context, version: String?) {
+        val e = c.getSharedPreferences("updates", Context.MODE_PRIVATE).edit()
+            .remove("auto_confirm_until").remove("resume_until")
+        if (version != null) e.putString("blocked_version", version)
+        e.apply()
+    }
+    fun blockedVersion(c: Context): String? = c.getSharedPreferences("updates", Context.MODE_PRIVATE).getString("blocked_version", null)
 
     /** Check [branch]'s CI build and, if newer, install it with no taps. Blocking. A message for the log/Claude. */
-    fun update(c: Context, branch: String): String {
+    fun update(c: Context, branch: String, userStarted: Boolean = false): String {
         setChannel(c, branch)
         val r = checkDev(branch) ?: return "up to date: this is already the newest build of '$branch' (${BuildConfig.VERSION_NAME})"
         if (!canInstall(c)) {
@@ -100,6 +116,8 @@ object Updater {
         }
         c.getSharedPreferences("updates", Context.MODE_PRIVATE).edit()
             .putLong("resume_until", System.currentTimeMillis() + 4 * 60_000L)
+            .putLong("auto_confirm_until", if (userStarted) 0L else System.currentTimeMillis() + 4 * 60_000L)
+            .putString("installing_version", r.version)
             .putBoolean("resume_connector", PhoneConnector.isOn)
             .apply()
         downloadAndInstall(c, r)
@@ -171,7 +189,17 @@ object Updater {
                     confirm?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let { context.startActivity(it) }
                 }
                 PackageInstaller.STATUS_SUCCESS -> MacroLog.i("update installed")
-                else -> MacroLog.e("update failed ($status): ${intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)}")
+                else -> {
+                    val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
+                    MacroLog.e("update failed ($status): $message")
+                    // Play Protect said no: the automatic check must not loop on it (each try pops the
+                    // dialog again and closes it); the user installs this one with "Install anyway"
+                    if (message?.contains("VERIFICATION", ignoreCase = true) == true || status == PackageInstaller.STATUS_FAILURE_BLOCKED) {
+                        val v = context.getSharedPreferences("updates", Context.MODE_PRIVATE).getString("installing_version", null)
+                        blocked(context, v)
+                        MacroLog.i("Play Protect blocked $v: no more automatic tries; install it from System → Updates and choose Install anyway")
+                    }
+                }
             }
         }
     }
