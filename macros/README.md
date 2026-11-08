@@ -43,7 +43,8 @@ A macro runs another one with `run:` and goes on when it ends:
 A basic macro runs with the options the user set for it in the app (then the caller's
 `params:`), so e.g. the battle macro's skills are set once and apply to every battle.
 
-The Another Dungeon map clearing (5 fights per map) stays inside `AnotherDungeon.kt`: it walks
+The Another Dungeon map clearing (fights until "The enemies have disappeared", like grind-battles
+with `until_cleared`) stays inside `AnotherDungeon.kt`: it walks
 by the map's layout to keep the party's position for the fixed chest paths, which plain
 grind-battles walking would lose. Its fights are the battle macro's step with the battle macro's skills, the boss with the
 dungeon's boss skills when set; the dungeon runs that step itself (not the macro) because it
