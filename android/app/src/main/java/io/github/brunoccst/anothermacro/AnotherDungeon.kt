@@ -429,6 +429,14 @@ object AnotherDungeon {
         ctx.wait(2.0)
         // "Using Green Key×1 to move to Dogma Tower (Hard)."
         val lines = ctx.readText()
+        // "In order to move to Dogma Tower (Hard) please include: Poporo": Move stays greyed out
+        val include = lines.indexOfFirst { Ocr.norm(it.text).contains("please include") }
+        if (include >= 0) {
+            val who = lines.getOrNull(include + 1)?.text?.takeIf { lines[include].text.trimEnd().endsWith(":") }
+                ?: lines[include].text.substringAfter(":", "").trim()
+            tapText(r, "Back", exact = true)
+            ctx.stop("the party must include ${who.ifEmpty { "a character the game names" }}: add them to the party in front, then start again")
+        }
         val using = lines.firstOrNull { Ocr.norm(it.text).startsWith("using") }?.text ?: ""
         val keyWord = if (red) "red" else "green"
         if (!Ocr.norm(using).contains(keyWord)) {
