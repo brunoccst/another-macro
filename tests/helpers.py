@@ -19,7 +19,7 @@ REF = (2400, 1080)
 ELEMENTS = {
     "field_menu_button": (0.03, 0.85, 0.08, 0.1),
     "battle_attack_button": (0.85, 0.75, 0.1, 0.15),
-    "battle_auto_button": (0.05, 0.7, 0.08, 0.1),
+    "battle_speed_button": (0.05, 0.7, 0.08, 0.1),
     "battle_hud": (0.45, 0.03, 0.1, 0.08),
     "result_banner": (0.35, 0.1, 0.3, 0.1),
     "defeat_banner": (0.35, 0.3, 0.3, 0.12),

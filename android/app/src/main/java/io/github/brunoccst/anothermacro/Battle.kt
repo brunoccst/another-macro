@@ -6,9 +6,12 @@ package io.github.brunoccst.anothermacro
  *
  * A [Setup] says, per front-row character (1-4), which skill to use: "auto" leaves the
  * character to the game, "1".."4" picks that skill from the character's skill row.
- * When all four are "auto" the battle's Auto button is used; otherwise the chosen
+ * When all four are "auto" Attack is pressed every turn as it is; otherwise the chosen
  * skills are set on the first command screen of the battle (the game keeps them for
  * the following turns) and Attack is pressed every turn.
+ *
+ * Never tap the ">>" button in the battle's top bar (template battle_speed_button): it is
+ * the battle speed toggle, not Auto, and the speed is the player's choice.
  */
 object Battle {
     /** The four front-row portraits on the command screen (2400x1080, 20:9). */
@@ -70,14 +73,10 @@ object Battle {
                 }
                 ctx.find("battle_attack_button") != null -> {
                     seen = true; quiet = 0
-                    val s = setup ?: pick(ctx).also { setup = it; MacroLog.i("battle: skills $it"); MacroLog.status("Battle: ${if (it.allAuto) "Auto" else "skills $it"}") }
-                    if (s.allAuto) {
-                        ctx.tap(if (ctx.find("battle_auto_button") != null) "battle_auto_button" else "battle_attack_button")
-                    } else {
-                        if (!skillsSet) { setSkills(ctx, s); skillsSet = true }
-                        ctx.count("turns")
-                        ctx.tap("battle_attack_button")
-                    }
+                    val s = setup ?: pick(ctx).also { setup = it; MacroLog.i("battle: skills $it"); MacroLog.status("Battle: ${if (it.allAuto) "Attack" else "skills $it"}") }
+                    if (!s.allAuto && !skillsSet) { setSkills(ctx, s); skillsSet = true }
+                    ctx.count("turns")
+                    ctx.tap("battle_attack_button")
                 }
                 ctx.find("battle_hud") != null -> { seen = true; quiet = 0 }
                 ctx.find("field_menu_button") != null -> {

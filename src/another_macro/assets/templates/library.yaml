@@ -38,15 +38,16 @@ templates:
     ref:
     - 2400
     - 1080
-  battle_auto_button:
-    notes: The ">>" button in the battle's top bar (next to Status). Assumed to be
-      Auto; not verified yet.
+  battle_speed_button:
+    notes: The ">>" button in the battle's top bar (next to Status). It is the battle
+      speed toggle (one triangle = normal, two = fast), NOT Auto. Never tap it, the
+      speed is the player's choice.
     region:
     - 0.2225
     - 0.0
     - 0.1433
     - 0.137
-    file: battle_auto_button.png
+    file: battle_speed_button.png
     ref:
     - 2400
     - 1080
