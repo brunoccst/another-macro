@@ -40,9 +40,10 @@ class InputService : AccessibilityService() {
         // which app is in front (window state changes carry the package name; no screen content is read)
         if (event?.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
             event.packageName?.toString()?.let {
-                // Play Games' "welcome back" banner and Samsung's edge panel post window events
-                // from small overlay views but don't take the screen: the game stays in front.
-                // Play's purchase sheets are Activities, so they still count.
+                // Play Games' "welcome back" banner, Samsung's edge panel and System UI (status bar,
+                // screen-capture chip, heads-up notifications) post window events from small overlay
+                // views but don't take the screen: the game stays in front. Activities (Play's
+                // purchase sheets) still count. Android's "isn't responding" dialog is package "android".
                 if (it in OVERLAYS && event.className?.toString()?.endsWith("Activity") != true) {
                     MacroLog.i("overlay: $it (${event.className})")
                     return
@@ -55,7 +56,7 @@ class InputService : AccessibilityService() {
         }
     }
 
-    private val OVERLAYS = setOf("com.android.vending", "com.google.android.gms", "com.samsung.android.app.cocktailbarservice")
+    private val OVERLAYS = setOf("com.android.vending", "com.google.android.gms", "com.samsung.android.app.cocktailbarservice", "com.android.systemui")
 
     /** Package of the app in front, as last reported by window changes. */
     @Volatile
