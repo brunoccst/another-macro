@@ -56,7 +56,10 @@ class InputService : AccessibilityService() {
         }
     }
 
-    private val OVERLAYS = setOf("com.android.vending", "com.google.android.gms", "com.samsung.android.app.cocktailbarservice", "com.android.systemui")
+    private val OVERLAYS = setOf(
+        "com.android.vending", "com.google.android.gms", "com.samsung.android.app.cocktailbarservice", "com.android.systemui",
+        "com.samsung.android.game.gametools", // Samsung Game Booster's in-game panel and toasts
+    )
 
     /** Package of the app in front, as last reported by window changes. */
     @Volatile
@@ -93,6 +96,69 @@ class InputService : AccessibilityService() {
         }
         done.await(durationMs + 3000, TimeUnit.MILLISECONDS)
         return ok
+    }
+
+    /** A hold in progress (see [startHold]). Times are SystemClock.uptimeMillis(). */
+    class Hold(val totalMs: Long) {
+        val done = CountDownLatch(1)
+        /** Ask the finger to lift where it is now (at the end of the current part). */
+        val stop = java.util.concurrent.atomic.AtomicBoolean(false)
+        @Volatile var startedAt = 0L
+        @Volatile var endedAt = 0L
+        /** The system cancelled the gesture (the finger lifted early, without [stop]). */
+        @Volatile var cancelled = false
+        /** How long the finger has been down so far (or was, once [done]). */
+        val heldMs: Long get() = if (startedAt == 0L) 0L else (if (endedAt == 0L) android.os.SystemClock.uptimeMillis() else endedAt) - startedAt
+    }
+
+    /**
+     * Press at (x1,y1) and slide to (x2,y2) over [totalMs] like [stroke], but without blocking and
+     * in parts of [partMs] chained as one continued stroke (the finger stays down between them),
+     * so the caller can watch the screen and lift the finger early with [Hold.stop].
+     */
+    fun startHold(x1: Float, y1: Float, x2: Float, y2: Float, totalMs: Long, partMs: Long = 150): Hold {
+        val h = Hold(totalMs.coerceAtLeast(1))
+        val total = h.totalMs
+        fun at(t: Long): Pair<Float, Float> {
+            val f = (t.toFloat() / total).coerceIn(0f, 1f)
+            return (x1 + (x2 - x1) * f) to (y1 + (y2 - y1) * f)
+        }
+        var sent = 0L
+        var prev: GestureDescription.StrokeDescription? = null
+        fun finish(cancelled: Boolean) {
+            if (h.done.count == 0L) return
+            h.cancelled = cancelled
+            h.endedAt = android.os.SystemClock.uptimeMillis()
+            h.done.countDown()
+        }
+        fun send() {
+            val stopping = h.stop.get()
+            val dur = if (stopping) 1L else minOf(partMs, total - sent).coerceAtLeast(1)
+            val last = stopping || sent + dur >= total
+            val (ax, ay) = at(sent)
+            // lifting early: a last 1-pixel part where the finger is (a path needs a length to continue)
+            val (bx, by) = if (stopping) (ax + (if (x2 >= x1) 1f else -1f)) to ay else at(sent + dur)
+            val path = Path().apply { moveTo(ax, ay); if (ax != bx || ay != by) lineTo(bx, by) }
+            val stroke = try {
+                prev?.continueStroke(path, 0, dur, !last) ?: GestureDescription.StrokeDescription(path, 0, dur, !last)
+            } catch (e: Exception) {
+                MacroLog.e("could not continue the hold", e); null
+            }
+            if (stroke == null) { finish(true); return }
+            run {
+                prev = stroke
+                val accepted = dispatchGesture(GestureDescription.Builder().addStroke(stroke).build(), object : GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        if (last) finish(false) else { sent += dur; send() }
+                    }
+                    override fun onCancelled(gestureDescription: GestureDescription?) { finish(true) }
+                }, null)
+                if (h.startedAt == 0L) h.startedAt = android.os.SystemClock.uptimeMillis()
+                if (!accepted) finish(true)
+            }
+        }
+        main.post { send() }
+        return h
     }
 
     fun tap(x: Float, y: Float) = stroke(x, y, x, y, 60)
