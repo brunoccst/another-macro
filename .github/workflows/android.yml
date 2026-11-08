@@ -43,6 +43,8 @@ jobs:
         env:
           ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
           VERSION_NAME: 0.0.${{ github.run_number }}-dev
+          # the branch a dev build follows for its own updates (none for PR builds)
+          BUILD_BRANCH: ${{ github.event_name != 'pull_request' && github.ref_name || '' }}
         run: |
           # minutes since 2025-01-01: every build is an upgrade of the one before (self-update)
           export VERSION_CODE=$(( ($(date +%s) - 1735689600) / 60 ))

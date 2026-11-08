@@ -71,6 +71,7 @@ object PhoneConnector {
         MacroLog.i("phone connector on")
         connect(app.applicationContext, url, token)
         scheduleIdleCheck(app.applicationContext)
+        scheduleAutoUpdate(app.applicationContext)
     }
 
     fun stopConnector(why: String = "off") {
@@ -128,6 +129,33 @@ object PhoneConnector {
             if (System.currentTimeMillis() - lastCall > IDLE_OFF_MS && !Runner.isRunning) stopConnector("turned off after 30 minutes without use")
             else scheduleIdleCheck(app)
         }, 60_000L)
+    }
+
+    private val updating = AtomicBoolean(false)
+
+    /**
+     * A dev build (CI build of a branch) installs that branch's newer CI builds by itself, every few
+     * minutes while the connector is on, no macro runs and Claude made no call in the last minute.
+     * The app restarts and turns capture and the connector back on (see [Updater.update]).
+     */
+    private fun scheduleAutoUpdate(app: android.content.Context) {
+        main.postDelayed({
+            if (!enabled.get()) return@postDelayed
+            val branch = BuildConfig.BRANCH
+            val idle = System.currentTimeMillis() - lastCall > 60_000L
+            if (branch.isNotEmpty() && idle && !Runner.isRunning && Updater.canInstall(app) && updating.compareAndSet(false, true)) {
+                Thread {
+                    try {
+                        val newer = runCatching { Updater.checkDev(branch) }.getOrNull()
+                        if (newer != null && !Runner.isRunning && enabled.get()) {
+                            MacroLog.i("auto-update: ${newer.version} from '$branch' (this is ${BuildConfig.VERSION_NAME})")
+                            runCatching { Updater.update(app, branch) }.onSuccess { MacroLog.i(it) }.onFailure { MacroLog.e("auto-update failed: ${it.message}") }
+                        }
+                    } finally { updating.set(false) }
+                }.start()
+            }
+            scheduleAutoUpdate(app)
+        }, 3 * 60_000L)
     }
 
     /** One message from the relay: {"id": "...", "body": "<JSON-RPC>"}; the answer goes back with the same id. */

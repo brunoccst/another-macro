@@ -21,6 +21,8 @@ android {
         versionCode = System.getenv("VERSION_CODE")?.toIntOrNull()
             ?: Regex("""^(\d+)\.(\d+)\.(\d+)""").find(name)?.destructured
                 ?.let { (a, b, c) -> a.toInt() * 10000 + b.toInt() * 100 + c.toInt() }?.coerceAtLeast(1) ?: 1
+        // the branch CI built this from: a dev build installs that branch's newer CI builds by itself
+        buildConfigField("String", "BRANCH", "\"" + (System.getenv("BUILD_BRANCH") ?: "") + "\"")
         // OpenCV ships native code for every ABI (~135 MB); phones that run the game are arm64
         ndk { abiFilters += listOf("arm64-v8a") }
     }

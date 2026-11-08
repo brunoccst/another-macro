@@ -51,7 +51,7 @@ object Updater {
     // --- dev builds: CI publishes every push's APK as a pre-release "dev-<branch>" -----------
 
     /** The branch whose CI builds this phone follows ("main" unless Claude picked another for a test). */
-    fun channel(c: Context): String = c.getSharedPreferences("updates", Context.MODE_PRIVATE).getString("channel", "main")!!
+    fun channel(c: Context): String = c.getSharedPreferences("updates", Context.MODE_PRIVATE).getString("channel", BuildConfig.BRANCH.ifEmpty { "main" })!!
     fun setChannel(c: Context, branch: String) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).edit().putString("channel", branch).apply()
 
     /** "claude/project-thread-x" -> "dev-claude-project-thread-x": the pre-release CI keeps for a branch. */
