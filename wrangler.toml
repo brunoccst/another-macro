@@ -1,0 +1,17 @@
+# Another Macro relay (relay/README.md), for Cloudflare builds that run from the repo root
+# (the Deploy button does). Keep in step with relay/wrangler.toml.
+name = "another-macro"
+main = "relay/src/index.js"
+compatibility_date = "2025-09-01"
+workers_dev = true
+
+[[durable_objects.bindings]]
+name = "RELAY"
+class_name = "PhoneRelay"
+
+[[migrations]]
+tag = "v1"
+new_sqlite_classes = ["PhoneRelay"]
+
+[observability]
+enabled = false
