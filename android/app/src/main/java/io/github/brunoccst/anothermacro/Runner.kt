@@ -285,14 +285,17 @@ object Scenarios {
     fun get(context: android.content.Context, name: String) =
         all(context).firstOrNull { it.name == name } ?: throw IllegalArgumentException("unknown macro '$name'")
 
+    // macros are loaded again for every run: say once per file what can't be loaded, not every time
+    private val warned = java.util.Collections.synchronizedSet(HashSet<String>())
+
     private fun load(read: () -> String, source: String, custom: Boolean = false): Scenario? = try {
         val s = FlowScenario.parse(read(), source, custom)
         if (s.unsupported.isNotEmpty()) {
-            MacroLog.i("macro ${s.name} needs a newer app (unknown steps: ${s.unsupported.joinToString()})")
+            if (warned.add("$source:${s.unsupported}")) MacroLog.i("macro ${s.name} needs a newer app (unknown steps: ${s.unsupported.joinToString()})")
             null
         } else s
     } catch (e: Exception) {
-        MacroLog.e("could not load macro $source: ${e.message}")
+        if (warned.add("$source:${e.message}")) MacroLog.e("could not load macro $source: ${e.message}")
         null
     }
 }
