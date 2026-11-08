@@ -1,5 +1,5 @@
 # One run of the Burning Beast King's Castle Another Dungeon (Present era, Parallel Time Layer):
-# every map's enemies first (5 fights), then every chest by the map's fixed path, then the boss.
+# every map's enemies first (until "The enemies have disappeared"), then every chest by the map's fixed path, then the boss.
 # Stops when the run ends, and says so when a White Key opened the Phantom Crystal Dimension.
 # Never buys keys: a purchase offer stops it. Start it next to the Another Dungeon door in the
 # Spacetime Rift (or inside the castle).
@@ -14,7 +14,7 @@ params:
   runs: {default: 1, choices: [1, 2, 3, 5, 10, all], help: "runs in a row; all = until the chosen key runs out"}
   white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
   cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
-  clear_battles: {default: 5, help: "fights on each map before its chests (the enemies first; 0 = until the game says they're gone)"}
+  clear_max_battles: {default: 15, help: "every map's enemies are fought until the game says \"The enemies have disappeared\"; this is a safety cap on fights per map in case the banner is missed (0 = no cap)"}
   # the mobs are fought with the skills set on the basic macro battle (one place for every battle)
   boss_setup: {default: false, type: bool, help: "fight the boss with its own skills (below) instead of the ones set on the battle macro"}
   boss_skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 1: auto or skill 1-4"}

@@ -1,13 +1,16 @@
 # Basic macro: walk back and forth on the current map, and fight every encounter with the basic
-# macro battle (its skills), until enough battles are won. Other macros run it to clear a map:
-# `run: {macro: grind-battles, params: {battles: 5}}`.
+# macro battle (its skills), until enough battles are won, or (until_cleared) until the game says
+# "The enemies have disappeared". Other macros run it to clear a map:
+# `run: {macro: grind-battles, params: {until_cleared: true, battles: 15}}`.
 name: grind-battles
 group: basic
 icon: swords
 description: "Basic: walk back and forth on this map and fight every encounter (with the battle macro and its skills), repeat."
 templates: [grind_battles]
 params:
-  battles: {default: 10, help: "stop after this many battles (0 = no limit)"}
+  battles: {default: 10, help: "stop after this many battles (0 = no limit); with until_cleared it is the safety cap"}
+  until_cleared: {default: false, type: bool, help: "stop when the game says \"The enemies have disappeared\" (a map that runs out of enemies, like an Another Dungeon map)"}
+  quiet_walks: {default: 20, show_if: until_cleared, help: "with until_cleared: also stop after this many walks in a row without a battle (the banner was missed; 0 = never)"}
   walk_ms: {default: 1500, help: "how long each walk in one direction lasts"}
   first_walk: {default: -1, choices: [-1, 1], help: "direction of the first walk: -1 = left, 1 = right"}
   stuck_walks: {default: 8, help: "stop if this many walks in a row leave the view unchanged (0 = never)"}
@@ -15,7 +18,7 @@ params:
 screens: [title, defeat, battle_result, skill_list, battle_command, battle, field]
 
 setup:
-  - set: {dir: first_walk, walked: false, still: 0}
+  - set: {dir: first_walk, walked: false, still: 0, quiet: 0}
 
 handlers:
   field:
@@ -27,6 +30,10 @@ handlers:
           then: [{stop: "party seems stuck: {still} walks without the view changing"}]
       else:
         - set: {still: 0}
+    # until_cleared: no battle for a long time means the map is empty (its banner went unseen)
+    - set: {quiet: quiet + 1}
+    - if: until_cleared and quiet_walks > 0 and quiet > quiet_walks
+      then: [{stop: "no battle in {quiet_walks} walks: taking the map as cleared"}]
     - set: {walked: true}
     - walk: {dir: dir, ms: walk_ms}
     - set: {dir: -dir}
@@ -38,9 +45,18 @@ handlers:
       then: [{stop: party was defeated}]
     - if: result == 'won'
       then:
-        - set: {walked: false, still: 0}
+        - set: {walked: false, still: 0, quiet: 0}
         - reset_view: true
         - count: battles
+        # "The enemies have disappeared" flashes for a moment at the top after the map's last enemy
+        - if: until_cleared
+          then:
+            - repeat:
+                times: 6
+                do:
+                  - if: text_has('disappeared')
+                    then: [{stop: "the enemies have disappeared ({stats.battles} battles)"}]
+                  - wait: 0.3
         - if: battles > 0 and stats.battles >= battles
           then: [{stop: "{battles} battles done"}]
   skill_list: *fight
