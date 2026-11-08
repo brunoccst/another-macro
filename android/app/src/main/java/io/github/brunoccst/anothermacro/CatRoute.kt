@@ -23,6 +23,8 @@ object CatRoute {
         val location: String, val era: String, val continent: String?, val place: String, val sub: String,
         /** the cat is on a map the party walks to from [place] (not routed yet) */
         val walkTo: String?,
+        /** flicks right after the trip, before [layout] (true = up): the cat is on another floor */
+        val enter: List<Boolean>,
         val layout: AreaNav.Layout?, val arrival: Point?, val cat: Point?,
         val driftLeft: Double, val driftRight: Double, val walkScale: Double, val path: List<Route.Step>?,
     ) {
@@ -55,6 +57,7 @@ object CatRoute {
             place = v["place"]?.toString() ?: location,
             sub = v["sub"]?.toString() ?: "",
             walkTo = v["walk_to"]?.toString(),
+            enter = (v["enter"] as? List<*>)?.mapNotNull { when (it?.toString()?.trim()) { "U" -> true; "D" -> false; else -> null } }.orEmpty(),
             layout = segs?.let { AreaNav.Layout(it, links) },
             arrival = pt(area?.get("arrival")),
             cat = pt(area?.get("cat")),
@@ -110,6 +113,12 @@ object CatRoute {
     fun walk(ctx: Context, s: Spot, fight: () -> Boolean): Triple<Double, Double, Double>? {
         if (!s.fixedWalk) return null
         settle(ctx)
+        for (up in s.enter) {
+            // e.g. Miglance Castle: the trip lands on 1F at the stairs, the cat is on 2F
+            MacroLog.i("${s.location}: flick ${if (up) "U" else "D"} to the cat's floor")
+            AreaNav.flick(ctx, up)
+            settle(ctx)
+        }
         // every feather-like icon: a big grey quill-in-a-circle icon (seen in Ratle) matches the
         // feather template nearly as well, so the one nearest the cat's start is taken
         val view = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png") }

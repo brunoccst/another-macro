@@ -93,4 +93,5 @@ def test_measured_spots_reach_their_cat(table):
         end = cr.follow(name, s, table, steps)
         cat = s["area"]["cat"]
         assert end[1] == pytest.approx(cat[1]), name
-        assert abs(end[0] - cat[0]) <= 0.006, f"{name}: path ends at x={end[0]:.3f}, cat {cat[0]:.3f}"
+        # a cat by a street's end is reached by holding into the wall (within wall_snap of it)
+        assert abs(end[0] - cat[0]) <= table.wall_snap, f"{name}: path ends at x={end[0]:.3f}, cat {cat[0]:.3f}"
