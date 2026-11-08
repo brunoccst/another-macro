@@ -815,18 +815,22 @@ object AnotherDungeon {
         MacroLog.i("the exit didn't take us anywhere yet")
     }
 
+    /** Fights on one map before it is taken as cleared even without the banner (a safety cap). */
+    internal const val CLEAR_MAX_BATTLES = 15
+
     /** The round signs where a staircase/door leads to another map (on the ground, or a door sign over it). */
     private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps", "door_sign")
 
     /**
-     * Walk back and forth fighting (like grind-battles) until the game says no enemies are left,
-     * [clear_battles] fights are won on this map (5 by default: Bruno's rule, enough to clear a
-     * map), or none come any more.
+     * Walk back and forth fighting (like grind-battles with until_cleared) until the game says
+     * "The enemies have disappeared" (Bruno's rule: every enemy first). Safety caps for a missed
+     * banner: [clear_max_battles] fights won on this map (15 by default, 0 = no cap), or no
+     * encounter in 12 walks.
      */
     private fun grind(r: Run, ms: MapSpec) {
         val ctx = r.ctx
         task(r, "${ms.names.first()}: fighting the enemies first (back and forth)")
-        val cap = ctx.params["clear_battles"]?.trim()?.toIntOrNull() ?: 5
+        val cap = ctx.params["clear_max_battles"]?.trim()?.toIntOrNull() ?: CLEAR_MAX_BATTLES
         var won = 0
         var dir = 1.0
         var quiet = 0
@@ -846,7 +850,7 @@ object AnotherDungeon {
             if (fight(r) || fought) { quiet = 0; won++ } else quiet++
             if (r.cleared) return
             if (cap > 0 && won >= cap) {
-                MacroLog.i("$won fights on ${ms.names.first()}: taking it as cleared")
+                MacroLog.i("$won fights on ${ms.names.first()} and no \"enemies have disappeared\" seen: taking it as cleared (safety cap)")
                 r.cleared = true
                 return
             }
