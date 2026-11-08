@@ -4,7 +4,7 @@
 /** How long Claude's request waits for the phone (Claude's own limit is 240 s). */
 export const PHONE_TIMEOUT_MS = 235_000;
 
-export const OFFLINE = "The phone is offline: open Another Macro on the phone, allow screen capture and turn on the connector (Claude screen).";
+export const OFFLINE = "The phone is offline: open Another Macro on the phone, allow screen capture and turn on the connector (System page).";
 
 /** Constant-time string compare, so the tokens can't be guessed one character at a time. */
 export function safeEqual(a, b) {

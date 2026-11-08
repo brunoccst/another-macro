@@ -137,7 +137,7 @@ class ControlsOverlay(private val service: InputService) {
         if (Runner.isRunning) { MacroLog.i("stop the macro before choosing another"); return }
         picker.removeAllViews()
         val current = LastRun.load(service)?.first
-        for ((group, list) in Groups.sort(runCatching { Scenarios.all(service) }.getOrDefault(emptyList()))) {
+        for ((group, list) in Groups.sort(MacroChoice.used(service, runCatching { Scenarios.all(service) }.getOrDefault(emptyList())))) {
           // the group's name above its macros
           picker.addView(TextView(service).apply {
               text = " ${group.title}"
