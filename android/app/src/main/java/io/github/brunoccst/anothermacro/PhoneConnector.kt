@@ -152,8 +152,9 @@ object PhoneConnector {
         if (tools?.capture !== cap) { tools = null; server = null }
         server?.let { return it }
         if (cap == null) {
-            return McpServer(TOOLS, "The phone's screen capture is off.") { _, _ ->
-                ToolResult("screen capture is off on the phone: open Another Macro and allow screen capture", isError = true)
+            return McpServer(TOOLS, "The phone's screen capture is off.") { name, args ->
+                if (name == "update_app") updateApp(app, args)
+                else ToolResult("screen capture is off on the phone: open Another Macro and allow screen capture", isError = true)
             }
         }
         val t = PhoneTools(app, cap, stop, shotMax = SHOT_MAX, jpegQuality = JPEG_QUALITY, confirmTimeoutMs = CONFIRM_TIMEOUT_MS)
@@ -191,6 +192,7 @@ object PhoneConnector {
                 "save_template" -> t.saveTemplate(a)
                 "save_macro" -> t.saveMacro(a["yaml"]?.toString().orEmpty())
                 "launch_game" -> t.launchGame()
+                "update_app" -> updateApp(t.app, a)
                 else -> ToolResult("unknown tool $name", isError = true)
             }
         } catch (s: StopScenario) {
@@ -204,6 +206,29 @@ object PhoneConnector {
                 else -> ToolResult(why, isError = true)
             }
         }
+    }
+
+    /**
+     * Install the newest CI build of a branch (default: the one the phone follows, "main" at first)
+     * with no taps from the user: the app restarts and comes back with capture and the connector on.
+     */
+    private fun updateApp(app: android.content.Context, a: Map<String, Any?>): ToolResult {
+        if (Runner.isRunning) return ToolResult("a macro (${Runner.current}) is running: stop_macro first", isError = true)
+        val branch = a["branch"]?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: Updater.channel(app)
+        val newer = try { Updater.checkDev(branch) } catch (e: Exception) { return ToolResult("can't check '$branch': ${e.message}", isError = true) }
+            ?: return ToolResult("up to date: already the newest build of '$branch' (${BuildConfig.VERSION_NAME})")
+        if (!Updater.canInstall(app)) {
+            main.post { Updater.openInstallPermission(app) }
+            return ToolResult("the user must allow \"Install unknown apps\" for Another Macro once (the settings page is now open on the phone), then call update_app again", isError = true)
+        }
+        // the download and install run after this answer: the app is replaced (and restarts) at the end
+        Thread {
+            val r = runCatching { Updater.update(app, branch) }
+            r.onSuccess { MacroLog.i(it) }.onFailure { MacroLog.e("update failed: ${it.message}") }
+        }.start()
+        return ToolResult("updating to ${newer.version} from '$branch' (this phone has ${BuildConfig.VERSION_NAME}). The app restarts and turns " +
+            "screen capture and the connector back on by itself, then opens the game: wait about 90 seconds (the connector is offline meanwhile), " +
+            "then call macro_status to check.")
     }
 
     private fun str(d: String) = mapOf("type" to "string", "description" to d)
@@ -240,5 +265,7 @@ object PhoneConnector {
         McpServer.McpTool("save_macro", "Save a macro (YAML in the app's macro format) to the user's macros, replacing their own macro with that name. Built-in macros can't be replaced.",
             mapOf("yaml" to str("the whole macro file")), listOf("yaml")),
         McpServer.McpTool("launch_game", "Open Another Eden (or bring it to the front).", emptyMap()),
+        McpServer.McpTool("update_app", "Update the Another Macro app itself to the newest CI build of a GitHub branch of brunoccst/another-macro, with no taps from the user. The app restarts; the connector is back in about 90 s.",
+            mapOf("branch" to str("branch whose build to install, e.g. main (default: the branch the phone follows now)"))),
     )
 }

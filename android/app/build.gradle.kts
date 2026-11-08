@@ -16,8 +16,11 @@ android {
         // from it (1.2.3 -> 10203) so every release is an upgrade; dev builds are 0.0.0-dev
         val name = System.getenv("VERSION_NAME") ?: "0.0.0-dev"
         versionName = name
-        versionCode = Regex("""^(\d+)\.(\d+)\.(\d+)""").find(name)?.destructured
-            ?.let { (a, b, c) -> a.toInt() * 10000 + b.toInt() * 100 + c.toInt() }?.coerceAtLeast(1) ?: 1
+        // CI sets VERSION_CODE to the minutes since 2025-01-01, so every build (dev or release) is
+        // an upgrade of the one before: the app can update itself from CI builds
+        versionCode = System.getenv("VERSION_CODE")?.toIntOrNull()
+            ?: Regex("""^(\d+)\.(\d+)\.(\d+)""").find(name)?.destructured
+                ?.let { (a, b, c) -> a.toInt() * 10000 + b.toInt() * 100 + c.toInt() }?.coerceAtLeast(1) ?: 1
         // OpenCV ships native code for every ABI (~135 MB); phones that run the game are arm64
         ndk { abiFilters += listOf("arm64-v8a") }
     }

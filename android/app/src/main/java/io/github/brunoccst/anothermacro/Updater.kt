@@ -48,6 +48,66 @@ object Updater {
         }
     }
 
+    // --- dev builds: CI publishes every push's APK as a pre-release "dev-<branch>" -----------
+
+    /** The branch whose CI builds this phone follows ("main" unless Claude picked another for a test). */
+    fun channel(c: Context): String = c.getSharedPreferences("updates", Context.MODE_PRIVATE).getString("channel", "main")!!
+    fun setChannel(c: Context, branch: String) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).edit().putString("channel", branch).apply()
+
+    /** "claude/project-thread-x" -> "dev-claude-project-thread-x": the pre-release CI keeps for a branch. */
+    fun devTag(branch: String) = "dev-" + branch.trim().replace(Regex("[^A-Za-z0-9._-]"), "-")
+
+    /** The newest CI build of [branch] if its versionCode is above this build's, else null. Blocking. */
+    fun checkDev(branch: String): Release? {
+        val conn = (URL("https://api.github.com/repos/$REPO/releases/tags/${devTag(branch)}").openConnection() as HttpURLConnection).apply {
+            setRequestProperty("Accept", "application/vnd.github+json")
+            connectTimeout = 10000
+            readTimeout = 15000
+        }
+        try {
+            if (conn.responseCode == 404) throw IllegalStateException("no CI build published for branch '$branch' yet")
+            if (conn.responseCode != 200) throw IllegalStateException("GitHub answered ${conn.responseCode}")
+            val json = JSONObject(conn.inputStream.bufferedReader().use { it.readText() })
+            val body = json.optString("body")
+            val code = Regex("""versionCode:\s*(\d+)""").find(body)?.groupValues?.get(1)?.toLongOrNull()
+                ?: throw IllegalStateException("the build's notes carry no versionCode")
+            val name = Regex("""versionName:\s*(\S+)""").find(body)?.groupValues?.get(1) ?: code.toString()
+            val assets = json.getJSONArray("assets")
+            val apk = (0 until assets.length()).map { assets.getJSONObject(it) }
+                .firstOrNull { it.getString("name").endsWith(".apk") } ?: throw IllegalStateException("the build has no APK")
+            val release = Release(name, apk.getString("browser_download_url"), body, json.optString("html_url"))
+            return if (code > BuildConfig.VERSION_CODE.toLong()) release else null
+        } finally {
+            conn.disconnect()
+        }
+    }
+
+    /**
+     * Until when (ms) the app may confirm its own update and its own screen-capture request on
+     * the user's behalf (the accessibility service presses Update / Start now), and that after the
+     * restart it should turn capture and the connector back on. Set only by [update].
+     */
+    fun resumeUntil(c: Context) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).getLong("resume_until", 0)
+    fun clearResume(c: Context) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).edit().remove("resume_until").apply()
+
+    /** Check [branch]'s CI build and, if newer, install it with no taps. Blocking. A message for the log/Claude. */
+    fun update(c: Context, branch: String): String {
+        setChannel(c, branch)
+        val r = checkDev(branch) ?: return "up to date: this is already the newest build of '$branch' (${BuildConfig.VERSION_NAME})"
+        if (!canInstall(c)) {
+            openInstallPermission(c)
+            return "the phone doesn't let Another Macro install apps yet: the user must allow \"Install unknown apps\" for it once (the settings page is open on the phone)"
+        }
+        c.getSharedPreferences("updates", Context.MODE_PRIVATE).edit()
+            .putLong("resume_until", System.currentTimeMillis() + 4 * 60_000L)
+            .putBoolean("resume_connector", PhoneConnector.isOn)
+            .apply()
+        downloadAndInstall(c, r)
+        return "installing ${r.version} (was ${BuildConfig.VERSION_NAME}): the app restarts, turns screen capture and the connector back on by itself and opens the game (about a minute)"
+    }
+
+    fun resumeConnector(c: Context) = c.getSharedPreferences("updates", Context.MODE_PRIVATE).getBoolean("resume_connector", true)
+
     /** Semantic version compare; dev builds ("0.0.0-dev") are older than any release. */
     fun isNewer(candidate: String, installed: String): Boolean {
         fun parts(v: String) = Regex("""^(\d+)\.(\d+)\.(\d+)""").find(v)?.destructured
