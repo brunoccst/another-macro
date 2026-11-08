@@ -56,7 +56,10 @@ class InputService : AccessibilityService() {
         }
     }
 
-    private val OVERLAYS = setOf("com.android.vending", "com.google.android.gms", "com.samsung.android.app.cocktailbarservice", "com.android.systemui")
+    private val OVERLAYS = setOf(
+        "com.android.vending", "com.google.android.gms", "com.samsung.android.app.cocktailbarservice", "com.android.systemui",
+        "com.samsung.android.game.gametools", // Samsung Game Booster's in-game panel and toasts
+    )
 
     /** Package of the app in front, as last reported by window changes. */
     @Volatile
