@@ -1,6 +1,6 @@
 ---
 name: map-dungeon
-description: Learn and map a new Another Dungeon for the another_dungeon action (e.g. "map Ruins of Ruoyana", "make a macro for Moonlight Forest"). First interviews Bruno (wiki page, how to reach it, special rules), then extracts each map's streets, stairs, chests and exits from the wiki minimaps, lines them up on the phone, discovers maps the wiki lacks, and adds a <dungeon>.yaml macro.
+description: Learn and map a new Another Dungeon for the another_dungeon action (e.g. "map Ruins of Ruoyana", "make a macro for Moonlight Forest"). First interviews the user (wiki page, how to reach it, special rules), then extracts each map's streets, stairs, chests and exits from the wiki minimaps, lines them up on the phone, discovers maps the wiki lacks, and adds a <dungeon>.yaml macro.
 ---
 
 # Map a new Another Dungeon
@@ -20,10 +20,10 @@ Every dungeon in the game is listed in
 levels, elements, light/shadow, drops, wiki page name, `macro:` status) and the order to
 build them in is `docs/dungeon-macros-plan.md`. Start from the dungeon's entry there.
 
-## 0. Interview Bruno first
+## 0. Interview the user first
 
-Before reading or mapping anything, ask Bruno in one message (skip what he already said or
-what `dungeon_list.yaml` already answers, and say what you already know), then wait for his
+Before reading or mapping anything, ask the user in one message (skip what they already said or
+what `dungeon_list.yaml` already answers, and say what you already know), then wait for their
 answers:
 
 1. **The wiki page**: "Please save the dungeon's anothereden.wiki page (Ctrl+S, .mht or
@@ -37,25 +37,25 @@ answers:
    onto two lines?). Hard and Very Hard both, and which key(s) each costs (1 or 2).
 3. **Party and unlocks**: a character the game requires in the party (Dogma Tower needs
    Poporo), a character who earns Light/Shadow there, and whether both difficulties are
-   unlocked on his account.
-4. **How it works**, anything the wiki may not say or he has seen: the number of maps, rare
+   unlocked on their account.
+4. **How it works**, anything the wiki may not say or they have seen: the number of maps, rare
    maps, a dungeon currency or "Continue to skip?" box at the end, a different fight limit
    per map, puzzles/switches/doors/keys inside, maps without enemies, the boss (name, how
-   it's reached, does it need special skills), and anything that went wrong when he ran it
+   it's reached, does it need special skills), and anything that went wrong when they ran it
    by hand.
-5. **What to farm**: what he wants from it (a tome, materials, light/shadow), how many runs,
+5. **What to farm**: what they want from it (a tome, materials, light/shadow), how many runs,
    Hard or Very Hard by default.
-6. **Mapping**: whether he'd rather record the path by hand on the phone (the run
+6. **Mapping**: whether they'd rather record the path by hand on the phone (the run
    recorder) or have Claude line up the wiki minimaps live, and when the phone is free
-   (only one thread drives it at a time; never test on the phone without his OK).
+   (only one thread drives it at a time; never test on the phone without their OK).
 
-Write his answers into the dungeon's `dungeons.yaml` entry as comments (and the reach steps as
+Write their answers into the dungeon's `dungeons.yaml` entry as comments (and the reach steps as
 `era:` / `area:` / `label:`), and save anything that applies to more dungeons in project
 memory.
 
 ## 1. Read the wiki page
 
-Bruno sends the saved page (an .mht or .html upload; an .mht is MIME: split it on its
+The user sends the saved page (an .mht or .html upload; an .mht is MIME: split it on its
 boundary and read the first text/html part, in pieces, since pages run to ~12 MB). From it take:
 
 - the dungeon's name and era tab (Antiq./Pres./Fut.), the boss's name (Enemies → Boss);
@@ -68,7 +68,7 @@ boundary and read the first text/html part, in pieces, since pages run to ~12 MB
   where `h0h1` are the first two hex digits of `md5(<File_name>)` (MediaWiki layout).
 
 Keep the downloads in the scratchpad: never commit wiki images or screenshots of
-Bruno's account (the repo is public).
+the user's account (the repo is public).
 
 ## 2. Extract each map's layout from its minimap
 
@@ -88,7 +88,7 @@ left or right, so x needs lining up on the phone (step 3).
 
 ## 3. Line it up on the phone
 
-Enter the dungeon (ask Bruno before spending a key) and on each map:
+Enter the dungeon (ask the user before spending a key) and on each map:
 
 - open the area map (tap the minimap, top right), read the party marker (a gold "eye",
   it pulses) and note where the party **arrives**: that's `arrival`;

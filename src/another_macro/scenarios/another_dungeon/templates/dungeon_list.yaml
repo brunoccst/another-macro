@@ -13,7 +13,7 @@
 #   light_shadow: which points the completion's 3rd reward counts (light, shadow or both)
 #   drops: tomes/psalms (and All Treatises/Codices/Opuses at 0.1% each) the dungeon drops
 #   wiki:  the dungeon's own wiki page (map names, minimaps, chests, boss); the wiki blocks
-#          automated fetches, so Bruno saves the page and uploads it
+#          automated fetches, so the user saves the page and uploads it
 #   macro: the macros/dungeon/<name>.yaml that runs it, or todo
 #
 # Wiki notes for every dungeon: 1-2 key cards per run (green = Hard, red = Very Hard), 5 fights

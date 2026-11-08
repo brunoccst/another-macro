@@ -1,6 +1,6 @@
 # One macro per Another Dungeon: the plan
 
-Bruno (2026-11-08) wants a macro for every Another Dungeon. The full list (80 dungeons, from
+The goal is a macro for every Another Dungeon. The full list (80 dungeons, from
 the wiki's Another Dungeon page) is
 [`dungeon_list.yaml`](../src/another_macro/scenarios/another_dungeon/templates/dungeon_list.yaml),
 next to `dungeons.yaml`. Each entry's `macro:` says which macro runs it (`todo` until one does).
@@ -31,23 +31,23 @@ only needed for a family with its own rules (below).
 
 ## Per dungeon (skill `map-dungeon`)
 
-1. **Interview Bruno** (step 0 of the skill): the saved wiki page (the wiki refuses automated
+1. **Interview the user** (step 0 of the skill): the saved wiki page (the wiki refuses automated
    fetches), how to reach it (era, continent, location, sub-location, label), key cost,
    required characters, own currency or special rules.
 2. **Read the wiki page**: map names (regular/rare), chests per map, minimaps → layouts.
-3. **Line it up on the phone** (Bruno's OK first; only one thread drives the phone): arrival
-   offsets, stairs, exits. Or Bruno records the path by hand and Claude turns it into the route.
+3. **Line it up on the phone** (the user's OK first; only one thread drives the phone): arrival
+   offsets, stairs, exits. Or the user records the path by hand and Claude turns it into the route.
 4. **Write** the `dungeons.yaml` entry, `dungeon-routes --write`, tests, the macro YAML,
    set `macro:` in `dungeon_list.yaml`. Open a PR; merge once phone-tested.
 
 ## Order
 
 1. **Standard dungeons with an era tab** (47 left): same entry as the castle, so only
-   data. Start with the ones that drop tomes or that Bruno farms; easy low-level ones
+   data. Start with the ones that drop tomes or that the user farms; easy low-level ones
    (Moonlight Forest, Industrial Ruins, Nadara Volcano, Man-eating Marsh) are good first
    checks that the generic flow holds on a new map style.
 2. **Standard dungeons without an era icon** (Edax Unigan, Entrana, Jasmond, Omegapolis,
-   Underworld, Home's Lost Atelier): ask Bruno where they are on the Another Dungeon map;
+   Underworld, Home's Lost Atelier): ask the user where they are on the Another Dungeon map;
    may need a new `tab:` field instead of `era:`.
 3. **Families** (one code change each, then data per dungeon):
    - **Otherlands** (Baruoki / Elzion / Ratle, areas 1-4: 12 dungeons): regions with
