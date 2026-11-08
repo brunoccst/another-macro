@@ -13,13 +13,14 @@ params:
   runs: {default: 1, choices: [1, 2, 3, 5, 10, all], help: "runs in a row; all = until the chosen key runs out"}
   white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
   cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
+  clear_battles: {default: 5, help: "fights on each map before its chests (the enemies first; 0 = until the game says they're gone)"}
   # mobs: the four front-row characters, left to right (all auto = the battle's Auto button)
-  skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], help: "mobs, character 1: auto or skill 1-4"}
+  skill_1: {default: 4, choices: [auto, 1, 2, 3, 4], help: "mobs, character 1: auto or skill 1-4 (Verdanta: 4, her last skill)"}
   skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], help: "mobs, character 2: auto or skill 1-4"}
   skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], help: "mobs, character 3: auto or skill 1-4"}
   skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], help: "mobs, character 4: auto or skill 1-4"}
   boss_setup: {default: false, type: bool, help: "use a different skill setup for the boss (below)"}
-  boss_skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, character 1: auto or skill 1-4"}
+  boss_skill_1: {default: 4, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, character 1: auto or skill 1-4"}
   boss_skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, character 2: auto or skill 1-4"}
   boss_skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, character 3: auto or skill 1-4"}
   boss_skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, character 4: auto or skill 1-4"}

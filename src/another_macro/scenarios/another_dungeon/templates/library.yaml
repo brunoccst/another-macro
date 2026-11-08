@@ -22,4 +22,11 @@ templates:
     ref: [2400, 1080]
     region: [0.05, 0.15, 0.8, 0.8]
     threshold: 0.8
+  door_sign:
+    notes: Round sign (door icon) over a grand staircase/doorway to the next map (Burning Beast King's Castle); tap it to take it. Upscaled from a 1024-wide screenshot, hence the lower threshold.
+    file: door_sign.png
+    ref: [2400, 1080]
+    region: [0.05, 0.1, 0.8, 0.9]
+    threshold: 0.72
+    scales: [0.9, 1.0, 1.1]
 screens: {}

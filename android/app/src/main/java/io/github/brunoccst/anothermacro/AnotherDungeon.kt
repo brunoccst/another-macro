@@ -34,7 +34,13 @@ object AnotherDungeon {
             chests = chests.map { Point(it.x + dx, it.y) }, exit = exit?.let { Point(it.x + dx, it.y) },
         )
     }
-    data class Spec(val id: String, val name: String, val era: String, val boss: String, val maps: List<MapSpec>)
+    data class Spec(
+        val id: String, val name: String, val era: String, val boss: String, val maps: List<MapSpec>,
+        /** A place on the era's map that opens a smaller map holding the dungeon ("Parallel Time Layer"). */
+        val area: String? = null,
+        /** The label's first line when the game wraps the name ("Burning Beast King's" / "Castle"). */
+        val label: String? = null,
+    )
 
     private const val DATA = "templates/another_dungeon/dungeons.yaml"
     private const val BUBBLE = "field_interact_bubble"
@@ -63,7 +69,7 @@ object AnotherDungeon {
                 (m["path"] as? List<*>)?.mapNotNull { (it as? List<*>)?.let { leg -> Route.parseLeg(leg) } }?.takeIf { it.isNotEmpty() },
             )
         }
-        return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps)
+        return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString())
     }
 
     private class Run(val ctx: Context, val spec: Spec) {
@@ -403,17 +409,15 @@ object AnotherDungeon {
             return "a White Key is held (the Phantom Crystal Dimension is open): not entering"
         }
         tapText(r, eraLabel(r.spec.era)); ctx.wait(1.5)
-        tapText(r, r.spec.name, minY = 0.2, maxX = 0.62, tries = 2) ?: run {
-            // the map keeps its last pan: the label can sit under the era icons at the top right, half
-            // hidden ("Dogma TovSealed"). Drag what shows of it (else the map) toward the middle, look again.
-            val head = Ocr.norm(r.spec.name).take(7)
-            val part = ctx.readText().firstOrNull { head in Ocr.norm(it.text) }
-            MacroLog.i("${r.spec.name} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
-            if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
-            else ctx.drag(Point(0.49, 0.65), Point(0.29, 0.82), 700)
-            ctx.wait(1.2)
-            tapText(r, r.spec.name, minY = 0.2, maxX = 0.62)
-        } ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map: ${seen(ctx)}")
+        // a dungeon inside a place of the era's map: open that place's map first (a box over the
+        // map; the dungeon's label can sit right of the middle there)
+        val area = r.spec.area
+        if (area != null) {
+            mapLabel(r, arrayOf(area), 0.62) ?: ctx.stop("$area not on the ${r.spec.era} map: ${seen(ctx)}")
+            ctx.wait(1.5)
+        }
+        mapLabel(r, listOfNotNull(r.spec.name, r.spec.label).toTypedArray(), if (area != null) 0.85 else 0.62)
+            ?: ctx.stop("${r.spec.name} not on the ${r.spec.era} map${area?.let { " ($it)" } ?: ""}: ${seen(ctx)}")
         ctx.wait(2.0)
         // the panel's counters at the bottom: green keys, red keys, Cat Express Tickets ("17/50"); their "+" buy more
         // left to right: green keys "10/10", red keys "5/5", Cat Express Tickets "17/50"
@@ -472,6 +476,23 @@ object AnotherDungeon {
         return null
     }
 
+    /**
+     * Tap a place's label on the Another Dungeon map. The map keeps its last pan, so a label can sit
+     * half hidden under the era icons at the top right ("Dogma TovSealed") or cut by the left edge
+     * ("lel Time Layer"): then drag what shows of it (else the map) toward the middle and look again.
+     */
+    private fun mapLabel(r: Run, wants: Array<String>, maxX: Double): Ocr.Line? {
+        val ctx = r.ctx
+        tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 2)?.let { return it }
+        val words = Ocr.norm(wants.first()).split(" ").filter { it.length >= 4 }
+        val part = ctx.readText().firstOrNull { l -> val t = Ocr.norm(l.text); words.isNotEmpty() && words.count { it in t } >= (words.size + 1) / 2 }
+        MacroLog.i("${wants.first()} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
+        if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
+        else ctx.drag(Point(0.49, 0.65), Point(0.29, 0.82), 700)
+        ctx.wait(1.2)
+        return tapText(r, *wants, minY = 0.2, maxX = maxX)
+    }
+
     private fun eraLabel(era: String) = when (era.lowercase()) { "present" -> "Pres."; "antiquity" -> "Antiq."; "future" -> "Fut."; else -> era }
 
     /** A dialog over the field: the free daily ad ("Watch Video"), thank-you / OK / Close. */
@@ -491,10 +512,13 @@ object AnotherDungeon {
         val text = ctx.readText()
         ctx.tap(Point(0.5, 0.93)); ctx.wait(1.0)
         val title = text.filter { it.center.y < 0.12 }.joinToString(" ") { it.text }
-        if (!Ocr.norm(title).contains(Ocr.norm(r.spec.name))) return null
-        val part = title.substringAfter("-").trim()
+        // "Dogma Tower - Gloomy Corridor": the dungeon's name, then the map's. Some dungeons title
+        // their maps on their own ("Beast King's Castle Front Guard Tower"): then the whole title
+        // must read as one of the map names
+        val named = Ocr.norm(title).contains(Ocr.norm(r.spec.name))
+        val part = if (named) title.substringAfter("-").trim() else title.trim()
         val best = r.spec.maps.indices.maxByOrNull { i -> r.spec.maps[i].names.maxOf { Ocr.similarity(part, it) } } ?: return null
-        return if (r.spec.maps[best].names.maxOf { Ocr.similarity(part, it) } > 0.6) best else null
+        return if (r.spec.maps[best].names.maxOf { Ocr.similarity(part, it) } > (if (named) 0.6 else 0.85)) best else null
     }
 
     /** Fight what interrupted a walk; true if there was a battle. */
@@ -779,13 +803,19 @@ object AnotherDungeon {
         MacroLog.i("the exit didn't take us anywhere yet")
     }
 
-    /** The round signs on the ground where a staircase/door leads to another map. */
-    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps")
+    /** The round signs where a staircase/door leads to another map (on the ground, or a door sign over it). */
+    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps", "door_sign")
 
-    /** Walk back and forth fighting until the game says no enemies are left (or none come any more). */
+    /**
+     * Walk back and forth fighting (like grind-battles) until the game says no enemies are left,
+     * [clear_battles] fights are won on this map (5 by default: Bruno's rule, enough to clear a
+     * map), or none come any more.
+     */
     private fun grind(r: Run, ms: MapSpec) {
         val ctx = r.ctx
-        task(r, "${ms.names.first()}: fighting the enemies left (back and forth)")
+        task(r, "${ms.names.first()}: fighting the enemies first (back and forth)")
+        val cap = ctx.params["clear_battles"]?.trim()?.toIntOrNull() ?: 5
+        var won = 0
         var dir = 1.0
         var quiet = 0
         // on a path: back and forth between two spots of this street, so the position stays known
@@ -801,8 +831,13 @@ object AnotherDungeon {
                 if (abs(to - p.x) >= t.minWalk) r.pos = Route.hold(ctx, l, t, p, to > p.x, t.holdMs(abs(to - p.x)).toLong()) { fight(r).also { if (it) fought = true } }
             } else AreaNav.hold(ctx, dir, 0.05)
             dir = -dir
-            if (fight(r) || fought) quiet = 0 else quiet++
+            if (fight(r) || fought) { quiet = 0; won++ } else quiet++
             if (r.cleared) return
+            if (cap > 0 && won >= cap) {
+                MacroLog.i("$won fights on ${ms.names.first()}: taking it as cleared")
+                r.cleared = true
+                return
+            }
         }
         MacroLog.i("no encounter in $quiet walks: taking ${ms.names.first()} as cleared")
         r.cleared = true
