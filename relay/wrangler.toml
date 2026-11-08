@@ -1,5 +1,5 @@
 # Another Macro relay (see README.md). Deploys to your own Cloudflare account, free plan.
-name = "another-macro-relay"
+name = "another-macro"
 main = "src/index.js"
 compatibility_date = "2025-09-01"
 workers_dev = true

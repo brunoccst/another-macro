@@ -23,7 +23,7 @@ Claude (Anthropic cloud) --HTTPS /mcp/<connector token>--> this Worker <--WebSoc
 
    If it asks for `PHONE_TOKEN` and `CONNECTOR_TOKEN`, paste them from the app (**Copy phone
    token**, **Copy connector token**). If it doesn't, add them after the deploy: Cloudflare
-   dashboard → **Workers & Pages** → **another-macro-relay** → **Settings** →
+   dashboard → **Workers & Pages** → **another-macro** → **Settings** →
    **Variables and Secrets** → **Add**, type **Secret**, one for each.
 
    If the build log shows `pip install .` or "Could not detect a directory containing static
@@ -32,7 +32,7 @@ Claude (Anthropic cloud) --HTTPS /mcp/<connector token>--> this Worker <--WebSoc
 
    Without the button: dashboard → **Workers & Pages** → **Create** → **Import a
    repository**, pick your fork of another-macro and set the root directory to `relay`.
-3. **Relay address.** Copy the Worker's address (`https://another-macro-relay.<you>.workers.dev`)
+3. **Relay address.** Copy the Worker's address (`https://another-macro.<you>.workers.dev`)
    into the app's **Relay address** field.
 4. **Connector.** In the app tap **Copy connector address**. In claude.ai open **Settings →
    Connectors → Add custom connector**, name it e.g. "Another Macro phone" and paste the

@@ -56,7 +56,7 @@ class ClaudeActivity : Activity() {
             connectorButton = Ui.button(this@ClaudeActivity, "Turn on", primary = true) { toggleConnector() }
             addView(connectorButton)
             addView(Ui.text(this@ClaudeActivity, "Relay address", 15f, bold = true).apply { setPadding(0, dp(10), 0, 0) })
-            addView(field("https://another-macro-relay.<you>.workers.dev", multiLine = false).apply {
+            addView(field("https://another-macro.<you>.workers.dev", multiLine = false).apply {
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
                 setText(ClaudeSettings.relayUrl(this@ClaudeActivity))
                 onChange { ClaudeSettings.setRelayUrl(this@ClaudeActivity, it) }
