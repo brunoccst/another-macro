@@ -12,8 +12,10 @@ import android.widget.ScrollView
 import android.widget.TextView
 
 /**
- * Macros: tabs ("In use", then one per group), a list of the tab's macros with a switch to
- * choose the ones you use, and, after tapping one, its options and Run.
+ * Macros: a search box, tabs ("In use", then one per group), the tab's macros with a switch to
+ * choose the ones you use, and the macro library (downloaded from the GitHub project). Tapping a
+ * macro opens it: what it does (as a diagram), its options and "Select this macro". Macros are
+ * started, paused and stopped from the floating buttons over the game, not from here.
  */
 class MacrosPage(private val a: MainActivity) {
     private fun dp(v: Int) = a.dp(v)
@@ -21,55 +23,107 @@ class MacrosPage(private val a: MainActivity) {
     private var macros: List<Scenario> = emptyList()
     /** The tab shown: [IN_USE] or a group's id. */
     private var tab: String = a.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getString("tab", IN_USE) ?: IN_USE
+    private var query = ""
 
-    private val tabsRow = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(16), dp(12), dp(16), dp(4)) }
+    private val search: EditText
+    private val tabsRow = LinearLayout(a).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(16), dp(6), dp(16), dp(4)) }
+    private val tabsScroll = HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false; addView(tabsRow) }
     private val listBox = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val listScreen: LinearLayout
     private val detailScreen: LinearLayout
     private val scroll: ScrollView
-    private val userTemplates: TextView
+    private val libraryInfo = Ui.text(a, "", 13f, Ui.MUTED)
+    private val libraryButton: TextView
 
-    // the open macro
+    // the open macro, and the ones opened before it (a macro's diagram opens the macros it runs)
     private var scenario: Scenario? = null
+    private val opened = ArrayList<String>()
     /** Each param's current value, read from its text box, pills or switch. */
     private val paramFields = LinkedHashMap<String, () -> String>()
     private val detailTitle = Ui.text(a, "", 20f, bold = true)
     private val detailIcon: ImageView = Ui.icon(a, R.drawable.ic_puzzle, 32)
     private val detailGroup = Ui.text(a, "", 12f, Ui.MUTED)
     private val detailDescription = Ui.text(a, "", 13.5f, Ui.MUTED).apply { setPadding(0, dp(8), 0, dp(6)) }
+    private val detailUses = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
     private val paramsBox = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
-    private val runButton: TextView
+    private val selectButton: TextView
+    private val selectHint = Ui.text(a, "", 12.5f, Ui.MUTED).apply { setPadding(dp(6), dp(6), dp(6), 0) }
+    private val diagramBox = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
+    private val diagramCard: LinearLayout
+    private val diagramButton: TextView
     private val detailUse: android.widget.Switch
+    private val libraryListener: () -> Unit = { a.runOnUiThread { reload() } }
 
     val view: View
 
     init {
-        // --- list: tabs, the tab's macros, your own macros --------------------------------
+        // --- list: search, tabs, the tab's macros, the library --------------------------------
+        search = EditText(a).apply {
+            hint = "Search macros"
+            setHintTextColor(Ui.MUTED)
+            setTextColor(Ui.TEXT)
+            textSize = 15f
+            setSingleLine()
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_NO_SUGGESTIONS
+            background = null
+            setPadding(dp(4), dp(10), dp(4), dp(10))
+            addTextChangedListener(object : android.text.TextWatcher {
+                override fun beforeTextChanged(s: CharSequence?, st: Int, c: Int, af: Int) {}
+                override fun onTextChanged(s: CharSequence?, st: Int, b: Int, c: Int) {}
+                override fun afterTextChanged(s: android.text.Editable?) {
+                    query = s?.toString()?.trim().orEmpty()
+                    tabsScroll.visibility = if (query.isEmpty()) View.VISIBLE else View.GONE
+                    drawList()
+                }
+            })
+        }
+        val searchBar = LinearLayout(a).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = Ui.rounded(Ui.CARD, dp(24).toFloat())
+            setPadding(dp(14), 0, dp(8), 0)
+            addView(Ui.icon(a, R.drawable.ic_search, 20))
+            addView(search, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(Ui.text(a, "✕", 15f, Ui.MUTED).apply {
+                setPadding(dp(10), dp(8), dp(10), dp(8))
+                isClickable = true
+                setOnClickListener { search.setText("") }
+            })
+        }
+        libraryButton = Ui.button(a, "Check for macro updates") { updateLibrary(force = true) }
         listScreen = LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL
-            addView(HorizontalScrollView(a).apply { isHorizontalScrollBarEnabled = false; addView(tabsRow) })
-            addView(listBox.apply { setPadding(dp(16), dp(6), dp(16), 0) })
-        }
-        userTemplates = Ui.text(a, "", 13f).apply { setPadding(0, dp(6), 0, 0) }
-        listScreen.addView(LinearLayout(a).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), 0, dp(16), dp(32))
-            addView(Ui.section(a, "Your macros and templates"))
-            addView(Ui.card(a).apply {
-                addView(Ui.text(a, "Macros are .yaml files (see macros/ in the GitHub project). Templates you capture with 📷 can be used in them by name.", 13f, Ui.MUTED))
-                addView(userTemplates)
-                addView(Ui.button(a, "Import macro (.yaml)") { a.pickMacroFile() })
+            addView(searchBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+                leftMargin = dp(16); rightMargin = dp(16); topMargin = dp(12)
             })
-        })
+            addView(tabsScroll)
+            addView(listBox.apply { setPadding(dp(16), dp(6), dp(16), 0) })
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(16), 0, dp(16), dp(32))
+                addView(Ui.section(a, "Macro library"))
+                addView(Ui.card(a).apply {
+                    addView(Ui.text(a, "The macros come from the GitHub project and update by themselves, without updating the app.", 13f, Ui.MUTED))
+                    addView(libraryInfo.apply { setPadding(0, dp(6), 0, 0) })
+                    addView(libraryButton)
+                })
+            })
+        }
 
-        // --- detail: the open macro's options and Run ---------------------------------------
-        runButton = Ui.button(a, "Run", primary = true) { scenario?.let { a.run(it.name, paramFields.mapValues { f -> f.value() }) } }
+        // --- detail: what the open macro does, its options, Select ---------------------------
+        selectButton = Ui.button(a, "Select this macro", primary = true) { select() }
         detailUse = switch(false) { on -> scenario?.let { MacroChoice.setUsed(a, it.name, on) } }
+        diagramButton = Ui.text(a, "Show", 13.5f, Ui.ACCENT, bold = true).apply {
+            setPadding(dp(12), dp(18), dp(6), dp(8))
+            isClickable = true
+            setOnClickListener { toggleDiagram() }
+        }
+        diagramCard = Ui.card(a).apply { addView(diagramBox); visibility = View.GONE }
         detailScreen = LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(8), dp(16), dp(32))
             visibility = View.GONE
-            addView(Ui.text(a, "‹  All macros", 15f, Ui.ACCENT, bold = true).apply {
+            addView(Ui.text(a, "‹  Back", 15f, Ui.ACCENT, bold = true).apply {
                 setPadding(dp(4), dp(10), dp(12), dp(10))
                 isClickable = true
                 setOnClickListener { back() }
@@ -84,21 +138,29 @@ class MacrosPage(private val a: MainActivity) {
                     }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
                 })
                 addView(detailDescription)
+                addView(detailUses)
                 addView(Ui.divider(a))
                 addView(LinearLayout(a).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     addView(LinearLayout(a).apply {
                         orientation = LinearLayout.VERTICAL
                         addView(Ui.text(a, "In use", 15f, bold = true))
-                        addView(Ui.text(a, "Show it in the \"In use\" tab and on the floating buttons.", 12.5f, Ui.MUTED))
+                        addView(Ui.text(a, "Show it in the \"In use\" tab (here and on the floating buttons).", 12.5f, Ui.MUTED))
                     }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
                     addView(detailUse)
                 })
             })
             addView(Ui.section(a, "Options"))
             addView(Ui.card(a).apply { addView(paramsBox) })
-            addView(runButton)
-            addView(Ui.button(a, "Stop", color = Ui.BAD) { a.startService(MacroService.intent(a, MacroService.ACTION_STOP_RUN)) })
+            addView(selectButton)
+            addView(selectHint)
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(Ui.section(a, "How it works"), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                addView(diagramButton)
+            })
+            addView(diagramCard)
         }
 
         scroll = ScrollView(a).apply {
@@ -112,23 +174,32 @@ class MacrosPage(private val a: MainActivity) {
         reload()
     }
 
-    /** Load the macros again (after an import) and redraw the tabs and list. */
+    /** Load the macros again (after a library update) and redraw the tabs and list. */
     fun reload() {
         macros = Scenarios.all(a)
         if (tab != IN_USE && Groups.sort(macros).none { it.first.id == tab }) tab = IN_USE
         drawTabs()
         drawList()
+        refreshLibrary()
+        // the open macro may have changed (or gone)
+        scenario?.let { s -> if (detailScreen.visibility == View.VISIBLE) macros.firstOrNull { it.name == s.name }?.let { showMacro(it) } ?: back() }
     }
 
     fun onResume() {
-        val mine = TemplateCapture.list(a)
-        userTemplates.text = if (mine.isEmpty()) "Captured templates: none yet." else "Captured templates: ${mine.joinToString()}"
+        MacroLibrary.listeners += libraryListener
         if (detailScreen.visibility != View.VISIBLE) drawList()
+        updateLibrary(force = !MacroLibrary.isInstalled(a))
     }
 
-    /** Back from the open macro to the list; false when the list is already shown. */
+    fun onPause() { MacroLibrary.listeners -= libraryListener }
+
+    /** Back to the macro opened before, or to the list; false when the list is already shown. */
     fun back(): Boolean {
         if (detailScreen.visibility != View.VISIBLE) return false
+        opened.removeLastOrNull()
+        val prev = opened.removeLastOrNull()?.let { n -> macros.firstOrNull { it.name == n } }
+        if (prev != null) { showMacro(prev); return true }
+        scenario = null
         detailScreen.visibility = View.GONE
         listScreen.visibility = View.VISIBLE
         drawList()
@@ -138,6 +209,24 @@ class MacrosPage(private val a: MainActivity) {
 
     /** Open the macro named [name], if there is one. */
     fun open(name: String) { macros.firstOrNull { it.name == name }?.let { showMacro(it) } }
+
+    // --- the library ------------------------------------------------------------------------
+
+    private fun updateLibrary(force: Boolean) {
+        MacroLibrary.updateAsync(a, force) { msg -> a.runOnUiThread { refreshLibrary(msg) } }
+        refreshLibrary()
+    }
+
+    private fun refreshLibrary(last: String = "") {
+        val inst = MacroLibrary.installed(a)
+        libraryInfo.text = listOf(
+            if (inst == null) "No macros downloaded yet: the phone needs internet once."
+            else "Installed: ${macros.count { !(it is FlowScenario && it.custom) }} macros from ${inst.branch}@${inst.commit.take(7)}, ${inst.built}.",
+            MacroLibrary.state, last,
+        ).filter { it.isNotBlank() }.distinct().joinToString("\n")
+    }
+
+    // --- the list ---------------------------------------------------------------------------
 
     private fun drawTabs() {
         tabsRow.removeAllViews()
@@ -162,10 +251,23 @@ class MacrosPage(private val a: MainActivity) {
     private fun drawList() {
         listBox.removeAllViews()
         val notUsed = MacroChoice.notUsed(a)
-        val sections: List<Pair<Groups.Group, List<Scenario>>> =
-            if (tab == IN_USE) Groups.sort(macros.filter { it.name !in notUsed })
-            else Groups.sort(macros).filter { it.first.id == tab }
-        if (tab == IN_USE) {
+        if (macros.isEmpty()) {
+            listBox.addView(Ui.card(a).apply {
+                (layoutParams as LinearLayout.LayoutParams).topMargin = dp(12)
+                addView(Ui.text(a, if (MacroLibrary.isInstalled(a)) "No macros." else "Downloading the macros…", 14f))
+            })
+            return
+        }
+        val sections: List<Pair<Groups.Group, List<Scenario>>> = when {
+            query.isNotEmpty() -> Groups.sort(macros.filter { matches(it, query) })
+            tab == IN_USE -> Groups.sort(macros.filter { it.name !in notUsed })
+            else -> Groups.sort(macros).filter { it.first.id == tab }
+        }
+        if (query.isNotEmpty() && sections.isEmpty()) listBox.addView(Ui.card(a).apply {
+            (layoutParams as LinearLayout.LayoutParams).topMargin = dp(12)
+            addView(Ui.text(a, "No macro matches \"$query\".", 14f))
+        })
+        if (query.isEmpty() && tab == IN_USE) {
             listBox.addView(Ui.text(a, "The macros you use. Pick them in the other tabs with the switches.", 13f, Ui.MUTED).apply { setPadding(dp(4), dp(8), 0, 0) })
             if (sections.isEmpty()) listBox.addView(Ui.card(a).apply {
                 (layoutParams as LinearLayout.LayoutParams).topMargin = dp(12)
@@ -193,19 +295,19 @@ class MacrosPage(private val a: MainActivity) {
         setPadding(dp(12), dp(10), dp(8), dp(10))
         background = Ui.pressable(a, Ui.CARD, 12)
         isClickable = true
-        val last = LastRun.load(a)?.first
+        val selected = LastRun.load(a)?.first
         addView(Ui.icon(a, Groups.icon(m), 30).apply { (layoutParams as LinearLayout.LayoutParams).rightMargin = dp(14) })
         addView(LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL
-            addView(Ui.text(a, if (m.name == last) "${m.name}  ·  last run" else m.name, 15f, bold = true))
+            addView(Ui.text(a, if (m.name == selected) "${m.name}  ·  selected" else m.name, 15f, bold = true))
             if (m.description.isNotBlank()) addView(Ui.text(a, m.description, 12.5f, Ui.MUTED).apply { maxLines = 2; ellipsize = android.text.TextUtils.TruncateAt.END })
         }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
         addView(switch(used) { on ->
             MacroChoice.setUsed(a, m.name, on)
             // in the "In use" tab a switched-off macro leaves the list
-            if (tab == IN_USE && !on) post { drawList() }
+            if (tab == IN_USE && query.isEmpty() && !on) post { drawList() }
         })
-        setOnClickListener { showMacro(m) }
+        setOnClickListener { opened.clear(); showMacro(m) }
     }
 
     private fun switch(on: Boolean, changed: (Boolean) -> Unit) = android.widget.Switch(a).apply {
@@ -226,9 +328,49 @@ class MacrosPage(private val a: MainActivity) {
         addView(switch(on, changed))
     }
 
-    /** Open [s]: its description and its options (prefilled with the last values used). */
+    // --- the open macro ---------------------------------------------------------------------
+
+    /** Make [s] what the floating ▶ starts, with the options as set here. */
+    private fun select() {
+        val s = scenario ?: return
+        if (Runner.isRunning) { a.toast("Stop the running macro first (■ on the floating buttons)."); return }
+        val params = paramFields.mapValues { it.value() }
+        MacroParams.save(a, s.name, params)
+        LastRun.save(a, s.name, params)
+        MacroChoice.setUsed(a, s.name, true)
+        detailUse.isChecked = true
+        Runner.changed() // the floating buttons show the new name
+        MacroLog.i("selected macro: ${s.name}")
+        a.toast("${s.name} selected: start it with ▶ on the floating buttons.")
+        showSelected(s)
+    }
+
+    private fun showSelected(s: Scenario) {
+        val sel = LastRun.load(a)?.first == s.name
+        selectButton.text = if (sel) "✓  Selected: save these options" else "Select this macro"
+        selectHint.text = if (sel) "This is the macro the floating ▶ starts. Start, pause and stop it there, over the game."
+        else "The floating buttons over the game then start, pause and stop it."
+    }
+
+    private fun toggleDiagram() {
+        val show = diagramCard.visibility != View.VISIBLE
+        diagramCard.visibility = if (show) View.VISIBLE else View.GONE
+        diagramButton.text = if (show) "Hide" else "Show"
+        if (show) drawDiagram()
+    }
+
+    private fun drawDiagram() {
+        val s = scenario as? FlowScenario ?: return
+        diagramBox.removeAllViews()
+        diagramBox.addView(MacroDiagram.render(a, MacroDiagram.build(s.spec)) { name ->
+            if (macros.any { it.name == name }) open(name) else a.toast("No macro named $name.")
+        })
+    }
+
+    /** Open [s]: its description, what it runs, its options (as last chosen) and its diagram. */
     private fun showMacro(s: Scenario) {
         scenario = s
+        if (opened.lastOrNull() != s.name) opened += s.name
         listScreen.visibility = View.GONE
         detailScreen.visibility = View.VISIBLE
         scroll.post { scroll.scrollTo(0, 0) }
@@ -237,20 +379,38 @@ class MacrosPage(private val a: MainActivity) {
         detailGroup.text = Groups.of(s.group).title
         detailDescription.text = s.description
         detailDescription.visibility = if (s.description.isBlank()) View.GONE else View.VISIBLE
+        detailUses.removeAllViews()
+        (s as? FlowScenario)?.uses?.takeIf { it.isNotEmpty() }?.let { uses ->
+            detailUses.addView(Ui.text(a, "Runs these macros:", 12.5f, Ui.MUTED).apply { setPadding(0, dp(4), 0, dp(2)) })
+            detailUses.addView(HorizontalScrollView(a).apply {
+                isHorizontalScrollBarEnabled = false
+                addView(LinearLayout(a).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    for (u in uses) addView(Ui.text(a, "▶ $u", 13f, Ui.ACCENT, bold = true).apply {
+                        setPadding(dp(12), dp(6), dp(12), dp(6))
+                        background = Ui.pressable(a, Ui.CARD_ALT, 14)
+                        isClickable = true
+                        setOnClickListener { open(u) }
+                        layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(8) }
+                    })
+                })
+            })
+        }
         detailUse.setOnCheckedChangeListener(null)
         detailUse.isChecked = MacroChoice.isUsed(a, s.name)
         detailUse.setOnCheckedChangeListener { _, on -> MacroChoice.setUsed(a, s.name, on) }
-        runButton.text = "▶  Run ${s.name}"
+        showSelected(s)
+        if (diagramCard.visibility == View.VISIBLE) drawDiagram()
         paramsBox.removeAllViews()
         paramFields.clear()
         if (s.params.isEmpty()) paramsBox.addView(Ui.text(a, "This macro has no options.", 13f, Ui.MUTED))
-        val last = LastRun.load(a)?.takeIf { it.first == s.name }?.second
+        val last = MacroParams.load(a, s.name)
         // params shown only while a switch is on: their views, by that switch
         val dependents = HashMap<String, MutableList<View>>()
         val switches = HashMap<String, Boolean>()
         var first = true
         for ((key, p) in s.params) {
-            val value = last?.get(key) ?: p.default
+            val value = last[key] ?: p.default
             val box = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
             paramsBox.addView(box)
             p.showIf?.let { dependents.getOrPut(it) { ArrayList() } += box; box.visibility = if (switches[it] == true) View.VISIBLE else View.GONE }
@@ -312,5 +472,11 @@ class MacrosPage(private val a: MainActivity) {
     companion object {
         private const val PREFS = "macros_page"
         private const val IN_USE = "in_use"
+
+        /** Search: every word of [q] in the macro's name, description or group. */
+        fun matches(m: Scenario, q: String): Boolean {
+            val hay = "${m.name} ${m.description} ${Groups.of(m.group).title}".lowercase()
+            return q.lowercase().split(Regex("\\s+")).filter { it.isNotEmpty() }.all { it in hay }
+        }
     }
 }

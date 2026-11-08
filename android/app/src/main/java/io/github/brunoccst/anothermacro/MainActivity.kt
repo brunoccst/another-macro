@@ -16,7 +16,8 @@ import android.widget.TextView
 /**
  * The app: a top bar with ≡, a sidebar (drawer) and three pages:
  *  - Home: what the app is, how to use it, quick links (HomePage)
- *  - Macros: the macros in tabs by group, the ones you use, their options and Run (MacrosPage)
+ *  - Macros: the macros in tabs by group (downloaded from the GitHub project), the ones you use,
+ *    what each does, its options and "Select this macro"; the floating buttons run it (MacrosPage)
  *  - System: taps / screen capture, the Claude phone connector, settings, updates and the log (SystemPage)
  *
  * Can also be driven from adb for testing:
@@ -228,10 +229,11 @@ class MainActivity : Activity() {
     override fun onPause() {
         Runner.listeners -= runListener
         system.onPause()
+        macros.onPause()
         super.onPause()
     }
 
-    // --- screen capture, import, run -----------------------------------------------------
+    // --- screen capture, run (adb) -----------------------------------------------------
 
     internal fun requestCapture() {
         val mpm = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
@@ -239,16 +241,10 @@ class MainActivity : Activity() {
         startActivityForResult(mpm.createScreenCaptureIntent(), REQUEST_CAPTURE)
     }
 
-    internal fun pickMacroFile() {
-        @Suppress("DEPRECATION")
-        startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("*/*"), REQUEST_IMPORT)
-    }
-
     @Deprecated("startActivityForResult is enough here")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         @Suppress("DEPRECATION")
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == REQUEST_IMPORT) { importMacro(resultCode, data); return }
         if (requestCode != REQUEST_CAPTURE) return
         if (resultCode != RESULT_OK || data == null) {
             MacroLog.i("screen capture was not allowed")
@@ -272,23 +268,7 @@ class MainActivity : Activity() {
         InputService.instance?.launchApp(ClaudeSafety.GAME)
     }
 
-    /** Copy a picked .yaml into the user's macros (after checking it parses), then reload. */
-    private fun importMacro(resultCode: Int, data: Intent?) {
-        val uri = data?.data ?: return
-        if (resultCode != RESULT_OK) return
-        try {
-            val text = contentResolver.openInputStream(uri)!!.bufferedReader().use { it.readText() }
-            val macro = FlowScenario.parse(text, uri.lastPathSegment ?: "import")
-            java.io.File(Scenarios.userDir(this), "${macro.name}.yaml").writeText(text)
-            MacroLog.i("imported macro '${macro.name}'")
-            macros.reload()
-            macros.open(macro.name)
-            show(Page.MACROS)
-        } catch (e: Exception) {
-            MacroLog.e("could not import: ${e.message}")
-        }
-    }
-
+    /** Start a macro now: only for adb testing (users start macros from the floating buttons). */
     internal fun run(name: String, params: Map<String, String>) {
         if (MacroService.capture == null) { MacroLog.i("allow screen capture first (System → Setup)"); toast("Allow screen capture first: System → Setup."); return }
         if (InputService.instance == null) { MacroLog.i("turn on taps first (System → Setup)"); toast("Turn on taps first: System → Setup."); return }
@@ -324,7 +304,6 @@ class MainActivity : Activity() {
 
     companion object {
         private const val REQUEST_CAPTURE = 1
-        private const val REQUEST_IMPORT = 3
         const val EXTRA_RESUME = "resume_after_update"
         /** Open on this page: home, macros or system. */
         const val EXTRA_PAGE = "page"

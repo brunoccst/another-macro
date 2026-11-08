@@ -13,7 +13,7 @@ import android.widget.TextView
 /**
  * The live log: one or two lines at the bottom right saying what the running macro is doing
  * (MacroLog.status). Only while a macro runs, and only when switched on (in the app or with
- * the overlay's 💬 button). Taps go through it to the game, and the macro ignores the text
+ * System → Settings). Taps go through it to the game, and the macro ignores the text
  * it covers (Context.readText), so it can sit over a button.
  */
 object LiveLog {

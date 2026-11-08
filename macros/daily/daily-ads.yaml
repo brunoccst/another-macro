@@ -1,4 +1,6 @@
 # The 5 daily commercials: Menu → video icon (top) → Watch Video, until the counter reads 0/5.
+# Each commercial is the basic macro watch-ad (watch it, close it, take the reward); this one
+# opens the ad chest, taps Watch Video and taps through the chest that follows.
 # Premium subscribers get a thank-you instead of the commercial; the chest opens either way.
 name: daily-ads
 group: daily
@@ -12,11 +14,10 @@ screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, ad_chest, menu_o
 unknown_timeout_s: 120
 
 setup:
-  - set: {watching_since: 0, menu_taps: 0}
+  - set: {menu_taps: 0}
 
 handlers:
   ad_chest:
-    - set: {watching_since: 0}
     # the button's counter shows how many are left today
     - if: text_has('0/5') or stats.ads_started >= max_ads
       then:
@@ -25,16 +26,18 @@ handlers:
         - back: true
         - stop: "no commercials left today ({stats.ads_started} watched this run, {stats.rewards} rewards)"
     - count: ads_started
-    - status: "commercial {stats.ads_started}/{max_ads}: watching (closing it after {ad_wait_s}s)"
+    - status: "commercial {stats.ads_started}/{max_ads}"
     - tap: ad_watch_button
-    - set: {watching_since: now()}
     - wait: 3
+    # the commercial and its reward dialog: the basic macro; then the chest opens here
+    - run: {macro: watch-ad, params: {ad_wait_s: ad_wait_s}, until: [ad_chest, menu_open]}
+    - log: "commercial {stats.ads_started}: {result}"
 
+  # left over from a commercial watch-ad didn't see end
   premium_thanks:   # subscribers: no commercial, the chest still opens
     - count: premium_skips
     - status: "commercial {stats.ads_started}/{max_ads}: premium, no commercial; opening the chest"
     - tap: dialog_close_button
-    - set: {watching_since: 0}
     - wait: 2
 
   ad_reward:
@@ -75,18 +78,7 @@ handlers:
 unknown:
   - if: not game_in_front()
     then: [{stop: "the game is not in front (open it first, e.g. with start-game)"}]
-  - if: watching_since > 0
-    then:
-      # a commercial is playing: let it finish, then back closes it; never tap inside it
-      - if: now() - watching_since > ad_wait_s
-        then:
-          - log: "commercial {stats.ads_started} still playing after {ad_wait_s}s: pressing back to close it"
-          - back: true
-          - count: ad_backs
-          - set: {watching_since: now() - ad_wait_s + 10}
-      - wait: 2
-    else:
-      # the chest opening: tap through it
-      - status: "opening the chest"
-      - tap: [0.5, 0.65]
-      - wait: 1.5
+  # the chest opening: tap through it
+  - status: "opening the chest"
+  - tap: [0.5, 0.65]
+  - wait: 1.5

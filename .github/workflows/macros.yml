@@ -1,0 +1,43 @@
+name: macros
+# The macro pack the Android app downloads (macros, templates, dungeon data: see
+# src/another_macro/macro_pack.py and MacroLibrary.kt). Every push that changes them publishes
+# the pre-release "macros-<branch>"; phones following that branch install it by themselves.
+on:
+  push:
+    paths:
+      - "macros/**"
+      - "src/another_macro/assets/templates/**"
+      - "src/another_macro/scenarios/*/templates/**"
+      - "src/another_macro/scenarios/*/*.yaml"
+      - "src/another_macro/macro_pack.py"
+      - ".github/workflows/macros.yml"
+  workflow_dispatch:
+jobs:
+  pack:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Build the pack
+        run: |
+          pip install pyyaml
+          PYTHONPATH=src python -m another_macro.macro_pack -o macros.zip --commit "$GITHUB_SHA" --branch "$GITHUB_REF_NAME"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: macros
+          path: macros.zip
+      - name: Publish the pack
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.ref_name }}
+        run: |
+          TAG="macros-$(echo "$BRANCH" | sed 's/[^A-Za-z0-9._-]/-/g')"
+          NOTES="Macro pack of \`$BRANCH\` (macros, templates, data) for the Another Macro app. Not an app release.
+          commit: $GITHUB_SHA"
+          gh release delete "$TAG" --cleanup-tag -y 2>/dev/null || true
+          gh release create "$TAG" macros.zip --prerelease --target "$GITHUB_SHA" \
+            --title "Macros: $BRANCH" --notes "$NOTES"

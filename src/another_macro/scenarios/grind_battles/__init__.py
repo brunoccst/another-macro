@@ -6,11 +6,11 @@ and repeats.
 
 Two ways to fight (`--param mode=...`):
 
-* `skill` (default): give one front-row character a fixed skill, then press
+* `skill` (default): give one front-row party slot a fixed skill, then press
   Attack; everyone else uses whatever is already selected. By default that is
-  the first character's last skill (Bruno's Verdanta -> Sprinting Raid). The
-  game remembers a chosen skill between turns, so the macro only re-selects it
-  when the `verdanta_last_skill_selected` label is not showing.
+  the first slot's last skill. The game remembers a chosen skill between turns,
+  so the macro only re-selects it when the `slot1_skill_selected` label is not
+  showing.
 * `auto`: press the battle's Auto (>>) button, falling back to Attack.
 
 The skill row and portraits sit at fixed spots on a 20:9 landscape screen,
@@ -31,7 +31,7 @@ WALK_FROM = Point(0.5, 0.55)
 WALK_RIGHT = Point(0.56, 0.55)
 WALK_LEFT = Point(0.44, 0.55)
 
-SELECTED_LABEL = "verdanta_last_skill_selected"
+SELECTED_LABEL = "slot1_skill_selected"
 # mean grey-level change (0-255) of the downscaled field view below which a walk "didn't move"
 STUCK_DIFF = 4.0
 

@@ -33,19 +33,16 @@ class HomePage(private val a: MainActivity) {
             (layoutParams as LinearLayout.LayoutParams).topMargin = dp(14)
             addView(Ui.text(a, "Get started", 17f, bold = true))
             addView(Ui.text(a, "Macros need two things, once: taps (accessibility) and screen capture (again after every update).", 13f).apply { setPadding(0, dp(6), 0, dp(4)) })
-            addView(Ui.button(a, "Set up in System", primary = true) { a.show(MainActivity.Page.SYSTEM) })
+            addView(Ui.button(a, "Set up in System", primary = true) { a.system.showTab("setup"); a.show(MainActivity.Page.SYSTEM) })
         }
         column.addView(setupCard)
 
-        // --- the last macro, one tap away -------------------------------------------------
+        // --- the selected macro (what the floating ▶ starts) -------------------------------
         quickText = Ui.text(a, "", 13f, Ui.MUTED).apply { setPadding(0, dp(4), 0, 0) }
-        quickRun = Ui.button(a, "Run", primary = true) {
-            val (name, params) = LastRun.load(a) ?: return@button
-            a.run(name, params)
-        }
+        quickRun = Ui.button(a, "Change it in Macros") { LastRun.load(a)?.let { a.macros.open(it.first) }; a.show(MainActivity.Page.MACROS) }
         quickCard = Ui.card(a).apply {
             (layoutParams as LinearLayout.LayoutParams).topMargin = dp(14)
-            addView(Ui.text(a, "Last macro", 17f, bold = true))
+            addView(Ui.text(a, "Selected macro", 17f, bold = true))
             addView(quickText)
             addView(quickRun)
         }
@@ -55,9 +52,9 @@ class HomePage(private val a: MainActivity) {
         column.addView(Ui.section(a, "How to use it"))
         column.addView(Ui.card(a).apply {
             step(this, "1", "Set up", "System → Setup: turn on taps and allow screen capture. Use ≡ at the top left to move between pages.")
-            step(this, "2", "Pick your macros", "Macros: the tabs group them (Daily, Another Dungeon, Farming, Game). Switch on the ones you use: they show in the \"In use\" tab and on the floating buttons.")
-            step(this, "3", "Run", "Tap a macro, set its options and Run. The game comes to the front and the macro plays; the log is in System.")
-            step(this, "4", "Floating buttons", "Over the game: ▶ start, ❚❚ pause, ■ stop, ↻ restart, ≡ pick another macro, 💬 live log, 📷 capture a template.")
+            step(this, "2", "Pick your macros", "Macros: the tabs group them (Daily, Another Dungeon, Farming, Game, Basic…) and the search finds them by name. The app downloads them from the GitHub project and keeps them up to date. Switch on the ones you use: they show in the \"In use\" tab.")
+            step(this, "3", "Select one", "Tap a macro to see what it does (its diagram), set its options and tap \"Select this macro\".")
+            step(this, "4", "Play it from the floating buttons", "Over the game: ▶ start, ❚❚ pause, ■ stop, ↻ restart, and the macro's name to pick another (tabs, like the Macros page). Drag ≡ to move them, tap it to fold them.")
             step(this, "5", "Claude (optional)", "System → Claude: turn on the phone connector to let Claude play or write macros from your Claude chat.", last = true)
         })
         column.addView(Ui.button(a, "Open macros", primary = true) { a.show(MainActivity.Page.MACROS) })
@@ -120,9 +117,8 @@ class HomePage(private val a: MainActivity) {
         quickCard.visibility = if (last == null) View.GONE else View.VISIBLE
         if (last != null) {
             val (name, params) = last
-            quickText.text = if (params.isEmpty()) "$name, with its default options." else "$name: " + params.entries.joinToString(", ") { "${Ui.title(it.key).lowercase()} ${it.value}" }
-            quickRun.text = if (Runner.isRunning) "Running: ${Runner.current}" else "▶  Run $name again"
-            quickRun.isEnabled = !Runner.isRunning
+            quickText.text = (if (params.isEmpty()) "$name, with its default options." else "$name: " + params.entries.joinToString(", ") { "${Ui.title(it.key).lowercase()} ${it.value}" }) +
+                "\n" + (if (Runner.isRunning) "Running now: ${Runner.current}." else "Start it with ▶ on the floating buttons over the game.")
         }
     }
 }

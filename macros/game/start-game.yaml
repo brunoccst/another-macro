@@ -1,4 +1,5 @@
 # Turn the game on, always watch the daily login-bonus ad, stop on the field.
+# The ad itself is the basic macro watch-ad (watch it, close it, take the reward).
 name: start-game
 group: game
 description: Turn the game on, always watch the daily login-bonus ad, stop on the field.
@@ -10,7 +11,7 @@ screens: [ad_reward, premium_thanks, ad_offer, field, title]
 unknown_timeout_s: 180
 
 setup:
-  - set: {watching_since: 0, continued: false}
+  - set: {continued: false}
   - status: opening the game
   - launch: "'games.wfs.anothereden'"
   - count: launches
@@ -34,10 +35,11 @@ handlers:
     - if: not watch_ad
       then: [{stop: "the game is open (daily ad not checked)"}]
     - count: ads_accepted
-    - status: "watching the login-bonus ad (closing it after {ad_wait_s}s)"
+    - status: "login-bonus ad"
     - tap: watch_video_button
-    - set: {watching_since: now()}
     - wait: 3
+    - run: {macro: watch-ad, params: {ad_wait_s: ad_wait_s}, until: [field, ad_offer]}
+    - log: "login-bonus ad: {result}"
 
   premium_thanks:   # premium subscribers get this instead of an ad
     - if: not watch_ad
@@ -45,14 +47,12 @@ handlers:
     - count: premium_skips
     - status: "premium: no login-bonus ad, closing the thank-you"
     - tap: dialog_close_button
-    - set: {watching_since: 0}
     - wait: 2
 
-  ad_reward:
+  ad_reward:         # left over from an ad watch-ad didn't see end
     - count: ad_rewards
     - status: "login-bonus ad watched, reward: {screen_text(0.25, 0.8)}"
     - tap: dialog_ok_button
-    - set: {watching_since: 0}
     - wait: 2
 
   field:
@@ -65,24 +65,13 @@ unknown:
         then: [{stop: "the game is open (daily ad not checked)"}]
       - wait: 2
     else:
-      - if: watching_since > 0
+      - if: not game_in_front()
         then:
-          # an ad is playing: let it finish, then back closes it; never tap inside it
-          - if: now() - watching_since > ad_wait_s
-            then:
-              - log: "the ad is still playing after {ad_wait_s}s: pressing back to close it"
-              - back: true
-              - count: ad_backs
-              - set: {watching_since: now() - ad_wait_s + 10}
-          - wait: 2
+          - status: "the game isn't in front: opening it again"
+          - launch: "'games.wfs.anothereden'"
+          - wait: 3
         else:
-          - if: not game_in_front()
-            then:
-              - status: "the game isn't in front: opening it again"
-              - launch: "'games.wfs.anothereden'"
-              - wait: 3
-            else:
-              # loading screens and the cat delivering the login bonus
-              - status: "loading (tapping through the login bonus)"
-              - tap: [0.5, 0.3]
-              - wait: 1.5
+          # loading screens and the cat delivering the login bonus
+          - status: "loading (tapping through the login bonus)"
+          - tap: [0.5, 0.3]
+          - wait: 1.5
