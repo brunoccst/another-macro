@@ -29,6 +29,9 @@ class SystemPage(private val a: MainActivity) {
     private lateinit var connectorButton: TextView
     private lateinit var updateInfo: TextView
     private lateinit var updateButton: TextView
+    private lateinit var updateBar: android.widget.ProgressBar
+    private lateinit var updateProgress: TextView
+    private val progressListener: (Updater.Progress) -> Unit = { showProgress(it) }
     private lateinit var log: TextView
     private var available: Updater.Release? = null
     private val logListener: (String) -> Unit = { text -> if (::log.isInitialized) log.text = text }
@@ -128,6 +131,17 @@ class SystemPage(private val a: MainActivity) {
         into.addView(Ui.card(a).apply {
             updateInfo = Ui.text(a, "", 13f, Ui.MUTED)
             addView(updateInfo)
+            // download / install progress (also in a notification and on the live log)
+            updateBar = android.widget.ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 100
+                progressTintList = android.content.res.ColorStateList.valueOf(Ui.ACCENT)
+                indeterminateTintList = android.content.res.ColorStateList.valueOf(Ui.ACCENT)
+                progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Ui.LINE)
+                visibility = View.GONE
+            }
+            addView(updateBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(10)).apply { topMargin = dp(10) })
+            updateProgress = Ui.text(a, "", 12.5f, Ui.TEXT).apply { visibility = View.GONE }
+            addView(updateProgress)
             updateButton = Ui.button(a, "Check for updates") { onUpdateButton() }
             addView(updateButton)
         })
@@ -201,11 +215,25 @@ class SystemPage(private val a: MainActivity) {
         log.text = MacroLog.text()
         refreshConnector()
         checkForUpdates(automatic = true)
+        Updater.progressListeners += progressListener
+        Updater.progress?.let { showProgress(it) }
     }
 
     fun onPause() {
         MacroLog.unlisten(logListener)
         PhoneConnector.listeners -= connectorListener
+        Updater.progressListeners -= progressListener
+    }
+
+    /** The bar under the update text: how far the download is, then a moving bar while Android installs. */
+    private fun showProgress(p: Updater.Progress) {
+        updateProgress.visibility = View.VISIBLE
+        updateProgress.text = if (p.percent >= 0 && p.active) "${p.text} · ${p.percent}%" else p.text
+        updateProgress.setTextColor(if (p.active) Ui.TEXT else Ui.MUTED)
+        updateBar.visibility = if (p.active) View.VISIBLE else View.GONE
+        updateBar.isIndeterminate = p.percent < 0
+        if (p.percent >= 0) updateBar.progress = p.percent
+        updateButton.isEnabled = !p.active
     }
 
     fun refreshSetup(taps: Boolean, capture: Boolean) {
@@ -313,7 +341,7 @@ class SystemPage(private val a: MainActivity) {
         Thread {
             val result = runCatching { Updater.downloadAndInstall(a, r) }
             a.runOnUiThread {
-                updateButton.isEnabled = true
+                updateButton.isEnabled = Updater.progress?.active != true
                 result.onSuccess { updateInfo.text = "Installing ${r.version}: confirm with Update if Android asks." }
                     .onFailure { updateInfo.text = "Update failed: ${it.message}" }
             }
@@ -337,7 +365,7 @@ class SystemPage(private val a: MainActivity) {
         Thread {
             val result = runCatching { Updater.update(a, branch, userStarted = true) }
             a.runOnUiThread {
-                updateButton.isEnabled = true
+                updateButton.isEnabled = Updater.progress?.active != true
                 result.onSuccess { updateInfo.text = it.replaceFirstChar { c -> c.uppercase() } + "." }
                     .onFailure { updateInfo.text = "Update failed: ${it.message}" }
             }

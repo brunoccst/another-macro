@@ -1,5 +1,8 @@
 package io.github.brunoccst.anothermacro
 
+import android.app.Notification
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
@@ -7,11 +10,14 @@ import android.content.Intent
 import android.content.pm.PackageInstaller
 import android.net.Uri
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.provider.Settings
 import org.json.JSONObject
 import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
+import java.util.concurrent.CopyOnWriteArrayList
 
 /**
  * Auto-update from GitHub Releases: the latest release's APK asset is compared
@@ -25,6 +31,52 @@ object Updater {
     private const val API = "https://api.github.com/repos/$REPO/releases/latest"
 
     data class Release(val version: String, val apkUrl: String, val notes: String, val page: String)
+
+    // --- progress: shown as a bar on System → Updates, in a notification and on the live log ----
+
+    /** Where an update is: [percent] 0-100, or -1 while the length is unknown; [active] false once it ended. */
+    data class Progress(val text: String, val percent: Int, val active: Boolean)
+
+    /** The update in progress (or the last one's result), null if none since the app started. */
+    @Volatile var progress: Progress? = null
+        private set
+    /** Called on the main thread on every change. */
+    val progressListeners = CopyOnWriteArrayList<(Progress) -> Unit>()
+    private val main = Handler(Looper.getMainLooper())
+    private const val CHANNEL = "updates"
+    private const val NOTIFICATION_ID = 7
+
+    fun report(c: Context, text: String, percent: Int = -1, active: Boolean = true) {
+        val p = Progress(text, percent.coerceIn(-1, 100), active)
+        progress = p
+        main.post { progressListeners.forEach { it(p) } }
+        MacroLog.show(if (percent >= 0 && active) "$text $percent%" else text)
+        runCatching { notify(c.applicationContext, p) }
+    }
+
+    private fun notify(c: Context, p: Progress) {
+        val nm = c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+        if (Build.VERSION.SDK_INT >= 26 && nm.getNotificationChannel(CHANNEL) == null) {
+            nm.createNotificationChannel(NotificationChannel(CHANNEL, "App updates", NotificationManager.IMPORTANCE_LOW))
+        }
+        val open = PendingIntent.getActivity(c, 7, Intent(c, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
+        val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(c, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(c)
+        b.setSmallIcon(if (p.active) android.R.drawable.stat_sys_download else android.R.drawable.stat_sys_download_done)
+            .setContentTitle("Another Macro update")
+            .setContentText(if (p.percent >= 0 && p.active) "${p.text} ${p.percent}%" else p.text)
+            .setContentIntent(open)
+            .setOnlyAlertOnce(true)
+            .setOngoing(p.active)
+            .setAutoCancel(!p.active)
+        if (p.active) b.setProgress(100, p.percent.coerceAtLeast(0), p.percent < 0)
+        nm.notify(NOTIFICATION_ID, b.build())
+    }
+
+    /** The app just (re)started: an update notification left by the replaced app is stale. */
+    fun clearNotification(c: Context) {
+        if (progress != null) return
+        runCatching { (c.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager).cancel(NOTIFICATION_ID) }
+    }
 
     /** The latest release if it is newer than this build, else null. Blocking: call off the main thread. */
     fun checkNewer(): Release? {
@@ -164,7 +216,17 @@ object Updater {
 
     /** Download [release]'s APK and start installing it. Blocking: call off the main thread. */
     fun downloadAndInstall(context: Context, release: Release) {
+        try {
+            downloadAndInstallOrThrow(context, release)
+        } catch (e: Exception) {
+            report(context, "Update to ${release.version} failed: ${e.message}", active = false)
+            throw e
+        }
+    }
+
+    private fun downloadAndInstallOrThrow(context: Context, release: Release) {
         MacroLog.i("downloading update ${release.version}…")
+        report(context, "Downloading ${release.version}…", 0)
         val file = File(context.cacheDir, "update.apk")
         val conn = (URL(release.apkUrl).openConnection() as HttpURLConnection).apply {
             instanceFollowRedirects = true
@@ -172,11 +234,32 @@ object Updater {
             readTimeout = 60000
         }
         try {
-            conn.inputStream.use { input -> file.outputStream().use { input.copyTo(it) } }
+            val total = conn.contentLengthLong
+            conn.inputStream.use { input ->
+                file.outputStream().use { out ->
+                    val buf = ByteArray(64 * 1024)
+                    var done = 0L
+                    var shown = -1
+                    while (true) {
+                        val n = input.read(buf)
+                        if (n < 0) break
+                        out.write(buf, 0, n)
+                        done += n
+                        val pct = if (total > 0) (done * 100 / total).toInt() else -1
+                        // every 2% is plenty (each step also updates the notification)
+                        if (pct < 0 && shown < 0 || pct >= shown + 2) {
+                            shown = pct.coerceAtLeast(0)
+                            val mb = "%.1f".format(done / 1_000_000.0) + (if (total > 0) " of %.1f MB".format(total / 1_000_000.0) else " MB")
+                            report(context, "Downloading ${release.version} ($mb)", pct)
+                        }
+                    }
+                }
+            }
         } finally {
             conn.disconnect()
         }
         MacroLog.i("installing update ${release.version} (${file.length() / 1_000_000} MB)")
+        report(context, "Installing ${release.version}…", -1)
         val installer = context.packageManager.packageInstaller
         val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL).apply {
             setAppPackageName(context.packageName)
@@ -192,6 +275,7 @@ object Updater {
             val callback = PendingIntent.getBroadcast(context, id, Intent(context, InstallResult::class.java), flags)
             session.commit(callback.intentSender)
         }
+        report(context, "Installing ${release.version}: the app restarts by itself when it's done", -1)
     }
 
     /** Install progress: shows Android's confirmation when needed, logs the result. */
@@ -202,11 +286,16 @@ object Updater {
                     @Suppress("DEPRECATION")
                     val confirm = intent.getParcelableExtra<Intent>(Intent.EXTRA_INTENT)
                     confirm?.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)?.let { context.startActivity(it) }
+                    report(context, "Installing: confirm with Update if Android asks", -1)
                 }
-                PackageInstaller.STATUS_SUCCESS -> MacroLog.i("update installed")
+                PackageInstaller.STATUS_SUCCESS -> {
+                    MacroLog.i("update installed")
+                    report(context, "Update installed", active = false)
+                }
                 else -> {
                     val message = intent.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE)
                     MacroLog.e("update failed ($status): $message")
+                    report(context, "Update failed: ${message ?: "status $status"}", active = false)
                     // whatever went wrong, the app was not replaced: nothing may be pressed or resumed later
                     clearResume(context)
                     // Play Protect said no: the automatic check must not loop on it (each try pops the
