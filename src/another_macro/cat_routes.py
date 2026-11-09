@@ -4,7 +4,7 @@ Each scratchbook clue points at a fixed place, and the cat always starts at the 
 that place's map (it wanders a little from there, always along the same street). So, like the
 Another Dungeon paths (dungeon_routes.py), the whole trip can be a fixed list of actions:
 
-1. **Point zero** (Bruno): the World Map on the Present era with Baruoki's label on screen.
+1. **Point zero** (the user): the World Map on the Present era with Baruoki's label on screen.
    Baruoki is the game's first map, so every account has it; other places, and even the Expand
    button, only show once the story unlocks them.
 2. **World map**: the era tab (if not Present) and Expand -> continent (only when set), then the

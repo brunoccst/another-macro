@@ -133,7 +133,7 @@ object CatRoute {
         val catSeg = Route.segOf(l, cat) ?: return null
         val lo = maxOf(catSeg.x1, cat.x - s.driftLeft) - 0.02
         val hi = minOf(catSeg.x2, cat.x + s.driftRight) + 0.02
-        // the data wins over the icons (Bruno: the cat's spot is fixed); a mismatch is only logged,
+        // the data wins over the icons (the user: the cat's spot is fixed); a mismatch is only logged,
         // and the caller steers by the map only if the sweep there doesn't find the cat
         if (feather != null && (abs(feather.y - catSeg.y) > AreaNav.ROW_TOL * 2 || feather.x < lo - 0.03 || feather.x > hi + 0.03))
             MacroLog.i("${s.location}: the feather icon read at ${fmt(feather)} isn't where this cat starts or wanders " +

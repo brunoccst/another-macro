@@ -98,7 +98,7 @@ class Context(
     private fun jitter(r: Region) = Point(r.x + r.w * Random.nextDouble(0.25, 0.75), r.y + r.h * Random.nextDouble(0.25, 0.75))
 
     /**
-     * Before any input: no tap, swipe or hold goes out while the macro is paused (Bruno plays by
+     * Before any input: no tap, swipe or hold goes out while the macro is paused (the user plays by
      * hand then; an injected touch cancels his). Waits for resume, or throws on stop.
      */
     private fun beforeInput() {

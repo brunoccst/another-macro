@@ -230,7 +230,7 @@ object CatDaily {
     }
 
     /**
-     * Point zero (Bruno): the World Map on the Present era with Baruoki's label on screen. Baruoki
+     * Point zero (the user): the World Map on the Present era with Baruoki's label on screen. Baruoki
      * is the game's first map, so every account has it (other places, and even the Expand button,
      * only show once the story unlocks them). It sits by the map's west edge: the Present tab
      * opens with it at about (0.185, 0.509) and a drag doesn't move the map further (phone,
