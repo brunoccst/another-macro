@@ -41,8 +41,15 @@ keeps a WebSocket open to the user's relay, a small Cloudflare Worker on their o
 - `PhoneConnector.kt`: the socket (reconnects with backoff), turns itself off after 30 minutes
   without tool calls, and maps the connector's tools (screenshot, zoom, tap, swipe, back, wait,
   walk, read_text, find_template, list_templates, list_macros, read_macro, start_macro,
-  macro_status, stop_macro, save_template, save_macro, launch_game, floating_controls) onto
-  `PhoneTools`. tap and swipe fold the floating buttons first when their window covers the point.
+  macro_status, stop_macro, save_template, save_macro, launch_game, floating_controls,
+  wake_screen) onto `PhoneTools`. tap and swipe fold the floating buttons first when their window
+  covers the point.
+- `ScreenWake.kt`: turns the screen on and keeps it on while Claude or a macro drives the game
+  (a bright-screen wake lock that wakes the screen; if that doesn't, a see-through activity that
+  turns the screen on and closes itself). Each connector tool call wakes it and keeps it on for
+  10 minutes; a macro keeps it on until it stops. An all-black capture is never taken for "the
+  game isn't in front": screenshots say so next to the image, `macro_status` reports the screen
+  and capture state, taps on a black frame are refused, and a macro stops after 2 minutes of black.
 - `PhoneTools.kt`: the tools, behind the safety layer (`ClaudeSafety.kt`, enforced in code,
   not just the prompt): taps only while Another Eden is in front; every tap goes through
   `Context.tap`'s purchase guard; screens offering a purchase are refused (a second purchase

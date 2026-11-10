@@ -25,6 +25,7 @@ class InputService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        ScreenWake.init(this)
         MacroLog.i("accessibility service connected (taps enabled)")
         if (MacroService.capture != null) showControls(true)
         // the app was just replaced by an unattended update (Claude or the automatic check): bring it back up

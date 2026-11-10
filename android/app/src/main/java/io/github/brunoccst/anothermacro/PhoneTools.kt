@@ -38,10 +38,25 @@ class PhoneTools(
     fun back(): ToolResult { ctx.back(); Thread.sleep(600); return ToolResult("OK (Android Back)") }
     fun wait(seconds: Double?): ToolResult { ctx.wait((seconds ?: 1.0).coerceIn(0.1, 60.0)); return ToolResult("OK") }
 
-    /** Screen (or the [region] of it, in screenshot pixels) as a JPEG, longest side at most shotMax. */
-    fun screenshot(region: IntArray?): String {
+    /**
+     * Screen (or the [region] of it, in screenshot pixels) as a JPEG, longest side at most shotMax.
+     * An all-black frame turns the screen on and is taken again; if it stays black the answer
+     * says why, next to the image, so Claude doesn't take it for a game screen.
+     */
+    fun screenshot(region: IntArray?): ToolResult {
         Thread.sleep(250) // the result of the last input
-        val bgr = LiveLog.without { capture.grabColor() } ?: throw StopScenario("no screen capture (allow screen capture first)")
+        var bgr = LiveLog.without { capture.grabColor() } ?: throw StopScenario("no screen capture (allow screen capture first)")
+        var note = ""
+        if (Frame.isBlack(bgr)) {
+            if (ScreenWake.wakeNow()) {
+                bgr.release()
+                capture.grab(1_000)?.gray?.release() // a fresh frame after waking
+                bgr = LiveLog.without { capture.grabColor() } ?: throw StopScenario("no screen capture (allow screen capture first)")
+                note = "The screen was off; it was turned on for this screenshot. "
+            }
+            if (Frame.isBlack(bgr)) note += "WARNING: this frame is ALL BLACK, it is not a game screen: " +
+                ScreenWake.blackReason(ScreenWake.isOn(), capture.frameAgeMs()) + ". Don't tap blind: call wake_screen and look again."
+        }
         val scale = capture.width.toDouble() / shotW
         val crop: Mat = if (region == null) bgr else {
             val x0 = (region[0] * scale).roundToInt().coerceIn(0, capture.width - 1)
@@ -59,8 +74,24 @@ class PhoneTools(
         buf.release(); out.release()
         if (crop !== bgr) crop.release()
         bgr.release()
-        return b64
+        return ToolResult(note, b64)
     }
+
+    /** Turn the screen on if it is off (the connector also does it before each tool) and say how it is. */
+    fun wakeScreen(): ToolResult {
+        val wasOff = ScreenWake.wakeNow()
+        capture.grab(1_000)?.let { f ->
+            val black = f.allBlack
+            f.gray.release()
+            val state = screenState(black)
+            val head = if (wasOff) "the screen was off; " + (if (ScreenWake.isOn() == true) "it is on now" else "it could not be turned on") else "the screen was already on"
+            return ToolResult("$head. $state" + if (black) ". " + ScreenWake.blackReason(ScreenWake.isOn(), capture.frameAgeMs()) else "", isError = black)
+        }
+        return ToolResult("no screen capture: " + ScreenWake.blackReason(ScreenWake.isOn(), null), isError = true)
+    }
+
+    /** One line on the screen and the capture (black = the last frame was all black, null = not checked). */
+    fun screenState(black: Boolean?): String = ScreenWake.describe(ScreenWake.isOn(), capture.frameAgeMs(), black)
 
     /** A tap Claude asked for, after the safety checks. */
     fun tap(p: Point, times: Int): ToolResult {
@@ -156,7 +187,8 @@ class PhoneTools(
     // --- app tools -------------------------------------------------------------------------
 
     fun walk(input: Map<String, Any?>): ToolResult {
-        if (!ClaudeSafety.gameInFront(ctx.also { it.refresh() })) return refused("Another Eden is not in front; use launch_game first")
+        if (ctx.refresh().allBlack) return refused("the screen capture is all black: call wake_screen, then screenshot")
+        if (!ClaudeSafety.gameInFront(ctx)) return refused("Another Eden is not in front; use launch_game first")
         val ms = (num(input["ms"]) ?: 1500.0).coerceIn(200.0, 6000.0).toLong()
         val (dx, dy) = when (input["direction"]) {
             "left" -> -0.06 to 0.0; "right" -> 0.06 to 0.0; "up" -> 0.0 to -0.08; "down" -> 0.0 to 0.08
@@ -220,7 +252,10 @@ class PhoneTools(
             Background.name != null -> "not running; ${Background.name} stopped: ${Background.result ?: "?"}"
             else -> "no macro running"
         }
-        return ToolResult("$head\n\nlast log lines:\n$log")
+        // a black frame is the usual reason for "the game isn't in front" loops: say it plainly
+        val black = capture.grab(0)?.let { f -> f.allBlack.also { f.gray.release() } }
+        val warn = if (black == true || ScreenWake.isOn() == false) "\nWARNING: " + ScreenWake.blackReason(ScreenWake.isOn(), capture.frameAgeMs()) + " (wake_screen turns it on)" else ""
+        return ToolResult("$head\n${screenState(black)}$warn\n\nlast log lines:\n$log")
     }
 
     fun stopMacro(): ToolResult {

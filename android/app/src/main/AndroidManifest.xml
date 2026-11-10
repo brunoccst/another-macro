@@ -7,6 +7,9 @@
     <!-- auto-update: check GitHub Releases, download and install the new APK -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- turn the screen on and keep it on while Claude or a macro drives the game (ScreenWake) -->
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+    <uses-permission android:name="android.permission.TURN_SCREEN_ON" />
 
     <!-- Android 11+ package visibility: needed to launch the game -->
     <queries>
@@ -28,6 +31,15 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- turns the screen on when a wake lock can't; a task of its own, so the game comes back in front -->
+        <activity
+            android:name=".WakeActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:taskAffinity="io.github.brunoccst.anothermacro.wake"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
 
         <receiver
             android:name=".Updater$InstallResult"
