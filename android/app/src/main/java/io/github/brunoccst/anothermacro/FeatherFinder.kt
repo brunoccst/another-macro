@@ -13,7 +13,8 @@ import org.snakeyaml.engine.v2.api.LoadSettings
 /**
  * Finds the scratchbook cat's feather bubble. The bubble is semi-transparent and
  * its size changes with each map's zoom, so the white feather shape is matched on
- * a binarized, half-resolution frame at three scales.
+ * a binarized, half-resolution frame at five scales (some maps, e.g. tree-top villages,
+ * are zoomed further in or out than the map the template was cut on).
  */
 class FeatherFinder private constructor(private val templates: List<Mat>) {
 
@@ -55,7 +56,7 @@ class FeatherFinder private constructor(private val templates: List<Mat>) {
             val inner = g.submat((h * 0.18).toInt(), (h * 0.82).toInt(), (w * 0.18).toInt(), (w * 0.82).toInt())
             val bin = Mat()
             Imgproc.threshold(inner, bin, 215.0, 255.0, Imgproc.THRESH_BINARY)
-            val ts = listOf(0.95, 1.1, 1.3).map { k ->
+            val ts = listOf(0.8, 0.95, 1.1, 1.3, 1.5).map { k ->
                 Mat().also { Imgproc.resize(bin, it, Size(0.0, 0.0), k / 2, k / 2, Imgproc.INTER_AREA) }
             }
             return FeatherFinder(ts)
