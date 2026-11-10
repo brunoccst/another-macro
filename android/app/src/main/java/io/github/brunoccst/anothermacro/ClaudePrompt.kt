@@ -63,7 +63,7 @@ Actions (one key each):
   if: expr  then: [actions]  else: [actions]          repeat: {times: expr, do: [actions]}
   reset_view: true            (forget the last view for view_moved())
   fight: skill_       (fight the battle on screen until the field is back, with params skill_1..skill_4 = auto|1-4; sets `outcome` to won/lost/none)
-Expression functions: found('t'), captured('t'), text_has('s'), screen_text(y0, y1), game_in_front(), ad_in_front(), view_moved(), now(), pick(i, a, b, ...)
+Expression functions: found('t'), captured('t'), text_has('s'), screen_text(y0, y1), game_in_front(), ad_in_front(), play_in_front(), view_moved(), now(), pick(i, a, b, ...)
 Built-in screens include: title, field, battle, battle_command, skill_list, battle_result, defeat.
 """.trimIndent()
 }

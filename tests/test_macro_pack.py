@@ -48,3 +48,25 @@ def test_check_catches_unknown_macro(tmp_path):
         "name": "x", "group": "daily", "screens": [], "handlers": {"field": [{"run": "nope"}]},
     }))
     assert any("unknown macro 'nope'" in p for p in macro_pack.check(tmp_path))
+
+
+def _flat(acts):
+    for a in acts or []:
+        yield a
+        for k in ("then", "else", "do"):
+            yield from _flat(a.get(k) if k != "do" else (a.get("repeat") or {}).get("do"))
+
+
+def test_watch_ad_closes_google_play_sheet():
+    # a commercial can open a Google Play app sheet by itself: watch-ad must not take that for the
+    # end of the commercials, close it with Back only (never a tap while Play is in front), then
+    # tap the commercial's own close X
+    _, spec = macro_pack.macros()["watch-ad"]
+    play = [a for a in spec["unknown"] if a.get("if") == "play_in_front()"]
+    assert play, "watch-ad has no Google Play step"
+    in_play = list(_flat(play[0]["then"]))
+    assert any(a.get("back") for a in in_play)
+    assert not any("tap" in a or "tap_exact" in a for a in in_play)
+    after = list(_flat(play[0]["else"]))
+    assert any(isinstance(a.get("tap"), dict) for a in after)
+    assert any("commercials are over" in str(a.get("stop", "")) for a in after)
