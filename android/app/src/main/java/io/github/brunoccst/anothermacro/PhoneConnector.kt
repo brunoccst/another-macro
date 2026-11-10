@@ -38,6 +38,8 @@ object PhoneConnector {
     private const val CONFIRM_TIMEOUT_MS = 2 * 60_000L
     private const val SHOT_MAX = 1024
     private const val JPEG_QUALITY = 70
+    /** The screen stays on this long after Claude's last tool call (then it may time out as usual). */
+    private const val SCREEN_HOLD_MS = 10 * 60_000L
 
     private val json = ObjectMapper()
     private val enabled = AtomicBoolean(false)
@@ -79,6 +81,7 @@ object PhoneConnector {
         stop.set(true)
         socket?.close(1000, "off")
         socket = null
+        ScreenWake.release("connector")
         MacroLog.i("phone connector off ($why)")
         set(State.OFF, why)
     }
@@ -195,6 +198,9 @@ object PhoneConnector {
         return McpServer(TOOLS, ClaudePrompt.connector(t.shotW, t.shotH)) { name, args -> call(t, name, args) }.also { server = it }
     }
 
+    /** Tools that don't need the screen on (macro files, updates). */
+    private val NO_SCREEN = setOf("list_templates", "list_macros", "read_macro", "save_macro", "delete_macro", "update_app", "update_macros")
+
     /** Tools that touch the screen: not while a macro is driving it. */
     private val DRIVES = setOf("tap", "swipe", "back", "walk", "launch_game")
 
@@ -205,10 +211,13 @@ object PhoneConnector {
         }
         stop.set(false)
         if (!Runner.isRunning) MacroLog.show("Claude (connector): $name") // a running macro keeps its own status line
+        // the screen on (and kept on while Claude works): with it off the capture is black and taps land nowhere
+        if (name !in NO_SCREEN) ScreenWake.ensureOn("connector", SCREEN_HOLD_MS)
         return try {
             when (name) {
-                "screenshot" -> ToolResult("screenshot", t.screenshot(null))
-                "zoom" -> ToolResult("zoom", t.screenshot(t.box(a["region"]) ?: throw IllegalArgumentException("region [x0, y0, x1, y1] needed")))
+                "screenshot" -> t.screenshot(null)
+                "zoom" -> t.screenshot(t.box(a["region"]) ?: throw IllegalArgumentException("region [x0, y0, x1, y1] needed"))
+                "wake_screen" -> t.wakeScreen()
                 "tap" -> t.tap(t.point(listOf(a["x"], a["y"])), if (a["double"] == true) 2 else 1)
                 "swipe" -> t.swipe(t.point(a["from"]), t.point(a["to"]), (t.num(a["ms"]) ?: 450.0).coerceIn(100.0, 6000.0).toLong())
                 "back" -> t.back()
@@ -285,6 +294,7 @@ object PhoneConnector {
     /** The connector's tools (flat names: Claude chats have no computer use toolset). */
     val TOOLS: List<McpServer.McpTool> = listOf(
         McpServer.McpTool("screenshot", "Take a screenshot of the phone (Another Eden, landscape). Coordinates for the other tools are pixels in this image.", emptyMap()),
+        McpServer.McpTool("wake_screen", "Turn the phone's screen on if it is off, and say whether the screen and the screen capture work (an all-black screenshot means the screen is off or capture stopped). The other tools also turn the screen on by themselves.", emptyMap()),
         McpServer.McpTool("zoom", "A closer screenshot of one part of the screen, for small text or icons.", mapOf("region" to box()), listOf("region")),
         McpServer.McpTool("tap", "Tap the screen at (x, y) in screenshot pixels. The app refuses taps on purchase screens and asks the user on the phone before risky taps.",
             mapOf("x" to int("x in screenshot pixels"), "y" to int("y in screenshot pixels"), "double" to mapOf("type" to "boolean", "description" to "double tap")), listOf("x", "y")),
@@ -304,7 +314,7 @@ object PhoneConnector {
             mapOf("name" to str("macro name")), listOf("name")),
         McpServer.McpTool("start_macro", "Start a macro; it runs on the phone without you, with the options the user chose for it in the app plus params. Returns at once: follow it with macro_status.",
             mapOf("name" to str("macro name"), "params" to mapOf("type" to "object", "description" to "param values, e.g. {\"battles\": 5}", "additionalProperties" to mapOf("type" to "string"))), listOf("name")),
-        McpServer.McpTool("macro_status", "Whether a macro is running, what it is doing now, why the last one stopped, and the last log lines.", emptyMap()),
+        McpServer.McpTool("macro_status", "Whether a macro is running, what it is doing now, why the last one stopped, whether the screen is on and the capture shows it (warns about an all-black capture), and the last log lines.", emptyMap()),
         McpServer.McpTool("stop_macro", "Stop the running macro.", emptyMap()),
         McpServer.McpTool("save_template", "Save a small box of the current screen as a named template (a stable label or icon, no numbers or moving parts), usable in macros by name.",
             mapOf("name" to str("lowercase letters, digits and _, e.g. quest_board_title"), "region" to box(), "notes" to str("what it is")), listOf("name", "region")),

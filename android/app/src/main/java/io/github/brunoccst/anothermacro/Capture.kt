@@ -17,17 +17,36 @@ class Frame(val gray: Mat) {
     val height: Int get() = gray.rows()
 
     /**
+     * True when the whole frame is black: the screen is off, or the screen capture sends
+     * nothing. Not a portrait app, and not proof the game is gone: [ScreenWake] turns the
+     * screen on, and a macro stops if it stays black (see Context.refresh).
+     */
+    val allBlack: Boolean by lazy { isBlack(gray) }
+
+    /**
      * True when a portrait app (home screen, Termux, ...) is in front instead of the
      * landscape game: the landscape capture then shows it pillar-boxed, with black
-     * bars on both sides.
+     * bars on both sides. An all-black frame is not one ([allBlack]).
      */
     val portraitAppInFront: Boolean get() {
+        if (allBlack) return false
         val w = width
         val left = gray.submat(0, height, 0, w / 5)
         val right = gray.submat(0, height, w - w / 5, w)
         val dark = org.opencv.core.Core.mean(left).`val`[0] < 4 && org.opencv.core.Core.mean(right).`val`[0] < 4
         left.release(); right.release()
         return dark
+    }
+
+    companion object {
+        /** Mean brightness under this (0..255) = black; our own overlays alone stay under it too. */
+        const val BLACK_MEAN = 2.5
+
+        fun isBlack(m: Mat): Boolean {
+            val mean = org.opencv.core.Core.mean(m).`val`
+            val channels = if (m.channels() >= 3) 3 else 1
+            return (0 until channels).sumOf { mean[it] } / channels < BLACK_MEAN
+        }
     }
 }
 
@@ -45,6 +64,11 @@ class Capture(projection: MediaProjection, val width: Int, val height: Int, dens
     private var latest: Mat? = null
     private var latestRgba: Mat? = null
     private var frames = 0L
+    /** When the capture last sent a frame (System.currentTimeMillis), 0 before the first. */
+    @Volatile var lastFrameAt = 0L
+        private set
+    @Volatile var released = false
+        private set
 
     init {
         reader.setOnImageAvailableListener({ r ->
@@ -65,6 +89,7 @@ class Capture(projection: MediaProjection, val width: Int, val height: Int, dens
                     latestRgba?.release()
                     latestRgba = rgba // kept (no copy) for the template capture tool
                     frames++
+                    lastFrameAt = System.currentTimeMillis()
                     lock.notifyAll()
                 }
             } finally {
@@ -101,7 +126,11 @@ class Capture(projection: MediaProjection, val width: Int, val height: Int, dens
         bgr
     }
 
+    /** How long ago the last frame came (null: none yet or released). */
+    fun frameAgeMs(): Long? = if (released || lastFrameAt == 0L) null else System.currentTimeMillis() - lastFrameAt
+
     fun release() {
+        released = true
         runCatching { display.release() }
         runCatching { reader.close() }
         thread.quitSafely()
