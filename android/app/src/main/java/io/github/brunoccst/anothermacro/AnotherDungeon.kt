@@ -546,12 +546,17 @@ object AnotherDungeon {
         val ctx = r.ctx
         tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 2)?.let { return it }
         val words = Ocr.norm(wants.first()).split(" ").filter { it.length >= 4 }
-        val part = ctx.readText().firstOrNull { l -> val t = Ocr.norm(l.text); words.isNotEmpty() && words.count { it in t } >= (words.size + 1) / 2 }
-        MacroLog.i("${wants.first()} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
-        if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
-        else ctx.drag(Point(0.49, 0.65), Point(0.29, 0.82), 700)
-        ctx.wait(1.2)
-        return tapText(r, *wants, minY = 0.2, maxX = maxX)
+        // a few drags: the first blind one can bring the label in only at the right edge, under
+        // this app's floating buttons ("Dogma Towe" at x 0.93); then drag what shows to the middle
+        for (attempt in 1..3) {
+            val part = ctx.readText().firstOrNull { l -> val t = Ocr.norm(l.text); words.isNotEmpty() && words.count { it in t } >= (words.size + 1) / 2 }
+            MacroLog.i("${wants.first()} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
+            if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
+            else ctx.drag(Point(0.49, 0.65), Point(0.29, 0.82), 700)
+            ctx.wait(1.2)
+            tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 1)?.let { return it }
+        }
+        return null
     }
 
     private fun eraLabel(era: String) = when (era.lowercase()) { "present" -> "Pres."; "antiquity" -> "Antiq."; "future" -> "Fut."; else -> era }
