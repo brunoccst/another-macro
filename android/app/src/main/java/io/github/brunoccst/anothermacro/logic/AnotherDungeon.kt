@@ -881,7 +881,7 @@ object AnotherDungeon {
 
     /**
      * Walk back and forth fighting (like grind-battles with until_cleared) until the game says
-     * "The enemies have disappeared" (Bruno's rule: every enemy first). Safety caps for a missed
+     * "The enemies have disappeared" (the user's rule: every enemy first). Safety caps for a missed
      * banner: [clear_max_battles] fights won on this map (15 by default, 0 = no cap), or no
      * encounter in 12 walks.
      */
