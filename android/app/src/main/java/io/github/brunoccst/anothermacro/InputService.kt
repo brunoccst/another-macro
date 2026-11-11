@@ -138,6 +138,23 @@ class InputService : AccessibilityService() {
     var foreground: String? = null
         private set
 
+    /**
+     * Check which app window really has the focus now and fix [foreground] if a window event was
+     * missed or came late (e.g. the launcher's last window after the game was reopened). Overlays
+     * and this app's own windows don't count.
+     */
+    fun recheckForeground(): String? {
+        val pkg = runCatching {
+            windows.firstOrNull { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION && (it.isFocused || it.isActive) }
+                ?.root?.packageName?.toString()
+        }.getOrNull()
+        if (pkg != null && pkg != packageName && pkg !in OVERLAYS && pkg != foreground) {
+            MacroLog.i("in front (window check): $pkg, not $foreground")
+            foreground = pkg
+        }
+        return foreground
+    }
+
     /** Launch (or bring to the front) an app. A bound accessibility service may start activities from the background. */
     fun launchApp(pkg: String): Boolean {
         val intent = packageManager.getLaunchIntentForPackage(pkg)

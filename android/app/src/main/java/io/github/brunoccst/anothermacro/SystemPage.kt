@@ -81,6 +81,9 @@ class SystemPage(private val a: MainActivity) {
             addView(connectorStatus)
             connectorButton = Ui.button(a, "Turn on", primary = true) { toggleConnector() }
             addView(connectorButton)
+            addView(switchRow("Stay on until I turn it off",
+                "Off: the connector turns itself off after 30 minutes without use. On: it stays on (and reconnects by itself) until you press Turn off.",
+                ClaudeSettings.keepOn(a)) { ClaudeSettings.setKeepOn(a, it); refreshConnector() }.apply { setPadding(0, dp(8), 0, 0) })
             addView(Ui.text(a, "Relay address", 15f, bold = true).apply { setPadding(0, dp(10), 0, 0) })
             addView(field("https://another-macro.<you>.workers.dev").apply {
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
@@ -95,7 +98,7 @@ class SystemPage(private val a: MainActivity) {
             addView(Ui.button(a, "Copy connector address (for claude.ai)") { copyConnectorAddress() })
             addView(Ui.button(a, "Relay setup guide") { a.openUrl(ClaudeSettings.RELAY_GUIDE) })
             addView(Ui.text(a,
-                "The connector address holds the secret token: keep it private. Making new tokens cuts off the old ones once the relay has the new pair. The connector turns itself off after 30 minutes without use, and the floating ■ stops what Claude is doing.", 12f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
+                "The connector address holds the secret token: keep it private. Making new tokens cuts off the old ones once the relay has the new pair. The connector turns itself off after 30 minutes without use (unless \"Stay on until I turn it off\" is on), and the floating ■ stops what Claude is doing.", 12f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
         })
 
         into.addView(Ui.section(a, "What Claude may do"))
@@ -104,7 +107,7 @@ class SystemPage(private val a: MainActivity) {
                 "• Claude can only tap inside Another Eden.\n" +
                     "• It never buys anything: purchase screens are refused by the app, not just by Claude.\n" +
                     "• Taps on things that can't be undone (sell, discard, release, exchange…) or that mention Chronos Stones ask you first, here on the phone.\n" +
-                    "• The connector is off until you turn it on, and turns itself off after 30 minutes without use. The floating ■ stops what Claude is doing.\n" +
+                    "• The connector is off until you turn it on, and turns itself off after 30 minutes without use unless you chose to keep it on. The floating ■ stops what Claude is doing.\n" +
                     "• Screenshots go through your relay to your Claude chat only while Claude uses the phone, and aren't saved on the phone.", 13f))
         })
 

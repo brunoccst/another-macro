@@ -1,7 +1,7 @@
 # One run of the Dogma Tower Another Dungeon (Present era): every map's enemies first, then
 # every chest by the map's fixed path, then the boss. Stops when the run ends, and says so when a
 # White Key opened the Phantom Crystal Dimension. Never buys keys: a purchase offer stops it.
-# Start it next to the Another Dungeon door in the Spacetime Rift (or inside Dogma Tower).
+# Start it anywhere on the field (it travels to the Spacetime Rift and walks to the door) or inside Dogma Tower.
 name: dogma-tower
 group: dungeon
 icon: chest
