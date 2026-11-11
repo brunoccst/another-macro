@@ -85,8 +85,11 @@ class McpServer(
         }
         return nodes.objectNode().apply {
             set<JsonNode>("content", nodes.arrayNode().apply {
-                if (r.imageJpegB64 != null) add(nodes.objectNode().put("type", "image").put("data", r.imageJpegB64).put("mimeType", "image/jpeg"))
-                else add(nodes.objectNode().put("type", "text").put("text", r.text))
+                if (r.imageJpegB64 != null) {
+                    add(nodes.objectNode().put("type", "image").put("data", r.imageJpegB64).put("mimeType", "image/jpeg"))
+                    // a note about the image (e.g. "all black: the screen is off") goes next to it
+                    if (r.text.isNotBlank()) add(nodes.objectNode().put("type", "text").put("text", r.text))
+                } else add(nodes.objectNode().put("type", "text").put("text", r.text))
             })
             put("isError", r.isError)
         }

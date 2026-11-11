@@ -25,6 +25,7 @@ class InputService : AccessibilityService() {
 
     override fun onServiceConnected() {
         instance = this
+        ScreenWake.init(this)
         MacroLog.i("accessibility service connected (taps enabled)")
         if (MacroService.capture != null) showControls(true)
         // the app was just replaced by an unattended update (Claude or the automatic check): bring it back up
@@ -137,6 +138,23 @@ class InputService : AccessibilityService() {
     @Volatile
     var foreground: String? = null
         private set
+
+    /**
+     * Check which app window really has the focus now and fix [foreground] if a window event was
+     * missed or came late (e.g. the launcher's last window after the game was reopened). Overlays
+     * and this app's own windows don't count.
+     */
+    fun recheckForeground(): String? {
+        val pkg = runCatching {
+            windows.firstOrNull { it.type == android.view.accessibility.AccessibilityWindowInfo.TYPE_APPLICATION && (it.isFocused || it.isActive) }
+                ?.root?.packageName?.toString()
+        }.getOrNull()
+        if (pkg != null && pkg != packageName && pkg !in OVERLAYS && pkg != foreground) {
+            MacroLog.i("in front (window check): $pkg, not $foreground")
+            foreground = pkg
+        }
+        return foreground
+    }
 
     /** Launch (or bring to the front) an app. A bound accessibility service may start activities from the background. */
     fun launchApp(pkg: String): Boolean {
@@ -270,6 +288,27 @@ class InputService : AccessibilityService() {
             if (show && controls == null) controls = ControlsOverlay(this).also { it.show() }
             if (!show) { controls?.hide(); controls = null }
         }
+    }
+
+    /**
+     * Fold (true) or unfold (false) the floating buttons, or leave them as they are (null), and
+     * answer whether they are shown and folded, and the area they cover (screen pixels).
+     * Null when the buttons aren't on screen. Any thread.
+     */
+    fun controls(fold: Boolean? = null): Pair<Boolean, android.graphics.Rect?>? {
+        var out: Pair<Boolean, android.graphics.Rect?>? = null
+        val done = CountDownLatch(1)
+        main.post {
+            runCatching {
+                controls?.let { c ->
+                    if (fold != null && fold != c.folded) c.setFolded(fold)
+                    out = c.folded to c.area()
+                }
+            }
+            done.countDown()
+        }
+        done.await(2, TimeUnit.SECONDS)
+        return out
     }
 
     companion object {

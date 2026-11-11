@@ -537,3 +537,9 @@ Specter Palace:
   place: Specter Palace
   sub: null
   area: null
+Elzion (Gamma District):
+  era: Future
+  continent: Migleina Continent  # learned on the phone (known_places.yaml)
+  place: Elzion
+  sub: Gamma District
+  area: null

@@ -55,6 +55,10 @@ object ClaudeSettings {
     fun relayUrl(c: Context): String = prefs(c).getString("relay_url", "")!!
     fun setRelayUrl(c: Context, url: String) = prefs(c).edit().putString("relay_url", url.trim().trimEnd('/')).apply()
 
+    /** Keep the connector on until the user turns it off (no 30-minute idle switch-off). */
+    fun keepOn(c: Context): Boolean = prefs(c).getBoolean("keep_on", false)
+    fun setKeepOn(c: Context, on: Boolean) = prefs(c).edit().putBoolean("keep_on", on).apply()
+
     fun phoneToken(c: Context): String? = secret(c, "phone_token")
     fun connectorToken(c: Context): String? = secret(c, "connector_token")
 

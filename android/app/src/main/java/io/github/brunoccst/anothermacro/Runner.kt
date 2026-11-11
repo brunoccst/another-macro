@@ -5,6 +5,9 @@ import kotlin.random.Random
 
 class StopScenario(reason: String) : Exception(reason)
 
+/** A macro stops when every frame stays black this long (the screen won't turn on, or capture stopped). */
+const val BLACK_STOP_MS = 120_000L
+
 /**
  * A user-tunable option, given as text (from the app's form or an intent extra).
  * [choices] makes the form show a dropdown; [type] "bool" a checkbox; otherwise a text box.
@@ -40,10 +43,28 @@ class Context(
 
     fun refresh(): Frame {
         frame?.gray?.release()
-        val f = capture.grab() ?: throw StopScenario("no screen capture (allow screen capture first)")
+        frame = null
+        var f = capture.grab() ?: throw StopScenario("no screen capture (allow screen capture first)")
+        if (f.allBlack) {
+            // the screen went off (timeout, power button): turn it on and look again
+            if (ScreenWake.wakeNow()) {
+                f.gray.release()
+                f = capture.grab(1_000) ?: throw StopScenario("no screen capture (allow screen capture first)")
+            }
+        }
+        val now = System.currentTimeMillis()
+        if (!f.allBlack) blackSince = 0L
+        else if (blackSince == 0L) blackSince = now
+        else if (now - blackSince > BLACK_STOP_MS) {
+            f.gray.release()
+            throw StopScenario("the screen stayed black for ${BLACK_STOP_MS / 1000} s: " + ScreenWake.blackReason(ScreenWake.isOn(), capture.frameAgeMs()))
+        }
         frame = f
         return f
     }
+
+    /** Since when every frame was black (0: the last one wasn't). Loading screens are black for a few seconds only. */
+    private var blackSince = 0L
 
     fun find(template: String): Match? = frame?.let { vision.find(it, template) }
 
@@ -319,6 +340,8 @@ object Scenarios {
 object Runner {
     /** How long a macro run inside another ignores the caller's screen still showing (see [runInside]). */
     const val UNTIL_GRACE_MS = 12_000L
+    /** The screen stays on while a macro runs (released when it stops). */
+    private const val MACRO_HOLD_MS = 12 * 3600_000L
     private val stopRequested = AtomicBoolean(false)
     private val running = AtomicBoolean(false)
     private val paused = AtomicBoolean(false)
@@ -405,6 +428,7 @@ object Runner {
         ctx.optionsOf = { n -> ctx.findMacro(n)?.let { resolve(it, MacroParams.load(app, n)) } ?: emptyMap() }
         var reason = "finished"
         InputService.instance?.keepScreenOn(true)
+        ScreenWake.ensureOn("macro", MACRO_HOLD_MS)
         MacroLog.i("running ${scenario.name} with $params")
         MacroLog.status("${scenario.name}: starting")
         try {
@@ -416,6 +440,7 @@ object Runner {
             MacroLog.e("macro crashed", t)
         } finally {
             InputService.instance?.keepScreenOn(false)
+            ScreenWake.release("macro")
             ctx.frame?.gray?.release()
             running.set(false)
             paused.set(false)

@@ -12,8 +12,9 @@ import kotlin.math.abs
  *     cat_spots.yaml has it (CatRoute), else era → find the place's label by OCR,
  *     panning and switching continents as needed → Yes;
  *  3. walk the spot's fixed path to the cat's start (CatRoute), else steer toward the
- *     feather on the area map (party marker vs feather icon);
- *  4. hunt: walk in short steps and tap the cat's feather bubble;
+ *     feather on the area map (party marker vs feather icon); a quest "!" marker can
+ *     hide the feather, so the markers stand in for it when it isn't seen;
+ *  4. hunt: walk in short steps and tap the cat's feather bubble (wider on each retry);
  *  5. back to the book (a cat that ran away leaves a new clue) until all are found.
  */
 object CatDaily {
@@ -23,7 +24,9 @@ object CatDaily {
     private val MAP_BUTTON = Point(0.385, 0.917)
     private val CLOSE = Point(0.88, 0.03)
     private val PANEL_CLOSE = Point(0.825, 0.10) // the X of an island's panel on the world map
-    private val ERA = mapOf("Antiquity" to Point(0.1525, 0.185), "Present" to Point(0.2283, 0.185), "Future" to Point(0.3029, 0.185))
+    // the era tabs' top half: their lower edge (y ~0.18) sits over the map, where a place
+    // label under it takes the tap and opens "Moving to ..." (seen with Moonlight Forest)
+    private val ERA = mapOf("Antiquity" to Point(0.1525, 0.135), "Present" to Point(0.2283, 0.135), "Future" to Point(0.3029, 0.135))
     private val EXPAND = Point(0.844, 0.935)
     // "found" messages that replace a clue once its cat is back home
     private val FOUND = listOf("So, you have returned", "Nya! I did think you would be returning", "You took so long", "I've been beside myself")
@@ -96,19 +99,15 @@ object CatDaily {
             ctx.count("fixed_routes")
             step("following the fixed route to the cat")
             // the cat can be next to the arrival (Ratle: its bubble shows at once): look before moving
-            if (hunt(ctx, walk = {}, tries = 1)) return null
+            if (hunt(ctx, walks = 1, walk = {})) return null
             val range = CatRoute.walk(ctx, spot, fight)
-            if (range != null && hunt(ctx, CatRoute.sweeper(ctx, spot, range, fight), tries = 16)) return null
+            if (range != null && hunt(ctx, walks = 16, walk = CatRoute.sweeper(ctx, spot, range, fight))) return null
             MacroLog.i("${clue.location}: no cat on the fixed route${if (range == null) " (left the path)" else " after sweeping its range"}: steering by the map")
             ctx.count("fixed_route_fallbacks")
         } else {
             MacroLog.i("${clue.location}: no fixed route yet (`another-macro cat-routes --todo`)")
         }
-        return when {
-            !steer(ctx) -> "couldn't walk to the feather on the area map"
-            !hunt(ctx) -> "no cat found near the feather"
-            else -> null
-        }
+        return search(ctx)
     }
 
     /** Places on islands that the Expand view lists apart from the continents (anothereden.wiki/w/Map). */
@@ -219,7 +218,17 @@ object CatDaily {
         return true
     }
 
-    internal fun tapEra(ctx: Context, era: String) { ctx.tap(ERA.getValue(era)); ctx.wait(2.0) }
+    internal fun tapEra(ctx: Context, era: String) {
+        ctx.tap(ERA.getValue(era)); ctx.wait(2.0)
+        // a label under the tab took the tap: say No to the trip it offers
+        val lines = ctx.readText()
+        if (lines.any { it.text.startsWith("Moving to") }) {
+            val no = lines.firstOrNull { Ocr.norm(it.text) == "no" && it.center.y > 0.4 }
+            MacroLog.i("the $era tab tap opened a trip prompt: No")
+            ctx.tap(no?.center ?: Point(0.412, 0.568)); ctx.wait(1.0)
+            ctx.tap(ERA.getValue(era)); ctx.wait(2.0)
+        }
+    }
 
     /** Expand → tap [continent]'s entry (by its text). */
     internal fun openContinent(ctx: Context, continent: String): Boolean {
@@ -349,21 +358,78 @@ object CatDaily {
     }
 
     // --- 3. steer on the area map -------------------------------------------------
-    /** Walk toward the feather shown on the area map (shared map walking: AreaNav). True once close to it. */
-    fun steer(ctx: Context): Boolean {
+    private const val FEATHER_ICON = "templates/cat_scratchbook/map_feather_icon.png"
+
+    /**
+     * Walk to the cat's spot and hunt for its bubble there; null once found, else why not.
+     * The spot is the feather on the area map; when a quest "!" marker hides the feather,
+     * the markers are tried one by one. A walk that doesn't reach the spot still hunts from
+     * where it stopped, and each later pass hunts wider.
+     */
+    fun search(ctx: Context): String? {
+        val ff = FeatherFinder.load(ctx)
+        val tried = ArrayList<Point>()
+        var lastWhy = "no cat found near the feather"
+        for (pass in 0 until 3) {
+            val spot = steer(ctx, tried)
+            if (hunt(ctx, ff, span = 6 + 4 * pass, walks = if (pass == 0) 60 else 40)) return null
+            if (spot == null) return "no feather on the area map and no cat around the arrival"
+            if (spot.second) { tried += spot.first; lastWhy = "no cat at the quest markers that could hide the feather" }
+            else lastWhy = "no cat found near the feather (searched ${pass + 1}x, wider each time)"
+        }
+        return lastWhy
+    }
+
+    /**
+     * Walk toward the cat's spot on the area map (shared map walking: AreaNav).
+     * Returns the spot and whether it is a quest marker standing in for a hidden feather,
+     * or null when the map shows neither (the hunt then starts where the party stands).
+     */
+    fun steer(ctx: Context, skip: List<Point> = emptyList()): Pair<Point, Boolean>? {
         step("walking toward the feather on the area map")
-        return AreaNav.steer(ctx, look = {
+        var spot: Pair<Point, Boolean>? = null
+        val reached = AreaNav.steer(ctx, look = {
             // right after a trip the map may not open yet (area banner, fade-in): try a few times
             var view: AreaNav.View? = null
             for (attempt in 1..3) {
-                val v = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png").take(1) }
-                if (v.targets.isNotEmpty()) { view = v; break }
+                var underMarker = false
+                val v = AreaNav.look(ctx) { f ->
+                    val (p, m) = catSpot(ctx, f, skip)
+                    underMarker = m
+                    listOfNotNull(p)
+                }
+                if (v.targets.isNotEmpty()) { view = v; spot = v.targets.first() to underMarker; break }
                 MacroLog.i("feather not seen on the area map (try $attempt/3)")
                 ctx.wait(2.5)
             }
             if (view == null) MacroLog.i("no feather on this map")
             view
         }, target = { it.targets.firstOrNull() }, onStep = { fightIfBattle(ctx) })
+        if (spot != null && !reached) MacroLog.i("couldn't reach the spot on the area map; hunting from here")
+        return spot
+    }
+
+    /**
+     * Where the cat is on the open area map: the feather icon; else a feather partly hidden
+     * by a quest "!" marker (a weaker match right by one); else a quest marker not tried yet
+     * (true: it only may hide the feather).
+     */
+    private fun catSpot(ctx: Context, f: Frame, skip: List<Point>): Pair<Point?, Boolean> {
+        AreaNav.findIcons(ctx, f, FEATHER_ICON).firstOrNull()?.let { return it to false }
+        val bgr = ctx.colorMat() ?: return null to false
+        val markers = AreaNav.findQuestMarkers(bgr)
+        bgr.release()
+        if (markers.isEmpty()) return null to false
+        fun near(a: Point, b: Point) = abs(a.x - b.x) < 0.045 && abs(a.y - b.y) < 0.07
+        val partial = AreaNav.findIcons(ctx, f, FEATHER_ICON, min = 0.5).firstOrNull { p -> markers.any { near(it, p) } }
+        if (partial != null) {
+            MacroLog.i("feather partly hidden by a quest marker at (${"%.2f".format(partial.x)}, ${"%.2f".format(partial.y)})")
+            return partial to false
+        }
+        val left = markers.filter { m -> skip.none { near(it, m) } }
+        val m = left.firstOrNull() ?: return null to false
+        MacroLog.i("feather not seen; ${markers.size} quest marker(s) could hide it, trying the one at (${"%.2f".format(m.x)}, ${"%.2f".format(m.y)})")
+        return m to true
     }
 
     private fun glide(ctx: Context, dx: Double, dy: Double, ms: Long) =
@@ -371,17 +437,18 @@ object CatDaily {
 
     // --- 4. hunt -------------------------------------------------------------------
     /**
-     * Walk in short steps around here and tap the feather bubble; true once the book opens (found).
-     * [walk] (i-th walk) replaces the pulses left and right, e.g. CatRoute's sweep of the cat's drift range.
+     * Walk in short steps around here, up to [span] steps either side, and tap the feather
+     * bubble; true once the book opens (found). [walk] (i-th walk) replaces the pulses left
+     * and right, e.g. CatRoute's sweep of the cat's drift range.
      */
-    fun hunt(ctx: Context, walk: ((Int) -> Unit)? = null, tries: Int = 60): Boolean {
-        val ff = FeatherFinder.load(ctx)
+    fun hunt(ctx: Context, ff: FeatherFinder = FeatherFinder.load(ctx), span: Int = 6, walks: Int = 60,
+             walk: ((Int) -> Unit)? = null): Boolean {
         var dir = -1.0
         var pos = 0
         var taps = 0
         step("looking for the cat's feather bubble")
-        repeat(tries) { i ->
-            progress("looking for the cat's feather bubble (walk ${i + 1}/$tries${if (taps > 0) ", $taps taps" else ""})")
+        repeat(walks) { i ->
+            progress("looking for the cat's feather bubble (walk ${i + 1}/$walks${if (taps > 0) ", $taps taps" else ""})")
             fightIfBattle(ctx) // first: it takes its own screenshots
             var f1 = ctx.refresh()
             if (ctx.find("scratchbook_header") != null) return collect(ctx)
@@ -404,12 +471,12 @@ object CatDaily {
                 return@repeat
             }
             if (walk != null) { walk(i); ctx.wait(0.4); return@repeat }
-            if (abs(pos + dir) > 6) dir = -dir
+            if (abs(pos + dir) > span) dir = -dir
             glide(ctx, dir, 0.0, 300)
             pos += dir.toInt()
             ctx.wait(0.4)
         }
-        MacroLog.i("no feather bubble near the cat's spot after 60 walks ($taps taps)")
+        MacroLog.i("no feather bubble within $span steps of here after $walks walks ($taps taps)")
         return false
     }
 

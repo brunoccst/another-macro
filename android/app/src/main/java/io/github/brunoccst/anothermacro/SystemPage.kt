@@ -29,6 +29,9 @@ class SystemPage(private val a: MainActivity) {
     private lateinit var connectorButton: TextView
     private lateinit var updateInfo: TextView
     private lateinit var updateButton: TextView
+    private lateinit var updateBar: android.widget.ProgressBar
+    private lateinit var updateProgress: TextView
+    private val progressListener: (Updater.Progress) -> Unit = { showProgress(it) }
     private lateinit var log: TextView
     private var available: Updater.Release? = null
     private val logListener: (String) -> Unit = { text -> if (::log.isInitialized) log.text = text }
@@ -81,6 +84,9 @@ class SystemPage(private val a: MainActivity) {
             addView(connectorStatus)
             connectorButton = Ui.button(a, "Turn on", primary = true) { toggleConnector() }
             addView(connectorButton)
+            addView(switchRow("Stay on until I turn it off",
+                "Off: the connector turns itself off after 30 minutes without use. On: it stays on (and reconnects by itself) until you press Turn off.",
+                ClaudeSettings.keepOn(a)) { ClaudeSettings.setKeepOn(a, it); refreshConnector() }.apply { setPadding(0, dp(8), 0, 0) })
             addView(Ui.text(a, "Relay address", 15f, bold = true).apply { setPadding(0, dp(10), 0, 0) })
             addView(field("https://another-macro.<you>.workers.dev").apply {
                 inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_URI
@@ -95,7 +101,7 @@ class SystemPage(private val a: MainActivity) {
             addView(Ui.button(a, "Copy connector address (for claude.ai)") { copyConnectorAddress() })
             addView(Ui.button(a, "Relay setup guide") { a.openUrl(ClaudeSettings.RELAY_GUIDE) })
             addView(Ui.text(a,
-                "The connector address holds the secret token: keep it private. Making new tokens cuts off the old ones once the relay has the new pair. The connector turns itself off after 30 minutes without use, and the floating ■ stops what Claude is doing.", 12f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
+                "The connector address holds the secret token: keep it private. Making new tokens cuts off the old ones once the relay has the new pair. The connector turns itself off after 30 minutes without use (unless \"Stay on until I turn it off\" is on), and the floating ■ stops what Claude is doing.", 12f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
         })
 
         into.addView(Ui.section(a, "What Claude may do"))
@@ -104,7 +110,7 @@ class SystemPage(private val a: MainActivity) {
                 "• Claude can only tap inside Another Eden.\n" +
                     "• It never buys anything: purchase screens are refused by the app, not just by Claude.\n" +
                     "• Taps on things that can't be undone (sell, discard, release, exchange…) or that mention Chronos Stones ask you first, here on the phone.\n" +
-                    "• The connector is off until you turn it on, and turns itself off after 30 minutes without use. The floating ■ stops what Claude is doing.\n" +
+                    "• The connector is off until you turn it on, and turns itself off after 30 minutes without use unless you chose to keep it on. The floating ■ stops what Claude is doing.\n" +
                     "• Screenshots go through your relay to your Claude chat only while Claude uses the phone, and aren't saved on the phone.", 13f))
         })
 
@@ -125,6 +131,17 @@ class SystemPage(private val a: MainActivity) {
         into.addView(Ui.card(a).apply {
             updateInfo = Ui.text(a, "", 13f, Ui.MUTED)
             addView(updateInfo)
+            // download / install progress (also in a notification and on the live log)
+            updateBar = android.widget.ProgressBar(a, null, android.R.attr.progressBarStyleHorizontal).apply {
+                max = 100
+                progressTintList = android.content.res.ColorStateList.valueOf(Ui.ACCENT)
+                indeterminateTintList = android.content.res.ColorStateList.valueOf(Ui.ACCENT)
+                progressBackgroundTintList = android.content.res.ColorStateList.valueOf(Ui.LINE)
+                visibility = View.GONE
+            }
+            addView(updateBar, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(10)).apply { topMargin = dp(10) })
+            updateProgress = Ui.text(a, "", 12.5f, Ui.TEXT).apply { visibility = View.GONE }
+            addView(updateProgress)
             updateButton = Ui.button(a, "Check for updates") { onUpdateButton() }
             addView(updateButton)
         })
@@ -198,11 +215,25 @@ class SystemPage(private val a: MainActivity) {
         log.text = MacroLog.text()
         refreshConnector()
         checkForUpdates(automatic = true)
+        Updater.progressListeners += progressListener
+        Updater.progress?.let { showProgress(it) }
     }
 
     fun onPause() {
         MacroLog.unlisten(logListener)
         PhoneConnector.listeners -= connectorListener
+        Updater.progressListeners -= progressListener
+    }
+
+    /** The bar under the update text: how far the download is, then a moving bar while Android installs. */
+    private fun showProgress(p: Updater.Progress) {
+        updateProgress.visibility = View.VISIBLE
+        updateProgress.text = if (p.percent >= 0 && p.active) "${p.text} · ${p.percent}%" else p.text
+        updateProgress.setTextColor(if (p.active) Ui.TEXT else Ui.MUTED)
+        updateBar.visibility = if (p.active) View.VISIBLE else View.GONE
+        updateBar.isIndeterminate = p.percent < 0
+        if (p.percent >= 0) updateBar.progress = p.percent
+        updateButton.isEnabled = !p.active
     }
 
     fun refreshSetup(taps: Boolean, capture: Boolean) {
@@ -310,7 +341,7 @@ class SystemPage(private val a: MainActivity) {
         Thread {
             val result = runCatching { Updater.downloadAndInstall(a, r) }
             a.runOnUiThread {
-                updateButton.isEnabled = true
+                updateButton.isEnabled = Updater.progress?.active != true
                 result.onSuccess { updateInfo.text = "Installing ${r.version}: confirm with Update if Android asks." }
                     .onFailure { updateInfo.text = "Update failed: ${it.message}" }
             }
@@ -334,7 +365,7 @@ class SystemPage(private val a: MainActivity) {
         Thread {
             val result = runCatching { Updater.update(a, branch, userStarted = true) }
             a.runOnUiThread {
-                updateButton.isEnabled = true
+                updateButton.isEnabled = Updater.progress?.active != true
                 result.onSuccess { updateInfo.text = it.replaceFirstChar { c -> c.uppercase() } + "." }
                     .onFailure { updateInfo.text = "Update failed: ${it.message}" }
             }

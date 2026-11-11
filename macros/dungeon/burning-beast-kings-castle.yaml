@@ -1,8 +1,8 @@
 # One run of the Burning Beast King's Castle Another Dungeon (Present era, Parallel Time Layer):
 # every map's enemies first (until "The enemies have disappeared"), then every chest by the map's fixed path, then the boss.
 # Stops when the run ends, and says so when a White Key opened the Phantom Crystal Dimension.
-# Never buys keys: a purchase offer stops it. Start it next to the Another Dungeon door in the
-# Spacetime Rift (or inside the castle).
+# Never buys keys: a purchase offer stops it. Start it anywhere on the field: away from the Another
+# Dungeon door it travels to the Spacetime Rift and walks to the door (or start inside the castle).
 name: burning-beast-kings-castle
 group: dungeon
 icon: chest
