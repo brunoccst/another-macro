@@ -229,7 +229,9 @@ object AnotherDungeon {
                     r.pos = null; r.planPos = null
                     r.order = chestOrder(spec.maps[idx].shifted(r.shift), party)
                 }
-                r.map = idx; r.chestsDone = 0; r.cleared = !spec.maps[idx].enemies
+                // clear_first off: no grinding; the path is walked at once and the battles on the way are
+                // fought where they come (the walk reads its spot on the area map after each one)
+                r.map = idx; r.chestsDone = 0; r.cleared = !spec.maps[idx].enemies || !clearFirst(ctx)
                 r.onBossMap = spec.maps[idx].boss
                 r.chestsTotal += spec.maps[idx].chests.size.takeIf { it > 0 } ?: spec.maps[idx].chestsCount
                 task(r, "Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
@@ -952,6 +954,9 @@ object AnotherDungeon {
     }
 
     /** "The enemies have disappeared" in normalized OCR text (also when OCR splits or clips the line). */
+    /** Fight every map until "The enemies have disappeared" before its chests (the default), or not. */
+    private fun clearFirst(ctx: Context) = ctx.params["clear_first"]?.trim()?.lowercase()?.let { it in setOf("1", "true", "yes", "on", "y") } ?: true
+
     internal fun noEnemiesLeft(text: String) = "disappear" in text
 
     /** Where "The enemies have disappeared" shows: the top middle (kept wide: its exact spot is not measured). */
