@@ -135,7 +135,8 @@ object AreaNav {
             flick(ctx, up)
             onStep()
         }
-        return true
+        // out of tries: not there (the caller decides whether to search from here anyway)
+        return false
     }
 
     fun hold(ctx: Context, dir: Double, mapDist: Double) {
@@ -187,6 +188,36 @@ object AreaNav {
         }
         listOf(hsv, mask, labels, stats, cents).forEach { it.release() }
         if (found.isEmpty()) MacroLog.i("map blobs (${bgr.cols()}x${bgr.rows()}): ${seen.joinToString(" ")}")
+        return found.sortedByDescending { it.first }.map { it.second }
+    }
+
+    /**
+     * Quest "!" markers on the area map: green badges. One can sit on top of another icon
+     * (e.g. the cat's feather) and hide it. Biggest first; the side buttons are left out.
+     */
+    fun findQuestMarkers(bgr: Mat): List<Point> {
+        val hsv = Mat(); Imgproc.cvtColor(bgr, hsv, Imgproc.COLOR_BGR2HSV)
+        val mask = Mat(); Core.inRange(hsv, Scalar(40.0, 110.0, 110.0), Scalar(85.0, 255.0, 255.0), mask)
+        Imgproc.morphologyEx(mask, mask, Imgproc.MORPH_CLOSE, Mat.ones(5, 5, org.opencv.core.CvType.CV_8U))
+        val labels = Mat(); val stats = Mat(); val cents = Mat()
+        val n = Imgproc.connectedComponentsWithStats(mask, labels, stats, cents)
+        val w = bgr.cols().toDouble(); val h = bgr.rows().toDouble()
+        val found = ArrayList<Pair<Double, Point>>()
+        for (k in 1 until n) {
+            val bw = stats.get(k, Imgproc.CC_STAT_WIDTH)[0] / w
+            val bh = stats.get(k, Imgproc.CC_STAT_HEIGHT)[0] / h
+            val area = stats.get(k, Imgproc.CC_STAT_AREA)[0]
+            val cx = cents.get(k, 0)[0] / w
+            val cy = cents.get(k, 1)[0] / h
+            // a badge a few % of the screen, roughly as tall as wide (in screen units), not a long line
+            if (bw < 0.008 || bw > 0.06 || bh < 0.015 || bh > 0.13) continue
+            val aspect = (bw * w) / (bh * h)
+            if (aspect < 0.35 || aspect > 1.6) continue
+            if (area < 0.35 * bw * w * bh * h) continue // mostly filled, not a ring of grass
+            if (cx > 0.93 || cy < 0.08 || cy > 0.92) continue
+            found += area to Point(cx, cy)
+        }
+        listOf(hsv, mask, labels, stats, cents).forEach { it.release() }
         return found.sortedByDescending { it.first }.map { it.second }
     }
 

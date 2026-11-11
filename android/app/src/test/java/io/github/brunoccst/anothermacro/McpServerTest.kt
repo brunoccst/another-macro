@@ -20,7 +20,7 @@ class McpServerTest {
     ) { name, args ->
         calls += name to args
         when (name) {
-            "screenshot" -> ToolResult("screenshot", "AAAA")
+            "screenshot" -> ToolResult(if (args["dark"] == true) "WARNING: this frame is ALL BLACK" else "", "AAAA")
             "tap" -> if (args["x"] == 999) ToolResult("Refused by the app: shop", isError = true) else ToolResult("OK")
             else -> throw IllegalStateException("boom")
         }
@@ -58,6 +58,12 @@ class McpServerTest {
         assertEquals("image/jpeg", shot["content"][0]["mimeType"].asText())
         assertEquals("AAAA", shot["content"][0]["data"].asText())
         assertFalse(shot["isError"].asBoolean())
+        assertEquals(1, shot["content"].size()) // a plain screenshot: the image alone
+
+        // a note about the image (an all-black frame) comes next to it
+        val dark = ask("""{"jsonrpc":"2.0","id":9,"method":"tools/call","params":{"name":"screenshot","arguments":{"dark":true}}}""")["result"]
+        assertEquals("image", dark["content"][0]["type"].asText())
+        assertEquals("WARNING: this frame is ALL BLACK", dark["content"][1]["text"].asText())
 
         val ok = ask("""{"jsonrpc":"2.0","id":4,"method":"tools/call","params":{"name":"tap","arguments":{"x":10,"y":20}}}""")["result"]
         assertEquals("OK", ok["content"][0]["text"].asText())

@@ -43,6 +43,9 @@ object ClaudeSafety {
 
     /** Check a tap (or the start of a swipe) at [p], with the text on screen now. */
     fun check(ctx: Context, p: Point): Verdict {
+        // a blind tap on a black frame could land on anything
+        if (ctx.frame?.allBlack == true) return Verdict.Refuse("the screen capture is all black, so the tap can't be checked: " +
+            "call wake_screen, then screenshot")
         if (!gameInFront(ctx)) return Verdict.Refuse("Another Eden is not in front (${ctx.foreground ?: "unknown app"}); use launch_game first")
         return judge(ctx.readText(), p)
     }

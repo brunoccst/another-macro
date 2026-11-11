@@ -118,6 +118,27 @@ class ControlsOverlay(private val service: InputService) {
         runCatching { wm.removeView(root) }
     }
 
+    /** Whether the buttons are folded away (only the ≡ handle shows). Main thread. */
+    val folded: Boolean get() = buttons.visibility != View.VISIBLE
+
+    /**
+     * Fold the buttons down to the handle, or unfold them: for Claude (the connector's
+     * floating_controls tool, and before a tap the unfolded window would swallow). Main thread.
+     */
+    fun setFolded(fold: Boolean) {
+        if (fold) picker.visibility = View.GONE
+        buttons.visibility = if (fold) View.GONE else View.VISIBLE
+        relayout()
+    }
+
+    /** The window's area on the screen in screen pixels (taps there reach these buttons, not the game). Main thread. */
+    fun area(): android.graphics.Rect? {
+        if (!root.isAttachedToWindow || root.width == 0) return null
+        val at = IntArray(2)
+        root.getLocationOnScreen(at)
+        return android.graphics.Rect(at[0], at[1], at[0] + root.width, at[1] + root.height)
+    }
+
     private fun start() {
         val last = LastRun.load(service)
         if (last == null) {
