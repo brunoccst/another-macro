@@ -98,7 +98,7 @@ class SystemPage(private val a: MainActivity) {
             addView(Ui.button(a, "Copy connector address (for claude.ai)") { copyConnectorAddress() })
             addView(Ui.button(a, "Relay setup guide") { a.openUrl(ClaudeSettings.RELAY_GUIDE) })
             addView(Ui.text(a,
-                "The connector address holds the secret token: keep it private. Making new tokens cuts off the old ones once the relay has the new pair. The connector turns itself off after 30 minutes without use (unless "Stay on until I turn it off" is on), and the floating ■ stops what Claude is doing.", 12f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
+                "The connector address holds the secret token: keep it private. Making new tokens cuts off the old ones once the relay has the new pair. The connector turns itself off after 30 minutes without use (unless \"Stay on until I turn it off\" is on), and the floating ■ stops what Claude is doing.", 12f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
         })
 
         into.addView(Ui.section(a, "What Claude may do"))
