@@ -50,6 +50,8 @@ object AnotherDungeon {
     private const val BUBBLE = "field_interact_bubble"
     /** The bubble's inside only, for bright or busy backgrounds (the Throne Room's light pillar and fires). */
     private const val BUBBLE_CORE = "field_interact_bubble_core"
+    /** How far the party walks each way while clearing a map's enemies (area-map units). */
+    private const val GRIND_SPAN = 0.09
 
     /** Words that mean the game wants something bought: never tap on, cancel and stop. */
     private val PURCHASE_WORDS = listOf("purchase", "chronos stone", "tsubura", "insufficient", "not enough")
@@ -121,6 +123,8 @@ object AnotherDungeon {
         var nextMap: Int? = null
         /** The followed position is unsure (a chest was looked for around its spot): read it on the map before the next leg. */
         var unsure = false
+        /** A BannerWatch is reading the whole screen for "the enemies have disappeared" (no extra look after a win needed). */
+        var watching = false
         /** The direction of the last walk on the path (+1 right, -1 left): a chest is looked for that way first. */
         var lastDir = 0.0
     }
@@ -406,7 +410,7 @@ object AnotherDungeon {
         val difficulty = if (red) "Very Hard" else "Hard"
         if (!waitForField(ctx)) ctx.stop("not on the field: start next to the Another Dungeon door in the Spacetime Rift")
         task(r, "Entering ${r.spec.name} ($difficulty)")
-        val door = ctx.find(BUBBLE) ?: ctx.stop("no \"!\" over the Another Dungeon door: start next to it (Spacetime Rift)")
+        val door = doorBubble(ctx) ?: toRiftDoor(r) ?: ctx.stop("no \"!\" over the Another Dungeon door: start next to it (Spacetime Rift)")
         ctx.tap(door); ctx.wait(2.5)
         // the map fades in: give it a few reads
         var opened = false
@@ -493,6 +497,51 @@ object AnotherDungeon {
      * half hidden under the era icons at the top right ("Dogma TovSealed") or cut by the left edge
      * ("lel Time Layer"): then drag what shows of it (else the map) toward the middle and look again.
      */
+    /** The "!" over the Another Dungeon door, not too far from the party (a "!" over a tree NPC sits higher). */
+    private fun doorBubble(ctx: Context): Point? =
+        ctx.find(BUBBLE)?.center?.takeIf { it.y > DOOR_MIN_Y }
+
+    /**
+     * Not next to the door: World Map → "???" → Spacetime Rift → Yes, then walk left from the
+     * arrival point until the door's "!" shows near the middle. Null if that didn't work.
+     */
+    private fun toRiftDoor(r: Run): Point? {
+        val ctx = r.ctx
+        task(r, "Going to the Another Dungeon door (Spacetime Rift)")
+        var opened = false
+        for (attempt in 1..3) {
+            ctx.tap(MAP_BUTTON); ctx.wait(2.5)
+            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
+            waitForField(ctx, 5)
+        }
+        if (!opened) return null.also { MacroLog.i("the world map didn't open") }
+        ctx.tap(ERA_OTHER); ctx.wait(2.0)
+        if (tapText(r, "Spacetime Rift") == null) {
+            MacroLog.i("no Spacetime Rift on the map: ${seen(ctx)}")
+            ctx.tap(AD_CLOSE); ctx.wait(1.5)
+            return null
+        }
+        ctx.wait(1.5)
+        val yes = ctx.readText().firstOrNull { Ocr.norm(it.text) == "yes" && it.center.y > 0.4 }
+        if (yes != null) {
+            ctx.tapExact(yes.center)
+            if (!waitForField(ctx, 30)) return null.also { MacroLog.i("the field didn't come back after the trip") }
+        } else {
+            // already in the Rift: the map just closes
+            ctx.tap(AD_CLOSE); ctx.wait(1.5)
+            waitForField(ctx, 5)
+        }
+        ctx.wait(1.0)
+        // the door is a short walk left of the arrival point
+        repeat(16) {
+            ctx.refresh()
+            doorBubble(ctx)?.let { if (it.x in 0.25..0.75) { MacroLog.i("at the Another Dungeon door"); return it } }
+            ctx.drag(Point(0.5, 0.65), Point(0.4, 0.65), RIFT_STEP_MS)
+            ctx.wait(0.5)
+        }
+        return null.also { MacroLog.i("walked left in the Rift and found no door \"!\"") }
+    }
+
     private fun mapLabel(r: Run, wants: Array<String>, maxX: Double): Ocr.Line? {
         val ctx = r.ctx
         tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 2)?.let { return it }
@@ -777,6 +826,13 @@ object AnotherDungeon {
         // a chest found while looking around a map without a layout
         if (Ocr.norm(text).contains("obtained") && r.spec.maps.getOrNull(r.map)?.layout == null) ctx.count("chests")
         if (bossGate(r)) { fight(r); return true }
+        // a chest's "Obtained ...": close it and go on as soon as the field is back (a battle check
+        // on the banner itself waits ~5 s for a battle that isn't coming)
+        if ("obtained" in Ocr.norm(text)) {
+            ctx.tap(Point(0.5, 0.75)); ctx.wait(0.5)
+            if (!waitForField(ctx, 6)) fight(r)
+            return true
+        }
         if (fight(r)) return true // the boss (or a guard) behind it
         ctx.tap(Point(0.5, 0.75)); ctx.wait(1.2)
         waitForField(ctx, 6)
@@ -837,7 +893,8 @@ object AnotherDungeon {
         // on a path: back and forth between two spots of this street, so the position stays known
         val l = ms.layout
         val seg = r.pos?.let { p -> l?.let { Route.segOf(it, p) } }
-        val span = r.pos?.let { p -> seg?.let { s -> if (s.x2 - p.x >= p.x - s.x1) p.x to minOf(s.x2, p.x + 0.05) else maxOf(s.x1, p.x - 0.05) to p.x } }
+        // (longer one-way walks start encounters sooner than many short turns)
+        val span = r.pos?.let { p -> seg?.let { s -> if (s.x2 - p.x >= p.x - s.x1) p.x to minOf(s.x2, p.x + GRIND_SPAN) else maxOf(s.x1, p.x - GRIND_SPAN) to p.x } }
         // "The enemies have disappeared" shows for a moment, often while the party walks or the game
         // autosaves: watch the whole screen for it all along, beside the walking and fighting
         BannerWatch(r).use { watch ->
@@ -876,13 +933,15 @@ object AnotherDungeon {
             }
         }.apply { isDaemon = true; name = "banner-watch"; start() }
 
+        init { r.watching = true }
+
         /** True (and the map marked cleared) once the banner was seen. */
         fun check(): Boolean {
             if (seen && !r.cleared) { MacroLog.i("the enemies have disappeared"); r.cleared = true; r.ctx.count("maps_cleared") }
             return r.cleared
         }
 
-        override fun close() { done = true; worker.interrupt(); runCatching { worker.join(2000) } }
+        override fun close() { r.watching = false; done = true; worker.interrupt(); runCatching { worker.join(2000) } }
     }
 
     /** "The enemies have disappeared" in normalized OCR text (also when OCR splits or clips the line). */
@@ -1015,7 +1074,7 @@ object AnotherDungeon {
                 // look here (while a map is cleared, BannerWatch keeps looking as the party walks on)
                 val end = System.currentTimeMillis() + 1000
                 val seen = LinkedHashSet<String>()
-                while (!r.cleared && !r.bossBeaten && System.currentTimeMillis() < end) readAfterWin(r, quick = true).takeIf { it.isNotBlank() }?.let { seen += it }
+                while (!r.watching && !r.cleared && !r.bossBeaten && System.currentTimeMillis() < end) readAfterWin(r, quick = true).takeIf { it.isNotBlank() }?.let { seen += it }
                 // for tuning the banner's spot and timing: what the top of the screen said meanwhile
                 if (!r.cleared && !r.onBossMap && seen.isNotEmpty()) MacroLog.i("top after the win: ${seen.joinToString(" | ").take(160)}")
                 if (r.bossBeaten) checkPhantom(r)
@@ -1093,6 +1152,11 @@ object AnotherDungeon {
     }
 
     private val AD_CLOSE = Point(0.88, 0.03)
+    private val MAP_BUTTON = Point(0.385, 0.917)
+    /** The World Map's "???" tab (Spacetime Rift, Nopaew Emporium, ...). */
+    private val ERA_OTHER = Point(0.379, 0.17)
+    private const val DOOR_MIN_Y = 0.13
+    private const val RIFT_STEP_MS = 350L
 
     private fun readPhantom(r: Run, lines: List<Ocr.Line>) {
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
@@ -1146,7 +1210,7 @@ object AnotherDungeon {
             ctx.refresh()
             if (ctx.find("field_menu_button") != null) return true
             if (Battle.inBattle(ctx)) return false
-            ctx.wait(1.0)
+            ctx.wait(0.3)
         }
         return false
     }

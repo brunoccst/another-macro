@@ -33,7 +33,9 @@ object ClaudeSafety {
     private val PREMIUM_ANYWHERE = listOf("chronos stone", "tsubura", "paid stone")
 
     fun gameInFront(ctx: Context): Boolean {
-        val fg = ctx.foreground
+        var fg = ctx.foreground
+        // a missed window event can leave another app (often the launcher) as "in front": look again
+        if (fg != null && fg != GAME) fg = InputService.instance?.recheckForeground() ?: fg
         if (fg != null) return fg == GAME
         val f = ctx.frame ?: return false
         return !f.portraitAppInFront
