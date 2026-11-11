@@ -552,7 +552,9 @@ object AnotherDungeon {
             val part = ctx.readText().firstOrNull { l -> val t = Ocr.norm(l.text); words.isNotEmpty() && words.count { it in t } >= (words.size + 1) / 2 }
             MacroLog.i("${wants.first()} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
             if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
-            else ctx.drag(Point(0.49, 0.65), Point(0.29, 0.82), 700)
+            // from open sea: a drag that starts on the islands in the middle (0.49, 0.65) doesn't pan
+            // the Present map (seen 2026-11-11); this one moves it about a third of the screen left
+            else ctx.drag(Point(0.6, 0.43), Point(0.25, 0.5), 700)
             ctx.wait(1.2)
             tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 1)?.let { return it }
         }
