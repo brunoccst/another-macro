@@ -723,8 +723,9 @@ object AnotherDungeon {
             if (abs(d) < t.minWalk) return
             r.lastDir = if (d > 0) 1.0 else -1.0
             p = Route.hold(ctx, l, t, p, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
-            // a battle the hold didn't see (it came anyway): where the party stopped is unknown, read it and walk the rest
-            repeat(2) {
+            // a battle the hold didn't see (it came anyway): where the party stopped is unknown, read it and walk the rest.
+            // Walking straight to the chests (clear_first off) a long hold can be cut by 3-4 battles in a row
+            repeat(6) {
                 if (!Route.unseen) return
                 Route.unseen = false
                 if (!resync("a battle came during the hold", x)) return
