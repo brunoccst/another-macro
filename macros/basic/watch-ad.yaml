@@ -12,10 +12,9 @@
 #   - the game's reward dialog (or the premium thank-you): tap OK / Close and stop
 #   - the caller's own screen back (its `until:`): stop there
 #   - a commercial that opens a Google Play app sheet by itself (often ~45 s in): Back closes the
-#     sheet (never tap anything in Play: no installs, no purchases), then a tap on the commercial's
-#     own close X (top right) ends it and the game's reward shows
-# Never taps inside a commercial, except its close X right after its Play sheet was closed:
-# otherwise only Back closes it.
+#     sheet (never tap anything in Play: no installs, no purchases), then the usual Backs close the
+#     commercial behind it (tapping its X only pulled down the status bar)
+# Never taps inside a commercial: only Back closes it.
 name: watch-ad
 group: basic
 icon: chest
@@ -26,14 +25,12 @@ params:
   retry_s: {default: 15, help: "after a Back that didn't end it (or the next commercial in a row), press Back again after this long"}
   max_backs: {default: 10, help: "give up after this many Backs (a group of up to 3 commercials takes a few each)"}
   field_s: {default: 5, help: "stop once the field has shown this long (a short field between two commercials of a group doesn't count)"}
-  close_x: {default: 0.969, help: "where the commercial's close X is, across (0..1), tapped after its Google Play sheet was closed"}
-  close_y: {default: 0.067, help: "where the commercial's close X is, down (0..1)"}
   max_play: {default: 6, help: "give up after closing this many Google Play sheets"}
 screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, close_app, field]
 unknown_timeout_s: 300
 
 setup:
-  - set: {since: now(), backs: 0, tries: 0, last_back: 0, granted: false, ads: 1, field_since: 0, ad_seen: false, gone_since: 0, plays: 0, play_back: 0, play_closed: 0, x_taps: 0}
+  - set: {since: now(), backs: 0, tries: 0, last_back: 0, granted: false, ads: 1, field_since: 0, ad_seen: false, gone_since: 0, plays: 0, play_back: 0}
   - status: "watching the commercial (closing it after {ad_wait_s}s)"
 
 handlers:
@@ -79,31 +76,24 @@ handlers:
 unknown:
   - set: {field_since: 0}
   # the commercial opened a Google Play app sheet by itself: it is still behind it, so this is not
-  # the end of the group. Back closes the sheet; never tap in Play (no installs, no purchases)
-  - if: play_in_front()
+  # the end of the group. Back closes the sheet; never tap in Play (no installs, no purchases).
+  # Play in front = not the commercial's activity, and the sheet says "Install" (the game's own
+  # screens never do; a commercial's own end card does, but then the commercial is in front)
+  - if: not ad_in_front() and text_has('install')
     then:
       - set: {ad_seen: true, gone_since: 0}
       - if: now() - play_back > 4
         then:
           - if: plays >= max_play
             then: [{stop: "the commercials kept opening Google Play ({plays} times): closed it, stopping"}]
-          - set: {plays: plays + 1, play_back: now(), play_closed: now(), x_taps: 0}
+          # the commercial is back behind it: the usual Back closes it a few seconds later
+          - set: {plays: plays + 1, play_back: now(), since: now() - ad_wait_s + 5, tries: 0}
           - count: play_sheets_closed
           - log: "commercial {ads} opened a Google Play sheet: pressing Back to close it (nothing tapped in Play)"
           - status: "closing the Google Play sheet a commercial opened"
           - back: true
       - wait: 2
     else:
-      # its Play sheet just closed and the commercial is back: tap its own close X (top right), then
-      # once more if it is still up; the usual Backs below take over after that
-      - if: play_closed > 0 and ad_in_front() and x_taps < 2 and now() - play_closed > 1.5 + x_taps * 4
-        then:
-          # (and the usual Back only 6 s later, if the X didn't end it)
-          - set: {x_taps: x_taps + 1, since: now() - ad_wait_s + 6, tries: 0}
-          - count: ad_x_taps
-          - log: "closing commercial {ads} with its X after its Google Play sheet ({x_taps}/2)"
-          - tap: {x: close_x, y: close_y}
-          - wait: 2
       # the app sees which activity is in front: a commercial is an activity of its own, so once
       # one was seen, the game's own activity back for a few seconds = the group is over (the
       # caller goes on: the chest, the shop, ...)

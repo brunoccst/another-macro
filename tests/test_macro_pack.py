@@ -59,14 +59,15 @@ def _flat(acts):
 
 def test_watch_ad_closes_google_play_sheet():
     # a commercial can open a Google Play app sheet by itself: watch-ad must not take that for the
-    # end of the commercials, close it with Back only (never a tap while Play is in front), then
-    # tap the commercial's own close X
+    # end of the commercials, close it with Back only (never a tap while Play is in front); only
+    # functions every app build has (the pack reaches older apps too)
     _, spec = macro_pack.macros()["watch-ad"]
-    play = [a for a in spec["unknown"] if a.get("if") == "play_in_front()"]
+    play = [a for a in spec["unknown"] if "install" in str(a.get("if", ""))]
     assert play, "watch-ad has no Google Play step"
     in_play = list(_flat(play[0]["then"]))
     assert any(a.get("back") for a in in_play)
     assert not any("tap" in a or "tap_exact" in a for a in in_play)
+    assert "play_in_front" not in str(spec)
     after = list(_flat(play[0]["else"]))
-    assert any(isinstance(a.get("tap"), dict) for a in after)
+    assert not any("tap" in a or "tap_exact" in a for a in after)
     assert any("commercials are over" in str(a.get("stop", "")) for a in after)
