@@ -548,15 +548,19 @@ object AnotherDungeon {
         val ctx = r.ctx
         tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 2)?.let { return it }
         val words = Ocr.norm(wants.first()).split(" ").filter { it.length >= 4 }
-        // a few drags: the first blind one can bring the label in only at the right edge, under
-        // this app's floating buttons ("Dogma Towe" at x 0.93); then drag what shows to the middle
-        for (attempt in 1..3) {
+        // a few drags: the map keeps its last pan, so the label can be off either side or at the
+        // right edge under this app's floating buttons ("Dogma Towe" at x 0.93). When part of it
+        // reads, drag that part to the middle; else drag blind: left once, then right three times
+        // (back to the start and on past it), so a label off either side comes into view
+        val blind = listOf(-1, 1, 1, 1)
+        for (attempt in blind.indices) {
             val part = ctx.readText().firstOrNull { l -> val t = Ocr.norm(l.text); words.isNotEmpty() && words.count { it in t } >= (words.size + 1) / 2 }
             MacroLog.i("${wants.first()} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
+            // blind drags go over open sea: one that starts on the islands in the middle (0.49, 0.65)
+            // doesn't pan the Present map (seen 2026-11-11); each moves it about a third of the screen
             if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
-            // from open sea: a drag that starts on the islands in the middle (0.49, 0.65) doesn't pan
-            // the Present map (seen 2026-11-11); this one moves it about a third of the screen left
-            else ctx.drag(Point(0.6, 0.43), Point(0.25, 0.5), 700)
+            else if (blind[attempt] < 0) ctx.drag(Point(0.6, 0.43), Point(0.25, 0.5), 700)
+            else ctx.drag(Point(0.25, 0.43), Point(0.6, 0.5), 700)
             ctx.wait(1.2)
             tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 1)?.let { return it }
         }
