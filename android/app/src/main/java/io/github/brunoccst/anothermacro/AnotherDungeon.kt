@@ -754,6 +754,13 @@ object AnotherDungeon {
                         // stairs only take the party standing on them
                         val at = plan.x + offsets[attempt - 1]
                         if (abs(p.x - at) >= t.minWalk) walkTo(at)
+                        // a battle on the walk to the stairs: read where it left the party and walk on to them
+                        // before flicking (a flick from the wrong spot is a wasted try)
+                        for (again in 1..4) {
+                            if (!Route.disturbed) break
+                            if (!resync("on the way to the stairs after a battle", at)) { r.pos = p; offPath("not on the street the path expects"); return }
+                            if (abs(p.x - at) >= t.minWalk) walkTo(at)
+                        }
                         ctx.wait(0.4) // standing still on the stairs before the flick
                         val before = ctx.refresh().gray.clone()
                         AreaNav.flick(ctx, st.up)
@@ -795,7 +802,11 @@ object AnotherDungeon {
             r.pos = p
         }
         // a battle on the last walk of the leg: read the real spot and finish the walk
-        if (Route.disturbed && resync("at the end of the leg after a battle") && abs(p.x - plan.x) >= t.minWalk) walkTo(plan.x)
+        for (again in 1..4) {
+            if (!Route.disturbed) break
+            if (!resync("at the end of the leg after a battle") || abs(p.x - plan.x) < t.minWalk) break
+            walkTo(plan.x)
+        }
         r.pos = p
         r.planPos = plan
     }
