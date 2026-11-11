@@ -54,6 +54,13 @@ class PhoneTools(
                 bgr = LiveLog.without { capture.grabColor() } ?: throw StopScenario("no screen capture (allow screen capture first)")
                 note = "The screen was off; it was turned on for this screenshot. "
             }
+            // just woken (often by the connector before this call): the game takes a moment to draw again
+            val end = System.currentTimeMillis() + 3_000
+            while (Frame.isBlack(bgr) && ScreenWake.isOn() == true && System.currentTimeMillis() < end) {
+                Thread.sleep(300)
+                bgr.release()
+                bgr = LiveLog.without { capture.grabColor() } ?: throw StopScenario("no screen capture (allow screen capture first)")
+            }
             if (Frame.isBlack(bgr)) note += "WARNING: this frame is ALL BLACK, it is not a game screen: " +
                 ScreenWake.blackReason(ScreenWake.isOn(), capture.frameAgeMs()) + ". Don't tap blind: call wake_screen and look again."
         }
