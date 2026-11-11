@@ -36,6 +36,7 @@ class MacroService : Service() {
         super.onCreate()
         if (!OpenCVLoader.initLocal()) MacroLog.e("OpenCV failed to load")
         ScreenWake.init(this)
+        Logic.init(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {

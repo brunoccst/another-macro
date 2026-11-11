@@ -414,7 +414,8 @@ object Runner {
         var reason = "finished"
         InputService.instance?.keepScreenOn(true)
         ScreenWake.ensureOn("macro", MACRO_HOLD_MS)
-        MacroLog.i("running ${scenario.name} with $params")
+        Logic.init(app)
+        MacroLog.i("running ${scenario.name} with $params (${Logic.describe()})")
         MacroLog.status("${scenario.name}: starting")
         try {
             loop(scenario, ctx)

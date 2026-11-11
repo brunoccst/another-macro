@@ -1,5 +1,6 @@
 package io.github.brunoccst.anothermacro
 
+import io.github.brunoccst.anothermacro.logic.AnotherDungeon
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

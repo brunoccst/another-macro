@@ -300,7 +300,8 @@ class SystemPage(private val a: MainActivity) {
             // so it follows its own branch's CI builds instead (also by itself while the connector is idle)
             val branch = Updater.channel(a)
             updateInfo.text = "Development build (${BuildConfig.VERSION_NAME}) of $branch: it follows that branch's test builds, " +
-                "not releases. It installs newer ones by itself while the connector is on and idle, or now with the button."
+                "not releases. It installs newer ones by itself while the connector is on and idle, or now with the button. " +
+                "A build that only changed the macro logic loads without an install. Now running: ${Logic.describe()}."
             updateButton.text = "Install the newest build"
             return
         }

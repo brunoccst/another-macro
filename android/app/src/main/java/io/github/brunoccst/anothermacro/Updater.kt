@@ -30,7 +30,15 @@ object Updater {
     private const val REPO = "brunoccst/another-macro"
     private const val API = "https://api.github.com/repos/$REPO/releases/latest"
 
-    data class Release(val version: String, val apkUrl: String, val notes: String, val page: String)
+    /**
+     * A build: [shell] and [logicUrl] only for CI dev builds, whose logic pack can be loaded instead
+     * of installing the APK when the shell is the installed app's (see Logic.kt).
+     */
+    data class Release(val version: String, val apkUrl: String, val notes: String, val page: String,
+                       val shell: String = "", val logicUrl: String? = null) {
+        /** Only the logic changed: load its pack, no install (and no Play Protect prompt). */
+        val logicOnly get() = logicUrl != null && shell == BuildConfig.SHELL_ID
+    }
 
     // --- progress: shown as a bar on System → Updates, in a notification and on the live log ----
 
@@ -109,7 +117,11 @@ object Updater {
     /** "claude/project-thread-x" -> "dev-claude-project-thread-x": the pre-release CI keeps for a branch. */
     fun devTag(branch: String) = "dev-" + branch.trim().replace(Regex("[^A-Za-z0-9._-]"), "-")
 
-    /** The newest CI build of [branch] if its versionCode is above this build's, else null. Blocking. */
+    /**
+     * The newest CI build of [branch] if it is new to this phone, else null: a build with this app's
+     * shell when its logic is another commit's than the logic in use, any other build when its
+     * versionCode is above this app's and the loaded logic pack's. Blocking.
+     */
     fun checkDev(branch: String): Release? {
         val conn = (URL("https://api.github.com/repos/$REPO/releases/tags/${devTag(branch)}").openConnection() as HttpURLConnection).apply {
             setRequestProperty("Accept", "application/vnd.github+json")
@@ -125,10 +137,16 @@ object Updater {
                 ?: throw IllegalStateException("the build's notes carry no versionCode")
             val name = Regex("""versionName:\s*(\S+)""").find(body)?.groupValues?.get(1) ?: code.toString()
             val assets = json.getJSONArray("assets")
-            val apk = (0 until assets.length()).map { assets.getJSONObject(it) }
-                .firstOrNull { it.getString("name").endsWith(".apk") } ?: throw IllegalStateException("the build has no APK")
-            val release = Release(name, apk.getString("browser_download_url"), body, json.optString("html_url"))
-            return if (code > BuildConfig.VERSION_CODE.toLong()) release else null
+            val all = (0 until assets.length()).map { assets.getJSONObject(it) }
+            val apk = all.firstOrNull { it.getString("name").endsWith(".apk") } ?: throw IllegalStateException("the build has no APK")
+            val logic = all.firstOrNull { it.getString("name") == "logic.zip" }?.getString("browser_download_url")
+            val shell = Regex("""shell:\s*(\S+)""").find(body)?.groupValues?.get(1) ?: ""
+            val commit = Regex("""commit:\s*([0-9a-f]+)""").find(body)?.groupValues?.get(1) ?: ""
+            val release = Release(name, apk.getString("browser_download_url"), body, json.optString("html_url"), shell, logic)
+            // a logic pack is new when it is another commit's (also an older one: the phone switched branch);
+            // an app build only when it is newer
+            return if (release.logicOnly && commit.isNotEmpty()) release.takeIf { commit != Logic.current().commit }
+            else if (code > Logic.code()) release else null
         } finally {
             conn.disconnect()
         }
@@ -171,10 +189,25 @@ object Updater {
     }
     fun blockedVersion(c: Context): String? = c.getSharedPreferences("updates", Context.MODE_PRIVATE).getString("blocked_version", null)
 
-    /** Check [branch]'s CI build and, if newer, install it with no taps. Blocking. A message for the log/Claude. */
+    /**
+     * Check [branch]'s CI build and, if newer, load its logic pack (when only the logic changed) or
+     * install it with no taps. Blocking. A message for the log/Claude.
+     */
     fun update(c: Context, branch: String, userStarted: Boolean = false): String {
         setChannel(c, branch)
-        val r = checkDev(branch) ?: return "up to date: this is already the newest build of '$branch' (${BuildConfig.VERSION_NAME})"
+        Logic.init(c)
+        val r = checkDev(branch) ?: return "up to date: this is already the newest build of '$branch' (${BuildConfig.VERSION_NAME}, ${Logic.describe()})"
+        if (r.logicOnly) {
+            report(c, "Loading the logic of ${r.version}…", -1)
+            try {
+                val message = Logic.install(c, r.logicUrl!!)
+                report(c, "Logic of ${r.version} loaded (no install needed)", active = false)
+                return message
+            } catch (e: Exception) {
+                // the pack didn't load: fall through to installing the whole app
+                MacroLog.e("logic pack of ${r.version} failed (${e.message}): installing the app instead")
+            }
+        }
         if (!canInstall(c)) {
             openInstallPermission(c)
             return "the phone doesn't let Another Macro install apps yet: the user must allow \"Install unknown apps\" for it once (the settings page is open on the phone)"

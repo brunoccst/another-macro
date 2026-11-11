@@ -1,4 +1,6 @@
-package io.github.brunoccst.anothermacro
+package io.github.brunoccst.anothermacro.logic
+
+import io.github.brunoccst.anothermacro.*
 
 import org.snakeyaml.engine.v2.api.Load
 import org.snakeyaml.engine.v2.api.LoadSettings

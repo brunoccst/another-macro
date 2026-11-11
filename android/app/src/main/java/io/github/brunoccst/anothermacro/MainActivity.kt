@@ -52,6 +52,7 @@ class MainActivity : Activity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        Logic.init(this)
         window.statusBarColor = Ui.BG
         window.navigationBarColor = Ui.BG
 

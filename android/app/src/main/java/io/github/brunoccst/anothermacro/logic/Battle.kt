@@ -1,4 +1,6 @@
-package io.github.brunoccst.anothermacro
+package io.github.brunoccst.anothermacro.logic
+
+import io.github.brunoccst.anothermacro.*
 
 /**
  * Fighting one battle (the `fight:` step of the basic macro battle), shared by every macro that can end up in one (battle,

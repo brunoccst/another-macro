@@ -1,4 +1,6 @@
-package io.github.brunoccst.anothermacro
+package io.github.brunoccst.anothermacro.logic
+
+import io.github.brunoccst.anothermacro.*
 
 import org.opencv.core.Core
 import org.opencv.core.Mat
