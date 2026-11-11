@@ -196,6 +196,12 @@ def cmd_doctor(args) -> None:
         print(f"{name}: " + (f"templates to capture: {', '.join(missing)}" if missing else "ready"))
 
 
+def cmd_cat_routes(args) -> int:
+    from . import cat_routes
+
+    return cat_routes.main(write=args.write, check=args.check, todo=args.todo)
+
+
 def cmd_dungeon_routes(args) -> int:
     from . import dungeon_routes
 
@@ -269,6 +275,12 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--write", action="store_true", help="write them into dungeons.yaml as each map's path")
     s.add_argument("--check", action="store_true", help="fail if the paths in dungeons.yaml are out of date")
     s.set_defaults(fn=cmd_dungeon_routes)
+
+    s = sub.add_parser("cat-routes", help="plan the fixed walking routes to the Cat Scratchbook cats from cat_spots.yaml")
+    s.add_argument("--write", action="store_true", help="write them into cat_spots.yaml as each spot's path")
+    s.add_argument("--check", action="store_true", help="fail if the paths in cat_spots.yaml are out of date")
+    s.add_argument("--todo", action="store_true", help="list what each spot still needs measured on the phone")
+    s.set_defaults(fn=cmd_cat_routes)
     return p
 
 

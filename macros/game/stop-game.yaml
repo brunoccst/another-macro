@@ -22,12 +22,14 @@ handlers:
     - wait: 1.5
 
 unknown:
+  # after Yes the game is closing: whatever shows now (a fade, the home screen, another app)
+  # is not the game, so never press Back into it
+  - if: confirmed
+    then: [{wait: 2}, {stop: the game is off}]
   # the game is landscape-only: a portrait app in front means it's gone
   - if: not game_in_front()
     then:
-      - if: confirmed
-        then: [{stop: the game is off}]
-        else: [{stop: the game is not in front}]
+      - stop: the game is not in front
   - run: back-to-field
   - if: result != 'on the field' and result != 'the game is not in front'
     then: [{stop: "could not reach the field to close the game ({result})"}]

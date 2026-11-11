@@ -175,6 +175,15 @@ Then add a Termux widget button in `termux/shortcuts/<Name>.sh` (copy
   open, and the normal attack closes it. Tapping the portrait again does not close it.
 - **Another Dungeons:** see `.claude/skills/map-dungeon/SKILL.md` (entry, Skip, the
   "Continue to skip?" box, the boss gate, the area map's quirks, what never to tap).
+- **Cat Scratchbook routes:** `scenarios/cat_scratchbook/templates/cat_spots.yaml` holds,
+  per clue location, the era, continent, place, sub-location, and on the area map the
+  arrival spot, the streets, the cat's start and drift, and the map's `walk_scale`. Trips
+  start at point zero (World Map on Present with Baruoki on screen), then the era tab,
+  Expand → continent where needed, and the label by OCR (each era tab opens where that
+  era's last trip went). `another-macro cat-routes --write` turns the area data into each
+  spot's fixed `path` (the dungeon planner and walk.yaml, scaled); `--todo` lists what each
+  spot still needs measured. The app (`CatRoute.kt`) falls back to the feather steering
+  for any spot or step that doesn't match.
 - **Live log:** the 💬 overlay line sits bottom right; taps pass through it and
   `Context.readText` ignores what it covers. To read that corner, wrap the read in
   `LiveLog.without { }`.
