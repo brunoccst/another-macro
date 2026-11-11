@@ -22,7 +22,8 @@ import kotlin.math.abs
  *  3. bonus worlds (Ratle shop, Nuaru Uplands, Izana) move on by themselves once emptied;
  *  4. the Cape or the final world: its chests, then the "!" on the stairs out; Congratulations;
  *  5. an NPC (final world, sometimes the Cape) offers a free Treatise/Codex/Opus of
- *     your choice: the run stops there for you to choose.
+ *     your choice: in the Last World the run stops after the chests, before talking to the
+ *     Sensationalist, so the user talks to them and chooses.
  *
  * There are no enemies and no area map. Nothing is bought: every tap goes through the same
  * purchase guard as the rest of the app.
@@ -39,6 +40,8 @@ object PhantomCrystal {
         var chests = 0
         var stamps = 0
         var cape = false
+        /** The Last World: after its chests the run stops before the Sensationalist (the user talks to them). */
+        var last = false
         /** "!" spots that open a menu (the stamp cat, the notice board): screen x in the current world. */
         val skip = ArrayList<Point>()
     }
@@ -124,6 +127,14 @@ object PhantomCrystal {
      */
     private fun clearWorld(r: Run): Next {
         val ctx = r.ctx
+        // the world's title banner ("Phantom Crystal Dimension Last World") shows for a few seconds on arrival
+        repeat(4) {
+            ctx.refresh()
+            if (!r.last && ctx.readText(Region(0.1, 0.0, 0.8, 0.3)).any { "last world" in Ocr.norm(it.text) }) {
+                r.last = true; MacroLog.i("the Last World")
+            }
+            if (!r.last) ctx.wait(0.8)
+        }
         var dir = -1.0
         var ends = 0
         var steps = 0
@@ -146,6 +157,8 @@ object PhantomCrystal {
             walk(ctx, dir, 700)
             if (!moved(ctx, before)) { ends++; dir = -dir }
         }
+        // the Last World: its chests are taken; the Sensationalist's free Treatise/Codex/Opus is the user's choice
+        if (r.last) ctx.stop("Last World: chests taken; the Sensationalist is left for you (free Treatise/Codex/Opus of your choice, then the way out)")
         // nothing left to take: a portal (or, in the Cape / final world, the stairs out)
         return leave(r)
     }
