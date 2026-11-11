@@ -186,6 +186,14 @@ object PhantomCrystal {
             "obtained" in all -> {
                 noteItem(r, lines); r.chests++; ctx.count("chests"); dismiss(ctx); return Taken.SOME
             }
+            "trained" in all -> {
+                // a bonus world's straw dummy: "You trained using the straw dummy." on black, then the item
+                dismissBanner(ctx)
+                val got = ctx.readText()
+                if (got.any { "obtained" in Ocr.norm(it.text) }) { noteItem(r, got); r.chests++; ctx.count("chests") }
+                dismissBanner(ctx)
+                return Taken.SOME
+            }
             "what would you like to do" in all || lines.any { Ocr.norm(it.text) == "cancel" } -> {
                 // the paw stamp menu (king cat / notice board): leave it, and don't tap here again
                 lines.firstOrNull { Ocr.norm(it.text) == "cancel" }?.let { ctx.tapExact(it.center) }
@@ -274,6 +282,9 @@ object PhantomCrystal {
     }
 
     private fun dismiss(ctx: Context) { ctx.tap(Point(0.5, 0.75)); ctx.wait(1.2) }
+
+    /** Close a banner by tapping the banner itself (a tap on the field would walk the party). */
+    private fun dismissBanner(ctx: Context) { ctx.tap(Point(0.5, 0.11)); ctx.wait(2.0) }
 
     private fun walk(ctx: Context, dir: Double, ms: Long) {
         ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), ms)
