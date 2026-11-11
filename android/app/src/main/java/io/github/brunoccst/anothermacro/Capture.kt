@@ -39,13 +39,19 @@ class Frame(val gray: Mat) {
     }
 
     companion object {
-        /** Mean brightness under this (0..255) = black; our own overlays alone stay under it too. */
-        const val BLACK_MEAN = 2.5
+        /**
+         * Brightest pixel under this (0..255), left of the right quarter where our own floating
+         * buttons sit = black. A game fade with a faint ornament or a little text is not black.
+         */
+        const val BLACK_MAX = 24.0
 
         fun isBlack(m: Mat): Boolean {
-            val mean = org.opencv.core.Core.mean(m).`val`
-            val channels = if (m.channels() >= 3) 3 else 1
-            return (0 until channels).sumOf { mean[it] } / channels < BLACK_MEAN
+            val area = m.submat(0, m.rows(), 0, (m.cols() * 0.75).toInt())
+            val gray = if (m.channels() >= 3) Mat().also { org.opencv.imgproc.Imgproc.cvtColor(area, it, org.opencv.imgproc.Imgproc.COLOR_BGR2GRAY) } else area
+            val max = org.opencv.core.Core.minMaxLoc(gray).maxVal
+            if (gray !== area) gray.release()
+            area.release()
+            return max < BLACK_MAX
         }
     }
 }
