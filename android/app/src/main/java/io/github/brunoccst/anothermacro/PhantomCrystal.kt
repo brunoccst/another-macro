@@ -79,8 +79,9 @@ object PhantomCrystal {
     private fun inside(ctx: Context): Boolean {
         ctx.refresh()
         if (ctx.find("field_menu_button") == null) return false
-        val bar = ctx.readText(Region(0.0, 0.82, 0.6, 0.18)).map { Ocr.norm(it.text) }
-        return "rewards" in bar && bar.none { it == "quests" || it == "map" || it == "diary" }
+        // OCR may read the bar as one line ("Menu Rewards")
+        val words = ctx.readText(Region(0.0, 0.82, 0.6, 0.18)).flatMap { Ocr.norm(it.text).split(' ') }
+        return "rewards" in words && words.none { it == "quests" || it == "map" || it == "diary" }
     }
 
     private fun enter(r: Run) {
