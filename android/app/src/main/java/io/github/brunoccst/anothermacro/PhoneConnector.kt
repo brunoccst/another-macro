@@ -20,7 +20,8 @@ import java.util.concurrent.atomic.AtomicBoolean
  * the answer back. Requests run one at a time on one thread, through PhoneTools, so the
  * same safety layer applies to every tap.
  *
- * Off by default; turns itself off after [IDLE_OFF_MS] without tool calls.
+ * Off by default; turns itself off after [IDLE_OFF_MS] without tool calls, unless the user
+ * chose to keep it on until they turn it off (ClaudeSettings.keepOn).
  */
 object PhoneConnector {
     enum class State { OFF, CONNECTING, ONLINE }
@@ -126,7 +127,8 @@ object PhoneConnector {
     private fun scheduleIdleCheck(app: android.content.Context) {
         main.postDelayed({
             if (!enabled.get()) return@postDelayed
-            if (System.currentTimeMillis() - lastCall > IDLE_OFF_MS && !Runner.isRunning) stopConnector("turned off after 30 minutes without use")
+            val idle = System.currentTimeMillis() - lastCall > IDLE_OFF_MS
+            if (idle && !Runner.isRunning && !ClaudeSettings.keepOn(app)) stopConnector("turned off after 30 minutes without use")
             else scheduleIdleCheck(app)
         }, 60_000L)
     }
