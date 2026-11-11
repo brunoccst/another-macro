@@ -199,6 +199,8 @@ object PhantomCrystal {
     /** Take any "!" left (not a known menu): a portal, the stairs out. */
     private fun leave(r: Run): Next {
         val ctx = r.ctx
+        // the unfolded floating buttons' label can sit over a "!" near the right edge and hide it from the match
+        if (InputService.instance?.controls(true)?.first == true) Thread.sleep(400)
         repeat(3) {
             val left = bubbles(ctx, ctx.refresh()).filter { b -> r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 } }
             for (b in left.sortedBy { abs(it.x - 0.5) }) {
