@@ -633,6 +633,9 @@ object AnotherDungeon {
         if (l0 != null && p0 != null) {
             val t = Route.table(ctx)
             repeat(4) {
+                // a battle can start just as the party stops by the chest (no "!" then, and no area
+                // map to read): fight it first, then look for the "!" again
+                if (fight(r) && waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
                 val at = readSpot(r, l0, r.pos ?: p0) ?: return@repeat
                 MacroLog.i("no \"!\" yet: the map shows the party at (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}), chest at ${"%.3f".format(chest.x)}")
                 r.pos = at
