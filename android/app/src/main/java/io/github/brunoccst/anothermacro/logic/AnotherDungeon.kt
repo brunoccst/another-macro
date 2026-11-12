@@ -1149,7 +1149,11 @@ object AnotherDungeon {
         val ctx = r.ctx
         var wasBoss = false
         // the run's end follows the boss battle's results: read every screen for the White Key
-        val out = Battle.fight(ctx, afterWin = { readAfterWin(r) }) { c ->
+        val out = Battle.fight(ctx, afterWin = {
+            val seen = readAfterWin(r)
+            // (for tuning: the boss's result screens took ~25 s, 2026-11-12)
+            if (wasBoss) MacroLog.i("boss results ${Battle.clock()}: ${seen.take(70)}")
+        }) { c ->
             // the enemies' names show while a skill list is open: look on the boss's map
             if (!r.bossNext && r.onBossMap && r.spec.boss.isNotEmpty()) {
                 val names = Battle.enemyNames(c)
