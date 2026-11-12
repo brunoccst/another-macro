@@ -151,6 +151,7 @@ object PhantomCrystal {
             }
             // a closed chest in view without a "!" yet: walk toward it
             val chest = closedChests(ctx).minByOrNull { abs(it.x - 0.5) }
+            if (steps % 5 == 1) MacroLog.i("World ${r.world}: looking around (step $steps, ends $ends${chest?.let { ", closed chest at x ${"%.2f".format(it.x)}" } ?: ""})")
             if (chest != null && abs(chest.x - 0.5) > 0.05) {
                 walk(ctx, if (chest.x < 0.5) -1.0 else 1.0, 350)
                 continue
@@ -190,9 +191,11 @@ object PhantomCrystal {
     /** Tap a "!" and see what it was: an item, a stamp, a menu, or a way out. */
     private fun tapBubble(r: Run, b: Point): Taken {
         val ctx = r.ctx
+        MacroLog.i("World ${r.world}: tapping the \"!\" at (${"%.2f".format(b.x)}, ${"%.2f".format(b.y)})")
         ctx.tapExact(b); ctx.wait(2.0)
         val lines = ctx.readText()
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        MacroLog.i("World ${r.world}: \"!\" shows: ${lines.joinToString(" | ") { it.text }.take(120)}")
         when {
             "treatise" in all || "codex" in all || "opus" in all -> ctx.stop("an NPC offers a free Treatise/Codex/Opus: choose it yourself")
             "stamp" in all && ("you got" in all || "filled out" in all) -> {
@@ -244,6 +247,7 @@ object PhantomCrystal {
     /** After a tap that wasn't an item/stamp/menu: did we leave the world (or the dimension)? */
     private fun afterLeaving(r: Run): Taken {
         val ctx = r.ctx
+        MacroLog.i("World ${r.world}: not an item, stamp or menu: watching for a new world")
         val end = System.currentTimeMillis() + 25_000
         var faded = false
         while (System.currentTimeMillis() < end) {
@@ -298,7 +302,7 @@ object PhantomCrystal {
 
     // the item and stamp popups are a banner at the top: a tap low on the screen left one open in the
     // World's Cape for minutes (2026-11-12), a tap on the banner closes it
-    private fun dismiss(ctx: Context) { ctx.tap(Point(0.5, 0.11)); ctx.wait(1.2) }
+    private fun dismiss(ctx: Context) { MacroLog.i("closing the banner"); ctx.tap(Point(0.5, 0.11)); ctx.wait(1.2) }
 
     /** Close a banner by tapping the banner itself (a tap on the field would walk the party). */
     private fun dismissBanner(ctx: Context) { ctx.tap(Point(0.5, 0.11)); ctx.wait(2.0) }
