@@ -918,7 +918,12 @@ object AnotherDungeon {
                 ctx.tap(arrow); ctx.wait(1.5)
                 // the next map's title shows over the field as it opens: read it there (no area-map look)
                 val titled = arrivalTitle(r, idx, 6.0)
-                if (titled != null) { MacroLog.i("arrived (title): ${r.spec.maps[titled].names.first()}"); r.nextMap = titled; return }
+                if (titled != null) {
+                    MacroLog.i("arrived (title): ${r.spec.maps[titled].names.first()}")
+                    // the title shows while the map still fades in: a hold then walks only part of its way
+                    waitForField(ctx, 8); ctx.wait(0.5)
+                    r.nextMap = titled; return
+                }
                 ctx.wait(1.0)
                 fight(r)
                 val now = whereAmI(r)
