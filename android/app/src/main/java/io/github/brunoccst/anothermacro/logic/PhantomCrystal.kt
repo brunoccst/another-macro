@@ -238,7 +238,11 @@ object PhantomCrystal {
         val ctx = r.ctx
         // the unfolded floating buttons' label can sit over a "!" near the right edge and hide it from the match
         if (InputService.instance?.controls(true)?.first == true) Thread.sleep(400)
-        repeat(3) {
+        // a door's "!" shows only when the party stands close to it (the water palace, 2026-11-12: walks of
+        // 2.5 s went past it): walk the world in short steps, one way to its end, then back
+        var dir = 1.0
+        var ends = 0
+        for (step in 0 until 40) {
             val left = bubbles(ctx, ctx.refresh()).filter { b -> r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 } }
             for (b in left.sortedBy { abs(it.x - 0.5) }) {
                 MacroLog.status("World ${r.world}: taking the way on")
@@ -248,8 +252,9 @@ object PhantomCrystal {
                     else -> {}
                 }
             }
-            // none in view: walk the world once more to find one
-            walk(ctx, if (it % 2 == 0) 1.0 else -1.0, 2500)
+            val before = view(ctx)
+            walk(ctx, dir, 500)
+            if (!moved(ctx, before)) { if (++ends > 2) break; dir = -dir }
         }
         ctx.stop("no way out of world ${r.world} found")
     }
