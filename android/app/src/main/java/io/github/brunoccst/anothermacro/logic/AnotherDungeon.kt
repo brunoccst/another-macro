@@ -886,17 +886,21 @@ object AnotherDungeon {
         ctx.refresh()
         val b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE) ?: return false
         val tapAt = System.currentTimeMillis()
-        ctx.tap(b); ctx.wait(1.0)
-        // the banner can be a moment late (the read came back empty): read again for up to ~3 s
-        var read = ctx.readText()
-        for (i in 0 until 6) {
+        ctx.tap(b); ctx.wait(0.5)
+        // the chest's banner comes ~1-2 s after the tap: read just the top of the screen (quicker) every
+        // 0.2 s until it shows, for up to ~3.5 s; anything else (a question, a door) gets a full read
+        var read = emptyList<Ocr.Line>()
+        var found = false
+        val until = System.currentTimeMillis() + 3500
+        while (System.currentTimeMillis() < until) {
+            read = ctx.readText(POPUP)
             val all = read.joinToString(" ") { Ocr.norm(it.text) }
-            if ("obtained" in all || "proceed" in all || "major trial" in all) break
+            if ("obtained" in all || "proceed" in all || "major trial" in all) { found = true; break }
             ctx.refresh()
             if (Battle.inBattle(ctx)) break
-            ctx.wait(0.5)
-            read = ctx.readText()
+            ctx.wait(0.2)
         }
+        if (!found) read = ctx.readText()
         val text = read.joinToString(" ") { it.text }
         MacroLog.i("\"!\": ${text.take(120)} (tapped ${Battle.clock(tapAt)}, read +${System.currentTimeMillis() - tapAt}ms)")
         noteItems(r, read)
@@ -1039,6 +1043,8 @@ object AnotherDungeon {
 
     /** Where "The enemies have disappeared" shows: the top middle (kept wide: its exact spot is not measured). */
     private val BANNER = Region(0.05, 0.0, 0.9, 0.45)
+    /** Where a chest's "Obtained ..." banner shows (top middle). */
+    private val POPUP = Region(0.15, 0.0, 0.7, 0.25)
 
     /** One read of the screen after a win: the map's enemies gone, the White Key. */
     private fun readAfterWin(r: Run, quick: Boolean = false): String {
