@@ -238,7 +238,8 @@ object Route {
                         val dw = t.distance(w.toDouble())
                         p = walked(l, pBefore, right, dw)
                         left = leftBefore - dw
-                        disturbed = true
+                        // (followed this way the spot came within ~0.005 of the area map's in a dozen
+                        // battles, 2026-11-12: no look at the map for it)
                         MacroLog.i("a battle came after ${w}ms of the ${holdMs}ms hold (the view stopped there); " +
                             "${"%.3f".format(left.coerceAtLeast(0.0))} left from (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})")
                         if (left < t.minWalk) return p
@@ -274,7 +275,9 @@ object Route {
                 if (fight()) { disturbed = true; unseen = true; return p }
                 return walked(l, p, right, rest)
             }
-            disturbed = true
+            // a battle seen during the hold stopped the party where the view stopped: the spot is followed
+            // well enough (see above); anything else leaves it less sure
+            if (!(battle && frames > 5)) disturbed = true
             MacroLog.i("walk ${if (right) "right" else "left"} stopped after ${walkedMs}ms of $holdMs" +
                 (if (battle) " (battle)" else if (res.cancelled) " (gesture cancelled)" else "") +
                 "; ${"%.3f".format(left.coerceAtLeast(0.0))} left from (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})")
