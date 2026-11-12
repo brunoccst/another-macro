@@ -829,7 +829,8 @@ object AnotherDungeon {
                     }
                     if (!took) { r.pos = p; offPath("the flick ${st} didn't take the stairs in ${offsets.size} tries"); return }
                     plan = next
-                    p = next
+                    // the party comes off the stairs where it went on (the data can be a little off)
+                    p = Point(p.x, next.y)
                 }
             }
             r.pos = p
