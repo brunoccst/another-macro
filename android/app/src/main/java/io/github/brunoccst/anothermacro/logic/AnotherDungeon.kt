@@ -1,4 +1,6 @@
-package io.github.brunoccst.anothermacro
+package io.github.brunoccst.anothermacro.logic
+
+import io.github.brunoccst.anothermacro.*
 
 import org.snakeyaml.engine.v2.api.Load
 import org.snakeyaml.engine.v2.api.LoadSettings
@@ -229,7 +231,9 @@ object AnotherDungeon {
                     r.pos = null; r.planPos = null
                     r.order = chestOrder(spec.maps[idx].shifted(r.shift), party)
                 }
-                r.map = idx; r.chestsDone = 0; r.cleared = !spec.maps[idx].enemies
+                // clear_first off: no grinding; the path is walked at once and the battles on the way are
+                // fought where they come (the walk reads its spot on the area map after each one)
+                r.map = idx; r.chestsDone = 0; r.cleared = !spec.maps[idx].enemies || !clearFirst(ctx)
                 r.onBossMap = spec.maps[idx].boss
                 r.chestsTotal += spec.maps[idx].chests.size.takeIf { it > 0 } ?: spec.maps[idx].chestsCount
                 task(r, "Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
@@ -546,12 +550,23 @@ object AnotherDungeon {
         val ctx = r.ctx
         tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 2)?.let { return it }
         val words = Ocr.norm(wants.first()).split(" ").filter { it.length >= 4 }
-        val part = ctx.readText().firstOrNull { l -> val t = Ocr.norm(l.text); words.isNotEmpty() && words.count { it in t } >= (words.size + 1) / 2 }
-        MacroLog.i("${wants.first()} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
-        if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
-        else ctx.drag(Point(0.49, 0.65), Point(0.29, 0.82), 700)
-        ctx.wait(1.2)
-        return tapText(r, *wants, minY = 0.2, maxX = maxX)
+        // a few drags: the map keeps its last pan, so the label can be off either side or at the
+        // right edge under this app's floating buttons ("Dogma Towe" at x 0.93). When part of it
+        // reads, drag that part to the middle; else drag blind: left once, then right three times
+        // (back to the start and on past it), so a label off either side comes into view
+        val blind = listOf(-1, 1, 1, 1)
+        for (attempt in blind.indices) {
+            val part = ctx.readText().firstOrNull { l -> val t = Ocr.norm(l.text); words.isNotEmpty() && words.count { it in t } >= (words.size + 1) / 2 }
+            MacroLog.i("${wants.first()} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
+            // blind drags go over open sea: one that starts on the islands in the middle (0.49, 0.65)
+            // doesn't pan the Present map (seen 2026-11-11); each moves it about a third of the screen
+            if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
+            else if (blind[attempt] < 0) ctx.drag(Point(0.6, 0.43), Point(0.25, 0.5), 700)
+            else ctx.drag(Point(0.25, 0.43), Point(0.6, 0.5), 700)
+            ctx.wait(1.2)
+            tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 1)?.let { return it }
+        }
+        return null
     }
 
     private fun eraLabel(era: String) = when (era.lowercase()) { "present" -> "Pres."; "antiquity" -> "Antiq."; "future" -> "Fut."; else -> era }
@@ -620,6 +635,9 @@ object AnotherDungeon {
         if (l0 != null && p0 != null) {
             val t = Route.table(ctx)
             repeat(4) {
+                // a battle can start just as the party stops by the chest (no "!" then, and no area
+                // map to read): fight it first, then look for the "!" again
+                if (fight(r) && waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
                 val at = readSpot(r, l0, r.pos ?: p0) ?: return@repeat
                 MacroLog.i("no \"!\" yet: the map shows the party at (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}), chest at ${"%.3f".format(chest.x)}")
                 r.pos = at
@@ -710,8 +728,9 @@ object AnotherDungeon {
             if (abs(d) < t.minWalk) return
             r.lastDir = if (d > 0) 1.0 else -1.0
             p = Route.hold(ctx, l, t, p, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
-            // a battle the hold didn't see (it came anyway): where the party stopped is unknown, read it and walk the rest
-            repeat(2) {
+            // a battle the hold didn't see (it came anyway): where the party stopped is unknown, read it and walk the rest.
+            // Walking straight to the chests (clear_first off) a long hold can be cut by 3-4 battles in a row
+            repeat(6) {
                 if (!Route.unseen) return
                 Route.unseen = false
                 if (!resync("a battle came during the hold", x)) return
@@ -740,6 +759,13 @@ object AnotherDungeon {
                         // stairs only take the party standing on them
                         val at = plan.x + offsets[attempt - 1]
                         if (abs(p.x - at) >= t.minWalk) walkTo(at)
+                        // a battle on the walk to the stairs: read where it left the party and walk on to them
+                        // before flicking (a flick from the wrong spot is a wasted try)
+                        for (again in 1..4) {
+                            if (!Route.disturbed) break
+                            if (!resync("on the way to the stairs after a battle", at)) { r.pos = p; offPath("not on the street the path expects"); return }
+                            if (abs(p.x - at) >= t.minWalk) walkTo(at)
+                        }
                         ctx.wait(0.4) // standing still on the stairs before the flick
                         val before = ctx.refresh().gray.clone()
                         AreaNav.flick(ctx, st.up)
@@ -781,7 +807,11 @@ object AnotherDungeon {
             r.pos = p
         }
         // a battle on the last walk of the leg: read the real spot and finish the walk
-        if (Route.disturbed && resync("at the end of the leg after a battle") && abs(p.x - plan.x) >= t.minWalk) walkTo(plan.x)
+        for (again in 1..4) {
+            if (!Route.disturbed) break
+            if (!resync("at the end of the leg after a battle") || abs(p.x - plan.x) < t.minWalk) break
+            walkTo(plan.x)
+        }
         r.pos = p
         r.planPos = plan
     }
@@ -879,7 +909,7 @@ object AnotherDungeon {
 
     /**
      * Walk back and forth fighting (like grind-battles with until_cleared) until the game says
-     * "The enemies have disappeared" (Bruno's rule: every enemy first). Safety caps for a missed
+     * "The enemies have disappeared" (the user's rule: every enemy first). Safety caps for a missed
      * banner: [clear_max_battles] fights won on this map (15 by default, 0 = no cap), or no
      * encounter in 12 walks.
      */
@@ -945,6 +975,9 @@ object AnotherDungeon {
     }
 
     /** "The enemies have disappeared" in normalized OCR text (also when OCR splits or clips the line). */
+    /** Fight every map until "The enemies have disappeared" before its chests (the default), or not. */
+    private fun clearFirst(ctx: Context) = ctx.params["clear_first"]?.trim()?.lowercase()?.let { it in setOf("1", "true", "yes", "on", "y") } ?: true
+
     internal fun noEnemiesLeft(text: String) = "disappear" in text
 
     /** Where "The enemies have disappeared" shows: the top middle (kept wide: its exact spot is not measured). */

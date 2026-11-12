@@ -46,13 +46,20 @@ jobs:
           # minutes since 2025-01-01: every build is an upgrade of the one before (self-update)
           export VERSION_CODE=$(( ($(date +%s) - 1735689600) / 60 ))
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
-          gradle -p android assembleDebug --stacktrace
+          # the logic pack (Logic.kt) comes from the same compile as the APK
+          gradle -p android assembleDebug logicPack --stacktrace
+          echo "SHELL_ID=$(unzip -p android/app/build/outputs/logic/logic.zip logic.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["shell"])')" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
           name: another-macro-apk
           path: android/app/build/outputs/apk/debug/*.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: logic-pack
+          path: android/app/build/outputs/logic/logic.zip
       # The app's update_app tool (phone connector) installs these: one pre-release per branch,
       # "dev-<branch>", replaced on every push. Only signed builds (a throwaway key can't update).
+      # logic.zip rides along: a phone whose app has the same shell loads it instead of installing.
       - name: Publish the dev build
         if: github.event_name != 'pull_request' && env.ANDROID_KEYSTORE != ''
         env:
@@ -63,7 +70,9 @@ jobs:
           cp android/app/build/outputs/apk/debug/*.apk another-macro.apk
           NOTES="Dev build of \`$BRANCH\` at ${GITHUB_SHA::7} (not a release).
           versionName: 0.0.${{ github.run_number }}-dev
-          versionCode: $VERSION_CODE"
+          versionCode: $VERSION_CODE
+          shell: $SHELL_ID
+          commit: $GITHUB_SHA"
           gh release delete "$TAG" --cleanup-tag -y 2>/dev/null || true
-          gh release create "$TAG" another-macro.apk --prerelease --target "$GITHUB_SHA" \
+          gh release create "$TAG" another-macro.apk android/app/build/outputs/logic/logic.zip --prerelease --target "$GITHUB_SHA" \
             --title "Dev build: $BRANCH" --notes "$NOTES"

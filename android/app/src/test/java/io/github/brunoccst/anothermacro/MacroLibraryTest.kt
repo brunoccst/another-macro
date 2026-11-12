@@ -1,5 +1,6 @@
 package io.github.brunoccst.anothermacro
 
+import io.github.brunoccst.anothermacro.logic.AnotherDungeon
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -70,7 +71,11 @@ class MacroLibraryTest {
             val p = macros.getValue(n).params
             assertFalse(n, p.containsKey("clear_battles"))
             assertEquals(n, AnotherDungeon.CLEAR_MAX_BATTLES.toString(), p.getValue("clear_max_battles").default)
+            assertEquals(n, "bool", p.getValue("clear_first").type)
         }
+        // Dogma Tower walks straight to its chests by default (the user's way: about half the time)
+        assertEquals("false", macros.getValue("dogma-tower").params.getValue("clear_first").default)
+        assertEquals("true", macros.getValue("burning-beast-kings-castle").params.getValue("clear_first").default)
     }
 
     @Test fun enemiesGoneBannerIsReadWhenSplitOrClipped() {

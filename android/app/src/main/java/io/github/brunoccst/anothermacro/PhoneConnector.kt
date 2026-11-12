@@ -150,16 +150,18 @@ object PhoneConnector {
             val idle = System.currentTimeMillis() - lastCall > 60_000L
             // the macro library too (any build): it checks GitHub at most every 15 minutes
             if (idle && !Runner.isRunning) MacroLibrary.updateAsync(app)
-            if (branch.isNotEmpty() && idle && !Runner.isRunning && Updater.canInstall(app) && updating.compareAndSet(false, true)) {
+            if (branch.isNotEmpty() && idle && !Runner.isRunning && updating.compareAndSet(false, true)) {
                 Thread {
                     try {
-                        val newer = runCatching { Updater.checkDev(branch) }.getOrNull()
-                        // a build Play Protect blocked waits for the user (System → Updates → Install anyway)
-                        if (newer != null && newer.version == Updater.blockedVersion(app)) {
+                        Logic.init(app)
+                        val newer = runCatching { Updater.checkDev(Updater.channel(app)) }.getOrNull()
+                        // a build Play Protect blocked waits for the user (System → Updates → Install anyway);
+                        // a build that only changed the logic loads its logic pack: no install, nothing to block
+                        if (newer != null && !newer.logicOnly && (newer.version == Updater.blockedVersion(app) || !Updater.canInstall(app))) {
                             // nothing: no retry loop of dialogs opening and closing
                         } else if (newer != null && !Runner.isRunning && enabled.get()) {
                             MacroLog.i("auto-update: ${newer.version} from '$branch' (this is ${BuildConfig.VERSION_NAME})")
-                            runCatching { Updater.update(app, branch) }.onSuccess { MacroLog.i(it) }.onFailure { MacroLog.e("auto-update failed: ${it.message}") }
+                            runCatching { Updater.update(app, Updater.channel(app)) }.onSuccess { MacroLog.i(it) }.onFailure { MacroLog.e("auto-update failed: ${it.message}") }
                         }
                     } finally { updating.set(false) }
                 }.start()
@@ -262,8 +264,15 @@ object PhoneConnector {
     private fun updateApp(app: android.content.Context, a: Map<String, Any?>): ToolResult {
         if (Runner.isRunning) return ToolResult("a macro (${Runner.current}) is running: stop_macro first", isError = true)
         val branch = a["branch"]?.toString()?.trim()?.takeIf { it.isNotEmpty() } ?: Updater.channel(app)
+        Logic.init(app)
         val newer = try { Updater.checkDev(branch) } catch (e: Exception) { return ToolResult("can't check '$branch': ${e.message}", isError = true) }
-            ?: return ToolResult("up to date: already the newest build of '$branch' (${BuildConfig.VERSION_NAME})")
+            ?: return ToolResult("up to date: already the newest build of '$branch' (${BuildConfig.VERSION_NAME}, ${Logic.describe()})")
+        // only the logic changed: load its pack now (seconds, no install, no restart, no Play Protect)
+        if (newer.logicOnly) {
+            val message = try { Updater.update(app, branch) } catch (e: Exception) { return ToolResult("update failed: ${e.message}", isError = true) }
+            return ToolResult(if (message.startsWith("installing")) "$message. The connector is offline meanwhile: wait about 90 seconds, then call macro_status to check."
+                else "$message (build ${newer.version} of '$branch')")
+        }
         if (!Updater.canInstall(app)) {
             main.post { Updater.openInstallPermission(app) }
             return ToolResult("the user must allow \"Install unknown apps\" for Another Macro once (the settings page is now open on the phone), then call update_app again", isError = true)
