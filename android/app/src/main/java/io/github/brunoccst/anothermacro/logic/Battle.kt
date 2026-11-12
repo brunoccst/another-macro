@@ -58,12 +58,20 @@ object Battle {
         var quiet = 0
         // what the live log said before the battle: shown again once it is over
         val before = MacroLog.status
-        val end = System.currentTimeMillis() + 15 * 60_000
+        val t0 = System.currentTimeMillis()
+        val end = t0 + 15 * 60_000
+        // when each part of the battle first showed (ms from the start of fight()), to see where the time goes
+        val marks = LinkedHashMap<String, Long>()
+        fun mark(k: String) { if (k !in marks) marks[k] = System.currentTimeMillis() - t0 }
         while (System.currentTimeMillis() < end) {
             ctx.refresh()
+            // no battle seen yet and the field's menu shows: nothing to fight. Looked at first, so the
+            // usual "no battle" answer after a walk costs one match, not the six battle screens'
+            if (!seen && ctx.find("field_menu_button") != null) return Outcome.NONE
             when {
                 ctx.find("defeat_banner") != null -> return Outcome.LOST
                 ctx.find("result_banner") != null -> {
+                    mark("result")
                     seen = true; won = true; quiet = 0
                     afterWin?.invoke(ctx)
                     ctx.tap(Point(0.5, 0.75))
@@ -75,22 +83,25 @@ object Battle {
                 }
                 ctx.find("battle_attack_button") != null -> {
                     seen = true; quiet = 0
+                    mark("command")
                     val s = setup ?: pick(ctx).also { setup = it; MacroLog.i("battle: skills $it"); MacroLog.status("Battle: ${if (it.allAuto) "Attack" else "skills $it"}") }
                     if (!s.allAuto && !skillsSet) { setSkills(ctx, s); skillsSet = true }
                     ctx.count("turns")
                     ctx.tap("battle_attack_button")
+                    mark("attack")
                 }
-                ctx.find("battle_hud") != null -> { seen = true; quiet = 0 }
+                ctx.find("battle_hud") != null -> { mark("hud"); seen = true; quiet = 0 }
                 ctx.find("field_menu_button") != null -> {
                     if (!seen) return Outcome.NONE
                     if (won) ctx.count("battles_won")
                     MacroLog.i(if (won) "battle won" else "battle over")
+                    MacroLog.i("battle timing: started ${clock(t0)}, " + marks.entries.joinToString(", ") { "${it.key} ${it.value}" } + ", field ${System.currentTimeMillis() - t0}")
                     if (before.isNotEmpty()) MacroLog.show(before)
                     return Outcome.WON
                 }
                 else -> {
                     // the battle's intro, or the screens after the results (level up, drops)
-                    if (!seen && ++quiet > 4) return Outcome.NONE
+                    if (!seen && ++quiet > 7) return Outcome.NONE
                     if (won) {
                         // e.g. an Another Dungeon's completion screens: let the caller read them first
                         afterWin?.invoke(ctx)
@@ -98,22 +109,41 @@ object Battle {
                     }
                 }
             }
-            ctx.wait(0.5)
+            // 0.3 s: the result screens take a tap each, and each poll was ~0.25 s of waiting on average
+            ctx.wait(0.3)
         }
         ctx.stop("a battle lasted more than 15 minutes")
     }
+
+    /** Poll every 0.1 s until [ok] or [seconds] have passed. */
+    private fun waitFor(ctx: Context, seconds: Double, ok: () -> Boolean): Boolean {
+        val end = System.currentTimeMillis() + (seconds * 1000).toLong()
+        while (true) {
+            ctx.refresh()
+            if (ok()) return true
+            if (System.currentTimeMillis() >= end) return false
+            ctx.wait(0.1)
+        }
+    }
+
+    /** Seconds.millis of the wall clock, to line up log lines (which show whole seconds). */
+    fun clock(ms: Long = System.currentTimeMillis()) = java.text.SimpleDateFormat("mm:ss.SSS", java.util.Locale.US).format(java.util.Date(ms))
 
     /** Tap each non-auto character's portrait and its chosen skill. */
     private fun setSkills(ctx: Context, s: Setup) {
         for ((i, skill) in s.skills.withIndex()) {
             val n = skill.toIntOrNull() ?: continue
-            ctx.tap(Point(PORTRAIT_X[i], PORTRAIT_Y)); ctx.wait(0.8)
+            val known = ctx.vision.library.templates["skill_list_open"]?.available == true
+            ctx.tap(Point(PORTRAIT_X[i], PORTRAIT_Y))
+            // as soon as the list shows (it took 2.6 s from the command screen to Attack with fixed 0.8 s waits)
+            if (known) waitFor(ctx, 0.8) { ctx.find("skill_list_open") != null } else ctx.wait(0.8)
             ctx.refresh()
-            if (ctx.vision.library.templates["skill_list_open"]?.available == true && ctx.find("skill_list_open") == null) {
+            if (known && ctx.find("skill_list_open") == null) {
                 MacroLog.i("character ${i + 1}: the skill list didn't open")
                 continue
             }
-            ctx.tapExact(Point(SKILL_X[n], SKILL_ROW_Y)); ctx.wait(0.8)
+            ctx.tapExact(Point(SKILL_X[n], SKILL_ROW_Y))
+            if (known) waitFor(ctx, 0.8) { ctx.find("skill_list_open") == null } else ctx.wait(0.8)
             ctx.refresh()
             if (ctx.find("skill_list_open") != null) {
                 MacroLog.i("character ${i + 1}: skill $n couldn't be picked (not enough MP?); normal attack instead")

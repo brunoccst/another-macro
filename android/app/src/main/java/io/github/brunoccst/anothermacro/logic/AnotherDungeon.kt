@@ -802,19 +802,21 @@ object AnotherDungeon {
                         // An encounter often starts just as a hold ends (seen 2026-11-12, about every other
                         // flick on the castle): stand still a moment, fight it first, then flick from the real spot
                         for (again in 1..4) {
-                            ctx.wait(0.4) // standing still on the stairs before the flick
+                            ctx.wait(0.2) // standing still on the stairs before the flick (the hold already stood 0.4 s)
                             if (fight(r)) Route.disturbed = true
                             if (!Route.disturbed) break
                             if (!resync("on the way to the stairs after a battle", at)) { r.pos = p; offPath("not on the street the path expects"); return }
                             if (abs(p.x - at) >= t.minWalk) walkTo(at)
                         }
+                        val flickAt = System.currentTimeMillis()
                         val before = ctx.refresh().gray.clone()
                         AreaNav.flickSettled(ctx, st.up)
+                        val settledMs = System.currentTimeMillis() - flickAt
                         val after = ctx.refresh().gray.clone()
                         val change = Route.change(before, after)
                         before.release(); after.release()
                         val battle = fight(r)
-                        MacroLog.i("flick ${st} (try $attempt): screen change ${"%.1f".format(change)}${if (battle) " (a battle came)" else ""}")
+                        MacroLog.i("flick ${st} (try $attempt) at ${Battle.clock(flickAt)}: settled in ${settledMs}ms, screen change ${"%.1f".format(change)}${if (battle) " (a battle came)" else ""}")
                         if (!battle && change >= t.flickChange) {
                             took = true
                             if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in dungeons.yaml")
@@ -883,19 +885,28 @@ object AnotherDungeon {
         val ctx = r.ctx
         ctx.refresh()
         val b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE) ?: return false
-        ctx.tap(b); ctx.wait(1.0)
-        // the banner can be a moment late (the read came back empty): read again for up to ~3 s
-        var read = ctx.readText()
-        for (i in 0 until 6) {
+        val tapAt = System.currentTimeMillis()
+        ctx.tap(b); ctx.wait(0.5)
+        // the chest's banner comes ~1-2 s after the tap: read just the top of the screen (quicker) every
+        // 0.2 s until it shows, for up to ~3.5 s; anything else (a question, a door) gets a full read
+        var read = emptyList<Ocr.Line>()
+        var found = false
+        var last = ""
+        val until = System.currentTimeMillis() + 3500
+        while (System.currentTimeMillis() < until) {
+            read = ctx.readText(POPUP)
             val all = read.joinToString(" ") { Ocr.norm(it.text) }
-            if ("obtained" in all || "proceed" in all || "major trial" in all) break
+            if ("obtained" in all || "proceed" in all || "major trial" in all) { found = true; break }
+            // the same other text twice (a place's name over a door, seen 2026-11-12): it's not a chest's banner
+            if (all.isNotBlank() && all == last) break
+            last = all
             ctx.refresh()
             if (Battle.inBattle(ctx)) break
-            ctx.wait(0.5)
-            read = ctx.readText()
+            ctx.wait(0.2)
         }
+        if (!found) read = ctx.readText()
         val text = read.joinToString(" ") { it.text }
-        MacroLog.i("\"!\": ${text.take(120)}")
+        MacroLog.i("\"!\": ${text.take(120)} (tapped ${Battle.clock(tapAt)}, read +${System.currentTimeMillis() - tapAt}ms)")
         noteItems(r, read)
         // a chest found while looking around a map without a layout
         if (Ocr.norm(text).contains("obtained") && r.spec.maps.getOrNull(r.map)?.layout == null) ctx.count("chests")
@@ -905,6 +916,7 @@ object AnotherDungeon {
         if ("obtained" in Ocr.norm(text)) {
             ctx.tap(Point(0.5, 0.75)); ctx.wait(0.5)
             if (!waitForField(ctx, 6)) fight(r)
+            MacroLog.i("chest popup closed, field back +${System.currentTimeMillis() - tapAt}ms")
             return true
         }
         if (fight(r)) return true // the boss (or a guard) behind it
@@ -1035,6 +1047,8 @@ object AnotherDungeon {
 
     /** Where "The enemies have disappeared" shows: the top middle (kept wide: its exact spot is not measured). */
     private val BANNER = Region(0.05, 0.0, 0.9, 0.45)
+    /** Where a chest's "Obtained ..." banner shows (top middle). */
+    private val POPUP = Region(0.15, 0.0, 0.7, 0.25)
 
     /** One read of the screen after a win: the map's enemies gone, the White Key. */
     private fun readAfterWin(r: Run, quick: Boolean = false): String {
@@ -1195,6 +1209,8 @@ object AnotherDungeon {
             }
             if (Battle.inBattle(ctx)) { fight(r); return@repeat }
             val lines = ctx.readText()
+            // (for tuning how long the screens after the boss take)
+            MacroLog.i("after the boss ${Battle.clock()}: ${lines.joinToString(" | ") { it.text }.take(70)}")
             readPhantom(r, lines)
             // after End the game is back on the Another Dungeon map: its "???" tab glows with a White Key
             if (lines.any { Ocr.norm(it.text) == "another dungeon" } && lines.any { Ocr.norm(it.text) == "hollow" }) {
@@ -1212,7 +1228,8 @@ object AnotherDungeon {
             if (endNotSkip(r, lines)) return@repeat
             tapText(r, "OK", "Close", "Next", exact = true, tries = 1)
                 ?: ctx.tap(Point(0.5, 0.2)) // the rest closes with a tap anywhere: up here, away from buttons
-            ctx.wait(2.0)
+            // (2.0 s made the screens after the boss take ~1 min; each read takes a moment itself)
+            ctx.wait(1.0)
         }
         return "${r.spec.name}: finished, but stuck on the screens after it (${seen(ctx)})"
     }
