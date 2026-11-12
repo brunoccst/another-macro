@@ -163,7 +163,7 @@ object Route {
                 val stepChange = step?.let { change(it, f.gray) } ?: 0.0
                 if (firstGray == null) firstGray = f.gray.clone() else { lastGray?.release(); lastGray = f.gray.clone() }
                 val level = org.opencv.core.Core.mean(f.gray).`val`[0]
-                if (held - prevMs >= 200) { trace.append(" ").append(held).append(":").append("%.0f".format(level)).append("/").append("%.0f".format(stepChange)); prevMs = held }
+                if (held - prevMs >= 200) { trace.append(" ").append(held).append(":").append("%.0f".format(level)).append("/").append("%.0f".format(stepChange)).append(if (walking) "w" else "").append(still); prevMs = held }
                 when {
                     Battle.inBattle(ctx) -> { why = "battle screen"; true }
                     level < t.darkLevel -> { if (++dark >= 2) why = "dark screen (${"%.0f".format(level)})"; dark >= 2 }
