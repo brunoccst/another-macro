@@ -885,6 +885,7 @@ object AnotherDungeon {
         val ctx = r.ctx
         ctx.refresh()
         val b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE) ?: return false
+        val tapAt = System.currentTimeMillis()
         ctx.tap(b); ctx.wait(1.0)
         // the banner can be a moment late (the read came back empty): read again for up to ~3 s
         var read = ctx.readText()
@@ -897,7 +898,7 @@ object AnotherDungeon {
             read = ctx.readText()
         }
         val text = read.joinToString(" ") { it.text }
-        MacroLog.i("\"!\": ${text.take(120)}")
+        MacroLog.i("\"!\": ${text.take(120)} (tapped ${Battle.clock(tapAt)}, read +${System.currentTimeMillis() - tapAt}ms)")
         noteItems(r, read)
         // a chest found while looking around a map without a layout
         if (Ocr.norm(text).contains("obtained") && r.spec.maps.getOrNull(r.map)?.layout == null) ctx.count("chests")
@@ -907,6 +908,7 @@ object AnotherDungeon {
         if ("obtained" in Ocr.norm(text)) {
             ctx.tap(Point(0.5, 0.75)); ctx.wait(0.5)
             if (!waitForField(ctx, 6)) fight(r)
+            MacroLog.i("chest popup closed, field back +${System.currentTimeMillis() - tapAt}ms")
             return true
         }
         if (fight(r)) return true // the boss (or a guard) behind it
