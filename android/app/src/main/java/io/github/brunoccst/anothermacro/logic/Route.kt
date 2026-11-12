@@ -229,9 +229,10 @@ object Route {
                 // a battle the screen checks missed: the party stopped somewhere along the way. Its
                 // screen can take seconds to show (the flash comes ~2 s after the party stops dead):
                 // wait until it does or the field's menu is back
-                if (fight() || (awaitBattle(ctx, 6.0, 600) && fight())) {
+                val stoppedEarly = frames > 5 && lastField < holdMs - 250
+                if (fight() || (stoppedEarly && awaitBattle(ctx, 6.0) && fight())) {
                     MacroLog.i("hold trace (ms:brightness/change):$trace")
-                    if (frames > 5 && lastField < holdMs - 250) {
+                    if (stoppedEarly) {
                         // the view stopped moving before the hold's end: that's where the encounter stopped the party
                         val w = (lastField - t.lagMs).coerceIn(0L, holdMs)
                         val dw = t.distance(w.toDouble())
@@ -296,19 +297,25 @@ object Route {
 
     /**
      * After a hold stopped on an encounter's look: true once the battle screen shows (within
-     * [seconds]), false as soon as the field's menu button has stayed for [fieldMs] (the
-     * party just stands there: no battle).
+     * [seconds]). False when the field's menu button has stayed for [fieldMs] with no flash: the
+     * party just stands there. (The encounter's frozen field can show the menu button too, for up
+     * to ~2 s before its white flash; after the flash the battle is sure, so it's waited for.)
      */
-    fun awaitBattle(ctx: Context, seconds: Double = 6.0, fieldMs: Long = 1000): Boolean {
+    fun awaitBattle(ctx: Context, seconds: Double = 6.0, fieldMs: Long = 2500): Boolean {
         val end = System.currentTimeMillis() + (seconds * 1000).toLong()
         var fieldSince = 0L
+        var base = -1.0
+        var flash = false
         while (System.currentTimeMillis() < end) {
-            ctx.refresh()
+            val f = ctx.refresh()
             if (Battle.inBattle(ctx)) return true
+            val level = org.opencv.core.Core.mean(f.gray).`val`[0]
+            if (base > 0 && level > 100 && level > base * 1.6) flash = true
+            base = if (base < 0) level else minOf(base, level)
             val now = System.currentTimeMillis()
-            if (ctx.find("field_menu_button") != null) { if (fieldSince == 0L) fieldSince = now else if (now - fieldSince >= fieldMs) return false }
+            if (!flash && ctx.find("field_menu_button") != null) { if (fieldSince == 0L) fieldSince = now else if (now - fieldSince >= fieldMs) return false }
             else fieldSince = 0L
-            ctx.wait(0.2)
+            ctx.wait(0.15)
         }
         return false
     }
