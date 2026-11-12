@@ -135,12 +135,19 @@ object Route {
             var why: String? = null
             var firstGray: org.opencv.core.Mat? = null
             var lastGray: org.opencv.core.Mat? = null
+            // per frame: ms held, brightness, change from the frame before (logged when a battle
+            // came that these checks missed, to learn what the encounter looks like)
+            val trace = StringBuilder()
+            var prevMs = -1000L
             val res = ctx.hold(press, Point(press.x + if (right) 0.1 else -0.1, press.y), holdMs) { held ->
                 val f = ctx.refresh()
                 frames++
                 // the first and the latest view: a hold that walked scrolls the view
+                val step = lastGray ?: firstGray
+                val stepChange = step?.let { change(it, f.gray) } ?: 0.0
                 if (firstGray == null) firstGray = f.gray.clone() else { lastGray?.release(); lastGray = f.gray.clone() }
                 val level = org.opencv.core.Core.mean(f.gray).`val`[0]
+                if (held - prevMs >= 200) { trace.append(" ").append(held).append(":").append("%.0f".format(level)).append("/").append("%.0f".format(stepChange)); prevMs = held }
                 when {
                     Battle.inBattle(ctx) -> { why = "battle screen"; true }
                     level < t.darkLevel -> { if (++dark >= 2) why = "dark screen (${"%.0f".format(level)})"; dark >= 2 }
@@ -190,6 +197,7 @@ object Route {
                 // a battle the screen checks missed: the party stopped somewhere along the way
                 if (fight()) {
                     MacroLog.i("a battle came during the hold without being seen: the position is unknown")
+                    MacroLog.i("hold trace (ms:brightness/change):$trace")
                     disturbed = true; unseen = true
                 }
                 return p

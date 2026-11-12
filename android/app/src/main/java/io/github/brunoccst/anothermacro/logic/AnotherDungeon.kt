@@ -761,12 +761,15 @@ object AnotherDungeon {
                         if (abs(p.x - at) >= t.minWalk) walkTo(at)
                         // a battle on the walk to the stairs: read where it left the party and walk on to them
                         // before flicking (a flick from the wrong spot is a wasted try)
+                        // An encounter often starts just as a hold ends (seen 2026-11-12, about every other
+                        // flick on the castle): stand still a moment, fight it first, then flick from the real spot
                         for (again in 1..4) {
+                            ctx.wait(0.4) // standing still on the stairs before the flick
+                            if (fight(r)) Route.disturbed = true
                             if (!Route.disturbed) break
                             if (!resync("on the way to the stairs after a battle", at)) { r.pos = p; offPath("not on the street the path expects"); return }
                             if (abs(p.x - at) >= t.minWalk) walkTo(at)
                         }
-                        ctx.wait(0.4) // standing still on the stairs before the flick
                         val before = ctx.refresh().gray.clone()
                         AreaNav.flick(ctx, st.up)
                         val after = ctx.refresh().gray.clone()
