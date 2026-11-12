@@ -67,7 +67,17 @@ object PhantomCrystal {
 
     private fun inner(r: Run): String {
         val ctx = r.ctx
-        if (!inside(ctx)) enter(r)
+        // a world's title or an item banner hides the field's buttons for a few seconds: look again before
+        // taking this for the outside (twice the "door" tapped was a chest inside, 2026-11-12)
+        var isInside = inside(ctx)
+        for (i in 0 until 6) {
+            if (isInside) break
+            // an item or stamp banner left open (it hides the bar): close it
+            val top = ctx.readText(Region(0.15, 0.0, 0.7, 0.25)).joinToString(" ") { Ocr.norm(it.text) }
+            if ("obtained" in top || "stamp" in top) dismiss(ctx) else ctx.wait(1.0)
+            isInside = inside(ctx)
+        }
+        if (!isInside) enter(r)
         while (true) {
             MacroLog.status("Phantom Crystal Dimension: world ${r.world}${if (r.cape) " (the Cape)" else ""}")
             when (clearWorld(r)) {
@@ -86,7 +96,8 @@ object PhantomCrystal {
         if (ctx.find("field_menu_button") == null) return false
         // OCR may read the bar as one line ("Menu Rewards")
         val words = ctx.readText(Region(0.0, 0.82, 0.6, 0.18)).flatMap { Ocr.norm(it.text).split(' ') }
-        return "rewards" in words && words.none { it == "quests" || it == "map" || it == "diary" }
+        // ...or as one word ("MenuRewards", world V 2026-11-12)
+        return words.any { "rewards" in it } && words.none { it == "quests" || it == "map" || it == "diary" || "quests" in it || "diary" in it }
     }
 
     private fun enter(r: Run) {
@@ -151,6 +162,7 @@ object PhantomCrystal {
             }
             // a closed chest in view without a "!" yet: walk toward it
             val chest = closedChests(ctx).minByOrNull { abs(it.x - 0.5) }
+            if (steps % 5 == 1) MacroLog.i("World ${r.world}: looking around (step $steps, ends $ends${chest?.let { ", closed chest at x ${"%.2f".format(it.x)}" } ?: ""})")
             if (chest != null && abs(chest.x - 0.5) > 0.05) {
                 walk(ctx, if (chest.x < 0.5) -1.0 else 1.0, 350)
                 continue
@@ -177,12 +189,15 @@ object PhantomCrystal {
         val overChest = bubbles.firstOrNull { b -> chests.any { abs(it.x - b.x) < 0.04 && it.y > b.y && it.y - b.y < 0.32 } }
         if (overChest != null) return tapBubble(r, overChest)
         // a bubble on something that walks: a cat (portals stand still)
-        for (b in bubbles) {
-            if (r.skip.any { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 }) continue
+        val others = bubbles.filter { b -> r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 } }
+        if (others.isNotEmpty()) {
+            // one second look for all of them (one per bubble cost ~2 s each)
             Thread.sleep(500)
             val again = bubbles(ctx, ctx.refresh())
-            val moved = again.none { abs(it.x - b.x) < 0.006 && abs(it.y - b.y) < 0.01 } && again.any { abs(it.x - b.x) < 0.08 && abs(it.y - b.y) < 0.05 }
-            if (moved) return tapBubble(r, again.minByOrNull { abs(it.x - b.x) }!!)
+            for (b in others) {
+                val moved = again.none { abs(it.x - b.x) < 0.006 && abs(it.y - b.y) < 0.01 } && again.any { abs(it.x - b.x) < 0.08 && abs(it.y - b.y) < 0.05 }
+                if (moved) return tapBubble(r, again.minByOrNull { abs(it.x - b.x) }!!)
+            }
         }
         return Taken.NONE
     }
@@ -190,9 +205,18 @@ object PhantomCrystal {
     /** Tap a "!" and see what it was: an item, a stamp, a menu, or a way out. */
     private fun tapBubble(r: Run, b: Point): Taken {
         val ctx = r.ctx
-        ctx.tapExact(b); ctx.wait(2.0)
-        val lines = ctx.readText()
+        MacroLog.i("World ${r.world}: tapping the \"!\" at (${"%.2f".format(b.x)}, ${"%.2f".format(b.y)})")
+        ctx.tapExact(b); ctx.wait(1.0)
+        // the chest's banner can take ~3 s to show (read at 2 s it was blank, and the run then waited for a
+        // new world with the banner open, 2026-11-12): read until there's text, a fade, or ~4.5 s
+        var lines = ctx.readText()
+        val readUntil = System.currentTimeMillis() + 3500
+        while (lines.isEmpty() && System.currentTimeMillis() < readUntil) {
+            ctx.refresh(); if (dark(ctx)) break
+            ctx.wait(0.3); lines = ctx.readText()
+        }
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+        MacroLog.i("World ${r.world}: \"!\" shows: ${lines.joinToString(" | ") { it.text }.take(120)}")
         when {
             "treatise" in all || "codex" in all || "opus" in all -> ctx.stop("an NPC offers a free Treatise/Codex/Opus: choose it yourself")
             "stamp" in all && ("you got" in all || "filled out" in all) -> {
@@ -225,7 +249,11 @@ object PhantomCrystal {
         val ctx = r.ctx
         // the unfolded floating buttons' label can sit over a "!" near the right edge and hide it from the match
         if (InputService.instance?.controls(true)?.first == true) Thread.sleep(400)
-        repeat(3) {
+        // a door's "!" shows only when the party stands close to it (the water palace, 2026-11-12: walks of
+        // 2.5 s went past it): walk the world in short steps, one way to its end, then back
+        var dir = 1.0
+        var ends = 0
+        for (step in 0 until 40) {
             val left = bubbles(ctx, ctx.refresh()).filter { b -> r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 } }
             for (b in left.sortedBy { abs(it.x - 0.5) }) {
                 MacroLog.status("World ${r.world}: taking the way on")
@@ -235,8 +263,9 @@ object PhantomCrystal {
                     else -> {}
                 }
             }
-            // none in view: walk the world once more to find one
-            walk(ctx, if (it % 2 == 0) 1.0 else -1.0, 2500)
+            val before = view(ctx)
+            walk(ctx, dir, 500)
+            if (!moved(ctx, before)) { if (++ends > 2) break; dir = -dir }
         }
         ctx.stop("no way out of world ${r.world} found")
     }
@@ -244,6 +273,7 @@ object PhantomCrystal {
     /** After a tap that wasn't an item/stamp/menu: did we leave the world (or the dimension)? */
     private fun afterLeaving(r: Run): Taken {
         val ctx = r.ctx
+        MacroLog.i("World ${r.world}: not an item, stamp or menu: watching for a new world")
         val end = System.currentTimeMillis() + 25_000
         var faded = false
         while (System.currentTimeMillis() < end) {
@@ -252,6 +282,13 @@ object PhantomCrystal {
             val all = lines.joinToString(" ") { Ocr.norm(it.text) }
             if ("congratulations" in all || "obtained dungeon items" in all) return Taken.END
             if (lines.any { Ocr.norm(it.text) == "another dungeon" }) return Taken.END
+            // a late item or stamp banner (it hides the field's buttons, so no new world would ever be seen)
+            if (!faded && ("obtained" in all || ("stamp" in all && ("you got" in all || "filled out" in all)))) {
+                if ("obtained" in all) { noteItem(r, lines); r.chests++; ctx.count("chests") } else r.stamps++
+                MacroLog.i("World ${r.world}: a late banner: ${lines.joinToString(" | ") { it.text }.take(80)}")
+                dismiss(ctx)
+                return Taken.SOME
+            }
             if (dark(ctx)) faded = true
             else if (faded && ctx.find("field_menu_button") != null) {
                 MacroLog.i("a new world")
@@ -298,7 +335,7 @@ object PhantomCrystal {
 
     // the item and stamp popups are a banner at the top: a tap low on the screen left one open in the
     // World's Cape for minutes (2026-11-12), a tap on the banner closes it
-    private fun dismiss(ctx: Context) { ctx.tap(Point(0.5, 0.11)); ctx.wait(1.2) }
+    private fun dismiss(ctx: Context) { MacroLog.i("closing the banner"); ctx.tap(Point(0.5, 0.11)); ctx.wait(1.2) }
 
     /** Close a banner by tapping the banner itself (a tap on the field would walk the party). */
     private fun dismissBanner(ctx: Context) { ctx.tap(Point(0.5, 0.11)); ctx.wait(2.0) }
@@ -337,11 +374,13 @@ object PhantomCrystal {
     }
 
     /** Every place [t] shows on [g], over several sizes (the worlds are drawn at different zooms). */
-    private fun findAll(g: Mat, t: Mat, scales: List<Double>, min: Double): List<Point> {
+    private fun findAll(full: Mat, t: Mat, scales: List<Double>, min: Double): List<Point> {
         if (t.empty()) return emptyList()
+        // at half size: full size took seconds per look (a world step ~20 s, 2026-11-12)
+        val g = Mat(); Imgproc.resize(full, g, Size(0.0, 0.0), HALF, HALF, Imgproc.INTER_AREA)
         val hits = ArrayList<Pair<Double, Point>>()
         for (k in scales) {
-            val s = Mat(); Imgproc.resize(t, s, Size(0.0, 0.0), k, k)
+            val s = Mat(); Imgproc.resize(t, s, Size(0.0, 0.0), k * HALF, k * HALF, Imgproc.INTER_AREA)
             if (s.rows() >= g.rows() || s.cols() >= g.cols()) { s.release(); continue }
             val res = Mat(); Imgproc.matchTemplate(g, s, res, Imgproc.TM_CCOEFF_NORMED)
             repeat(10) {
@@ -353,10 +392,13 @@ object PhantomCrystal {
             }
             s.release(); res.release()
         }
+        g.release()
         val out = ArrayList<Point>()
         for ((_, p) in hits.sortedByDescending { it.first }) if (out.none { abs(it.x - p.x) < 0.02 && abs(it.y - p.y) < 0.03 }) out += p
         return out
     }
+
+    private const val HALF = 0.5
 
     /** The "!" bubbles on screen (not under the app's own buttons on the right). */
     private fun bubbles(ctx: Context, f: Frame): List<Point> =
