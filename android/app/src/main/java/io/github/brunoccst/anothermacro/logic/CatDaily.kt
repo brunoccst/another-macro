@@ -60,12 +60,16 @@ object CatDaily {
                     if (c.era !in ERA) "its era isn't on the world map's era buttons" else "it can't be reached from the world map (not supported yet)")
                 ctx.count("cats_skipped")
             }
-            // a cat on a map past the travel point (cat_spots.yaml walk_to) isn't reachable yet: left open
-            val next = pending.firstOrNull { it.key !in failed && supported(it) && CatRoute.spot(ctx, it.location)?.walkTo == null }
+            val next = pending.firstOrNull { it.key !in failed && supported(it) }
             if (next == null) {
                 val left = pending.filter { it.key !in done }
+                fun why(c: Clue) = when {
+                    c.key in failed -> "missed"
+                    !supported(c) -> "skipped: not reachable from the world map yet"
+                    else -> "open"
+                }
                 return if (left.isEmpty() && unknown.isEmpty()) "all cats found today (${done.size} this run)"
-                else "found ${done.size}; still open: ${left.joinToString { it.location }}${if (unknown.isNotEmpty()) "; unread clues: ${unknown.size}" else ""}"
+                else "found ${done.size}; still open: ${left.joinToString { "${it.location} (${why(it)})" }}${if (unknown.isNotEmpty()) "; unread clues: ${unknown.size}" else ""}"
             }
             cat = "cat ${done.size + failed.size + 1} · ${next.location} (${next.era})"
             step("going there (clue: \"${next.text.take(60)}\")")
@@ -90,13 +94,18 @@ object CatDaily {
     private fun go(ctx: Context, clue: Clue): String? {
         val spot = CatRoute.spot(ctx, clue.location)
         val fight = { Battle.fight(ctx) { Battle.Setup.AUTO }.also { if (it == Battle.Outcome.LOST) ctx.stop("party was defeated") } == Battle.Outcome.WON }
+        // "X (Enter from Y)": travel to Y, then walk across into X
+        val via = ENTER_FROM.find(clue.location)
+        val walkTo = spot?.walkTo ?: via?.groupValues?.get(1)?.trim()
+        val tripClue = if (via != null) clue.copy(location = via.groupValues[2].trim()) else clue
         val arrived = if (spot != null && spot.fixedTravel) {
             CatRoute.travel(ctx, spot) || run {
                 if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) closeMap(ctx)
-                travel(ctx, clue)
+                travel(ctx, tripClue)
             }
-        } else travel(ctx, clue)
+        } else travel(ctx, tripClue)
         if (!arrived) return "couldn't travel there"
+        if (walkTo != null && !walkAcross(ctx, walkTo)) return "couldn't walk across to $walkTo"
         if (spot != null && spot.fixedWalk) {
             ctx.count("fixed_routes")
             step("following the fixed route to the cat")
@@ -124,7 +133,25 @@ object CatDaily {
     /** The island a place is on (its label on the continent map opens a panel of its places), or null. */
     internal fun regionOf(place: String) = REGIONS.entries.firstOrNull { (_, places) -> places.any { Ocr.norm(it) == Ocr.norm(place) } }?.key
 
-    private fun supported(c: Clue) = c.era in ERA && !c.location.contains("Enter from") && !c.location.contains("quick destination")
+    private fun supported(c: Clue) = c.era in ERA && !c.location.contains("quick destination")
+
+    /** "Karek Swampland (Enter from Baruoki)": the cat is on a map the party walks to from a travel point. */
+    private val ENTER_FROM = Regex("""^(.*?)\s*\(Enter from ([^)]*)\)""")
+
+    /** The islands' continents (Konium, on Snake Bone Island, was learned on Migleina Continent, 2026-11-03). */
+    private val ISLAND_CONTINENT = mapOf("Snake Bone Island" to "Migleina Continent")
+
+    /**
+     * The continent (Expand entry) to open for [place], if known: learned for the place itself,
+     * else for another place on the same island, else the island's own continent. Without it an
+     * island's label has to be found on whatever map the era tab shows, which a sweep can miss.
+     */
+    internal fun continentFor(ctx: Context, place: String, era: String): String? {
+        KnownPlaces.continent(ctx, place, era)?.let { return it }
+        val region = regionOf(place) ?: return null
+        REGIONS[region].orEmpty().firstNotNullOfOrNull { KnownPlaces.continent(ctx, it, era) }?.let { return it }
+        return ISLAND_CONTINENT[region]
+    }
 
     // --- 1. clues ----------------------------------------------------------------
     @Suppress("UNCHECKED_CAST")
@@ -167,7 +194,7 @@ object CatDaily {
         // the place's own region (from the wiki's map list): islands show as a label on a continent's map
         val region = regionOf(place)
         // learned before: go straight to its continent
-        val known = KnownPlaces.continent(ctx, place, clue.era)
+        val known = continentFor(ctx, place, clue.era)
         if (known != null) {
             MacroLog.i("$place: known to be on $known")
             step("looking for $place on $known")
@@ -288,7 +315,9 @@ object CatDaily {
         val pans = ArrayList<Pair<Double, Double>>()
         pans += 0.0 to 0.0
         repeat(3) { pans += 0.6 to 0.4 }          // to the top-left corner (the drags stop at the edges)
-        for (row in 0 until 3) {
+        // five rows: a continent's map is taller than three screens at the zoom a trip leaves it
+        // at (an island's label sat below a three-row sweep, 2026-11-12); the drags stop at the edge
+        for (row in 0 until 5) {
             val step = if (row % 2 == 0) -0.4 else 0.4
             if (row > 0) pans += 0.0 to -0.35
             repeat(4) { pans += step to 0.0 }
@@ -368,6 +397,47 @@ object CatDaily {
      * the markers are tried one by one. A walk that doesn't reach the spot still hunts from
      * where it stopped, and each later pass hunts wider.
      */
+    /** The area map's title (the map the party is on), or "" if the map didn't open. */
+    private fun mapTitle(ctx: Context): String =
+        AreaNav.look(ctx, readText = true) { emptyList() }.text.filter { it.center.y < 0.12 }.joinToString(" ") { it.text }.trim()
+
+    private fun names(title: String, map: String) =
+        title.isNotEmpty() && (Ocr.similarity(title, map) >= 0.8 || Ocr.norm(title).contains(Ocr.norm(map)))
+
+    /**
+     * From the travel point, walk off the map's side into [target] (a clue's "Enter from" map).
+     * Which side leads there isn't measured yet, so: left first, checking the area map's title
+     * after each long hold; a different map than [target] means the wrong exit, so walk back
+     * and try the right side.
+     */
+    internal fun walkAcross(ctx: Context, target: String): Boolean {
+        step("walking across to $target")
+        val origin = mapTitle(ctx)
+        MacroLog.i("walking across from '${origin.ifEmpty { "?" }}' to $target")
+        if (names(origin, target)) return true
+        for (dir in listOf(-1.0, 1.0)) {
+            for (i in 1..6) {
+                AreaNav.hold(ctx, dir, 0.3)           // about 11 s: the next exit or the map's end
+                ctx.wait(2.5)                         // a map change fades out and in
+                fightIfBattle(ctx)
+                val title = mapTitle(ctx)
+                MacroLog.i("walk ${if (dir < 0) "left" else "right"} $i: on '${title.ifEmpty { "?" }}'")
+                if (names(title, target)) { MacroLog.i("reached $target"); return true }
+                if (title.isNotEmpty() && origin.isNotEmpty() && !names(title, origin)) {
+                    // another map: back through the same exit, then the other side
+                    MacroLog.i("this side leads to '$title', not $target: walking back")
+                    for (k in 1..3) {
+                        AreaNav.hold(ctx, -dir, 0.15); ctx.wait(2.5); fightIfBattle(ctx)
+                        if (names(mapTitle(ctx), origin)) break
+                    }
+                    break
+                }
+            }
+        }
+        MacroLog.i("no way across to $target found on either side")
+        return false
+    }
+
     fun search(ctx: Context): String? {
         val ff = FeatherFinder.load(ctx)
         val tried = ArrayList<Point>()
