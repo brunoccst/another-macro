@@ -362,9 +362,16 @@ object PhantomCrystal {
     private fun bubbles(ctx: Context, f: Frame): List<Point> =
         findAll(f.gray, icon(ctx, "field_interact_bubble"), listOf(0.8, 0.9, 1.0, 1.2, 1.35), 0.7).filter { it.x < 0.92 }
 
-    /** Closed treasure chests in view (the red and gold kind every world here uses). */
-    private fun closedChests(ctx: Context): List<Point> =
-        findAll(ctx.frame?.gray ?: ctx.refresh().gray, icon(ctx, "closed_chest"), listOf(0.7, 0.8, 0.9, 1.0), 0.68).filter { it.y > 0.3 }
+    /**
+     * Closed treasure chests in view: the red and gold kind most worlds use, and the blue-grey
+     * metal kind of the teal pipe world (it never matched the red one, so its chests were walked past, 2026-11-12).
+     */
+    private fun closedChests(ctx: Context): List<Point> {
+        val g = ctx.frame?.gray ?: ctx.refresh().gray
+        val all = findAll(g, icon(ctx, "closed_chest"), listOf(0.7, 0.8, 0.9, 1.0), 0.68) +
+            findAll(g, icon(ctx, "closed_chest_blue"), listOf(0.7, 0.8, 0.9, 1.0), 0.75)
+        return all.filter { it.y > 0.3 }
+    }
 
     private fun waitForWorld(ctx: Context, seconds: Int): Boolean {
         val end = System.currentTimeMillis() + seconds * 1000

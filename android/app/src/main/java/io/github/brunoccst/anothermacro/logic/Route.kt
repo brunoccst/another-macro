@@ -236,6 +236,15 @@ object Route {
                 }
             }
             val interrupted = interrupted0
+            // the view stood still with the party already at the hold's goal (the street's end, a junction):
+            // that's arriving, not an encounter. Waiting for a battle there cost ~3 s at every junction (2026-11-12)
+            if (interrupted && why == "view stood still" && !fight()) {
+                arrived(ctx, l, walked(l, p, right, left))?.let {
+                    MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the view stood still at ${res.stoppedAtMs}ms with the party at its goal " +
+                        "(minimap x ${"%.3f".format(it.x)}): arrived, no battle wait")
+                    return it
+                }
+            }
             // the flash (or the dead stop before it) comes seconds before the battle screen: wait for it
             // rather than taking the quiet screen for "no battle" and holding on into the encounter
             val battle = interrupted && (fight() || ((why?.startsWith("flash") == true || why == "view stood still") && awaitBattle(ctx) && fight()))
@@ -266,6 +275,14 @@ object Route {
                 // screen can take seconds to show (the flash comes ~2 s after the party stops dead):
                 // wait until it does or the field's menu is back
                 val stoppedEarly = frames > 5 && lastField < holdMs - 250
+                if (stoppedEarly && !fight()) {
+                    // the view's last walking frame came early, but the party is at the hold's goal: no encounter
+                    // stopped it (the walk slows into its stop, the camera stops at a map's edge)
+                    arrived(ctx, l, p)?.let {
+                        MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the view last moved at ${lastField}ms, the minimap shows the party at its goal: no battle wait")
+                        return it
+                    }
+                }
                 if (fight() || (stoppedEarly && awaitBattle(ctx, 6.0) && fight())) {
                     MacroLog.i("hold trace (ms:brightness/change):$trace")
                     if (stoppedEarly) {
@@ -333,6 +350,18 @@ object Route {
             holdMs = t.holdMs(left).toLong()
         }
         return p
+    }
+
+    /** Where the minimap shows the party, when that's on [goal]'s street within 0.008 of it (else null). */
+    private fun arrived(ctx: Context, l: AreaNav.Layout, goal: Point): Point? {
+        val t0 = System.currentTimeMillis()
+        val m = try { MiniMap.locate(ctx, l, listOf(goal), 0.03) } catch (e: Exception) { MacroLog.i("minimap: ${e.message}"); null } ?: return null
+        val seg = segOf(l, goal) ?: return null
+        if (segOf(l, m.at) != seg || abs(m.at.x - goal.x) >= 0.008) {
+            MacroLog.i("not at the hold's goal: the minimap shows x ${"%.3f".format(m.at.x)}, goal ${"%.3f".format(goal.x)} (${System.currentTimeMillis() - t0}ms)")
+            return null
+        }
+        return Point(m.at.x.coerceIn(seg.x1, seg.x2), seg.y)
     }
 
     /**
