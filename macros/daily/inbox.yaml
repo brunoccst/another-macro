@@ -1,56 +1,50 @@
 # Claim the inbox: Menu → Inbox, open every item not opened yet (that receives its rewards), OK.
 # The game has no "receive all" button and keeps opened items in the list for 90 days (marked
-# "Opened"), newest first. So the macro opens the top-most row without the "Opened" mark, and
-# scrolls down when the page has none, until `empty_pages` pages in a row had nothing new or the
-# list ends. Only rows, OK and the inbox's X are tapped: nothing is bought or spent.
+# "Opened"). When the inbox opens, the items not opened yet come first. So the macro opens the
+# top-most row without the "Opened" mark until the page has none, then closes and reopens the
+# inbox to bring the rest to the top; it is done when a freshly opened inbox starts with an opened
+# item. Only rows, OK and the inbox's X are tapped: nothing is bought or spent.
 name: inbox
 group: daily
 icon: chest
 description: "Claim every reward in the inbox (Menu → Inbox, open each item not opened yet)."
 templates: [daily_ads, inbox]
 params:
-  empty_pages: {default: 2, help: "stop after this many pages in a row with every item already opened (new items are at the top)"}
   max_items: {default: 100, help: "open at most this many items in one run"}
 screens: [inbox_item, inbox, menu_open, field]
 unknown_timeout_s: 45
 
 setup:
-  - set: {done: false, menu_taps: 0, plain_pages: 0, last_page: "''", misses: 0}
+  - set: {done: false, menu_taps: 0, misses: 0, this_visit: 0}
 
 handlers:
   inbox_item:   # an opened item: "The items below have been received" + the rewards, OK
     - count: items_opened
     - log: "inbox item {stats.items_opened}: {screen_text(0.08, 0.75)}"
     - tap: inbox_ok_button
-    - set: {plain_pages: 0, misses: 0}
+    - set: {misses: 0, this_visit: this_visit + 1}
     - wait: 1
 
   inbox:
-    - if: done or stats.items_opened >= max_items
+    - set: {row: "text_row_without('utc', 'opened', 0.15, 0.86)"}
+    - if: not done and stats.items_opened < max_items and row >= 0 and misses < 3
       then:
-        - status: "closing the inbox"
-        - tap: inbox_close_button
-        - set: {done: true}
+        - status: "opening inbox item {stats.items_opened + 1}"
+        - tap: {x: 0.5, y: row}
+        - set: {misses: misses + 1}   # back to 0 once the item shows
         - wait: 1.5
       else:
-        - set: {row: "text_row_without('utc', 'opened', 0.15, 0.86)"}
-        - if: row >= 0 and misses < 3
+        # nothing new on this page. If items were opened in this visit, more may wait below:
+        # reopening the inbox brings them to the top. Otherwise the inbox is done.
+        - if: this_visit == 0 or stats.items_opened >= max_items
           then:
-            - status: "opening inbox item {stats.items_opened + 1}"
-            - tap: {x: 0.5, y: row}
-            - set: {misses: misses + 1}   # back to 0 once the item shows
-            - wait: 1.5
+            - set: {done: true}
+            - status: "closing the inbox"
           else:
-            # nothing new on this page: scroll down, or stop at the end of the list
-            - set: {page: "screen_text(0.15, 0.86)", plain_pages: plain_pages + 1, misses: 0}
-            - if: plain_pages > empty_pages or page == last_page
-              then:
-                - set: {done: true}
-              else:
-                - status: "no new items on this page: scrolling down"
-                - set: {last_page: page}
-                - drag: {from: [0.5, 0.78], to: [0.5, 0.2], ms: 700}
-                - wait: 1.5
+            - status: "reopening the inbox for the items further down"
+        - set: {this_visit: 0, misses: 0, menu_taps: 0}
+        - tap: inbox_close_button
+        - wait: 1.5
 
   menu_open:
     - if: done
