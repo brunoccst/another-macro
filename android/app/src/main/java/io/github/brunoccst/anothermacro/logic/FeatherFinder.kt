@@ -28,12 +28,19 @@ class FeatherFinder private constructor(private val templates: List<Mat>) {
         val half = Mat()
         Imgproc.resize(band, half, Size(0.0, 0.0), 0.5, 0.5, Imgproc.INTER_AREA)
         band.release()
-        val bin = Mat()
-        Imgproc.threshold(half, bin, 180.0, 255.0, Imgproc.THRESH_BINARY)
+        // two binarizations: plain brightness (the bubble over a dark field), and brightness
+        // against the local background (white top-hat) for a bubble over a bright sky, where
+        // a fixed threshold turns the whole sky white (Snake Skull Mescita's sunset, 2026-11-12)
+        val plain = Mat()
+        Imgproc.threshold(half, plain, 180.0, 255.0, Imgproc.THRESH_BINARY)
+        val hat = Mat()
+        Imgproc.morphologyEx(half, hat, Imgproc.MORPH_TOPHAT,
+            Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(21.0, 21.0)))
+        Imgproc.threshold(hat, hat, 40.0, 255.0, Imgproc.THRESH_BINARY)
         half.release()
         var best = 0.0
         var at = Point(0.0, 0.0)
-        for (t in templates) {
+        for (bin in listOf(plain, hat)) for (t in templates) {
             if (t.rows() > bin.rows() || t.cols() > bin.cols()) continue
             val r = Mat()
             Imgproc.matchTemplate(bin, t, r, Imgproc.TM_CCOEFF_NORMED)
@@ -46,7 +53,7 @@ class FeatherFinder private constructor(private val templates: List<Mat>) {
                 at = Point(cx / g.cols(), cy / g.rows())
             }
         }
-        bin.release()
+        plain.release(); hat.release()
         return best to at
     }
 
@@ -58,7 +65,7 @@ class FeatherFinder private constructor(private val templates: List<Mat>) {
             val inner = g.submat((h * 0.18).toInt(), (h * 0.82).toInt(), (w * 0.18).toInt(), (w * 0.82).toInt())
             val bin = Mat()
             Imgproc.threshold(inner, bin, 215.0, 255.0, Imgproc.THRESH_BINARY)
-            val ts = listOf(0.8, 0.95, 1.1, 1.3, 1.5).map { k ->
+            val ts = listOf(0.65, 0.8, 0.95, 1.1, 1.3, 1.5).map { k ->
                 Mat().also { Imgproc.resize(bin, it, Size(0.0, 0.0), k / 2, k / 2, Imgproc.INTER_AREA) }
             }
             return FeatherFinder(ts)
