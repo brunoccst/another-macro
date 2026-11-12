@@ -120,6 +120,10 @@ object Route {
     private const val STILL_FRAMES = 6
     /** A still view this long (ms) after walking ends a hold to look for a battle. */
     private const val STILL_MS = 450L
+    /** A hold's first walking frame later than this (ms) means the party started late... */
+    private const val LATE_START_MS = 1000L
+    /** ...by its time less this (when the first walking frame usually shows). */
+    private const val NORMAL_START_MS = 700L
 
     /** A hold was cut short by a battle since this was last cleared: the position is less sure. */
     @Volatile var disturbed = false
@@ -150,6 +154,7 @@ object Route {
             var walking = false
             var still = 0
             var lastWalk = 0L
+            var firstWalk = 0L
             var baseLevel = -1.0
             var why: String? = null
             var firstGray: org.opencv.core.Mat? = null
@@ -180,7 +185,7 @@ object Route {
                         // (the screen brightening toward the flash moves too: not walking)
                         // only a walking frame (>= WALK_STEP) marks where the party still walked: a shimmer or the
                         // brightening before the flash (7-11) came up to a second after the party stopped
-                        if (stepChange >= WALK_STEP && (baseLevel < 0 || level < baseLevel + 8)) { lastField = held; lastWalk = held; walking = true; still = 0 }
+                        if (stepChange >= WALK_STEP && (baseLevel < 0 || level < baseLevel + 8)) { if (!walking) firstWalk = held; lastField = held; lastWalk = held; walking = true; still = 0 }
                         else if (stepChange < STILL_STEP) still++
                         baseLevel = if (baseLevel < 0) level else baseLevel * 0.9 + level * 0.1
                         false
@@ -215,10 +220,14 @@ object Route {
             // rather than taking the quiet screen for "no battle" and holding on into the encounter
             val battle = interrupted && (fight() || ((why?.startsWith("flash") == true || why == "view stood still") && awaitBattle(ctx) && fight()))
             val lag = if (why == "battle screen") t.hudLagMs else t.lagMs
+            // the party sometimes starts late (right after a chest's popup the hold did nothing for ~1 s,
+            // 2026-11-12); a walk usually shows by 0.5-0.9 s: count a later start as time not walked
+            val lateStart = if (frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
+            if (lateStart > 0) MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the party started walking late (${firstWalk}ms)")
             val walkedMs = when {
-                !interrupted -> holdMs
+                !interrupted -> holdMs - lateStart
                 // the party stops when the battle starts: the last frame that still looked like the field
-                battle -> (lastField - lag).coerceIn(0L, holdMs)
+                battle -> (lastField - lag - lateStart).coerceIn(0L, holdMs)
                 else -> res.heldMs.coerceAtMost(holdMs)
             }
             MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: ${frames} frames, held ${res.heldMs}ms, view change ${"%.1f".format(moved)}" +
@@ -241,7 +250,7 @@ object Route {
                     MacroLog.i("hold trace (ms:brightness/change):$trace")
                     if (stoppedEarly) {
                         // the view stopped moving before the hold's end: that's where the encounter stopped the party
-                        val w = (lastField - t.lagMs).coerceIn(0L, holdMs)
+                        val w = (lastField - t.lagMs - lateStart).coerceIn(0L, holdMs)
                         val dw = t.distance(w.toDouble())
                         p = walked(l, pBefore, right, dw)
                         left = leftBefore - dw
