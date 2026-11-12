@@ -15,8 +15,7 @@ Claude (Anthropic cloud) --HTTPS /mcp/<connector token>--> this Worker <--WebSoc
 
 ## Set it up (once, about 10 minutes, all from the phone's browser)
 
-1. **Tokens.** In Another Macro open **Claude → Use from your Claude chat** and tap
-   **Make new tokens**.
+1. **Tokens.** In Another Macro open **System → Claude** and tap **Make new tokens**.
 2. **Deploy.** Tap this button and sign in to Cloudflare (a free account is enough):
 
    [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/brunoccst/another-macro/tree/main/relay)
@@ -39,10 +38,12 @@ Claude (Anthropic cloud) --HTTPS /mcp/<connector token>--> this Worker <--WebSoc
 3. **Relay address.** Copy the Worker's address (`https://another-macro.<you>.workers.dev`)
    into the app's **Relay address** field.
 4. **Connector.** In the app tap **Copy connector address**. In claude.ai open **Settings →
-   Connectors → Add custom connector**, name it e.g. "Another Macro phone" and paste the
-   address. (If the form offers request headers, you can use `…/mcp` as the address and
+   Connectors → Add custom connector**, name it e.g. "Another Macro" and paste the
+   address. Open the connector there and set its tool permission to **Always approved**, so
+   its tools load in every chat (project threads included) without a prompt per call. (If the form offers request headers, you can use `…/mcp` as the address and
    `Authorization: Bearer <connector token>` as a header instead.)
-5. **Use it.** In the app tap **Turn on**, then ask Claude in a chat, e.g. "Take a
+5. **Use it.** Keep taps and screen capture on, tap **Turn on** on System → Claude (or switch
+   on **Stay on until I turn it off**), then ask Claude in a chat, e.g. "Take a
    screenshot of my phone and open the menu". Turn on the connector in the chat's tools
    menu if Claude doesn't see it.
 
@@ -55,7 +56,8 @@ Claude (Anthropic cloud) --HTTPS /mcp/<connector token>--> this Worker <--WebSoc
   the address in claude.ai. The old ones stop working.
 - The app's own rules still apply to every tap: only inside Another Eden, never on a purchase
   screen, Allow/Deny on the phone before risky taps. The connector turns itself off after
-  30 minutes without use, and the floating ■ stops what Claude is doing.
+  30 minutes without use (unless "Stay on until I turn it off" is on), and the floating ■ stops
+  what Claude is doing.
 
 ## Develop
 

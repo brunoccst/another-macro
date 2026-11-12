@@ -1,47 +1,102 @@
-# How the framework works, and how to write a scenario
+# Writing macros
 
-## Layers
+A macro is a small YAML file that the Another Macro app runs on the phone. This page covers
+how the app runs one, the format, templates, and what was learned about the game's input.
+The list of macros and the basic macros to reuse are in [macros/README.md](../macros/README.md).
 
-```
-another-macro play <scenario>         CLI / home-screen widget
-        │
-scenario/base.py   run loop: screenshot → identify screen → call on_<screen>()
-        │
-vision/            OpenCV template matching, screens = sets of templates
-        │
-device/            Device interface: screenshot, tap, hold, swipe, back
-  adb.py           ADB, either the phone controlling itself or a PC controlling the phone
-  fake.py          scripted device for tests
-```
+## Where a macro lives
 
-Everything a scenario stores is **normalized**: positions are fractions of the
-screen (0..1), so a scenario works on any resolution. Templates remember the
-resolution they were cut from and are rescaled to the current screen by height
-(Another Eden runs in landscape and its UI scales with the short side).
+- **Library macros** are `macros/<group>/<name>.yaml` in this repo (`group:` must match the
+  folder: `daily`, `dungeon`, `farm`, `game`, `basic`, `other`). CI packs them with their
+  templates and data into `macros-<branch>`, and phones pick up the pack by themselves.
+- **Custom macros** are drafts that Claude saves on the phone through the connector
+  (`save_macro`). Once one works and fits a group, it moves into `macros/<group>/` with a PR
+  and the phone copy is deleted (`delete_macro`).
 
-## The run loop
+The easiest way to make one: in a Claude chat with the phone connector, ask for it ("make a
+macro that ..."). Claude looks at the screens, captures templates, writes the YAML, runs it
+and fixes it from the stop reason.
 
-Each tick the runner:
+## How the app runs a macro
 
-1. stops if the stop file exists (`another-macro stop`) or `--minutes` ran out
+Each tick the runner (`Runner.kt`, steps in `logic/FlowRun.kt`):
+
+1. stops if ■ was pressed or a safety rule fired
 2. takes a screenshot
-3. finds the **first** screen in `Scenario.screens` whose `require` templates are all
-   visible (and none of its `reject` ones)
-4. calls `on_<screen>(ctx)`, or `on_unknown(ctx)` if nothing matched
+3. finds the **first** screen in `screens:` whose `require` templates are all visible (and
+   none of its `reject` ones)
+4. runs that screen's `handlers:` actions, or `unknown:` if nothing matched
 
-Handlers do **one small step** and return. The next screenshot decides what happens
-next, which makes scenarios tolerant of missed taps, lag and popups. If the screen
-stays unrecognised for `unknown_timeout_s`, the run stops and saves the screenshot.
-Add a screen for that state, or raise the timeout.
+Handlers do **one small step** and return. The next screenshot decides what happens next,
+which makes macros tolerant of missed taps, lag and popups. If the screen stays unrecognised
+for `unknown_timeout_s`, the run stops and says so: add a screen for that state, or raise
+the timeout.
+
+Positions are **fractions of the screen** (0..1), so a macro works on any resolution.
+Templates remember the resolution they were cut from and are rescaled by height (Another
+Eden runs in landscape and its UI scales with the short side).
+
+## The format
+
+```yaml
+# Watch the shop's daily commercial.
+name: my-macro
+description: One line shown in the app.
+group: daily
+templates: [shop_ad]                  # template folders besides "common" (the user's own are always there)
+params:
+  ad_wait_s: {default: 45, help: "how long to wait for the commercial"}
+screens: [shop, field]                # priority order: specific screens first
+define_screens:
+  my_screen: {require: [my_template], reject: [other_template]}
+unknown_timeout_s: 45
+setup: []                             # actions, once at the start
+handlers:
+  field:
+    - run: open-menu
+  shop:
+    - tap: shop_watch_button
+    - wait: 3
+    - run: {macro: watch-ad, params: {ad_wait_s: ad_wait_s}, until: [shop]}
+    - stop: "the commercial: {result}"
+unknown: [{wait: 1}]
+```
+
+Actions (one key each):
+
+| Action | |
+|---|---|
+| `tap: name` / `tap: {x: expr, y: expr}` / `tap_exact: {...}` | tap a template where it was found, or a point |
+| `drag: {from: [x, y], to: [x, y], ms: expr}` | press, slide, hold |
+| `walk: {dir: expr, ms: expr}` | walk on the field (-1 left, 1 right, `up`, `down`) |
+| `back: true`, `wait: s`, `launch: package` | |
+| `log: "text {expr}"`, `status: "text {expr}"` | write to the log; `status` also shows on the live log line |
+| `set: {var: expr}`, `count: stat`, `stop: "reason"` | variables, counters, end the run |
+| `if: expr` + `then:` / `else:`, `repeat: {times: expr, do: [...]}` | control flow |
+| `run: macro` / `run: {macro, params, until}` | run another macro (the basic macros are made for this), sets `result` |
+| `fight: skill_` | fight the battle on screen with `skill_1`..`skill_4` |
+| `another_dungeon: <id>`, `phantom_crystal: true`, `cat_daily: true`, ... | the big steps written in Kotlin |
+
+Expressions can use the params, variables and `found('t')`, `captured('t')`, `text_has('s')`,
+`screen_text(y0, y1)`, `game_in_front()`, `ad_in_front()`, `view_moved()`, `now()`,
+`pick(i, a, b, ...)`. The full, current list is the comment at the top of
+`android/app/src/main/java/.../Flow.kt`; `macros/basic/grind-battles.yaml` is a complete
+example. A new step written in Kotlin goes in `logic/FlowRun.kt` and `logic/Entry.kt` (see
+[logic-pack.md](logic-pack.md)).
+
+`python -m pytest -q tests/test_macro_pack.py` checks every library macro: YAML, names,
+groups, template folders, and that every `run:` names a macro that exists.
 
 ## Templates and screens
 
-Templates and screens live in `library.yaml` files next to their PNGs:
+A template is a small crop of the screen (a button label, an icon) that the app looks for
+with OpenCV. Through the connector, Claude captures one from the live screen with
+`save_template` (it lands in the user's own templates on the phone, usable by name). Library
+templates live in the repo:
 
-- `src/another_macro/assets/templates/library.yaml`: shared ones (field, battle,
-  results…)
-- `src/another_macro/scenarios/<name>/templates/library.yaml`: a scenario's own,
-  loaded after the shared ones
+- `src/another_macro/assets/templates/library.yaml`: shared ones (the `common` folder)
+- `src/another_macro/scenarios/<folder>/templates/library.yaml`: a folder a macro lists in
+  `templates:`
 
 ```yaml
 templates:
@@ -58,116 +113,42 @@ screens:
 ```
 
 An entry with no `ref` or PNG is **not captured yet**, and its screens can't match.
-`another-macro doctor` lists what is missing.
 
-### Capturing a template from your own screen
+Tips for a good template:
 
-```bash
-another-macro screenshot -o shot.png                  # save the current screen
-another-macro capture-template field_menu_button \
-    --from shot.png --box 60,920,190,110              # pixel box: left,top,width,height
-another-macro check --from shot.png                   # which templates/screen match
-```
-
-Tips:
-
-- Cut something that **doesn't change**: button text or an icon, not a character
-  portrait or a number.
-- Keep it small but distinctive. About 100–250 px wide is typical on a 1080p-tall
-  screen.
-- The search region is the box padded by 5% of the screen (`--pad`). Increase it
-  for elements that move around.
-- After capturing, run `check` on several different screenshots to make sure it
-  matches where it should, and **only** there.
-
-## A scenario
-
-Create `src/another_macro/scenarios/<snake_name>/__init__.py`:
-
-```python
-from ...scenario.base import Context, Param, Scenario
-from ...vision.geometry import Point
-
-
-class MyScenario(Scenario):
-    name = "my-scenario"                  # what you type after `play`
-    description = "One line shown by `another-macro list`."
-    params = {"runs": Param(int, 1, "how many times")}
-    screens = ["popup", "field"]          # priority order: specific screens first
-
-    def setup(self, ctx: Context) -> None:
-        ctx.stats["runs"] = 0
-
-    def on_popup(self, ctx: Context) -> None:
-        ctx.tap("popup_ok_button")        # tap a template where it was found
-
-    def on_field(self, ctx: Context) -> None:
-        ctx.drag(Point(0.5, 0.55), Point(0.56, 0.55), 1500)  # walk right for ~1.5s
-        if ctx.stats["runs"] >= ctx.params["runs"]:
-            ctx.stop("done")
-
-
-SCENARIO = MyScenario
-```
-
-What `ctx` gives a handler:
-
-| | |
-|---|---|
-| `ctx.find(name)` | `Match` (score, region, center) or `None` on the current frame |
-| `ctx.tap(x)` | tap a template name, `Match`, `Region` or `Point` (lands randomly in the middle of a button) |
-| `ctx.hold(x, ms)` | press and hold in place |
-| `ctx.drag(a, b, ms)` | press at `a`, slide to `b`, hold until `ms` is up (walking) |
-| `ctx.hold(a, b, ms) { heldMs -> stop? }` | like `drag`, but watches the screen while the finger is down and lifts it when the callback says so (a battle started) |
-| `ctx.device.swipe(a, b, ms)`, `ctx.device.back()` | raw input |
-| `ctx.wait(s)` | sleep (slightly randomised) |
-| `ctx.stats` | counters printed at the end |
-| `ctx.params` | the scenario's params |
-| `ctx.save_frame(tag)` | save the current screenshot into the run folder |
-| `ctx.stop(reason)` | end the run |
-
-Test the scenario with a fake device and synthetic frames. See
-`tests/test_grind_battles.py` for a small simulated game.
-
-Then add a Termux widget button in `termux/shortcuts/<Name>.sh` (copy
-`Grind battles.sh`).
-
-## Where this goes next
-
-- **More drivers** behind the same `Device` interface: a native Android app
-  (Accessibility service + floating play/stop button), or the Steam version
-  (port of another-eden-companion's Win32 input/capture).
-- **OCR anchors** (text on screen) next to template anchors, e.g. for reading map
-  names or item counts.
-- **Navigation helpers**: "go to map X" built from menu screens, shared across
-  scenarios.
-- **Agent fallback**: on an unknown screen, ask Claude what to do instead of
-  stopping.
+- Cut something that **doesn't change**: button text or an icon, not a character portrait,
+  a number or a player name.
+- Keep it small but distinctive (about 100–250 px wide on a 1080 px tall screen).
+- Check that it matches where it should, and **only** there, on several screens.
+- Never commit full screenshots or crops that show account data (names, IDs, friend codes).
+  Only small UI crops, and no game art beyond what a template needs.
 
 ## Game input notes (learned on the phone)
 
 - **Walking is a virtual stick.** The party walks in the direction a held finger
   *slides*, not toward the side of the screen you press. Press mid-screen and slide a
-  little left or right (`ctx.drag`); a hold that drifts the wrong way walks the wrong way.
+  little left or right (`walk:` or `drag:`); a hold that drifts the wrong way walks the wrong way.
 - **Battles start with an intro animation** with no HUD; it shows as `unknown` for a
   second or two before the command screen.
 - **Samsung Game Booster's touch lock** dims the game and swallows every tap while
-  templates still match through the dim. The runner checks for it every 30 s and stops.
-- **The game is landscape-only.** A portrait screenshot means another app (e.g.
-  Termux) is in front; the runner pauses input until the game is back.
-- **Every run keeps the screen awake.** The runner raises the phone's screen
-  timeout for the run and puts the original back afterwards (saved to
-  `~/.another-macro/screen_timeout`, so a killed run is restored by the next one).
-  A locked phone stops the run with "the phone is locked".
+  templates still match through the dim. Its in-game panel and toasts are ignored when the
+  app decides which app is in front.
+- **The game is landscape-only.** A pillar-boxed (portrait) capture means another app is
+  in front; no tap goes out until the game is back.
+- **Every run keeps the screen awake** (`ScreenWake.kt`): a macro keeps it on until it
+  stops, and each connector call keeps it on for 10 minutes. An all-black capture means the
+  screen is off or capture stopped: taps on it are refused, and a macro stops after 2 minutes
+  of black. A PIN or pattern lock can't be passed.
 - **Closing the game:** Android back on the field opens "Close the app?"; Yes exits
   cleanly (`stop-game`). Starting: splash → title ("Game Id..." while connecting,
   then "Continue") → tap → field (`start-game`).
 
-- **Daily ad:** the first `start-game` of the day always takes "Watch Video" on the
-  login-bonus ad offer (20 Chronos Stones). With the premium subscription a
-  "Thank you for subscribing" dialog replaces the ad (Close); then "Thank you for
-  watching... delivered to your inbox" (OK). Without premium the ad plays and is
-  closed with back after `ad_wait_s` (not yet seen live).
+- **Ads:** the first `start-game` of the day always takes "Watch Video" on the
+  login-bonus ad offer; that reward goes to the inbox. Each watch button (login, the 5 daily
+  chests, the shop) can play 1-3 commercials before the reward. Some end with "Reward
+  granted", others only with a progress bar; `watch-ad` closes them with Back (also a Google
+  Play sheet a commercial opens) and takes the reward dialog. With the premium subscription a
+  "Thank you for subscribing" dialog replaces the ad (Close).
 
 - **Battles (shared `Battle.kt`):** each front-row character's skill row is 5 boxes:
   normal attack, then skills 1-4 (x 0.177 / 0.346 / 0.499 / 0.653 / 0.807, y 0.759 on a
@@ -197,3 +178,14 @@ Then add a Termux widget button in `termux/shortcuts/<Name>.sh` (copy
   top-most text line containing `anchor` with no `mark` text on the same line, or -1 (the inbox
   macro opens `text_row_without('utc', 'opened', 0.15, 0.86)`, the first item not opened yet).
   Never put account data (player name, IDs, friend codes) in a log line.
+
+## Legacy: Python scenarios (Termux)
+
+The original command-line tool (`src/another_macro/`, run from Termux, see the end of
+[setup-android.md](setup-android.md)) has scenarios written as Python classes with the same
+idea: `screens` in priority order and an `on_<screen>(ctx)` handler per screen
+(`src/another_macro/scenario/base.py`). It gets no new scenarios; new automations are YAML
+macros. Its templates can still be captured from a saved screenshot with
+`another-macro capture-template NAME --from shot.png --box L,T,W,H` and checked with
+`another-macro check --from shot.png`.
+

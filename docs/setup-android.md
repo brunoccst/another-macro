@@ -1,92 +1,151 @@
 # Phone setup (Android, no PC)
 
-Everything runs on the phone. Termux (a Linux terminal app) runs the macro, and the
-macro controls the game through Android's own **Wireless debugging**: the phone
-connects to itself over ADB, so it can take screenshots and tap. No root needed.
+Everything runs on the phone, in the **Another Macro** app. It sees the game through
+Android's screen capture and taps through an accessibility service. No PC, no root and no
+Termux are needed.
 
-You do steps 1–4 once. After a reboot, only step 5 is needed again.
+You do steps 1–3 once. Step 4 (Claude) is optional.
 
-## 1. Install the apps (from F-Droid, not the Play Store)
+## 1. Install the app
 
-The Play Store builds of Termux are outdated, and Termux add-ons only work when they
-come from the same store as Termux.
+There is no official release yet, so install the development build that follows `main`:
 
-- [Termux](https://f-droid.org/packages/com.termux/): required.
-- [Termux:Widget](https://f-droid.org/packages/com.termux.widget/): the home-screen
-  **play** and **stop** buttons.
-- [Termux:API](https://f-droid.org/packages/com.termux.api/) (optional): posts a
-  notification with the result when a run ends.
+1. On the phone, open the
+   [`dev-main` pre-release](https://github.com/brunoccst/another-macro/releases/tag/dev-main)
+   and download `another-macro.apk`.
+2. Open it. Android asks once to allow your browser (or file manager) to **install unknown
+   apps**: allow it, then **Install**.
+3. **Play Protect** may warn that the app is unknown. Choose **More details → Install
+   anyway**. The app is signed with the same key on every build, so updates install over it
+   and keep your settings.
 
-## 2. Install Another Macro
+Once there is an official release, its APK will be at
+`https://github.com/brunoccst/another-macro/releases/latest/download/another-macro.apk`.
 
-Open Termux and run:
+## 2. Turn on taps and screen capture
 
-```bash
-pkg install -y curl
-curl -fsSL https://raw.githubusercontent.com/brunoccst/another-macro/main/termux/install.sh | bash
-```
+Open Another Macro. Use **≡** at the top left to move between the **Home**, **Macros** and
+**System** pages. On **System → Setup**:
 
-This installs Python, OpenCV, ADB and git, clones this repo to `~/another-macro`, and
-copies the widget buttons. Re-run it any time to update.
+1. **Turn on taps.** This opens Accessibility: open **Another Macro** (on Samsung it is under
+   **Installed apps**) and switch it on.
+   - Greyed out with "Restricted setting"? Android 13+ blocks accessibility for apps installed
+     outside the Play Store. Tap **App info** (or Settings → Apps → Another Macro), then
+     **⋮ → Allow restricted settings**, and switch it on again.
+2. **Allow screen capture** → **Start now**. Android
+   asks again after every app update and restart; the app never turns capture on by itself.
 
-## 3. Turn on Wireless debugging
+The Home page shows what is still missing.
 
-1. **Settings → About phone →** tap **Build number** 7 times to unlock Developer options.
-2. **Settings → System → Developer options →** turn on **Wireless debugging**. You
-   need to be on Wi-Fi; it doesn't need internet, only a Wi-Fi connection.
-3. Optional but recommended: turn on **Disable adb authorization timeout** in the same
-   menu, so you don't have to pair again every week.
+## 3. Play a macro
 
-## 4. Pair the phone with itself (once)
+1. Open **Macros**. The app downloads the macro library from GitHub by itself the first time
+   (it needs internet once, then checks for updates every 15 minutes).
+2. The tabs group the macros: **In use**, **Daily**, **Another Dungeon**, **Farming**,
+   **Game**, **Basic**, **Other** and **Custom**. Each macro's switch decides whether it is in
+   use; the macros in use form the "In use" tab and the floating buttons' list.
+3. Tap a macro to see what it does (a diagram), set its options and tap **Select this macro**.
+   Options are kept per macro. Set the party's skills once on **Basic → battle**: every macro
+   that fights uses them.
+4. Open the game. While screen capture is on, the **floating buttons** show over it: the
+   selected macro's name (tap it to pick another), ▶ start, ❚❚ pause, ■ stop, ↻ restart and
+   ⌂ (switch between the app and the game). Drag ≡ to move them, tap it to fold them.
 
-The pairing code dialog closes if you switch apps, so open **Settings and Termux in
-split screen** (or as a pop-up window):
+A line at the bottom right (the **live log**, System → Settings) says what the macro is
+doing. The full log is on **System → Log**.
 
-1. In Wireless debugging, tap **Pair device with pairing code**. It shows a
-   six-digit code and `IP address & Port`, for example `192.168.1.5:41234`.
-2. In Termux, use that port and code:
+Where to start each macro:
+
+| Macro | Start from |
+|---|---|
+| `daily-routine`, `start-game`, `stop-game` | anywhere (the game may be closed) |
+| `daily-ads`, `shop-ad`, `inbox`, `cat-scratchbook` | the game's field (or closed: they start it) |
+| `dogma-tower`, `burning-beast-kings-castle` | the field, next to the Another Dungeon door |
+| `phantom-crystal` | next to the shining Another Dungeon door, holding a White Key |
+| `grind-battles` | a map with random encounters |
+
+The app never spends premium currency or confirms a purchase, and the dungeon macros stop at
+0 keys instead of buying more.
+
+## 4. Optional: let Claude drive the phone
+
+The app can act as a **phone connector** for your own Claude chat (claude.ai or the Claude
+apps, any plan, no API key). Claude can then look at the game, tap, walk, start and stop
+macros, capture templates and write new macros.
+
+Set it up once with the steps in **[relay/README.md](../relay/README.md)**: make tokens on
+**System → Claude**, deploy the small relay Worker to your free Cloudflare account, paste the
+relay address into the app and add the connector address in claude.ai under **Settings →
+Connectors → Add custom connector**.
+
+Then, whenever Claude should use the phone:
+
+- Keep Another Macro running with **taps** and **screen capture** on.
+- On **System → Claude**, tap **Turn on**. It turns itself off after 30 minutes without use,
+  unless **Stay on until I turn it off** is on.
+- In claude.ai, set the connector's tool permission to **Always approved** (Settings →
+  Connectors → the connector), so its tools load in every chat without a prompt per call.
+- Let only one chat drive the phone at a time.
+
+Claude can't tap the app's own floating buttons; it folds and unfolds them with its own
+tool. The floating ■ stops whatever Claude is doing.
+
+## Updates
+
+- **Macros** update by themselves between runs (Macros → Macro library card shows the
+  installed pack).
+- **The app** follows its branch's builds (normally `main`): it checks every 3 minutes while
+  the connector is on and idle, or on demand on **System → Updates → Install the newest
+  build**.
+  - Most changes only touch the app's logic and load as a **logic pack**, with no install and
+    no prompt ([logic-pack.md](logic-pack.md)).
+  - Other changes need a real install. If Play Protect blocks it, the app does not retry that
+    version: install it from System → Updates and choose **Install anyway**.
+  - After any install or restart, allow screen capture again (step 2.2) and turn the
+    connector back on.
+
+## Tips
+
+- **Screen lock:** macros and Claude wake the screen and keep it on while they work. With a
+  PIN or pattern lock they can't get past the lock screen, so either use no screen lock or
+  unlock the phone before starting.
+- **Samsung Game Booster:** the app ignores its in-game panel and toasts, but its touch
+  lock swallows every tap. Keep the touch lock off while a macro runs.
+- **Battery:** let Another Macro run unrestricted in the battery settings so Android
+  doesn't stop it in the background.
+
+## Legacy: the Termux command-line tool
+
+Before the app, the macros ran as a Python tool in [Termux](https://f-droid.org/packages/com.termux/)
+that tapped through Wireless debugging (ADB to the phone itself). It is no longer needed and
+gets no new macros, but it still works for the scenarios in `src/another_macro/scenarios/`.
+
+<details>
+<summary>Termux setup</summary>
+
+1. Install Termux and, for home-screen buttons, Termux:Widget, both from F-Droid (not the
+   Play Store).
+2. In Termux:
 
    ```bash
-   another-macro connect --pair-port 41234 --code 123456
+   pkg install -y curl
+   curl -fsSL https://raw.githubusercontent.com/brunoccst/another-macro/main/termux/install.sh | bash
    ```
 
-3. Check it with:
+   This installs Python, OpenCV, ADB and git, clones the repo to `~/another-macro` and copies
+   the widget buttons (`termux/shortcuts/`).
+3. Turn on Developer options (tap **Build number** 7 times) and **Wireless debugging** (needs
+   Wi-Fi). Optionally turn on **Disable adb authorization timeout**.
+4. Pair the phone with itself once. With Settings and Termux in split screen, tap **Pair
+   device with pairing code** and run `another-macro connect --pair-port <port> --code <code>`.
+   `another-macro doctor` checks it.
+5. After a reboot or Wi-Fi change, turn Wireless debugging back on and run
+   `another-macro connect` (or `--port <port>`).
 
-   ```bash
-   another-macro doctor
-   ```
+Commands: `another-macro list | play <scenario> [--param k=v] | stop | screenshot | tap X Y |
+swipe ... | back | check | capture-template ...`. Runs log to `~/.another-macro/runs/`.
 
-   It should print `device localhost:<port>: <width>x<height>`.
+Claude Code can also run on the phone inside `proot-distro` Debian in Termux and be reached
+with `claude remote-control`. The phone connector (step 4) replaces this.
 
-## 5. After a reboot or Wi-Fi change
-
-Android turns Wireless debugging off when Wi-Fi drops or the phone restarts. Turn it
-back on (step 3.2) and run `another-macro connect`. The play widget also tries to
-reconnect on its own.
-
-If `connect` can't find the port, pass the one shown on the Wireless debugging screen
-under **IP address & Port**: `another-macro connect --port 37215`.
-
-## 6. Add the buttons
-
-Long-press the home screen → **Widgets → Termux:Widget**, and place it. It lists:
-
-- **Grind battles.sh**: stand on a map with random encounters, tap it, and switch to
-  the game within a few seconds.
-- **Stop macro.sh**: stops whatever is running at its next step.
-
-Each run writes a log and any problem screenshots to `~/.another-macro/runs/`.
-
-## Letting Claude drive the phone (optional)
-
-To let Claude build and test scenarios directly on your phone, run Claude Code in
-Termux and start Remote Control:
-
-```bash
-pkg install -y nodejs
-npm install -g @anthropic-ai/claude-code
-cd ~/another-macro && claude        # log in once, then exit
-claude remote-control
-```
-
-Claude Code isn't officially supported on Android, but it generally runs in Termux.
+</details>
