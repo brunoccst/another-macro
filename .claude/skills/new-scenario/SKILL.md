@@ -5,9 +5,9 @@ description: Create a new Another Eden automation scenario for another-macro (e.
 
 # New scenario
 
-Turns a request like "automate the Dogma Tower runs" into a working
-`another-macro play <name>` scenario. Read `docs/writing-scenarios.md` first: it
-explains the run loop, templates and the `ctx` API.
+Turns a request like "automate the Dogma Tower runs" into a working YAML macro that the
+Another Macro app runs on the phone. Read `docs/writing-scenarios.md` first: it explains the
+run loop, the macro format and templates.
 
 ## 1. Research the game flow
 
@@ -41,41 +41,29 @@ battle_result, defeat). Add new ones to
 `src/another_macro/scenarios/<snake_name>/templates/library.yaml` with `notes:` and a
 rough `region:`, but no `ref`/`file` yet.
 
-## 3. Write the scenario
+## 3. Write the macro
 
-For the Android app (what users run), the macro is a YAML file in `macros/<group>/<name>.yaml`
-(format at the top of `android/.../Flow.kt`, see `macros/README.md`). Build it from the basic
-macros instead of copying their steps: `run: {macro: watch-ad, until: [<your screen>]}` right
-after tapping any "watch" button, `run: {macro: grind-battles, params: {battles: N}}` or
-`fight: skill_` for battles. Keep it generic: party slots and skill numbers, never character
-names. `python -m pytest -q tests/test_macro_pack.py` checks the macro set; a push publishes it
-to phones (no app update needed).
+The macro is a YAML file in `macros/<group>/<name>.yaml` (format in
+`docs/writing-scenarios.md`, see `macros/README.md`). Build it from the basic macros instead
+of copying their steps: `run: {macro: watch-ad, until: [<your screen>]}` right after tapping
+any "watch" button, `run: {macro: grind-battles, params: {battles: N}}` or `fight: skill_` for
+battles. Keep it generic: party slots and skill numbers, never character names.
 
-For the Python tool:
+## 4. Check offline
 
-- `src/another_macro/scenarios/<snake_name>/__init__.py` with `SCENARIO = ...`
-- `screens` ordered from most specific (popups, results) to most general (field)
-- handlers do one step and return; count progress in `ctx.stats`; stop with `ctx.stop(...)`
-- shared behaviour (auto-battling, clearing results) goes into a helper module
-  when a second scenario needs it, rather than being copied
-
-## 4. Test offline
-
-Add `tests/test_<snake_name>.py` with a small simulated game, like
-`tests/test_grind_battles.py`: synthetic frames from `tests/helpers.py` plus a state
-machine reacting to taps and holds. Run `python -m pytest -q`.
+`python -m pytest -q tests/test_macro_pack.py` checks the macro set (YAML, groups, template
+folders, `run:` targets).
 
 ## 5. Capture templates and test live
 
-This needs the phone: a Remote Control session running in Termux on the user's phone,
-see `docs/setup-android.md`. Use the `capture-templates` skill for every template
-still missing (`another-macro doctor` lists them). Then do a short live run with a
-low limit, for example `another-macro play <name> --minutes 3`, and watch
-`~/.another-macro/runs/<latest>/log.txt`. Fix screens that come up as `unknown` by
-adding templates or handlers.
+This needs the phone through the Another Macro connector (see `docs/setup-android.md`).
+Use the `capture-templates` skill for every template still missing. While drafting, the
+macro can be saved on the phone with `save_macro` and tried with `start_macro`; follow it
+with `macro_status` and read the stop reason. Fix screens that come up as unknown by adding
+templates or handlers.
 
 ## 6. Ship
 
-- add a widget button `termux/shortcuts/<Readable name>.sh` (copy `Grind battles.sh`)
-- document the start state and params in the README's scenario table
-- open a PR to brunoccst/another-macro
+- document the start state and params in the README's macro table
+- open a PR to brunoccst/another-macro; once merged, a push publishes the macro pack to
+  phones (no app update needed)

@@ -178,14 +178,3 @@ Tips for a good template:
   top-most text line containing `anchor` with no `mark` text on the same line, or -1 (the inbox
   macro opens `text_row_without('utc', 'opened', 0.15, 0.86)`, the first item not opened yet).
   Never put account data (player name, IDs, friend codes) in a log line.
-
-## Legacy: Python scenarios (Termux)
-
-The original command-line tool (`src/another_macro/`, run from Termux, see the end of
-[setup-android.md](setup-android.md)) has scenarios written as Python classes with the same
-idea: `screens` in priority order and an `on_<screen>(ctx)` handler per screen
-(`src/another_macro/scenario/base.py`). It gets no new scenarios; new automations are YAML
-macros. Its templates can still be captured from a saved screenshot with
-`another-macro capture-template NAME --from shot.png --box L,T,W,H` and checked with
-`another-macro check --from shot.png`.
-

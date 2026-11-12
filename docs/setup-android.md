@@ -1,8 +1,8 @@
 # Phone setup (Android, no PC)
 
 Everything runs on the phone, in the **Another Macro** app. It sees the game through
-Android's screen capture and taps through an accessibility service. No PC, no root and no
-Termux are needed.
+Android's screen capture and taps through an accessibility service. No PC and no root are
+needed.
 
 You do steps 1–3 once. Step 4 (Claude) is optional.
 
@@ -113,39 +113,3 @@ tool. The floating ■ stops whatever Claude is doing.
   lock swallows every tap. Keep the touch lock off while a macro runs.
 - **Battery:** let Another Macro run unrestricted in the battery settings so Android
   doesn't stop it in the background.
-
-## Legacy: the Termux command-line tool
-
-Before the app, the macros ran as a Python tool in [Termux](https://f-droid.org/packages/com.termux/)
-that tapped through Wireless debugging (ADB to the phone itself). It is no longer needed and
-gets no new macros, but it still works for the scenarios in `src/another_macro/scenarios/`.
-
-<details>
-<summary>Termux setup</summary>
-
-1. Install Termux and, for home-screen buttons, Termux:Widget, both from F-Droid (not the
-   Play Store).
-2. In Termux:
-
-   ```bash
-   pkg install -y curl
-   curl -fsSL https://raw.githubusercontent.com/brunoccst/another-macro/main/termux/install.sh | bash
-   ```
-
-   This installs Python, OpenCV, ADB and git, clones the repo to `~/another-macro` and copies
-   the widget buttons (`termux/shortcuts/`).
-3. Turn on Developer options (tap **Build number** 7 times) and **Wireless debugging** (needs
-   Wi-Fi). Optionally turn on **Disable adb authorization timeout**.
-4. Pair the phone with itself once. With Settings and Termux in split screen, tap **Pair
-   device with pairing code** and run `another-macro connect --pair-port <port> --code <code>`.
-   `another-macro doctor` checks it.
-5. After a reboot or Wi-Fi change, turn Wireless debugging back on and run
-   `another-macro connect` (or `--port <port>`).
-
-Commands: `another-macro list | play <scenario> [--param k=v] | stop | screenshot | tap X Y |
-swipe ... | back | check | capture-template ...`. Runs log to `~/.another-macro/runs/`.
-
-Claude Code can also run on the phone inside `proot-distro` Debian in Termux and be reached
-with `claude remote-control`. The phone connector (step 4) replaces this.
-
-</details>

@@ -1,11 +1,11 @@
 # Another Macro — Android app
 
-Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
+Runs the macros on the phone **by itself**: no PC, no ADB, no root.
 
 - **Screen capture:** MediaProjection (Android asks "Start recording?" once per session).
 - **Input:** an accessibility service dispatches taps, slide-and-hold walking and Back.
-- **Vision:** OpenCV template matching on the same `library.yaml` + PNG templates as the
-  Python tool.
+- **Vision:** OpenCV template matching on the `library.yaml` + PNG templates of the macro
+  pack.
 - **Macros are downloaded, not built in:** the app installs the macro pack (macros, templates,
   dungeon data) CI publishes from the repo, and updates it by itself (see *The macro library*).
 - **Basic macros** other macros run: `watch-ad` (watch a commercial, close it, take the reward),
@@ -76,11 +76,11 @@ from the `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` secrets, so update
 over an existing copy. Keep a backup of that key: without it installed apps can't be updated.
 
 ## Notes
-- Whether the game is in front is read from the capture: a portrait app (home screen, Termux)
+- Whether the game is in front is read from the capture: a portrait app (e.g. the home screen)
   shows pillar-boxed in the landscape capture.
 - `uiautomator dump` suspends accessibility services while it runs; don't use it while testing.
 
-## Testing from a computer/Termux
+## Testing from a computer
 `adb shell am start -n io.github.brunoccst.anothermacro/.MainActivity --es run grind-battles --es params "battles=3"`
 and `adb logcat -s AnotherMacro` for the log.
 
