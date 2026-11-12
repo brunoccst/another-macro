@@ -33,7 +33,7 @@ handlers:
         - set: {done: true}
         - wait: 1.5
       else:
-        - set: {row: text_row_without('utc', 'opened', 0.15, 0.86)}
+        - set: {row: "text_row_without('utc', 'opened', 0.15, 0.86)"}
         - if: row >= 0 and misses < 3
           then:
             - status: "opening inbox item {stats.items_opened + 1}"
@@ -42,7 +42,7 @@ handlers:
             - wait: 1.5
           else:
             # nothing new on this page: scroll down, or stop at the end of the list
-            - set: {page: screen_text(0.15, 0.86), plain_pages: plain_pages + 1, misses: 0}
+            - set: {page: "screen_text(0.15, 0.86)", plain_pages: plain_pages + 1, misses: 0}
             - if: plain_pages > empty_pages or page == last_page
               then:
                 - set: {done: true}
