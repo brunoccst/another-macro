@@ -891,11 +891,15 @@ object AnotherDungeon {
         // 0.2 s until it shows, for up to ~3.5 s; anything else (a question, a door) gets a full read
         var read = emptyList<Ocr.Line>()
         var found = false
+        var last = ""
         val until = System.currentTimeMillis() + 3500
         while (System.currentTimeMillis() < until) {
             read = ctx.readText(POPUP)
             val all = read.joinToString(" ") { Ocr.norm(it.text) }
             if ("obtained" in all || "proceed" in all || "major trial" in all) { found = true; break }
+            // the same other text twice (a place's name over a door, seen 2026-11-12): it's not a chest's banner
+            if (all.isNotBlank() && all == last) break
+            last = all
             ctx.refresh()
             if (Battle.inBattle(ctx)) break
             ctx.wait(0.2)
