@@ -94,7 +94,7 @@ then added to `macros/<group>/` here, for everyone. The format is in
 
 ```bash
 pip install -e '.[dev]'
-python -m pytest -q                      # macro pack, routes, vision (synthetic frames, no phone)
+python -m pytest -q                      # macro pack and routes (no phone)
 gradle -p android testDebugUnitTest      # app unit tests
 cd relay && npm test                     # relay
 ```
@@ -104,8 +104,8 @@ the macro pack to `macros-<branch>`. Phones on a dev build follow their branch (
 `main`) and update themselves.
 
 The Python package (`src/another_macro`) holds the shared templates, dungeon and route data
-and the macro packer. It also still has the original Termux command-line tool, now legacy (see
-the end of [docs/setup-android.md](docs/setup-android.md)).
+and the macro packer, plus `another-macro dungeon-routes` / `cat-routes`, which plan the fixed
+walking routes the macros follow.
 
 ## License
 
