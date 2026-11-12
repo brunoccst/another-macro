@@ -109,6 +109,12 @@ object Route {
     // --- doing it --------------------------------------------------------------------
     private val PRESS = Point(0.5, 0.65)
 
+    /** Frame-to-frame view change below this is a standing party; above [WALK_STEP] it walks. */
+    private const val STILL_STEP = 2.5
+    private const val WALK_STEP = 8.0
+    /** Frames (about 40 ms each) of a still view, after walking, that end a hold to look for a battle. */
+    private const val STILL_FRAMES = 5
+
     /** A hold was cut short by a battle since this was last cleared: the position is less sure. */
     @Volatile var disturbed = false
     /** The last hold ran its full time, but a battle was there right after it (not seen during it). */
@@ -132,6 +138,12 @@ object Route {
             var lastField = 0L
             var frames = 0
             var dark = 0
+            // the encounter on the castle (trace 2026-11-12): the walking view (change 10-20 a frame)
+            // stops dead, then a white flash (brightness ~65 → 139), then a still screen for seconds
+            // before the battle HUD shows. Stop on the flash, or on a still view after walking
+            var walking = false
+            var still = 0
+            var baseLevel = -1.0
             var why: String? = null
             var firstGray: org.opencv.core.Mat? = null
             var lastGray: org.opencv.core.Mat? = null
@@ -151,7 +163,14 @@ object Route {
                 when {
                     Battle.inBattle(ctx) -> { why = "battle screen"; true }
                     level < t.darkLevel -> { if (++dark >= 2) why = "dark screen (${"%.0f".format(level)})"; dark >= 2 }
-                    else -> { dark = 0; lastField = held; false }
+                    baseLevel > 0 && level > 100 && level > baseLevel * 1.6 -> { why = "flash (${"%.0f".format(level)})"; true }
+                    walking && stepChange < STILL_STEP && ++still >= STILL_FRAMES -> { why = "view stood still"; true }
+                    else -> {
+                        dark = 0
+                        if (stepChange >= STILL_STEP) { still = 0; lastField = held; if (stepChange >= WALK_STEP) walking = true }
+                        baseLevel = if (baseLevel < 0) level else baseLevel * 0.9 + level * 0.1
+                        false
+                    }
                 }
             }
             ctx.wait(0.4) // standing still again before the next hold
@@ -201,6 +220,25 @@ object Route {
                     disturbed = true; unseen = true
                 }
                 return p
+            }
+            if (!battle && why == "view stood still") {
+                // no battle: the party walked into a wall, or the camera stopped at the map's edge while
+                // the party walks on. Read the spot on the map; hold on for the rest only when it's short
+                val seen = AreaNav.look(ctx) { emptyList() }.candidates.filter { segOf(l, it) != null }
+                    .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) }
+                MacroLog.i("walk ${if (right) "right" else "left"} stood still after ${walkedMs}ms of $holdMs with no battle; the map shows ${seen?.let { "x ${"%.3f".format(it.x)}" } ?: "no marker"}")
+                if (seen == null) return p
+                val s = segOf(l, seen)!!
+                p = Point(seen.x.coerceIn(s.x1, s.x2), s.y)
+                val atEnd = if (right) p.x >= s.x2 - t.minWalk else p.x <= s.x1 + t.minWalk
+                if (atEnd) return p
+                // not at the street's end: the camera stopped, the party didn't; hold the rest unwatched for stillness
+                val rest = t.distance(ms.toDouble()) - abs(p.x - from.x)
+                if (rest < t.minWalk) return p
+                ctx.drag(PRESS, Point(PRESS.x + if (right) 0.1 else -0.1, PRESS.y), t.holdMs(rest).toLong())
+                ctx.wait(0.4)
+                if (fight()) { disturbed = true; unseen = true; return p }
+                return walked(l, p, right, rest)
             }
             disturbed = true
             MacroLog.i("walk ${if (right) "right" else "left"} stopped after ${walkedMs}ms of $holdMs" +
