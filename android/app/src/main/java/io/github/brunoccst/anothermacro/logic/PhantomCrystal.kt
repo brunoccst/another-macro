@@ -67,7 +67,11 @@ object PhantomCrystal {
 
     private fun inner(r: Run): String {
         val ctx = r.ctx
-        if (!inside(ctx)) enter(r)
+        // a world's title or an item banner hides the field's buttons for a few seconds: look again before
+        // taking this for the outside (twice the "door" tapped was a chest inside, 2026-11-12)
+        var isInside = inside(ctx)
+        for (i in 0 until 6) { if (isInside) break; ctx.wait(1.0); isInside = inside(ctx) }
+        if (!isInside) enter(r)
         while (true) {
             MacroLog.status("Phantom Crystal Dimension: world ${r.world}${if (r.cape) " (the Cape)" else ""}")
             when (clearWorld(r)) {
