@@ -192,8 +192,15 @@ object PhantomCrystal {
     private fun tapBubble(r: Run, b: Point): Taken {
         val ctx = r.ctx
         MacroLog.i("World ${r.world}: tapping the \"!\" at (${"%.2f".format(b.x)}, ${"%.2f".format(b.y)})")
-        ctx.tapExact(b); ctx.wait(2.0)
-        val lines = ctx.readText()
+        ctx.tapExact(b); ctx.wait(1.0)
+        // the chest's banner can take ~3 s to show (read at 2 s it was blank, and the run then waited for a
+        // new world with the banner open, 2026-11-12): read until there's text, a fade, or ~4.5 s
+        var lines = ctx.readText()
+        val readUntil = System.currentTimeMillis() + 3500
+        while (lines.isEmpty() && System.currentTimeMillis() < readUntil) {
+            ctx.refresh(); if (dark(ctx)) break
+            ctx.wait(0.3); lines = ctx.readText()
+        }
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         MacroLog.i("World ${r.world}: \"!\" shows: ${lines.joinToString(" | ") { it.text }.take(120)}")
         when {
@@ -256,6 +263,13 @@ object PhantomCrystal {
             val all = lines.joinToString(" ") { Ocr.norm(it.text) }
             if ("congratulations" in all || "obtained dungeon items" in all) return Taken.END
             if (lines.any { Ocr.norm(it.text) == "another dungeon" }) return Taken.END
+            // a late item or stamp banner (it hides the field's buttons, so no new world would ever be seen)
+            if (!faded && ("obtained" in all || ("stamp" in all && ("you got" in all || "filled out" in all)))) {
+                if ("obtained" in all) { noteItem(r, lines); r.chests++; ctx.count("chests") } else r.stamps++
+                MacroLog.i("World ${r.world}: a late banner: ${lines.joinToString(" | ") { it.text }.take(80)}")
+                dismiss(ctx)
+                return Taken.SOME
+            }
             if (dark(ctx)) faded = true
             else if (faded && ctx.find("field_menu_button") != null) {
                 MacroLog.i("a new world")
