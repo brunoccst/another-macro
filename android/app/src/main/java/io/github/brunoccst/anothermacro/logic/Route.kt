@@ -109,11 +109,15 @@ object Route {
     // --- doing it --------------------------------------------------------------------
     private val PRESS = Point(0.5, 0.65)
 
-    /** Frame-to-frame view change below this is a standing party; above [WALK_STEP] it walks. */
-    private const val STILL_STEP = 2.5
-    private const val WALK_STEP = 8.0
+    /**
+     * Frame-to-frame view change below this is a standing party; above [WALK_STEP] it walks.
+     * Walking reads 10-24 a frame; the encounter's screen stays at 0-6 (it shimmers a little)
+     * (three castle traces, 2026-11-12).
+     */
+    private const val STILL_STEP = 7.0
+    private const val WALK_STEP = 12.0
     /** Frames (about 40 ms each) of a still view, after walking, that end a hold to look for a battle. */
-    private const val STILL_FRAMES = 5
+    private const val STILL_FRAMES = 6
 
     /** A hold was cut short by a battle since this was last cleared: the position is less sure. */
     @Volatile var disturbed = false
