@@ -70,7 +70,13 @@ object PhantomCrystal {
         // a world's title or an item banner hides the field's buttons for a few seconds: look again before
         // taking this for the outside (twice the "door" tapped was a chest inside, 2026-11-12)
         var isInside = inside(ctx)
-        for (i in 0 until 6) { if (isInside) break; ctx.wait(1.0); isInside = inside(ctx) }
+        for (i in 0 until 6) {
+            if (isInside) break
+            // an item or stamp banner left open (it hides the bar): close it
+            val top = ctx.readText(Region(0.15, 0.0, 0.7, 0.25)).joinToString(" ") { Ocr.norm(it.text) }
+            if ("obtained" in top || "stamp" in top) dismiss(ctx) else ctx.wait(1.0)
+            isInside = inside(ctx)
+        }
         if (!isInside) enter(r)
         while (true) {
             MacroLog.status("Phantom Crystal Dimension: world ${r.world}${if (r.cape) " (the Cape)" else ""}")
