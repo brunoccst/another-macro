@@ -58,12 +58,17 @@ object Battle {
         var quiet = 0
         // what the live log said before the battle: shown again once it is over
         val before = MacroLog.status
-        val end = System.currentTimeMillis() + 15 * 60_000
+        val t0 = System.currentTimeMillis()
+        val end = t0 + 15 * 60_000
+        // when each part of the battle first showed (ms from the start of fight()), to see where the time goes
+        val marks = LinkedHashMap<String, Long>()
+        fun mark(k: String) { if (k !in marks) marks[k] = System.currentTimeMillis() - t0 }
         while (System.currentTimeMillis() < end) {
             ctx.refresh()
             when {
                 ctx.find("defeat_banner") != null -> return Outcome.LOST
                 ctx.find("result_banner") != null -> {
+                    mark("result")
                     seen = true; won = true; quiet = 0
                     afterWin?.invoke(ctx)
                     ctx.tap(Point(0.5, 0.75))
@@ -75,16 +80,19 @@ object Battle {
                 }
                 ctx.find("battle_attack_button") != null -> {
                     seen = true; quiet = 0
+                    mark("command")
                     val s = setup ?: pick(ctx).also { setup = it; MacroLog.i("battle: skills $it"); MacroLog.status("Battle: ${if (it.allAuto) "Attack" else "skills $it"}") }
                     if (!s.allAuto && !skillsSet) { setSkills(ctx, s); skillsSet = true }
                     ctx.count("turns")
                     ctx.tap("battle_attack_button")
+                    mark("attack")
                 }
-                ctx.find("battle_hud") != null -> { seen = true; quiet = 0 }
+                ctx.find("battle_hud") != null -> { mark("hud"); seen = true; quiet = 0 }
                 ctx.find("field_menu_button") != null -> {
                     if (!seen) return Outcome.NONE
                     if (won) ctx.count("battles_won")
                     MacroLog.i(if (won) "battle won" else "battle over")
+                    MacroLog.i("battle timing: started ${clock(t0)}, " + marks.entries.joinToString(", ") { "${it.key} ${it.value}" } + ", field ${System.currentTimeMillis() - t0}")
                     if (before.isNotEmpty()) MacroLog.show(before)
                     return Outcome.WON
                 }
@@ -102,6 +110,9 @@ object Battle {
         }
         ctx.stop("a battle lasted more than 15 minutes")
     }
+
+    /** Seconds.millis of the wall clock, to line up log lines (which show whole seconds). */
+    fun clock(ms: Long = System.currentTimeMillis()) = java.text.SimpleDateFormat("mm:ss.SSS", java.util.Locale.US).format(java.util.Date(ms))
 
     /** Tap each non-auto character's portrait and its chosen skill. */
     private fun setSkills(ctx: Context, s: Setup) {

@@ -211,6 +211,7 @@ object Route {
                     }
                 }
             }
+            val upAt = System.currentTimeMillis()
             ctx.wait(0.4) // standing still again before the next hold
             val moved = if (firstGray != null && lastGray != null) change(firstGray!!, lastGray!!) else -1.0
             firstGray?.release(); lastGray?.release()
@@ -249,7 +250,7 @@ object Route {
                 battle -> (lastField - lag - lateStart).coerceIn(0L, holdMs)
                 else -> res.heldMs.coerceAtMost(holdMs)
             }
-            MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: ${frames} frames, held ${res.heldMs}ms, view change ${"%.1f".format(moved)}" +
+            MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: ${frames} frames, held ${res.heldMs}ms (up ${Battle.clock(upAt)}), view change ${"%.1f".format(moved)}" +
                 (if (res.stoppedAtMs != null) ", stopped at ${res.stoppedAtMs}ms: ${why ?: "?"}" else "") +
                 (if (res.cancelled) ", gesture cancelled by the system" else "") +
                 (if (interrupted) if (battle) ", battle fought" else ", no battle came" else ""))
