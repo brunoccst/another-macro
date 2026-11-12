@@ -597,6 +597,31 @@ object AnotherDungeon {
         return if (r.spec.maps[best].names.maxOf { Ocr.similarity(part, it) } > (if (named) 0.6 else 0.85)) best else null
     }
 
+    /** Where a map's title shows as it opens ("HARD" over "Beast King's Castle Watchtower"). */
+    private val ARRIVAL_TITLE = Region(0.15, 0.05, 0.7, 0.2)
+
+    /**
+     * Watch the arrival title for up to [seconds]: the index of a map other than [from] that it
+     * names, or null. Only a whole-title match counts (castle maps share most of their words).
+     */
+    private fun arrivalTitle(r: Run, from: Int, seconds: Double): Int? {
+        val ctx = r.ctx
+        val end = System.currentTimeMillis() + (seconds * 1000).toLong()
+        while (System.currentTimeMillis() < end) {
+            ctx.refresh()
+            if (Battle.inBattle(ctx)) return null
+            val lines = ctx.readText(ARRIVAL_TITLE).map { it.text }.filter { Ocr.norm(it) != "hard" && it.length > 4 }
+            for (t in lines) {
+                val named = Ocr.norm(t).contains(Ocr.norm(r.spec.name))
+                val part = if (named) t.substringAfter("-").trim() else t.trim()
+                val best = r.spec.maps.indices.maxByOrNull { i -> r.spec.maps[i].names.maxOf { Ocr.similarity(part, it) } } ?: continue
+                if (best != from && r.spec.maps[best].names.maxOf { Ocr.similarity(part, it) } > 0.9) return best
+            }
+            ctx.wait(0.3)
+        }
+        return null
+    }
+
     /** Fight what interrupted a walk; true if there was a battle. */
     private fun onStep(r: Run): () -> Boolean = { fight(r) }
 
@@ -771,7 +796,7 @@ object AnotherDungeon {
                             if (abs(p.x - at) >= t.minWalk) walkTo(at)
                         }
                         val before = ctx.refresh().gray.clone()
-                        AreaNav.flick(ctx, st.up)
+                        AreaNav.flickSettled(ctx, st.up)
                         val after = ctx.refresh().gray.clone()
                         val change = Route.change(before, after)
                         before.release(); after.release()
@@ -804,14 +829,17 @@ object AnotherDungeon {
                     }
                     if (!took) { r.pos = p; offPath("the flick ${st} didn't take the stairs in ${offsets.size} tries"); return }
                     plan = next
-                    p = next
+                    // the party comes off the stairs where it went on (the data can be a little off)
+                    p = Point(p.x, next.y)
                 }
             }
             r.pos = p
         }
-        // a battle on the last walk of the leg: read the real spot and finish the walk
+        // a battle on the last walk of the leg: read the real spot and finish the walk. Not for a
+        // chest: its "!" shows when the followed spot is right (the usual case), and takeChest
+        // reads the map only when it doesn't (saves a look at the area map, ~3 s, per battle)
         for (again in 1..4) {
-            if (!Route.disturbed) break
+            if (!Route.disturbed || leg.chest != null) break
             if (!resync("at the end of the leg after a battle") || abs(p.x - plan.x) < t.minWalk) break
             walkTo(plan.x)
         }
@@ -842,10 +870,10 @@ object AnotherDungeon {
         val ctx = r.ctx
         ctx.refresh()
         val b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE) ?: return false
-        ctx.tap(b); ctx.wait(2.0)
-        // the banner can be a moment late (the read came back empty): read again for up to ~2 s
+        ctx.tap(b); ctx.wait(1.0)
+        // the banner can be a moment late (the read came back empty): read again for up to ~3 s
         var read = ctx.readText()
-        for (i in 0 until 4) {
+        for (i in 0 until 6) {
             val all = read.joinToString(" ") { Ocr.norm(it.text) }
             if ("obtained" in all || "proceed" in all || "major trial" in all) break
             ctx.refresh()
@@ -888,7 +916,16 @@ object AnotherDungeon {
             val arrow = ARROWS.mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
             if (arrow != null) {
                 MacroLog.i("taking the ground arrow at (${"%.2f".format(arrow.center.x)}, ${"%.2f".format(arrow.center.y)})")
-                ctx.tap(arrow); ctx.wait(4.0)
+                ctx.tap(arrow); ctx.wait(1.5)
+                // the next map's title shows over the field as it opens: read it there (no area-map look)
+                val titled = arrivalTitle(r, idx, 6.0)
+                if (titled != null) {
+                    MacroLog.i("arrived (title): ${r.spec.maps[titled].names.first()}")
+                    // the title shows while the map still fades in: a hold then walks only part of its way
+                    waitForField(ctx, 8); ctx.wait(0.5)
+                    r.nextMap = titled; return
+                }
+                ctx.wait(1.0)
                 fight(r)
                 val now = whereAmI(r)
                 // (the next map is known now: no second look at the area map for it)

@@ -148,6 +148,27 @@ object AreaNav {
     }
 
     /** A quick flick up or down: takes the path at a ground arrow (a slow hold only turns around). */
+    /**
+     * [flick], but only as long as the climb moves the view (at least 0.6 s, at most 2.5 s)
+     * instead of a fixed 2.5 s: a climb is usually over well before.
+     */
+    fun flickSettled(ctx: Context, up: Boolean) {
+        val (a, b) = if (up) 0.74 to 0.42 else 0.42 to 0.74
+        ctx.drag(Point(0.5, a), Point(0.5, b), 150)
+        val end = System.currentTimeMillis() + 2500
+        ctx.wait(0.6)
+        var prev = ctx.refresh().gray.clone()
+        var stable = 0
+        while (System.currentTimeMillis() < end) {
+            ctx.wait(0.12)
+            val g = ctx.refresh().gray
+            val c = Route.change(prev, g)
+            prev.release(); prev = g.clone()
+            if (c < 2.0) { if (++stable >= 2) break } else stable = 0
+        }
+        prev.release()
+    }
+
     fun flick(ctx: Context, up: Boolean) {
         val (a, b) = if (up) 0.74 to 0.42 else 0.42 to 0.74
         ctx.drag(Point(0.5, a), Point(0.5, b), 150)
