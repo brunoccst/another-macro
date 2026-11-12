@@ -1114,8 +1114,11 @@ object AnotherDungeon {
             val parts = step.trim().split(Regex("\\s+"))
             when (parts[0].uppercase()) {
                 "BUBBLE" -> {
+                    // the Throne Room chest's "!" can show only ~5 s after arriving (missed once in 3 tries over
+                    // ~5 s, 2026-11-12): watch for up to 8 s
                     var tapped = false
-                    for (i in 0 until 3) { if (openBubble(r)) { tapped = true; break }; ctx.wait(0.7) }
+                    val until = System.currentTimeMillis() + 8000
+                    while (System.currentTimeMillis() < until) { if (openBubble(r)) { tapped = true; break }; ctx.wait(0.4) }
                     if (!tapped) MacroLog.i("step bubble: no \"!\" here")
                 }
                 // "boss L": walk that way in plain holds until the boss's question shows, then fight it
