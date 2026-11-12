@@ -627,11 +627,7 @@ object AnotherDungeon {
         // close by: the chest's "!" shows; look around the spot, a little further each side, until it does
         val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
         // the "!" pops up a while after the party stops: watch for it before looking around
-        if (waitBubble(r, 3.0)) {
-            // its "!" shows only close by: the party stands at the chest (truer than a spot followed through a battle)
-            if (leg != null && r.pos != null) ms.layout?.let { l -> Route.segOf(l, chest)?.let { r.pos = Point(chest.x, it.y) } }
-            r.chestsDone++; ctx.count("chests"); return
-        }
+        if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
         // not there: read the real spot on the map and walk to the chest's x from it (a hold can
         // come up short, a battle can cut it), then look again
         val l0 = ms.layout
