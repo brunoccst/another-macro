@@ -296,7 +296,9 @@ object PhantomCrystal {
         }
     }
 
-    private fun dismiss(ctx: Context) { ctx.tap(Point(0.5, 0.75)); ctx.wait(1.2) }
+    // the item and stamp popups are a banner at the top: a tap low on the screen left one open in the
+    // World's Cape for minutes (2026-11-12), a tap on the banner closes it
+    private fun dismiss(ctx: Context) { ctx.tap(Point(0.5, 0.11)); ctx.wait(1.2) }
 
     /** Close a banner by tapping the banner itself (a tap on the field would walk the party). */
     private fun dismissBanner(ctx: Context) { ctx.tap(Point(0.5, 0.11)); ctx.wait(2.0) }
