@@ -597,6 +597,31 @@ object AnotherDungeon {
         return if (r.spec.maps[best].names.maxOf { Ocr.similarity(part, it) } > (if (named) 0.6 else 0.85)) best else null
     }
 
+    /** Where a map's title shows as it opens ("HARD" over "Beast King's Castle Watchtower"). */
+    private val ARRIVAL_TITLE = Region(0.15, 0.05, 0.7, 0.2)
+
+    /**
+     * Watch the arrival title for up to [seconds]: the index of a map other than [from] that it
+     * names, or null. Only a whole-title match counts (castle maps share most of their words).
+     */
+    private fun arrivalTitle(r: Run, from: Int, seconds: Double): Int? {
+        val ctx = r.ctx
+        val end = System.currentTimeMillis() + (seconds * 1000).toLong()
+        while (System.currentTimeMillis() < end) {
+            ctx.refresh()
+            if (Battle.inBattle(ctx)) return null
+            val lines = ctx.readText(ARRIVAL_TITLE).map { it.text }.filter { Ocr.norm(it) != "hard" && it.length > 4 }
+            for (t in lines) {
+                val named = Ocr.norm(t).contains(Ocr.norm(r.spec.name))
+                val part = if (named) t.substringAfter("-").trim() else t.trim()
+                val best = r.spec.maps.indices.maxByOrNull { i -> r.spec.maps[i].names.maxOf { Ocr.similarity(part, it) } } ?: continue
+                if (best != from && r.spec.maps[best].names.maxOf { Ocr.similarity(part, it) } > 0.9) return best
+            }
+            ctx.wait(0.3)
+        }
+        return null
+    }
+
     /** Fight what interrupted a walk; true if there was a battle. */
     private fun onStep(r: Run): () -> Boolean = { fight(r) }
 
@@ -890,7 +915,11 @@ object AnotherDungeon {
             val arrow = ARROWS.mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
             if (arrow != null) {
                 MacroLog.i("taking the ground arrow at (${"%.2f".format(arrow.center.x)}, ${"%.2f".format(arrow.center.y)})")
-                ctx.tap(arrow); ctx.wait(4.0)
+                ctx.tap(arrow); ctx.wait(1.5)
+                // the next map's title shows over the field as it opens: read it there (no area-map look)
+                val titled = arrivalTitle(r, idx, 6.0)
+                if (titled != null) { MacroLog.i("arrived (title): ${r.spec.maps[titled].names.first()}"); r.nextMap = titled; return }
+                ctx.wait(1.0)
                 fight(r)
                 val now = whereAmI(r)
                 // (the next map is known now: no second look at the area map for it)

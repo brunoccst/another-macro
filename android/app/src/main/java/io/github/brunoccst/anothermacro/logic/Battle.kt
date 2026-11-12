@@ -98,7 +98,7 @@ object Battle {
                     }
                 }
             }
-            ctx.wait(1.0)
+            ctx.wait(0.5)
         }
         ctx.stop("a battle lasted more than 15 minutes")
     }
