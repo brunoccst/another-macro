@@ -802,19 +802,21 @@ object AnotherDungeon {
                         // An encounter often starts just as a hold ends (seen 2026-11-12, about every other
                         // flick on the castle): stand still a moment, fight it first, then flick from the real spot
                         for (again in 1..4) {
-                            ctx.wait(0.4) // standing still on the stairs before the flick
+                            ctx.wait(0.2) // standing still on the stairs before the flick (the hold already stood 0.4 s)
                             if (fight(r)) Route.disturbed = true
                             if (!Route.disturbed) break
                             if (!resync("on the way to the stairs after a battle", at)) { r.pos = p; offPath("not on the street the path expects"); return }
                             if (abs(p.x - at) >= t.minWalk) walkTo(at)
                         }
+                        val flickAt = System.currentTimeMillis()
                         val before = ctx.refresh().gray.clone()
                         AreaNav.flickSettled(ctx, st.up)
+                        val settledMs = System.currentTimeMillis() - flickAt
                         val after = ctx.refresh().gray.clone()
                         val change = Route.change(before, after)
                         before.release(); after.release()
                         val battle = fight(r)
-                        MacroLog.i("flick ${st} (try $attempt): screen change ${"%.1f".format(change)}${if (battle) " (a battle came)" else ""}")
+                        MacroLog.i("flick ${st} (try $attempt) at ${Battle.clock(flickAt)}: settled in ${settledMs}ms, screen change ${"%.1f".format(change)}${if (battle) " (a battle came)" else ""}")
                         if (!battle && change >= t.flickChange) {
                             took = true
                             if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in dungeons.yaml")

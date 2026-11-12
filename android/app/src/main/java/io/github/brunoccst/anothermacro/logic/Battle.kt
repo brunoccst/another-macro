@@ -98,7 +98,7 @@ object Battle {
                 }
                 else -> {
                     // the battle's intro, or the screens after the results (level up, drops)
-                    if (!seen && ++quiet > 4) return Outcome.NONE
+                    if (!seen && ++quiet > 7) return Outcome.NONE
                     if (won) {
                         // e.g. an Another Dungeon's completion screens: let the caller read them first
                         afterWin?.invoke(ctx)
@@ -106,9 +106,21 @@ object Battle {
                     }
                 }
             }
-            ctx.wait(0.5)
+            // 0.3 s: the result screens take a tap each, and each poll was ~0.25 s of waiting on average
+            ctx.wait(0.3)
         }
         ctx.stop("a battle lasted more than 15 minutes")
+    }
+
+    /** Poll every 0.1 s until [ok] or [seconds] have passed. */
+    private fun waitFor(ctx: Context, seconds: Double, ok: () -> Boolean): Boolean {
+        val end = System.currentTimeMillis() + (seconds * 1000).toLong()
+        while (true) {
+            ctx.refresh()
+            if (ok()) return true
+            if (System.currentTimeMillis() >= end) return false
+            ctx.wait(0.1)
+        }
     }
 
     /** Seconds.millis of the wall clock, to line up log lines (which show whole seconds). */
@@ -118,13 +130,17 @@ object Battle {
     private fun setSkills(ctx: Context, s: Setup) {
         for ((i, skill) in s.skills.withIndex()) {
             val n = skill.toIntOrNull() ?: continue
-            ctx.tap(Point(PORTRAIT_X[i], PORTRAIT_Y)); ctx.wait(0.8)
+            val known = ctx.vision.library.templates["skill_list_open"]?.available == true
+            ctx.tap(Point(PORTRAIT_X[i], PORTRAIT_Y))
+            // as soon as the list shows (it took 2.6 s from the command screen to Attack with fixed 0.8 s waits)
+            if (known) waitFor(ctx, 0.8) { ctx.find("skill_list_open") != null } else ctx.wait(0.8)
             ctx.refresh()
-            if (ctx.vision.library.templates["skill_list_open"]?.available == true && ctx.find("skill_list_open") == null) {
+            if (known && ctx.find("skill_list_open") == null) {
                 MacroLog.i("character ${i + 1}: the skill list didn't open")
                 continue
             }
-            ctx.tapExact(Point(SKILL_X[n], SKILL_ROW_Y)); ctx.wait(0.8)
+            ctx.tapExact(Point(SKILL_X[n], SKILL_ROW_Y))
+            if (known) waitFor(ctx, 0.8) { ctx.find("skill_list_open") == null } else ctx.wait(0.8)
             ctx.refresh()
             if (ctx.find("skill_list_open") != null) {
                 MacroLog.i("character ${i + 1}: skill $n couldn't be picked (not enough MP?); normal attack instead")
