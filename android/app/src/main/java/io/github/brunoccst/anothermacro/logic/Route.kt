@@ -106,6 +106,25 @@ object Route {
         return best?.second
     }
 
+    /**
+     * Where the party is, read from the minimap ([MiniMap]) or, when that isn't clear, from the
+     * area map ([areaMap], ~3 s). [near]: where it should be (fits far from these are left out).
+     * With [MiniMap.compare] on, the area map is read too and both are logged (its read is used).
+     */
+    fun seen(ctx: Context, l: AreaNav.Layout, near: List<Point>, why: String, areaMap: () -> Point?): Point? {
+        val t0 = System.currentTimeMillis()
+        val mini = try { MiniMap.locate(ctx, l, near) } catch (e: Exception) { MacroLog.i("minimap: ${e.message}"); null }
+        if (mini != null && !MiniMap.compare) {
+            MacroLog.i("$why: the minimap shows (${"%.3f".format(mini.at.x)}, ${"%.3f".format(mini.at.y)}) (${System.currentTimeMillis() - t0}ms)")
+            return mini.at
+        }
+        val area = areaMap()
+        if (MiniMap.compare) MacroLog.i("minimap check ($why): minimap ${mini?.let { "(${"%.3f".format(it.at.x)}, ${"%.3f".format(it.at.y)}) score ${"%.2f".format(it.score)}/${"%.2f".format(it.other)}" } ?: "none"}, " +
+            "area map ${area?.let { "(${"%.3f".format(it.x)}, ${"%.3f".format(it.y)})" } ?: "none"}" +
+            (if (mini != null && area != null) ", off by ${"%.3f".format(mini.at.x - area.x)}" else ""))
+        return area ?: mini?.at
+    }
+
     // --- doing it --------------------------------------------------------------------
     private val PRESS = Point(0.5, 0.65)
 
@@ -199,8 +218,8 @@ object Route {
             if (!interrupted0 && holdMs >= 600 && moved in 0.0..t.stillChange && noEffect < 2) {
                 // the view barely moved: check on the map whether the party walked at all (the view
                 // also stands still where the camera stops at a map's edge)
-                val seen = AreaNav.look(ctx) { emptyList() }.candidates.filter { segOf(l, it) != null }
-                    .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) }
+                val seen = seen(ctx, l, listOf(p), "the view barely moved") { AreaNav.look(ctx) { emptyList() }.candidates.filter { segOf(l, it) != null }
+                    .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) } }
                 if (seen != null && abs(seen.x - p.x) < 0.006 && abs(seen.y - p.y) < AreaNav.ROW_TOL) {
                     // it didn't (seen right after a flick onto a street): wait, press a little higher, hold again
                     noEffect++
@@ -276,8 +295,8 @@ object Route {
             if (!battle && why == "view stood still") {
                 // no battle: the party walked into a wall, or the camera stopped at the map's edge while
                 // the party walks on. Read the spot on the map; hold on for the rest only when it's short
-                val seen = AreaNav.look(ctx) { emptyList() }.candidates.filter { segOf(l, it) != null }
-                    .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) }
+                val seen = seen(ctx, l, listOf(p), "stood still") { AreaNav.look(ctx) { emptyList() }.candidates.filter { segOf(l, it) != null }
+                    .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) } }
                 MacroLog.i("walk ${if (right) "right" else "left"} stood still after ${walkedMs}ms of $holdMs with no battle; the map shows ${seen?.let { "x ${"%.3f".format(it.x)}" } ?: "no marker"}")
                 if (seen == null) return p
                 val s = segOf(l, seen)!!
