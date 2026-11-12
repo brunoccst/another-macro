@@ -627,7 +627,11 @@ object AnotherDungeon {
         // close by: the chest's "!" shows; look around the spot, a little further each side, until it does
         val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
         // the "!" pops up a while after the party stops: watch for it before looking around
-        if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
+        if (waitBubble(r, 3.0)) {
+            // its "!" shows only close by: the party stands at the chest (truer than a spot followed through a battle)
+            if (leg != null && r.pos != null) ms.layout?.let { l -> Route.segOf(l, chest)?.let { r.pos = Point(chest.x, it.y) } }
+            r.chestsDone++; ctx.count("chests"); return
+        }
         // not there: read the real spot on the map and walk to the chest's x from it (a hold can
         // come up short, a battle can cut it), then look again
         val l0 = ms.layout
@@ -809,9 +813,11 @@ object AnotherDungeon {
             }
             r.pos = p
         }
-        // a battle on the last walk of the leg: read the real spot and finish the walk
+        // a battle on the last walk of the leg: read the real spot and finish the walk. Not for a
+        // chest: its "!" shows when the followed spot is right (the usual case), and takeChest
+        // reads the map only when it doesn't (saves a look at the area map, ~3 s, per battle)
         for (again in 1..4) {
-            if (!Route.disturbed) break
+            if (!Route.disturbed || leg.chest != null) break
             if (!resync("at the end of the leg after a battle") || abs(p.x - plan.x) < t.minWalk) break
             walkTo(plan.x)
         }
@@ -842,10 +848,10 @@ object AnotherDungeon {
         val ctx = r.ctx
         ctx.refresh()
         val b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE) ?: return false
-        ctx.tap(b); ctx.wait(2.0)
-        // the banner can be a moment late (the read came back empty): read again for up to ~2 s
+        ctx.tap(b); ctx.wait(1.0)
+        // the banner can be a moment late (the read came back empty): read again for up to ~3 s
         var read = ctx.readText()
-        for (i in 0 until 4) {
+        for (i in 0 until 6) {
             val all = read.joinToString(" ") { Ocr.norm(it.text) }
             if ("obtained" in all || "proceed" in all || "major trial" in all) break
             ctx.refresh()
