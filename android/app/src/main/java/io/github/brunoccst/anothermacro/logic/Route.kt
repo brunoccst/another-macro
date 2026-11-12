@@ -201,7 +201,9 @@ object Route {
                 }
             }
             val interrupted = interrupted0
-            val battle = interrupted && fight()
+            // the flash (or the dead stop before it) comes seconds before the battle screen: wait for it
+            // rather than taking the quiet screen for "no battle" and holding on into the encounter
+            val battle = interrupted && (fight() || ((why?.startsWith("flash") == true || why == "view stood still") && awaitBattle(ctx) && fight()))
             val lag = if (why == "battle screen") t.hudLagMs else t.lagMs
             val walkedMs = when {
                 !interrupted -> holdMs
@@ -214,13 +216,30 @@ object Route {
                 (if (res.cancelled) ", gesture cancelled by the system" else "") +
                 (if (interrupted) if (battle) ", battle fought" else ", no battle came" else ""))
             val d = t.distance(walkedMs.toDouble())
+            val pBefore = p
+            val leftBefore = left
             p = walked(l, p, right, d)
             left -= d
             if (!interrupted) {
-                // a battle the screen checks missed: the party stopped somewhere along the way
-                if (fight()) {
-                    MacroLog.i("a battle came during the hold without being seen: the position is unknown")
+                // a battle the screen checks missed: the party stopped somewhere along the way. Its
+                // screen can take seconds to show (the flash comes ~2 s after the party stops dead):
+                // wait until it does or the field's menu is back
+                if (fight() || (awaitBattle(ctx, 6.0, 600) && fight())) {
                     MacroLog.i("hold trace (ms:brightness/change):$trace")
+                    if (frames > 5 && lastField < holdMs - 250) {
+                        // the view stopped moving before the hold's end: that's where the encounter stopped the party
+                        val w = (lastField - t.lagMs).coerceIn(0L, holdMs)
+                        val dw = t.distance(w.toDouble())
+                        p = walked(l, pBefore, right, dw)
+                        left = leftBefore - dw
+                        disturbed = true
+                        MacroLog.i("a battle came after ${w}ms of the ${holdMs}ms hold (the view stopped there); " +
+                            "${"%.3f".format(left.coerceAtLeast(0.0))} left from (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})")
+                        if (left < t.minWalk) return p
+                        holdMs = t.holdMs(left).toLong()
+                        return@repeat
+                    }
+                    MacroLog.i("a battle came during the hold without being seen: the position is unknown")
                     disturbed = true; unseen = true
                 }
                 return p
@@ -263,6 +282,25 @@ object Route {
             holdMs = t.holdMs(left).toLong()
         }
         return p
+    }
+
+    /**
+     * After a hold stopped on an encounter's look: true once the battle screen shows (within
+     * [seconds]), false as soon as the field's menu button has stayed for [fieldMs] (the
+     * party just stands there: no battle).
+     */
+    fun awaitBattle(ctx: Context, seconds: Double = 6.0, fieldMs: Long = 1000): Boolean {
+        val end = System.currentTimeMillis() + (seconds * 1000).toLong()
+        var fieldSince = 0L
+        while (System.currentTimeMillis() < end) {
+            ctx.refresh()
+            if (Battle.inBattle(ctx)) return true
+            val now = System.currentTimeMillis()
+            if (ctx.find("field_menu_button") != null) { if (fieldSince == 0L) fieldSince = now else if (now - fieldSince >= fieldMs) return false }
+            else fieldSince = 0L
+            ctx.wait(0.2)
+        }
+        return false
     }
 
     /** How different two frames are (mean grey-level difference, small copies): a street change moves the whole view. */
