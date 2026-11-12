@@ -118,6 +118,8 @@ object Route {
     private const val WALK_STEP = 12.0
     /** Frames (about 40 ms each) of a still view, after walking, that end a hold to look for a battle. */
     private const val STILL_FRAMES = 6
+    /** A still view this long (ms) after walking ends a hold to look for a battle. */
+    private const val STILL_MS = 450L
 
     /** A hold was cut short by a battle since this was last cleared: the position is less sure. */
     @Volatile var disturbed = false
@@ -147,6 +149,7 @@ object Route {
             // before the battle HUD shows. Stop on the flash, or on a still view after walking
             var walking = false
             var still = 0
+            var lastWalk = 0L
             var baseLevel = -1.0
             var why: String? = null
             var firstGray: org.opencv.core.Mat? = null
@@ -168,13 +171,17 @@ object Route {
                     Battle.inBattle(ctx) -> { why = "battle screen"; true }
                     level < t.darkLevel -> { if (++dark >= 2) why = "dark screen (${"%.0f".format(level)})"; dark >= 2 }
                     baseLevel > 0 && level > 100 && level > baseLevel * 1.6 -> { why = "flash (${"%.0f".format(level)})"; true }
-                    walking && stepChange < STILL_STEP && ++still >= STILL_FRAMES -> { why = "view stood still"; true }
+                    // by time, not frames: the capture sends few frames while the screen stands still
+                    walking && stepChange < STILL_STEP && held - lastWalk >= STILL_MS -> { why = "view stood still"; true }
                     else -> {
                         dark = 0
                         // (a single shimmer frame of 7-11 in the encounter's still screen doesn't restart the count:
                         // seen 2026-11-12, a still screen for over a second that never ended the hold)
                         // (the screen brightening toward the flash moves too: not walking)
-                        if (stepChange >= STILL_STEP && (baseLevel < 0 || level < baseLevel + 8)) { lastField = held; if (stepChange >= WALK_STEP) { walking = true; still = 0 } }
+                        // only a walking frame (>= WALK_STEP) marks where the party still walked: a shimmer or the
+                        // brightening before the flash (7-11) came up to a second after the party stopped
+                        if (stepChange >= WALK_STEP && (baseLevel < 0 || level < baseLevel + 8)) { lastField = held; lastWalk = held; walking = true; still = 0 }
+                        else if (stepChange < STILL_STEP) still++
                         baseLevel = if (baseLevel < 0) level else baseLevel * 0.9 + level * 0.1
                         false
                     }
