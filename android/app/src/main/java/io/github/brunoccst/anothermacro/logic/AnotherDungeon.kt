@@ -1199,6 +1199,8 @@ object AnotherDungeon {
             }
             if (Battle.inBattle(ctx)) { fight(r); return@repeat }
             val lines = ctx.readText()
+            // (for tuning how long the screens after the boss take)
+            MacroLog.i("after the boss ${Battle.clock()}: ${lines.joinToString(" | ") { it.text }.take(70)}")
             readPhantom(r, lines)
             // after End the game is back on the Another Dungeon map: its "???" tab glows with a White Key
             if (lines.any { Ocr.norm(it.text) == "another dungeon" } && lines.any { Ocr.norm(it.text) == "hollow" }) {
@@ -1216,7 +1218,8 @@ object AnotherDungeon {
             if (endNotSkip(r, lines)) return@repeat
             tapText(r, "OK", "Close", "Next", exact = true, tries = 1)
                 ?: ctx.tap(Point(0.5, 0.2)) // the rest closes with a tap anywhere: up here, away from buttons
-            ctx.wait(2.0)
+            // (2.0 s made the screens after the boss take ~1 min; each read takes a moment itself)
+            ctx.wait(1.0)
         }
         return "${r.spec.name}: finished, but stuck on the screens after it (${seen(ctx)})"
     }
