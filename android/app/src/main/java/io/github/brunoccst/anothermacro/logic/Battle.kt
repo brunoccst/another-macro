@@ -65,6 +65,9 @@ object Battle {
         fun mark(k: String) { if (k !in marks) marks[k] = System.currentTimeMillis() - t0 }
         while (System.currentTimeMillis() < end) {
             ctx.refresh()
+            // no battle seen yet and the field's menu shows: nothing to fight. Looked at first, so the
+            // usual "no battle" answer after a walk costs one match, not the six battle screens'
+            if (!seen && ctx.find("field_menu_button") != null) return Outcome.NONE
             when {
                 ctx.find("defeat_banner") != null -> return Outcome.LOST
                 ctx.find("result_banner") != null -> {
