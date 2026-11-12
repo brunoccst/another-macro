@@ -1,0 +1,44 @@
+# Templates for the inbox macro (Menu → Inbox, open every item not opened yet).
+# Cut from 1024x461 connector screenshots and upscaled to the 2400x1080 reference, hence the
+# lower thresholds and the extra scales.
+templates:
+  menu_inbox_button:
+    file: menu_inbox_button.png
+    ref: [2400, 1080]
+    region: [0.78, 0.72, 0.15, 0.26]
+    threshold: 0.75
+    scales: [0.9, 1.0, 1.1]
+    notes: '"Inbox" label of the open Menu bar''s inbox button (bottom right; the count badge above it is left out).'
+  inbox_title:
+    file: inbox_title.png
+    ref: [2400, 1080]
+    region: [0.38, 0.0, 0.24, 0.2]
+    threshold: 0.75
+    scales: [0.9, 1.0, 1.1]
+    notes: '"Inbox" title of the inbox list.'
+  inbox_close_button:
+    file: inbox_close_button.png
+    ref: [2400, 1080]
+    region: [0.68, 0.0, 0.16, 0.14]
+    threshold: 0.75
+    scales: [0.9, 1.0, 1.1]
+    notes: 'X tab at the inbox list''s top right: closes the inbox.'
+  inbox_received_label:
+    file: inbox_received_label.png
+    ref: [2400, 1080]
+    region: [0.3, 0.3, 0.4, 0.5]
+    threshold: 0.75
+    scales: [0.9, 1.0, 1.1]
+    notes: '"The items below have been received" line of an opened inbox item.'
+  inbox_ok_button:
+    file: inbox_ok_button.png
+    ref: [2400, 1080]
+    region: [0.35, 0.55, 0.3, 0.45]
+    threshold: 0.75
+    scales: [0.9, 1.0, 1.1]
+    notes: '"OK" button of an opened inbox item.'
+screens:
+  inbox_item:
+    require: [inbox_ok_button]
+  inbox:
+    require: [inbox_title, inbox_close_button]

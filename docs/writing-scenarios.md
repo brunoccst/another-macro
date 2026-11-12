@@ -193,4 +193,7 @@ Then add a Termux widget button in `termux/shortcuts/<Name>.sh` (copy
   that shouldn't add a log line each time. A routine puts its step ("daily-routine 2/5")
   in front, and a battle puts the previous line back when it ends. `screen_text(y0, y1)`
   returns the OCR text in a band of the screen, e.g. to log what a reward dialog says.
+  `text_row_without(anchor, mark, y0, y1)` finds a list row still to do: the height of the
+  top-most text line containing `anchor` with no `mark` text on the same line, or -1 (the inbox
+  macro opens `text_row_without('utc', 'opened', 0.15, 0.86)`, the first item not opened yet).
   Never put account data (player name, IDs, friend codes) in a log line.

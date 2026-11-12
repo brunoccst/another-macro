@@ -178,6 +178,21 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
                 val y1 = if (args.size > 1) Expr.num(args[1]) else 1.0
                 ctx.readText().filter { it.center.y in y0..y1 }.joinToString(" ") { it.text }.take(160)
             }
+            // a list row still to do: the height (0..1) of the top-most text line containing `anchor`
+            // (between heights y0..y1) with no text containing `mark` on the same line, else -1.
+            // E.g. text_row_without('utc', 'opened', 0.15, 0.85): the first inbox item not opened yet.
+            "text_row_without" -> {
+                val anchor = Ocr.norm(Expr.str(args[0]))
+                val mark = Ocr.norm(Expr.str(args[1]))
+                val y0 = if (args.size > 2) Expr.num(args[2]) else 0.0
+                val y1 = if (args.size > 3) Expr.num(args[3]) else 1.0
+                val lines = ctx.readText()
+                val marks = lines.filter { Ocr.norm(it.text).contains(mark) }.map { it.center.y }
+                lines.filter { it.center.y in y0..y1 && Ocr.norm(it.text).contains(anchor) }
+                    .sortedBy { it.center.y }
+                    .firstOrNull { l -> marks.none { kotlin.math.abs(it - l.center.y) < 0.025 } }
+                    ?.center?.y ?: -1.0
+            }
             "pick" -> args[Expr.num(args[0]).toInt().coerceIn(1, args.size - 1)]
             "abs" -> kotlin.math.abs(Expr.num(args[0]))
             else -> throw IllegalArgumentException("$macro: unknown function $name()")

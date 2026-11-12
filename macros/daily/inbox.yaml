@@ -1,0 +1,78 @@
+# Claim the inbox: Menu → Inbox, open every item not opened yet (that receives its rewards), OK.
+# The game has no "receive all" button and keeps opened items in the list for 90 days (marked
+# "Opened"), newest first. So the macro opens the top-most row without the "Opened" mark, and
+# scrolls down when the page has none, until `empty_pages` pages in a row had nothing new or the
+# list ends. Only rows, OK and the inbox's X are tapped: nothing is bought or spent.
+name: inbox
+group: daily
+icon: chest
+description: "Claim every reward in the inbox (Menu → Inbox, open each item not opened yet)."
+templates: [daily_ads, inbox]
+params:
+  empty_pages: {default: 2, help: "stop after this many pages in a row with every item already opened (new items are at the top)"}
+  max_items: {default: 100, help: "open at most this many items in one run"}
+screens: [inbox_item, inbox, menu_open, field]
+unknown_timeout_s: 45
+
+setup:
+  - set: {done: false, menu_taps: 0, plain_pages: 0, last_page: "''", misses: 0}
+
+handlers:
+  inbox_item:   # an opened item: "The items below have been received" + the rewards, OK
+    - count: items_opened
+    - log: "inbox item {stats.items_opened}: {screen_text(0.08, 0.75)}"
+    - tap: inbox_ok_button
+    - set: {plain_pages: 0, misses: 0}
+    - wait: 1
+
+  inbox:
+    - if: done or stats.items_opened >= max_items
+      then:
+        - status: "closing the inbox"
+        - tap: inbox_close_button
+        - set: {done: true}
+        - wait: 1.5
+      else:
+        - set: {row: text_row_without('utc', 'opened', 0.15, 0.86)}
+        - if: row >= 0 and misses < 3
+          then:
+            - status: "opening inbox item {stats.items_opened + 1}"
+            - tap: {x: 0.5, y: row}
+            - set: {misses: misses + 1}   # back to 0 once the item shows
+            - wait: 1.5
+          else:
+            # nothing new on this page: scroll down, or stop at the end of the list
+            - set: {page: screen_text(0.15, 0.86), plain_pages: plain_pages + 1, misses: 0}
+            - if: plain_pages > empty_pages or page == last_page
+              then:
+                - set: {done: true}
+              else:
+                - status: "no new items on this page: scrolling down"
+                - set: {last_page: page}
+                - drag: {from: [0.5, 0.78], to: [0.5, 0.2], ms: 700}
+                - wait: 1.5
+
+  menu_open:
+    - if: done
+      then:
+        - back: true
+        - wait: 1.5
+        - stop: "inbox: {stats.items_opened} item(s) opened"
+    - set: {menu_taps: menu_taps + 1}
+    - if: menu_taps > 4
+      then: [{stop: "the Inbox button didn't open the inbox"}]
+    - status: "menu: opening the Inbox"
+    - tap: menu_inbox_button
+    - wait: 2
+
+  field:
+    - if: done
+      then: [{stop: "inbox: {stats.items_opened} item(s) opened"}]
+    - run: open-menu
+    - if: result != 'menu open'
+      then: [{stop: "{result}"}]
+
+unknown:
+  - if: not game_in_front()
+    then: [{stop: "the game is not in front"}]
+  - wait: 1.5
