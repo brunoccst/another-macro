@@ -1,9 +1,11 @@
 # another-macro
 
 Screen-reading automation for the mobile game Another Eden, running **on the Android
-phone itself** (Termux + ADB over Wireless debugging to localhost; no PC, no root).
+phone itself** in the Another Macro app (screen capture + accessibility taps; no PC, no root).
+Claude drives the phone through the app's phone connector (an MCP server reached through a
+Cloudflare Worker relay, `relay/`), from an ordinary chat. Termux / ADB / Remote Control is legacy.
 
-- Architecture and scenario API: `docs/writing-scenarios.md`
+- Macro format and game notes: `docs/writing-scenarios.md`; macro library: `macros/README.md`
 - Phone setup: `docs/setup-android.md`
 - New automation requests ("automate X"): use the `new-scenario` skill
 - Missing templates: use the `capture-templates` skill (needs the live phone)

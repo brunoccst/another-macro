@@ -1,10 +1,13 @@
 # Another Macro
 
-Press **play** on your phone and let a macro play parts of **Another Eden** for you:
-grind battles, and later run dungeons, do dailies and more. Everything runs **on the
-Android phone itself**. There's no PC and no root: the macro uses Android's
-Wireless debugging to take screenshots and tap, recognises screens with OpenCV
-template matching, and follows a small per-scenario script.
+An Android app that plays parts of **Another Eden** for you: the daily routine (login ad,
+ad chests, shop ad, cat scratchbook, inbox), Another Dungeon runs, the Phantom Crystal
+Dimension and battle grinding. Everything runs **on the phone itself**, with no PC and no
+root. The app reads the game screen (screen capture, OpenCV template matching and on-device
+OCR), taps through an accessibility service, and follows small YAML macros.
+
+You can also let **your own Claude chat** (claude.ai or the Claude apps) drive the game and
+write new macros, through the app's phone connector.
 
 > **Disclaimer.** This is a personal, educational project, and you use it at your own
 > risk. It is not affiliated with Wright Flyer Studios, Gumi or Square Enix. It only
@@ -13,67 +16,96 @@ template matching, and follows a small per-scenario script.
 
 ## Quick start
 
-1. Set up the phone: [docs/setup-android.md](docs/setup-android.md) (Termux, Wireless
-   debugging, one pairing).
-2. Capture the screen templates from **your** screen once. `another-macro doctor`
-   lists what's missing, and [docs/writing-scenarios.md](docs/writing-scenarios.md)
-   shows how to capture them.
-3. Stand on a map with random encounters and tap the **Grind battles** widget, or
-   run:
+1. **Install the app** and turn on taps and screen capture:
+   [docs/setup-android.md](docs/setup-android.md).
+2. **Pick a macro.** In the app, open **Macros**, tap a macro, set its options and tap
+   **Select this macro**. The macros download by themselves.
+3. **Play it** from the floating buttons over the game: ▶ start, ❚❚ pause, ■ stop, ↻ restart.
+4. **Optional: Claude.** Set up the phone connector (System → Claude) to let Claude play or
+   build macros from your chat: [relay/README.md](relay/README.md).
 
-   ```bash
-   another-macro play grind-battles --param battles=20
-   ```
-
-   Stop it with the **Stop macro** widget or `another-macro stop`.
-
-## Scenarios
-
-| Scenario | Start state | What it does | Params |
-|---|---|---|---|
-| `grind-battles` | On a field/dungeon map with random encounters | Walks left/right, fights each encounter, clears results, repeats. Each front-row character gets `auto` or skill 1-4 (shared battle code); all `auto` presses Attack every turn (the battle speed is never touched). Resumes from the title screen; stops on defeat, when the party seems stuck, or when Game Booster's touch lock covers the game. | `battles` (10, 0 = no limit), `walk_ms` (1500), `skill_1`..`skill_4` (auto/1-4), `first_walk` (-1 = left), `stuck_walks` (8) |
-| `phantom-crystal` | Next to the shining Another Dungeon door, holding a White Key | Enters the Phantom Crystal Dimension, opens every chest and taps every paw-stamp cat in each world, takes a portal, until the Cape or the final world; reports items. Stops for you if an NPC offers a free Treatise/Codex/Opus. | none |
-| `dogma-tower` | On the field anywhere (or already inside Dogma Tower) | One Another Dungeon run: enters through the Another Dungeon door (start next to it) with the chosen key (green = Hard, red = Very Hard) or skips with a Cat Express Ticket, walks to every chest of every map from known map layouts, fights every map's enemies first (until they have disappeared), then walks each map's fixed path to the chests and the exit, then the boss with its own skill setup. Stops at the end and reports a White Key (Phantom Crystal Dimension). Never buys keys. | `key` (green/red), `cat_ticket`, `skill_1`..`4`, `boss_setup`, `boss_skill_1`..`4` |
-| `cat-scratchbook` | On any field map (`mode=hunt`: on the map where the cat is) | `read` (default): opens Diary → Cat Scratchbook and reports where today's cats are. `hunt`: walks the street in short steps, taps the cat's feather bubble, clears the rewards. Travelling between maps is still manual. | `mode` (read/hunt), `first_walk`, `span`, `pulse_ms`, `max_walks` |
-| `start-game` | Anything | Turns the game on (or brings it to the front), taps Continue, always watches the daily login-bonus ad (premium: closes the thank-you instead), confirms the reward, stops on the field. | `package`, `watch_ad` (true; false = just open the game), `ad_wait_s` (45) |
-| `stop-game` | Anything | Turns the game off the clean way: back → "Close the app?" → Yes; force-stops after `timeout_s`. | `package`, `timeout_s` (60) |
-
-`another-macro list` prints them all. To add one, ask Claude to "automate …" in this
-repo (it uses the [`new-scenario`](.claude/skills/new-scenario/SKILL.md) skill), or
-follow [docs/writing-scenarios.md](docs/writing-scenarios.md).
-
-## Commands
+## How it works
 
 ```
-another-macro connect [--pair-port P --code C] [--port P]   connect the phone's ADB to itself
-another-macro doctor                                        check OpenCV, device, missing templates
-another-macro list                                          scenarios and params
-another-macro play <scenario> [--param k=v] [--minutes N]   run one
-another-macro stop                                          stop the running one
-another-macro screenshot [-o file]                          save the screen
-another-macro tap X Y | hold X Y MS | swipe X1 Y1 X2 Y2 [MS] | back
-another-macro check [--from file]                           which templates/screen match
-another-macro capture-template NAME --box L,T,W,H [--from file]
+Claude chat ──(custom connector)──> relay (your Cloudflare Worker) <──WebSocket── Another Macro app
+                                                                                     │
+                                       screen capture + OCR + templates  ◄───────────┤
+                                       accessibility taps / walking      ◄───────────┘
+                                                                                  Another Eden
 ```
 
-Coordinates from 0 to 1 are fractions of the screen; larger values are pixels. The
-small commands also let an AI agent (Claude, via Remote Control in Termux) drive the
-game step by step.
+- **The app** (`android/`) holds the permissions, capture, vision, the macro runner, the
+  floating buttons and the phone connector. Its UI has a sidebar with three pages: **Home**,
+  **Macros** (tabs: In use, Daily, Another Dungeon, Farming, Game, Basic, Other, Custom) and
+  **System** (Setup, Claude, Settings, Updates, Log).
+- **The macros** (`macros/`) are YAML files. They are not built into the app: CI packs them
+  with their templates and data and the app downloads the pack, so a macro fix reaches the
+  phone without an app update. See [macros/README.md](macros/README.md).
+- **The logic** (battles, Another Dungeons, routes, cat scratchbook, Phantom Crystal) ships as a
+  downloadable logic pack, so most app changes also arrive without an install. See
+  [docs/logic-pack.md](docs/logic-pack.md).
+- **The phone connector** turns the app into an MCP server that you add in claude.ai as a
+  custom connector. A small Cloudflare Worker on your own account relays it (`relay/`).
+
+## Macros
+
+| Group | Macro | What it does |
+|---|---|---|
+| Daily | `daily-routine` | Starts the game, watches the 5 menu ad chests and the shop ad, does the cat scratchbook, claims the inbox, then turns the game off. |
+| Daily | `daily-ads` | The 5 daily commercial chests (Menu → video icon, 1-3 ads each). |
+| Daily | `shop-ad` | The shop's daily commercial for Chronos Stones. |
+| Daily | `cat-scratchbook` | Reads today's cat clues, travels to each cat by a fixed route and finds it (`mode`: daily / read / hunt). |
+| Daily | `inbox` | Claims every inbox item not opened yet. |
+| Another Dungeon | `dogma-tower`, `burning-beast-kings-castle` | One or more runs: enters with the chosen key (or skips with a Cat Express Ticket), fights each map until "The enemies have disappeared", walks fixed routes to every chest and the exit, then the boss. Stops at 0 keys (never buys), reports a White Key. |
+| Another Dungeon | `phantom-crystal` | The Phantom Crystal Dimension after a White Key: every chest and paw stamp, world by world. Stops so you pick a free Treatise/Codex/Opus yourself. |
+| Game | `start-game` | Opens the game, takes the daily login-bonus ad, stops on the field. |
+| Game | `stop-game` | Closes the game the clean way (Back → "Close the app?" → Yes). |
+| Basic | `battle`, `grind-battles`, `watch-ad`, `open-menu`, `back-to-field` | Building blocks the other macros run. `grind-battles` also works on its own: walk a map and fight every encounter. |
+
+Battles use one skill choice per party slot (`skill_1`..`skill_4` = auto or skill 1-4), set
+once on the `battle` macro and used by every macro that fights.
+
+### Safety
+
+- **Never spends premium currency or confirms a purchase.** Every tap goes through a purchase
+  guard, and purchase screens are refused.
+- Taps happen only while Another Eden is in front.
+- Through the connector, anything that can't be undone (selling, discarding, exchanging...)
+  asks you on the phone first.
+
+## Writing macros
+
+Ask Claude in a chat with the phone connector ("make a macro that ..."): it captures the
+templates it needs, saves the macro as a **Custom** draft and tries it. Macros that work are
+then added to `macros/<group>/` here, for everyone. The format is in
+[docs/writing-scenarios.md](docs/writing-scenarios.md) and at the top of `Flow.kt`.
+
+## Docs
+
+- [docs/setup-android.md](docs/setup-android.md): install and set up the app
+- [relay/README.md](relay/README.md): the Claude phone connector and its relay
+- [macros/README.md](macros/README.md): the macro library and basic macros
+- [docs/writing-scenarios.md](docs/writing-scenarios.md): the macro format, templates, game notes
+- [docs/logic-pack.md](docs/logic-pack.md): how app logic updates reach the phone without an install
+- [docs/dungeon-macros-plan.md](docs/dungeon-macros-plan.md): every Another Dungeon and the plan for their macros
+- [android/README.md](android/README.md): the app's code, build and releases
 
 ## Development
 
 ```bash
 pip install -e '.[dev]'
-python -m pytest -q
+python -m pytest -q                      # macro pack, routes, vision (synthetic frames, no phone)
+gradle -p android testDebugUnitTest      # app unit tests
+cd relay && npm test                     # relay
 ```
 
-Tests run against synthetic screens and a simulated game, so no phone is needed.
+CI builds every pushed branch: the APK and logic pack go to the pre-release `dev-<branch>`,
+the macro pack to `macros-<branch>`. Phones on a dev build follow their branch (normally
+`main`) and update themselves.
 
-## Roadmap
-
-- Native Android app driver with a floating play/stop button (same scenarios and templates)
-- More scenarios: daily cat scratchbook, Another Dungeons (e.g. Dogma Tower), …
-- OCR anchors, "go to map X" navigation helpers, Claude as a fallback on unknown screens
+The Python package (`src/another_macro`) holds the shared templates, dungeon and route data
+and the macro packer. It also still has the original Termux command-line tool, now legacy (see
+the end of [docs/setup-android.md](docs/setup-android.md)).
 
 ## License
 
