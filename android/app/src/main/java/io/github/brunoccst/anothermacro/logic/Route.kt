@@ -112,9 +112,10 @@ object Route {
      * With [MiniMap.compare] on, the area map is read too and both are logged (its read is used).
      */
     fun seen(ctx: Context, l: AreaNav.Layout, near: List<Point>, why: String, areaMap: () -> Point?): Point? {
+        val t0 = System.currentTimeMillis()
         val mini = try { MiniMap.locate(ctx, l, near) } catch (e: Exception) { MacroLog.i("minimap: ${e.message}"); null }
         if (mini != null && !MiniMap.compare) {
-            MacroLog.i("$why: the minimap shows (${"%.3f".format(mini.at.x)}, ${"%.3f".format(mini.at.y)})")
+            MacroLog.i("$why: the minimap shows (${"%.3f".format(mini.at.x)}, ${"%.3f".format(mini.at.y)}) (${System.currentTimeMillis() - t0}ms)")
             return mini.at
         }
         val area = areaMap()

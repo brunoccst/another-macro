@@ -780,6 +780,15 @@ object AnotherDungeon {
                 is Route.Step.Flick -> {
                     // a battle cut a walk short: read the real spot once, stairs need it
                     if (Route.disturbed && !resync("before the stairs after a battle")) { r.pos = p; offPath("not on the street the path expects"); return }
+                    // no battle: still check the spot on the minimap (no area map, it's cheap); stairs need ±0.006
+                    if (!Route.disturbed) try {
+                        MiniMap.locate(ctx, l, listOf(p))?.let { m ->
+                            if (Route.segOf(l, m.at) == Route.segOf(l, plan) && abs(m.at.x - p.x) >= 0.003) {
+                                MacroLog.i("before the stairs: the minimap shows x ${"%.3f".format(m.at.x)}, followed ${"%.3f".format(p.x)}")
+                                p = m.at
+                            }
+                        }
+                    } catch (e: Exception) { MacroLog.i("minimap: ${e.message}") }
                     val next = Route.climbed(l, plan, st.up) ?: run { r.pos = p; offPath("the path has no stairs ${if (st.up) "up" else "down"} here"); return }
                     var took = false
                     // the stairs can be a little off in the data: from the 2nd try, flick a little either side

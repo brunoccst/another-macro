@@ -34,11 +34,12 @@ object MiniMap {
     private const val BOTTOM = 0.19
     /** A street's thickness on the minimap (screen-height fraction). */
     private const val THICK = 0.0125
+    private const val WORK_WIDTH = 1400.0
     private const val MIN_SCORE = 0.5
     private const val MAX_OTHER = 0.8
 
     /** Check mode: also read the area map wherever the minimap is read, log both, use the area map's. */
-    @Volatile var compare = true
+    @Volatile var compare = false
 
     data class Read(val at: Point, val score: Double, val other: Double)
 
@@ -73,9 +74,13 @@ object MiniMap {
     }
 
     fun locate(bgr: Mat, l: AreaNav.Layout, near: List<Point>, tol: Double = 0.08): Read? {
-        val w = bgr.cols(); val h = bgr.rows()
-        val x0 = (LEFT * w).toInt()
-        val crop = bgr.submat(Rect(x0, 0, w - x0, (BOTTOM * h).toInt()))
+        val fw = bgr.cols(); val fh = bgr.rows()
+        val x0 = (LEFT * fw).toInt()
+        val full = bgr.submat(Rect(x0, 0, fw - x0, (BOTTOM * fh).toInt()))
+        // at most 1400 px wide (a step of 0.0015 a pixel): the full frame took ~1 s a read
+        val k = minOf(1.0, WORK_WIDTH / fw)
+        val w = (fw * k).toInt(); val h = (fh * k).toInt()
+        val crop = if (k < 1.0) Mat().also { Imgproc.resize(full, it, org.opencv.core.Size(0.0, 0.0), k, k, Imgproc.INTER_AREA); full.release() } else full
         val hsv = Mat(); Imgproc.cvtColor(crop, hsv, Imgproc.COLOR_BGR2HSV); crop.release()
         // streets: light grey (the white door icons and the gold marker are brighter, left out)
         val barU = Mat(); Core.inRange(hsv, Scalar(0.0, 0.0, 95.0), Scalar(180.0, 45.0, 175.0), barU)
@@ -84,7 +89,7 @@ object MiniMap {
         try {
             val m = markerCenter(marker) ?: return null
             val bars = Core.countNonZero(barU)
-            if (bars < 40) return null
+            if (bars < 20) return null
             val bar = Mat(); barU.convertTo(bar, CvType.CV_32F, 1.0 / 255)
             val pad = (0.2 * w).toInt()
             val big = render(l, w, h, pad)
