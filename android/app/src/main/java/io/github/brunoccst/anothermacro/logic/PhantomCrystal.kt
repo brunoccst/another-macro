@@ -178,12 +178,15 @@ object PhantomCrystal {
         val overChest = bubbles.firstOrNull { b -> chests.any { abs(it.x - b.x) < 0.04 && it.y > b.y && it.y - b.y < 0.32 } }
         if (overChest != null) return tapBubble(r, overChest)
         // a bubble on something that walks: a cat (portals stand still)
-        for (b in bubbles) {
-            if (r.skip.any { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 }) continue
+        val others = bubbles.filter { b -> r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 } }
+        if (others.isNotEmpty()) {
+            // one second look for all of them (one per bubble cost ~2 s each)
             Thread.sleep(500)
             val again = bubbles(ctx, ctx.refresh())
-            val moved = again.none { abs(it.x - b.x) < 0.006 && abs(it.y - b.y) < 0.01 } && again.any { abs(it.x - b.x) < 0.08 && abs(it.y - b.y) < 0.05 }
-            if (moved) return tapBubble(r, again.minByOrNull { abs(it.x - b.x) }!!)
+            for (b in others) {
+                val moved = again.none { abs(it.x - b.x) < 0.006 && abs(it.y - b.y) < 0.01 } && again.any { abs(it.x - b.x) < 0.08 && abs(it.y - b.y) < 0.05 }
+                if (moved) return tapBubble(r, again.minByOrNull { abs(it.x - b.x) }!!)
+            }
         }
         return Taken.NONE
     }
@@ -355,11 +358,13 @@ object PhantomCrystal {
     }
 
     /** Every place [t] shows on [g], over several sizes (the worlds are drawn at different zooms). */
-    private fun findAll(g: Mat, t: Mat, scales: List<Double>, min: Double): List<Point> {
+    private fun findAll(full: Mat, t: Mat, scales: List<Double>, min: Double): List<Point> {
         if (t.empty()) return emptyList()
+        // at half size: full size took seconds per look (a world step ~20 s, 2026-11-12)
+        val g = Mat(); Imgproc.resize(full, g, Size(0.0, 0.0), HALF, HALF, Imgproc.INTER_AREA)
         val hits = ArrayList<Pair<Double, Point>>()
         for (k in scales) {
-            val s = Mat(); Imgproc.resize(t, s, Size(0.0, 0.0), k, k)
+            val s = Mat(); Imgproc.resize(t, s, Size(0.0, 0.0), k * HALF, k * HALF, Imgproc.INTER_AREA)
             if (s.rows() >= g.rows() || s.cols() >= g.cols()) { s.release(); continue }
             val res = Mat(); Imgproc.matchTemplate(g, s, res, Imgproc.TM_CCOEFF_NORMED)
             repeat(10) {
@@ -371,10 +376,13 @@ object PhantomCrystal {
             }
             s.release(); res.release()
         }
+        g.release()
         val out = ArrayList<Point>()
         for ((_, p) in hits.sortedByDescending { it.first }) if (out.none { abs(it.x - p.x) < 0.02 && abs(it.y - p.y) < 0.03 }) out += p
         return out
     }
+
+    private const val HALF = 0.5
 
     /** The "!" bubbles on screen (not under the app's own buttons on the right). */
     private fun bubbles(ctx: Context, f: Frame): List<Point> =
