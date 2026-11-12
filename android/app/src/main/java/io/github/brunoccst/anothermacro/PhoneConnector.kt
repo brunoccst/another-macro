@@ -233,7 +233,7 @@ object PhoneConnector {
                 "list_macros" -> t.listMacros()
                 "read_macro" -> t.readMacro(a)
                 "start_macro" -> t.startMacro(a)
-                "macro_status" -> t.macroStatus()
+                "macro_status" -> t.macroStatus(a)
                 "stop_macro" -> t.stopMacro()
                 "save_template" -> t.saveTemplate(a)
                 "save_macro" -> t.saveMacro(a["yaml"]?.toString().orEmpty())
@@ -326,7 +326,9 @@ object PhoneConnector {
             mapOf("name" to str("macro name")), listOf("name")),
         McpServer.McpTool("start_macro", "Start a macro; it runs on the phone without you, with the options the user chose for it in the app plus params. Returns at once: follow it with macro_status.",
             mapOf("name" to str("macro name"), "params" to mapOf("type" to "object", "description" to "param values, e.g. {\"battles\": 5}", "additionalProperties" to mapOf("type" to "string"))), listOf("name")),
-        McpServer.McpTool("macro_status", "Whether a macro is running, what it is doing now, why the last one stopped, whether the screen is on and the capture shows it (warns about an all-black capture), and the last log lines.", emptyMap()),
+        McpServer.McpTool("macro_status", "Whether a macro is running, what it is doing now, why the last one stopped, whether the screen is on and the capture shows it (warns about an all-black capture), and the last log lines.",
+            mapOf("lines" to mapOf("type" to "integer", "description" to "how many of the last log lines (default 15, up to 600)"),
+                "find" to str("only log lines containing this text (case ignored)"))),
         McpServer.McpTool("stop_macro", "Stop the running macro.", emptyMap()),
         McpServer.McpTool("save_template", "Save a small box of the current screen as a named template (a stable label or icon, no numbers or moving parts), usable in macros by name.",
             mapOf("name" to str("lowercase letters, digits and _, e.g. quest_board_title"), "region" to box(), "notes" to str("what it is")), listOf("name", "region")),

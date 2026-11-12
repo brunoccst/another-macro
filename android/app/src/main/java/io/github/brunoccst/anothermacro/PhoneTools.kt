@@ -251,9 +251,14 @@ class PhoneTools(
         return ToolResult("started ${s.name}; check it with macro_status (it runs on the phone without you)")
     }
 
-    fun macroStatus(): ToolResult {
+    fun macroStatus(input: Map<String, Any?> = emptyMap()): ToolResult {
         val running = Runner.isRunning
-        val log = MacroLog.text().lines().takeLast(15).joinToString("\n")
+        // more lines (up to the whole kept log), or only those containing some text: what happened
+        // a few minutes ago is often gone from the last 15
+        val n = (input["lines"] as? Number)?.toInt()?.coerceIn(1, 600) ?: input["lines"]?.toString()?.toIntOrNull()?.coerceIn(1, 600) ?: 15
+        val find = input["find"]?.toString()?.trim().orEmpty()
+        val all = MacroLog.text().lines()
+        val log = (if (find.isEmpty()) all else all.filter { it.contains(find, ignoreCase = true) }).takeLast(n).joinToString("\n")
         val head = when {
             running -> "running: ${Runner.current} — now: ${MacroLog.shown.ifEmpty { "-" }}"
             Background.name != null -> "not running; ${Background.name} stopped: ${Background.result ?: "?"}"
