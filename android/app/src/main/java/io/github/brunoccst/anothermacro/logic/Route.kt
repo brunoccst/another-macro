@@ -215,6 +215,8 @@ object Route {
                 (if (res.stoppedAtMs != null) ", stopped at ${res.stoppedAtMs}ms: ${why ?: "?"}" else "") +
                 (if (res.cancelled) ", gesture cancelled by the system" else "") +
                 (if (interrupted) if (battle) ", battle fought" else ", no battle came" else ""))
+            // what the screen did up to an encounter's flash (to learn why the dead stop before it wasn't caught)
+            if (battle && why?.startsWith("flash") == true) MacroLog.i("hold trace (ms:brightness/change):$trace; view last moved at ${lastField}ms")
             val d = t.distance(walkedMs.toDouble())
             val pBefore = p
             val leftBefore = left
@@ -238,6 +240,11 @@ object Route {
                         if (left < t.minWalk) return p
                         holdMs = t.holdMs(left).toLong()
                         return@repeat
+                    }
+                    if (frames > 5) {
+                        // the view moved to the hold's end: the battle came as it ended, the party is where the hold put it
+                        MacroLog.i("a battle came right as the hold ended: keeping (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})")
+                        return p
                     }
                     MacroLog.i("a battle came during the hold without being seen: the position is unknown")
                     disturbed = true; unseen = true
