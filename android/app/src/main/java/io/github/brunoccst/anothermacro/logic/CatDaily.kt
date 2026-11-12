@@ -397,6 +397,11 @@ object CatDaily {
      * the markers are tried one by one. A walk that doesn't reach the spot still hunts from
      * where it stopped, and each later pass hunts wider.
      */
+    /** Which side of the travel point leads to an "Enter from" map (-1 left, 1 right), measured on the phone. */
+    private val ACROSS_SIDE = mapOf(
+        Ocr.norm("Karek Swampland") to 1.0,   // Baruoki's east end (2026-11-12: the west end is a dead end)
+    )
+
     /** The area map's title (the map the party is on), or "" if the map didn't open. */
     private fun mapTitle(ctx: Context): String =
         AreaNav.look(ctx, readText = true) { emptyList() }.text.filter { it.center.y < 0.12 }.joinToString(" ") { it.text }.trim()
@@ -406,7 +411,7 @@ object CatDaily {
 
     /**
      * From the travel point, walk off the map's side into [target] (a clue's "Enter from" map).
-     * Which side leads there isn't measured yet, so: left first, checking the area map's title
+     * The side measured for [target] first (ACROSS_SIDE), else left, checking the area map's title
      * after each long hold; a different map than [target] means the wrong exit, so walk back
      * and try the right side.
      */
@@ -415,7 +420,8 @@ object CatDaily {
         val origin = mapTitle(ctx)
         MacroLog.i("walking across from '${origin.ifEmpty { "?" }}' to $target")
         if (names(origin, target)) return true
-        for (dir in listOf(-1.0, 1.0)) {
+        val first = ACROSS_SIDE[Ocr.norm(target)] ?: -1.0
+        for (dir in listOf(first, -first)) {
             for (i in 1..6) {
                 AreaNav.hold(ctx, dir, 0.3)           // about 11 s: the next exit or the map's end
                 ctx.wait(2.5)                         // a map change fades out and in
@@ -464,6 +470,9 @@ object CatDaily {
             // right after a trip the map may not open yet (area banner, fade-in): try a few times
             var view: AreaNav.View? = null
             for (attempt in 1..3) {
+                // an encounter (frequent on field maps such as Karek Swampland) keeps the map shut:
+                // fight it and wait for the field before opening the map
+                waitForField(ctx, 15)
                 var underMarker = false
                 val v = AreaNav.look(ctx) { f ->
                     val (p, m) = catSpot(ctx, f, skip)
