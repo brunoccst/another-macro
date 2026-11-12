@@ -171,7 +171,10 @@ object Route {
                     walking && stepChange < STILL_STEP && ++still >= STILL_FRAMES -> { why = "view stood still"; true }
                     else -> {
                         dark = 0
-                        if (stepChange >= STILL_STEP) { still = 0; lastField = held; if (stepChange >= WALK_STEP) walking = true }
+                        // (a single shimmer frame of 7-11 in the encounter's still screen doesn't restart the count:
+                        // seen 2026-11-12, a still screen for over a second that never ended the hold)
+                        // (the screen brightening toward the flash moves too: not walking)
+                        if (stepChange >= STILL_STEP && (baseLevel < 0 || level < baseLevel + 8)) { lastField = held; if (stepChange >= WALK_STEP) { walking = true; still = 0 } }
                         baseLevel = if (baseLevel < 0) level else baseLevel * 0.9 + level * 0.1
                         false
                     }
