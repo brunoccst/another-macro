@@ -92,12 +92,14 @@ object CatRoute {
     fun travel(ctx: Context, s: Spot): Boolean {
         if (!CatDaily.pointZero(ctx)) return false
         if (!s.era.equals("Present", true)) CatDaily.tapEra(ctx, s.era)
-        if (s.continent != null && !CatDaily.openContinent(ctx, s.continent)) {
+        // not in the data: maybe learned on the phone (or known for another place on the same island)
+        val continent = s.continent ?: CatDaily.continentFor(ctx, s.place, s.era)
+        if (continent != null && !CatDaily.openContinent(ctx, continent)) {
             // no Expand button yet (early story) or no such entry: look on the map the era tab shows
-            MacroLog.i("${s.place}: no '${s.continent}' in the Expand list; looking on this map")
+            MacroLog.i("${s.place}: no '$continent' in the Expand list; looking on this map")
             if (ctx.readText().none { Ocr.norm(it.text) == "world map" }) return false
         }
-        MacroLog.i("${s.place}: trip from point zero (${s.era}, ${s.continent ?: "no Expand"})")
+        MacroLog.i("${s.place}: trip from point zero (${s.era}, ${continent ?: "no Expand"})")
         // an island's places (Konium on Snake Bone Island) sit in the island label's panel
         return CatDaily.searchAndGo(ctx, s.place, s.sub, CatDaily.regionOf(s.place))
     }
