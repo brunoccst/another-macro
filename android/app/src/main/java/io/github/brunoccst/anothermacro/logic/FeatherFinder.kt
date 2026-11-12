@@ -18,7 +18,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  * a binarized, half-resolution frame at five scales (some maps, e.g. tree-top villages,
  * are zoomed further in or out than the map the template was cut on).
  */
-class FeatherFinder private constructor(private val templates: List<Mat>) {
+class FeatherFinder private constructor(private val templates: List<Mat>, private val bubbles: List<Mat>) {
 
     fun find(frame: Frame): Pair<Double, Point> {
         val g = frame.gray
@@ -37,9 +37,26 @@ class FeatherFinder private constructor(private val templates: List<Mat>) {
         Imgproc.morphologyEx(half, hat, Imgproc.MORPH_TOPHAT,
             Imgproc.getStructuringElement(Imgproc.MORPH_RECT, Size(21.0, 21.0)))
         Imgproc.threshold(hat, hat, 40.0, 255.0, Imgproc.THRESH_BINARY)
-        half.release()
         var best = 0.0
         var at = Point(0.0, 0.0)
+        // the whole bubble (disc, rim and feather) on the plain grey frame: it tells a small
+        // bubble from bright scenery better than the feather's shape alone (half-res frames
+        // of the sunset map: bubbles 0.81-0.84, scenery at most 0.72). Counted a hair above the
+        // feather-shape score so 0.78 still means "a bubble".
+        for (t in bubbles) {
+            if (t.rows() > half.rows() || t.cols() > half.cols()) continue
+            val r = Mat()
+            Imgproc.matchTemplate(half, t, r, Imgproc.TM_CCOEFF_NORMED)
+            val mm = Core.minMaxLoc(r)
+            r.release()
+            if (mm.maxVal + 0.01 > best) {
+                best = mm.maxVal + 0.01
+                val cx = 2 * (mm.maxLoc.x + t.cols() / 2.0)
+                val cy = top + 2 * (mm.maxLoc.y + t.rows() / 2.0)
+                at = Point(cx / g.cols(), cy / g.rows())
+            }
+        }
+        half.release()
         for (bin in listOf(plain, hat)) for (t in templates) {
             if (t.rows() > bin.rows() || t.cols() > bin.cols()) continue
             val r = Mat()
@@ -68,7 +85,10 @@ class FeatherFinder private constructor(private val templates: List<Mat>) {
             val ts = listOf(0.65, 0.8, 0.95, 1.1, 1.3, 1.5).map { k ->
                 Mat().also { Imgproc.resize(bin, it, Size(0.0, 0.0), k / 2, k / 2, Imgproc.INTER_AREA) }
             }
-            return FeatherFinder(ts)
+            val bs = listOf(0.5, 0.55, 0.6, 0.7, 0.8, 0.9, 1.0, 1.15, 1.3).map { k ->
+                Mat().also { Imgproc.resize(g, it, Size(0.0, 0.0), k / 2, k / 2, Imgproc.INTER_AREA) }
+            }
+            return FeatherFinder(ts, bs)
         }
     }
 }
