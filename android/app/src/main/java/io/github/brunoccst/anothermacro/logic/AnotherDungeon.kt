@@ -796,7 +796,7 @@ object AnotherDungeon {
                             if (abs(p.x - at) >= t.minWalk) walkTo(at)
                         }
                         val before = ctx.refresh().gray.clone()
-                        AreaNav.flick(ctx, st.up)
+                        AreaNav.flickSettled(ctx, st.up)
                         val after = ctx.refresh().gray.clone()
                         val change = Route.change(before, after)
                         before.release(); after.release()
