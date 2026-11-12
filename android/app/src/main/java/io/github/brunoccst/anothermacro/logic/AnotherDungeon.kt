@@ -731,8 +731,8 @@ object AnotherDungeon {
          * follow from there. False if it isn't on the street the plan has it on.
          */
         fun resync(why: String, target: Double? = null): Boolean {
-            val seen = AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
-                .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) }
+            val seen = Route.seen(ctx, l, listOf(p, plan), why) { AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
+                .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) } }
             Route.disturbed = false; r.unsure = false
             if (seen == null) { MacroLog.i("$why: no party marker on the map; keeping (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})"); return true }
             val seg = Route.segOf(l, seen)!!
@@ -753,6 +753,10 @@ object AnotherDungeon {
             if (abs(d) < t.minWalk) return
             r.lastDir = if (d > 0) 1.0 else -1.0
             p = Route.hold(ctx, l, t, p, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
+            if (MiniMap.compare) try {
+                val m = MiniMap.locate(ctx, l, listOf(p))
+                MacroLog.i("minimap after the hold: ${m?.let { "x ${"%.3f".format(it.at.x)} (followed ${"%.3f".format(p.x)}, off by ${"%.3f".format(it.at.x - p.x)})" } ?: "no clear read"}")
+            } catch (e: Exception) { MacroLog.i("minimap: ${e.message}") }
             // a battle the hold didn't see (it came anyway): where the party stopped is unknown, read it and walk the rest.
             // Walking straight to the chests (clear_first off) a long hold can be cut by 3-4 battles in a row
             repeat(6) {
@@ -808,8 +812,8 @@ object AnotherDungeon {
                             break
                         }
                         // check on the map: on the far end of the stairs, or still at their foot?
-                        val seen = AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
-                            .minByOrNull { minOf(abs(it.x - next.x) + 2 * abs(it.y - next.y), abs(it.x - plan.x) + 2 * abs(it.y - plan.y)) }
+                        val seen = Route.seen(ctx, l, listOf(next, Point(p.x, plan.y)), "after the flick ${st}") { AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
+                            .minByOrNull { minOf(abs(it.x - next.x) + 2 * abs(it.y - next.y), abs(it.x - plan.x) + 2 * abs(it.y - plan.y)) } }
                         Route.disturbed = false
                         if (seen != null && abs(seen.y - next.y) < AreaNav.ROW_TOL) {
                             took = true
