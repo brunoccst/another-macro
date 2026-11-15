@@ -178,6 +178,12 @@ object AnotherDungeon {
     fun run(ctx: Context, id: String): String {
         val spec = spec(ctx, id)
         val plan = keyPlan(ctx.params)
+        // the party first, from the field (the menu's Party page)
+        ctx.params["party"]?.trim()?.takeIf { it.isNotEmpty() && it.lowercase() != "current" }?.let { want ->
+            if (waitForField(ctx, 5)) Party.choose(ctx, want)
+            else MacroLog.i("party '$want': not on the field (a battle?), keeping the current party")
+        }
+        // both keys with 0 runs each: only the party is picked
         if (plan.isEmpty()) return "${spec.name}: no runs to do (both keys on, 0 green and 0 red runs)"
         val onWhiteKey = ctx.params["white_key"]?.trim()?.lowercase() ?: "phantom"
         val start = System.currentTimeMillis()
@@ -187,11 +193,6 @@ object AnotherDungeon {
         var ignore = false
         var end = ""
         val notes = ArrayList<String>()
-        // the party first, from the field (the menu's Party page)
-        ctx.params["party"]?.trim()?.takeIf { it.isNotEmpty() && it.lowercase() != "current" }?.let { want ->
-            if (waitForField(ctx, 5)) Party.choose(ctx, want)
-            else MacroLog.i("party '$want': not on the field (a battle?), keeping the current party")
-        }
         val single = plan.size == 1 && plan[0].second == 1
         legs@ for ((key, total) in plan) {
             var legDone = 0

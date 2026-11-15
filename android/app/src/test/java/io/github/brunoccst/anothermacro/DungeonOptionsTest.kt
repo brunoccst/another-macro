@@ -43,4 +43,10 @@ class DungeonOptionsTest {
         assertEquals(-1, Party.steps("previous"))
         assertEquals(null, Party.steps("Dungeon"))
     }
+
+    @Test fun partyByMember() {
+        assertEquals("Altena", Party.member("with Altena"))
+        assertEquals("Altena", Party.member(" With  Altena "))
+        assertEquals(null, Party.member("General"))
+    }
 }
