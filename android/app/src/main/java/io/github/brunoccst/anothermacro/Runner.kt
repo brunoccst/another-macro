@@ -412,8 +412,15 @@ object Runner {
      * Run [scenario] until it stops; the reason. [given] are its params (missing ones: defaults).
      * Templates and data come from the macro library ([MacroLibrary]).
      */
-    fun run(scenario: Scenario, given: Map<String, String>, capture: Capture, app: android.content.Context): String {
+    fun run(scenario: Scenario, given: Map<String, String>, capture: Capture, app: android.content.Context,
+            /** Who started it, for the Statistics page: "app" (floating buttons) or "connector" (Claude). */
+            source: String = "app",
+            /** The routine this run is a step of, if any. */
+            routine: String? = null): String {
         if (!running.compareAndSet(false, true)) return "a macro is already running"
+        val startedAt = System.currentTimeMillis()
+        RunStats.init(app)
+        val reportsMark = RunStats.reportsMark(app.filesDir)
         stopRequested.set(false)
         paused.set(false)
         current = scenario.name
@@ -448,6 +455,10 @@ object Runner {
             changed()
         }
         MacroLog.i("stopped: $reason — ${scenario.summary(ctx.stats)}")
+        runCatching {
+            RunStats.record(RunStats.Record(scenario.name, startedAt, System.currentTimeMillis(), reason, HashMap(ctx.stats),
+                RunStats.reportsSince(app.filesDir, reportsMark), source, routine))
+        }.onFailure { MacroLog.e("could not save the run's statistics", it) }
         return reason
     }
 

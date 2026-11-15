@@ -118,18 +118,31 @@ class MacroService : Service() {
             }
             // a routine: each macro in turn; a step that fails doesn't stop the rest (the last one turns the game off)
             val results = ArrayList<String>()
+            val routineStart = System.currentTimeMillis()
+            var routineEnd = "finished"
             try {
                 for ((i, step) in steps.withIndex()) {
                     val sub = try { Scenarios.get(this, step) } catch (e: Exception) { results += "$step: unknown macro"; continue }
                     updateNotification("${scenario.name}: $step (${i + 1}/${steps.size})")
                     MacroLog.prefix = "${scenario.name} ${i + 1}/${steps.size}"
                     MacroLog.i("${scenario.name}: step ${i + 1}/${steps.size} $step")
-                    val reason = Runner.run(sub, MacroParams.load(this, step), cap, this)
+                    val reason = Runner.run(sub, MacroParams.load(this, step), cap, this, routine = scenario.name)
                     results += "$step: $reason"
-                    if (reason == "stop requested") break
-                    if (reason.startsWith("safety stop")) { MacroLog.i("${scenario.name}: safety stop, skipping the remaining steps"); break }
+                    if (reason == "stop requested") { routineEnd = reason; break }
+                    if (reason.startsWith("safety stop")) { routineEnd = reason; MacroLog.i("${scenario.name}: safety stop, skipping the remaining steps"); break }
                 }
-            } finally { MacroLog.prefix = "" }
+            } finally {
+                MacroLog.prefix = ""
+                // the routine itself on the Statistics page: its steps' counters and reports added up
+                runCatching {
+                    val steps = RunStats.all().filter { it.routine == scenario.name && it.start >= routineStart }
+                    val counts = HashMap<String, Int>()
+                    steps.forEach { st -> st.counts.forEach { (k, v) -> counts[k] = (counts[k] ?: 0) + v } }
+                    RunStats.record(RunStats.Record(scenario.name, routineStart, System.currentTimeMillis(),
+                        if (routineEnd == "finished") "finished ${results.size} step(s)" else routineEnd,
+                        counts, steps.flatMap { it.reports }))
+                }
+            }
             MacroLog.i("${scenario.name} done — " + results.joinToString(" | "))
             updateNotification("${scenario.name} done")
         }, "macro").apply { start() }

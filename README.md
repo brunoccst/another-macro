@@ -35,8 +35,9 @@ Claude chat ──(custom connector)──> relay (your Cloudflare Worker) <─�
 ```
 
 - **The app** (`android/`) holds the permissions, capture, vision, the macro runner, the
-  floating buttons and the phone connector. Its UI has a sidebar with three pages: **Home**,
-  **Macros** (tabs: In use, Daily, Another Dungeon, Farming, Game, Basic, Other, Custom) and
+  floating buttons and the phone connector. Its UI has a sidebar with four pages: **Home**,
+  **Macros** (tabs: In use, Daily, Another Dungeon, Farming, Game, Basic, Other, Custom),
+  **Statistics** (every macro run, with totals and graphs) and
   **System** (Setup, Claude, Settings, Updates, Log).
 - **The macros** (`macros/`) are YAML files. They are not built into the app: CI packs them
   with their templates and data and the app downloads the pack, so a macro fix reaches the

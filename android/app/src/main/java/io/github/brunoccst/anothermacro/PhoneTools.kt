@@ -244,7 +244,7 @@ class PhoneTools(
         Background.name = s.name
         MacroLog.i("Claude started macro ${s.name}")
         Background.thread = Thread({
-            val reason = Runner.run(s, MacroParams.load(app, s.name) + given, capture, app)
+            val reason = Runner.run(s, MacroParams.load(app, s.name) + given, capture, app, source = "connector")
             Background.result = reason
         }, "macro").apply { start() }
         Thread.sleep(500)
