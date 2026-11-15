@@ -28,6 +28,10 @@ class FeatherFinder private constructor(private val templates: List<Mat>, privat
         val half = Mat()
         Imgproc.resize(band, half, Size(0.0, 0.0), 0.5, 0.5, Imgproc.INTER_AREA)
         band.release()
+        // the minimap (top right) shows the cat's feather icon too: never a bubble to tap
+        // (2026-11-15: five taps on it at Zarbo). Blank it before matching.
+        val mmBottom = ((g.rows() * 0.26 - top) / 2).toInt().coerceIn(0, half.rows())
+        if (mmBottom > 0) half.submat(0, mmBottom, (half.cols() * 0.82).toInt(), half.cols()).setTo(org.opencv.core.Scalar(0.0))
         // two binarizations: plain brightness (the bubble over a dark field), and brightness
         // against the local background (white top-hat) for a bubble over a bright sky, where
         // a fixed threshold turns the whole sky white (Snake Skull Mescita's sunset, 2026-11-12)
