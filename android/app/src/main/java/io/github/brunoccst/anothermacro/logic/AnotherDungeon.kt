@@ -775,7 +775,13 @@ object AnotherDungeon {
                     noteItems(r, read)
                     ctx.count("sparkles")
                     ctx.tap(Point(0.5, 0.75)); ctx.wait(0.5)
-                    if (!waitForField(ctx, 6)) fight(r)
+                    if (!waitForField(ctx, 6)) { fight(r); return }
+                    // the tap walked the party onto the sparkle: it stands at the sparkle's spot (the map showed it
+                    // within ~0.01 of the data after all 5 pickups of a Sea of Ice run, 2026-11-15), so no ~3.5 s
+                    // area-map look before the next leg
+                    ms.layout?.let { l -> Route.segOf(l, at)?.let { seg ->
+                        r.pos = Point(at.x.coerceIn(seg.x1, seg.x2), seg.y); r.planPos = r.pos; r.unsure = false; r.lastDir = 0.0
+                    } }
                     return
                 }
                 ctx.wait(0.2)
@@ -1259,6 +1265,11 @@ object AnotherDungeon {
                 "CHEST" -> {
                     var dir = if (parts.getOrNull(1)?.uppercase() == "R") 1.0 else -1.0
                     var turned = false
+                    // "chest L 2000": one walk of that many ms first, short of the chest (the short steps, each with a
+                    // look at the screen, took ~16 s to The Abyss's chest, 2026-11-15)
+                    parts.getOrNull(2)?.toLongOrNull()?.let { ms0 ->
+                        ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), ms0); ctx.wait(0.6)
+                    }
                     for (i in 0 until 24) {
                         if (openBubble(r, small = true)) break
                         val lines = ctx.readText()

@@ -200,4 +200,5 @@ sea_of_ice:
       boss: true
       enemies: false
       chests_count: 1
-      steps: [chest L, boss L]
+      # (the chest is ~3 s of walking from the arrival: one 2 s walk first, then short steps until its "!")
+      steps: [chest L 2000, boss L]
