@@ -882,14 +882,22 @@ object AnotherDungeon {
         var taps = 0
         // (3 s to see it, then 3 s more after a tap that got no banner)
         var end = System.currentTimeMillis() + 3000
+        // on a map whose sparkles come from the area map's bag icons the party stands on the spot, so only the
+        // middle of the screen is searched: green scenery at x 0.16 and 0.79 was taken for sparkles (Zero Point,
+        // 2026-11-15), and a sparkle under the party got no banner from the first tap, so it is stepped away
+        // from before any tap
+        val narrow = ms.sparkleIcons
+        var steps = 0
         while (System.currentTimeMillis() < end && taps < 3) {
-            val p = sparkle(ctx)
+            val p = if (narrow) sparkle(ctx, 0.25, 0.75) else sparkle(ctx)
             if (p == null) { ctx.wait(0.2); continue }
-            if (taps > 0 && abs(p.x - 0.5) < SPARKLE_NEAR) {
+            if ((taps > 0 || narrow) && steps < 2 && abs(p.x - 0.5) < SPARKLE_NEAR) {
                 MacroLog.i("sparkle at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)}) right by the party: a step away first")
                 val away = if (p.x < 0.5) 1.0 else -1.0
                 ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * away, 0.65), SPARKLE_STEP_MS); ctx.wait(0.6)
                 fight(r)
+                steps++
+                end = maxOf(end, System.currentTimeMillis() + 2500)
                 continue
             }
             end = System.currentTimeMillis() + 7000
@@ -937,14 +945,14 @@ object AnotherDungeon {
      * half, away from the edges and buttons), or null. Sparkles sat at y 0.53-0.57; a green thing at
      * y 0.33 in the background was no sparkle (2026-11-15).
      */
-    private fun sparkle(ctx: Context): Point? {
+    private fun sparkle(ctx: Context, left: Double = 0.08, right: Double = 0.9): Point? {
         val bgr = ctx.colorMat() ?: return null
         val hsv = org.opencv.core.Mat(); org.opencv.imgproc.Imgproc.cvtColor(bgr, hsv, org.opencv.imgproc.Imgproc.COLOR_BGR2HSV)
         val mask = org.opencv.core.Mat()
         org.opencv.core.Core.inRange(hsv, org.opencv.core.Scalar(60.0, 40.0, 140.0), org.opencv.core.Scalar(95.0, 255.0, 255.0), mask)
         val w = bgr.cols(); val h = bgr.rows()
         val keep = org.opencv.core.Mat.zeros(h, w, org.opencv.core.CvType.CV_8U)
-        val x0 = (w * 0.08).toInt(); val x1 = (w * 0.9).toInt(); val y0 = (h * 0.4).toInt(); val y1 = (h * 0.8).toInt()
+        val x0 = (w * left).toInt(); val x1 = (w * right).toInt(); val y0 = (h * 0.4).toInt(); val y1 = (h * 0.8).toInt()
         keep.submat(y0, y1, x0, x1).setTo(org.opencv.core.Scalar(255.0))
         org.opencv.core.Core.bitwise_and(mask, keep, mask)
         val labels = org.opencv.core.Mat(); val stats = org.opencv.core.Mat(); val cents = org.opencv.core.Mat()
