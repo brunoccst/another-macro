@@ -320,7 +320,7 @@ object CatDaily {
         for (row in 0 until 5) {
             val step = if (row % 2 == 0) -0.4 else 0.4
             if (row > 0) pans += 0.0 to -0.35
-            repeat(4) { pans += step to 0.0 }
+            repeat(6) { pans += step to 0.0 }   // Migleina is wider than 4 pans (Zarbo, east end, 2026-11-15)
         }
         for ((i, pan) in pans.withIndex()) {
             val (dx, dy) = pan
