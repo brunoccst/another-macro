@@ -55,6 +55,8 @@ object AnotherDungeon {
         val areaMapScrolls: Boolean = false,
         /** A walk's first second can look still on screen though the party walks (no late-start correction). */
         val cameraLags: Boolean = false,
+        /** Keys one run takes (dungeons.yaml `key_cost`; the Underworld takes 2 green keys). */
+        val keyCost: Int = 1,
     )
 
     private const val DATA = "templates/another_dungeon/dungeons.yaml"
@@ -95,10 +97,10 @@ object AnotherDungeon {
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
-            d["area_map_scrolls"] == true, d["camera_lags"] == true)
+            d["area_map_scrolls"] == true, d["camera_lags"] == true, (d["key_cost"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1)
     }
 
-    private class Run(val ctx: Context, val spec: Spec) {
+    private class Run(val ctx: Context, val spec: Spec, /** The key this run enters with: "green" (Hard) or "red" (Very Hard). */ val key: String) {
         // every fight is the basic macro battle's step with its skills; the boss with the dungeon's own
         // boss skills when set. (Done here, not by running that macro: the run must tell the boss by its
         // name on the first turn and read the White Key off the results while they show.)
@@ -150,14 +152,36 @@ object AnotherDungeon {
     private fun task(r: Run, text: String) { r.task = text; MacroLog.status(text) }
 
     /**
-     * Run the dungeon [runs] times in a row ("all": until the chosen key runs out). After every
-     * run a White Key is checked for: `white_key` = phantom runs the Phantom Crystal Dimension
-     * and comes back to the loop, stop ends the loop, keep_going ignores it.
+     * The loop's legs, in order: which key and how many runs with it (Int.MAX_VALUE = until that key
+     * runs out). One leg normally (`key` × `runs`); with `both_keys` one leg per colour
+     * (`red_runs`, `green_runs`) in `key_order`, red first by default; a leg of 0 runs is left out.
+     */
+    internal fun keyPlan(p: Map<String, String>): List<Pair<String, Int>> {
+        fun on(v: String?) = v?.trim()?.lowercase() in setOf("1", "true", "yes", "on", "y")
+        fun count(v: String?, default: Int): Int {
+            val t = v?.trim()?.lowercase()?.removeSuffix(".0") ?: return default
+            return if (t == "all") Int.MAX_VALUE else t.toIntOrNull()?.coerceAtLeast(0) ?: default
+        }
+        if (on(p["both_keys"])) {
+            val legs = listOf("red" to count(p["red_runs"], 0), "green" to count(p["green_runs"], 0))
+            return (if (p["key_order"]?.trim()?.lowercase() == "green_first") legs.reversed() else legs).filter { it.second > 0 }
+        }
+        val key = p["key"]?.trim()?.lowercase()?.takeIf { it == "red" || it == "green" } ?: "green"
+        return listOf(key to count(p["runs"], 1).coerceAtLeast(1))
+    }
+
+    /**
+     * Run the dungeon by [keyPlan]: `runs` times in a row with the chosen key ("all": until it runs
+     * out), or with `both_keys` so many runs with each colour, one after the other; a colour that
+     * runs out ends its leg and the next colour goes on. Keys are never bought. Before the first
+     * run the `party` option picks the game's party (Party.kt). After every run a White Key is
+     * checked for: `white_key` = phantom runs the Phantom Crystal Dimension and comes back to the
+     * loop, stop ends the loop, keep_going ignores it.
      */
     fun run(ctx: Context, id: String): String {
         val spec = spec(ctx, id)
-        val want = ctx.params["runs"]?.trim()?.lowercase()?.removeSuffix(".0") ?: "1"
-        val total = if (want == "all") Int.MAX_VALUE else want.toIntOrNull()?.coerceAtLeast(1) ?: 1
+        val plan = keyPlan(ctx.params)
+        if (plan.isEmpty()) return "${spec.name}: no runs to do (both keys on, 0 green and 0 red runs)"
         val onWhiteKey = ctx.params["white_key"]?.trim()?.lowercase() ?: "phantom"
         val start = System.currentTimeMillis()
         val lines = ArrayList<String>()
@@ -165,37 +189,58 @@ object AnotherDungeon {
         var phantoms = 0
         var ignore = false
         var end = ""
-        while (done < total) {
-            if (total > 1) MacroLog.status("${spec.name}: run ${done + 1}${if (total == Int.MAX_VALUE) "" else "/$total"}")
-            val r = Run(ctx, spec).also { it.ignoreHeldKey = ignore }
-            Route.cameraLags = spec.cameraLags
-            val outcome = try { runInner(r) } catch (s: StopScenario) { s.message ?: "stopped" } finally { AreaNav.align = null; Route.cameraLags = false; Route.loose = false }
-            if (r.outOfKeys) { end = outcome; break }
-            if (r.heldKey && !r.entered) {
-                // a White Key from before: deal with it first, then this run
-                when (onWhiteKey) {
-                    "phantom" -> { if (!phantom(ctx, lines)) { end = "the Phantom Crystal Dimension run failed"; break }; phantoms++; continue }
-                    "stop" -> { end = outcome; break }
-                    else -> { ignore = true; continue }
+        val notes = ArrayList<String>()
+        // the party first, from the field (the menu's Party page)
+        ctx.params["party"]?.trim()?.takeIf { it.isNotEmpty() && it.lowercase() != "current" }?.let { want ->
+            if (waitForField(ctx, 5)) Party.choose(ctx, want)
+            else MacroLog.i("party '$want': not on the field (a battle?), keeping the current party")
+        }
+        val single = plan.size == 1 && plan[0].second == 1
+        legs@ for ((key, total) in plan) {
+            var legDone = 0
+            if (plan.size > 1) MacroLog.i("${spec.name}: ${if (total == Int.MAX_VALUE) "all" else "$total"} run(s) with $key keys")
+            while (legDone < total) {
+                val count = if (total == Int.MAX_VALUE) "" else "/$total"
+                if (!single) MacroLog.status("${spec.name}: ${if (plan.size > 1) "$key key " else ""}run ${legDone + 1}$count")
+                val r = Run(ctx, spec, key).also { it.ignoreHeldKey = ignore }
+                Route.cameraLags = spec.cameraLags
+                val outcome = try { runInner(r) } catch (s: StopScenario) { s.message ?: "stopped" } finally { AreaNav.align = null; Route.cameraLags = false; Route.loose = false }
+                if (r.outOfKeys) {
+                    // this colour is used up: on to the next one (never buy)
+                    notes += outcome
+                    MacroLog.i("${spec.name}: $outcome after $legDone $key run(s)")
+                    continue@legs
+                }
+                if (r.heldKey && !r.entered) {
+                    // a White Key from before: deal with it first, then this run
+                    when (onWhiteKey) {
+                        "phantom" -> { if (!phantom(ctx, lines)) { end = "the Phantom Crystal Dimension run failed"; break@legs }; phantoms++; continue }
+                        "stop" -> { end = outcome; break@legs }
+                        else -> { ignore = true; continue }
+                    }
+                }
+                val ok = outcome.startsWith("${spec.name} done") || r.phantom
+                // a run that stopped before entering (or skipping) isn't a run
+                if (!ok && !r.entered && !r.skipped) { end = if (done > 0) "stopped after run $done: $outcome" else outcome; break@legs }
+                lines += "run ${done + 1} ($key key): " + report(r, outcome)
+                done++
+                legDone++
+                ctx.count("runs")
+                ctx.count("runs_$key")
+                if (!ok) { end = "stopped after run $done: $outcome"; break@legs }
+                if (r.phantom) when (onWhiteKey) {
+                    "phantom" -> { if (!phantom(ctx, lines)) { end = "the Phantom Crystal Dimension run failed"; break@legs }; phantoms++ }
+                    "stop" -> { end = "a White Key dropped: stopping for you (Phantom Crystal Dimension open)"; break@legs }
+                    else -> ignore = true
                 }
             }
-            val ok = outcome.startsWith("${spec.name} done") || r.phantom
-            // a run that stopped before entering (or skipping) isn't a run
-            if (!ok && !r.entered && !r.skipped) { end = if (done > 0) "stopped after run $done: $outcome" else outcome; break }
-            lines += "run ${done + 1}: " + report(r, outcome)
-            done++
-            ctx.count("runs")
-            if (!ok) { end = "stopped after run $done: $outcome"; break }
-            if (r.phantom) when (onWhiteKey) {
-                "phantom" -> { if (!phantom(ctx, lines)) { end = "the Phantom Crystal Dimension run failed"; break }; phantoms++ }
-                "stop" -> { end = "a White Key dropped: stopping for you (Phantom Crystal Dimension open)"; break }
-                else -> ignore = true
-            }
         }
-        if (total == 1 && lines.size == 1 && phantoms == 0 && end.isEmpty()) return lines[0].substringAfter(": ")
-        if (total == 1 && lines.isEmpty() && phantoms == 0) return end
+        if (end.isEmpty() && notes.isNotEmpty()) end = notes.joinToString("; ")
+        if (single && lines.size == 1 && phantoms == 0 && end.isEmpty()) return lines[0].substringAfter(": ")
+        if (single && lines.isEmpty() && phantoms == 0) return end
         val mins = (System.currentTimeMillis() - start) / 60000
-        val summary = "${spec.name}: $done run(s)" + (if (phantoms > 0) ", $phantoms Phantom Crystal Dimension run(s)" else "") +
+        val perKey = if (plan.size > 1) " (" + plan.joinToString { (k, _) -> "${ctx.stats["runs_$k"] ?: 0} $k" } + ")" else ""
+        val summary = "${spec.name}: $done run(s)$perKey" + (if (phantoms > 0) ", $phantoms Phantom Crystal Dimension run(s)" else "") +
             " in ${mins}m" + (if (end.isNotEmpty()) "; $end" else "")
         lines.forEach { MacroLog.i(it) }
         MacroLog.status(summary)
@@ -213,7 +258,7 @@ object AnotherDungeon {
     private fun runInner(r: Run): String {
         val ctx = r.ctx
         val spec = r.spec
-        MacroLog.i("${spec.name}: key ${ctx.str("key")}, cat ticket ${ctx.bool("cat_ticket")}, " +
+        MacroLog.i("${spec.name}: key ${r.key}, cat ticket ${ctx.bool("cat_ticket")}, " +
             "mobs ${r.mobs}, boss ${r.bossSetup}")
         // started on the boss gate's question, or outside: else already inside
         if (!bossGate(r) && whereAmI(r) == null && !Battle.inBattle(ctx)) {
@@ -423,7 +468,7 @@ object AnotherDungeon {
             (if (r.skipped) "" else "chest items: $items; ") + "rewards: $rewards; White Key: ${if (r.phantom) "yes" else "no"}"
         runCatching {
             val o = org.json.JSONObject().put("when", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(r.start)))
-                .put("dungeon", r.spec.name).put("key", r.ctx.str("key")).put("seconds", secs).put("outcome", outcome)
+                .put("dungeon", r.spec.name).put("key", r.key).put("seconds", secs).put("outcome", outcome)
                 .put("skipped", r.skipped).put("chests", st["chests"] ?: 0).put("chests_total", r.chestsTotal)
                 .put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
             java.io.File(r.ctx.debugDir.parentFile, "runs.log").appendText(o.toString() + "\n")
@@ -438,7 +483,7 @@ object AnotherDungeon {
     /** Through the Another Dungeon door. A message when the run ends here (skipped), else null. */
     private fun enter(r: Run): String? {
         val ctx = r.ctx
-        val red = ctx.str("key").lowercase() == "red"
+        val red = r.key == "red"
         val difficulty = if (red) "Very Hard" else "Hard"
         if (!waitForField(ctx)) ctx.stop("not on the field: start next to the Another Dungeon door in the Spacetime Rift")
         task(r, "Entering ${r.spec.name} ($difficulty)")
@@ -479,11 +524,11 @@ object AnotherDungeon {
         val (keys, tickets) = keysAndTickets(counters, red)
         if (keys == null || tickets == null || counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }} → $counters")
         MacroLog.i("keys (${if (red) "red" else "green"}): ${keys ?: "not read"}; Cat Express Tickets: ${tickets ?: "not read"}")
-        if (keys == 0) {
+        if (keys != null && keys < r.spec.keyCost) {
             // the game would offer to buy keys: never; the loop ends here
             ctx.tap(AD_CLOSE); ctx.wait(1.5)
             r.outOfKeys = true
-            return "out of ${if (red) "red" else "green"} keys"
+            return "out of ${if (red) "red" else "green"} keys" + (if (r.spec.keyCost > 1) " ($keys left, a run takes ${r.spec.keyCost})" else "")
         }
         val skip = ctx.bool("cat_ticket") && (tickets ?: 0) > 0
         if (ctx.bool("cat_ticket") && !skip) MacroLog.i("no Cat Express Ticket to use: walking the dungeon instead")
