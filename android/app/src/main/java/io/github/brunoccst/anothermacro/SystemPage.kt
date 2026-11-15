@@ -122,7 +122,7 @@ class SystemPage(private val a: MainActivity) {
                 LiveLog.enabled(a)) { on -> LiveLog.setEnabled(a, on) })
             addView(Ui.divider(a))
             addView(Ui.text(a, "Floating buttons", 15f, bold = true))
-            addView(Ui.text(a, "While screen capture is on: the selected macro (tap it to pick another), ▶ start, ❚❚ pause, ■ stop, ↻ restart. Drag ≡ to move them, tap it to fold them.", 12.5f, Ui.MUTED))
+            addView(Ui.text(a, "While screen capture is on: the selected macro (tap it to pick another), ▶ start, ❚❚ pause, ■ stop, ↻ restart. Drag the round AM badge on top to move them, tap it to fold them.", 12.5f, Ui.MUTED))
         })
 
         // --- updates -----------------------------------------------------------------------
