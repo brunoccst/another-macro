@@ -1,13 +1,15 @@
 package io.github.brunoccst.anothermacro.logic
 
 import io.github.brunoccst.anothermacro.*
+import kotlin.math.abs
 
 /**
  * Pick one of the game's saved parties before a run: Menu → Party, then switch the party shown
  * there until its name is the wanted one, then Back to the field.
  *
- * The wanted party is given by its name as the game shows it ("Dungeon") or by its number
- * ("3" = "Party 3", the game's name for a party nobody renamed). The Party page shows one party
+ * The wanted party is given by its name as the game shows it ("Dungeon"), by its number
+ * ("3" = "Party 3", the game's name for a party nobody renamed), or by where it sits from the
+ * party in front: "next" / "next 2" (to the right), "previous" (to the left). The Party page shows one party
  * at a time with its name near the top; the switch goes by the arrow next to the name (read by
  * OCR as "<" / ">" or similar), else by a swipe across the party. The page is read again after
  * every switch, and the search stops when the first party's name comes back (all seen).
@@ -20,6 +22,7 @@ object Party {
     /** At most this many switches (the game keeps a few dozen parties at most). */
     private const val MAX_SWITCHES = 40
     private val NEXT_ARROWS = setOf(">", "›", "▶", "▷", "»", ")")
+    private val PREV_ARROWS = setOf("<", "‹", "◀", "◁", "«", "(")
 
     /** Does the text [line] name the wanted party [want]? */
     internal fun matches(line: String, want: String): Boolean {
@@ -35,16 +38,30 @@ object Party {
         lines.firstOrNull { matches(it.text, want) }
             ?: lines.filter { it.center.y < 0.3 && Ocr.norm(it.text).startsWith("party ") }.minByOrNull { it.center.y }
 
+    /** "next 2" → 2, "previous" → -1, a name → null. */
+    internal fun steps(want: String): Int? {
+        val m = Regex("""^(next|right|previous|prev|left)(?:\s*(\d+))?$""").find(Ocr.norm(want)) ?: return null
+        val n = m.groupValues[2].toIntOrNull()?.coerceAtLeast(1) ?: 1
+        return if (m.groupValues[1] in setOf("next", "right")) n else -n
+    }
+
     fun choose(ctx: Context, want: String) {
         MacroLog.status("Party: picking '$want'")
         openPartyPage(ctx)
         var lines = ctx.readText(TOP)
+        steps(want)?.let { n ->
+            MacroLog.i("party page: ${lines.joinToString(" | ") { it.text }.take(200)}")
+            repeat(abs(n)) { step(ctx, lines, n > 0); ctx.wait(1.2); lines = ctx.readText(TOP) }
+            MacroLog.i("party: ${abs(n)} to the ${if (n > 0) "right" else "left"}: ${lines.joinToString(" | ") { it.text }.take(120)}")
+            toField(ctx)
+            return
+        }
         val first = name(lines, want)?.text
         MacroLog.i("party page: ${lines.joinToString(" | ") { it.text }.take(200)}")
         var switches = 0
         while (lines.none { matches(it.text, want) }) {
             if (switches >= MAX_SWITCHES) { toField(ctx); ctx.stop("no party named '$want' after $switches switches (start with the party in front, or check its name)") }
-            next(ctx, lines)
+            step(ctx, lines, true)
             switches++
             ctx.wait(1.2)
             lines = ctx.readText(TOP)
@@ -58,11 +75,12 @@ object Party {
         toField(ctx)
     }
 
-    /** One step to the next party: the arrow right of the name if OCR sees one, else a swipe across the page. */
-    private fun next(ctx: Context, lines: List<Ocr.Line>) {
-        val arrow = lines.filter { it.text.trim() in NEXT_ARROWS }.maxByOrNull { it.center.x }
+    /** One party to the right (or left): the arrow on that side if OCR sees one, else a swipe across the page. */
+    private fun step(ctx: Context, lines: List<Ocr.Line>, right: Boolean) {
+        val arrow = if (right) lines.filter { it.text.trim() in NEXT_ARROWS }.maxByOrNull { it.center.x }
+            else lines.filter { it.text.trim() in PREV_ARROWS }.minByOrNull { it.center.x }
         if (arrow != null) { ctx.tapExact(arrow.center); return }
-        ctx.drag(Point(0.7, 0.5), Point(0.3, 0.5), 300)
+        if (right) ctx.drag(Point(0.7, 0.5), Point(0.3, 0.5), 300) else ctx.drag(Point(0.3, 0.5), Point(0.7, 0.5), 300)
     }
 
     private fun openPartyPage(ctx: Context) {

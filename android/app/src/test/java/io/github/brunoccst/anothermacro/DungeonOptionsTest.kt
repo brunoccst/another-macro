@@ -36,4 +36,11 @@ class DungeonOptionsTest {
         assertFalse(Party.matches("Party 13", "3"))
         assertFalse(Party.matches("Farming", "Dungeon"))
     }
+
+    @Test fun partySteps() {
+        assertEquals(1, Party.steps("next"))
+        assertEquals(2, Party.steps("Next 2"))
+        assertEquals(-1, Party.steps("previous"))
+        assertEquals(null, Party.steps("Dungeon"))
+    }
 }

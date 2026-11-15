@@ -53,6 +53,8 @@ object AnotherDungeon {
         val areaMapScrolls: Boolean = false,
         /** A walk's first second can look still on screen though the party walks (no late-start correction). */
         val cameraLags: Boolean = false,
+        /** Keys one run takes (dungeons.yaml `key_cost`; the Underworld takes 2 green keys). */
+        val keyCost: Int = 1,
     )
 
     private const val DATA = "templates/another_dungeon/dungeons.yaml"
@@ -92,7 +94,7 @@ object AnotherDungeon {
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
-            d["area_map_scrolls"] == true, d["camera_lags"] == true)
+            d["area_map_scrolls"] == true, d["camera_lags"] == true, (d["key_cost"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1)
     }
 
     private class Run(val ctx: Context, val spec: Spec, /** The key this run enters with: "green" (Hard) or "red" (Very Hard). */ val key: String) {
@@ -517,11 +519,11 @@ object AnotherDungeon {
         val (keys, tickets) = keysAndTickets(counters, red)
         if (keys == null || tickets == null || counters.size < 3) MacroLog.i("panel counters read: ${bottom.joinToString(" | ") { it.text }} → $counters")
         MacroLog.i("keys (${if (red) "red" else "green"}): ${keys ?: "not read"}; Cat Express Tickets: ${tickets ?: "not read"}")
-        if (keys == 0) {
+        if (keys != null && keys < r.spec.keyCost) {
             // the game would offer to buy keys: never; the loop ends here
             ctx.tap(AD_CLOSE); ctx.wait(1.5)
             r.outOfKeys = true
-            return "out of ${if (red) "red" else "green"} keys"
+            return "out of ${if (red) "red" else "green"} keys" + (if (r.spec.keyCost > 1) " ($keys left, a run takes ${r.spec.keyCost})" else "")
         }
         val skip = ctx.bool("cat_ticket") && (tickets ?: 0) > 0
         if (ctx.bool("cat_ticket") && !skip) MacroLog.i("no Cat Express Ticket to use: walking the dungeon instead")
