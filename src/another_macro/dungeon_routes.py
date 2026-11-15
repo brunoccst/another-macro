@@ -23,7 +23,7 @@ from __future__ import annotations
 import bisect
 import itertools
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import yaml
@@ -59,6 +59,8 @@ class MapData:
     chests: list[tuple[float, float]]
     arrival: tuple[float, float]
     exit: tuple[float, float] | None
+    # T. Black Pearl sparkles (Sea of Ice): stops like the chests, picked up with a tap
+    pearls: list[tuple[float, float]] = field(default_factory=list)
 
 
 class WalkTable:
@@ -113,6 +115,7 @@ def load_maps(path: Path = DUNGEONS) -> list[tuple[str, int, MapData | None, dic
                     chests=[tuple(c) for c in m.get("chests", [])],
                     arrival=tuple(m["arrival"]),
                     exit=tuple(m["exit"]) if m.get("exit") else None,
+                    pearls=[tuple(c) for c in m.get("pearls", [])],
                 )
             out.append((did, i, layout, m))
     return out
@@ -247,21 +250,24 @@ def _leg_steps(m: MapData, t: WalkTable, pos, target, moves) -> tuple[list[str],
 
 
 def plan(m: MapData, t: WalkTable) -> list[list[str]]:
-    """The fastest order through every chest to the exit, as legs [target, step, step...]."""
-    stops = list(range(len(m.chests)))
+    """The fastest order through every chest (and pearl) to the exit, as legs [target, step, step...]."""
+    stops = [(f"chest {i + 1}", c) for i, c in enumerate(m.chests)] + [(f"pearl {i + 1}", p) for i, p in enumerate(m.pearls)]
     best = None
-    for order in itertools.permutations(stops):
+    for order in itertools.permutations(range(len(stops))):
         at, cost = m.arrival, 0.0
         for i in order:
-            c, _ = _route(m, t, at, m.chests[i])
-            cost, at = cost + c, m.chests[i]
-        if m.exit:
-            cost += _route(m, t, at, m.exit)[0]
-        if best is None or cost < best[0]:
-            best = (cost, order)
+            c, _ = _route(m, t, at, stops[i][1])
+            cost, at = cost + c, stops[i][1]
+            if best is not None and cost >= best[0]:
+                break
+        else:
+            if m.exit:
+                cost += _route(m, t, at, m.exit)[0]
+            if best is None or cost < best[0]:
+                best = (cost, order)
     order = best[1] if best else ()
     legs, pos = [], m.arrival
-    targets = [(f"chest {i + 1}", m.chests[i]) for i in order] + ([("exit", m.exit)] if m.exit else [])
+    targets = [stops[i] for i in order] + ([("exit", m.exit)] if m.exit else [])
     for name, goal in targets:
         _, moves = _route(m, t, pos, goal)
         steps, pos = _leg_steps(m, t, pos, goal, moves)
