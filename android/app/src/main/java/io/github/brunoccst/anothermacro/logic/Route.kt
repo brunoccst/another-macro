@@ -342,6 +342,17 @@ object Route {
                 MacroLog.i("walk ${if (right) "right" else "left"} stood still after ${walkedMs}ms of $holdMs with no battle (rough position: no map look)")
                 return p
             }
+            if (!battle && why == "view stood still" && cameraLags) {
+                // where the camera lags it also stops for moments while the party walks on (Sea of Heat, twice a
+                // run, 2026-11-15: the map then showed the party right where the table had it): hold the rest
+                // unwatched instead of a ~3.5 s area-map look; into a wall it only stands at the street's end
+                MacroLog.i("walk ${if (right) "right" else "left"} stood still after ${walkedMs}ms of $holdMs with no battle: holding the rest (${"%.3f".format(left.coerceAtLeast(0.0))}) unwatched")
+                if (left < t.minWalk) return p
+                ctx.drag(PRESS, Point(PRESS.x + if (right) 0.1 else -0.1, PRESS.y), t.holdMs(left).toLong())
+                ctx.wait(0.4)
+                if (fight()) { disturbed = true; unseen = true; return p }
+                return walked(l, p, right, left)
+            }
             if (!battle && why == "view stood still") {
                 // no battle: the party walked into a wall, or the camera stopped at the map's edge while
                 // the party walks on. Read the spot on the map; hold on for the rest only when it's short
