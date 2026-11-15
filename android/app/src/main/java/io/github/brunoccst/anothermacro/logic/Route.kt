@@ -214,11 +214,12 @@ object Route {
                 if (firstGray == null) firstGray = f.gray.clone() else { lastGray?.release(); lastGray = f.gray.clone() }
                 val level = org.opencv.core.Core.mean(f.gray).`val`[0]
                 if (held - prevMs >= 200) { trace.append(" ").append(held).append(":").append("%.0f".format(level)).append("/").append("%.0f".format(stepChange)).append(if (walking) "w" else "").append(still); prevMs = held }
+                val darkAt = if (baseLevel > 0) minOf(t.darkLevel, baseLevel * DARK_SHARE) else t.darkLevel
                 when {
                     Battle.inBattle(ctx) -> { why = "battle screen"; true }
                     // (relative too: Sea of Ice's field is ~35 and dimmed to 29-30 in places, which ended 3 holds
                     // as "dark screen" with no battle, 2026-11-15; the castle's ~65 keeps the plain level)
-                    level < (if (baseLevel > 0) minOf(t.darkLevel, baseLevel * DARK_SHARE) else t.darkLevel) -> { if (++dark >= 2) why = "dark screen (${"%.0f".format(level)})"; dark >= 2 }
+                    level < darkAt -> { if (++dark >= 2) why = "dark screen (${"%.0f".format(level)})"; dark >= 2 }
                     baseLevel > 0 && level > 100 && level > baseLevel * 1.6 -> { why = "flash (${"%.0f".format(level)})"; true }
                     // by time, not frames: the capture sends few frames while the screen stands still
                     walking && stepChange < STILL_STEP && held - lastWalk >= (if (cameraLags) STILL_MS_LAGGING else STILL_MS) -> { why = "view stood still"; true }
