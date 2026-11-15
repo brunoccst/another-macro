@@ -35,7 +35,9 @@ object AnotherDungeon {
                        /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
                        val steps: List<String>? = null,
                        /** Items picked up from the ground (green/blue sparks, e.g. T. Black Pearls): stops on the path, tapped when they show. */
-                       val sparkles: List<Point> = emptyList()) {
+                       val sparkles: List<Point> = emptyList(),
+                       /** The way on is a "!" (tap it, then Yes to its question), not a sign on the ground (Underworld's Zero Point). */
+                       val exitBubble: Boolean = false) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
@@ -89,6 +91,7 @@ object AnotherDungeon {
                 m["enemies"] != false,
                 (m["steps"] as? List<*>)?.map { it.toString() },
                 lists(m["sparkles"]).map { Point(it[0], it[1]) },
+                m["exit_bubble"] == true,
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
@@ -453,7 +456,9 @@ object AnotherDungeon {
             r.heldKey = true
             return "a White Key is held (the Phantom Crystal Dimension is open): not entering"
         }
-        tapText(r, eraLabel(r.spec.era)); ctx.wait(1.5)
+        // the "???" tab has no text OCR can read: tap it by its place (where it glows with a White Key)
+        if (r.spec.era == "???") ctx.tap(AD_OTHER_TAB) else tapText(r, eraLabel(r.spec.era))
+        ctx.wait(1.5)
         // a dungeon inside a place of the era's map: open that place's map first (a box over the
         // map; the dungeon's label can sit right of the middle there)
         val area = r.spec.area
@@ -1061,12 +1066,14 @@ object AnotherDungeon {
             val until = System.currentTimeMillis() + if (attempt == 0) 2500 else 800
             while (arrow == null && System.currentTimeMillis() < until) {
                 ctx.refresh()
-                arrow = ARROWS.mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
+                arrow = if (ms.exitBubble) ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE)
+                    else ARROWS.mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
                 if (arrow == null) ctx.wait(0.25)
             }
             if (arrow != null) {
-                MacroLog.i("taking the ground arrow at (${"%.2f".format(arrow.center.x)}, ${"%.2f".format(arrow.center.y)})")
+                MacroLog.i("taking the ${if (ms.exitBubble) "\"!\"" else "ground arrow"} at (${"%.2f".format(arrow.center.x)}, ${"%.2f".format(arrow.center.y)})")
                 ctx.tap(arrow); ctx.wait(1.5)
+                if (ms.exitBubble) answerYes(r)
                 // the next map's title shows over the field as it opens: read it there (no area-map look)
                 val titled = arrivalTitle(r, idx, 6.0)
                 if (titled != null) {
@@ -1089,6 +1096,30 @@ object AnotherDungeon {
             fight(r)
         }
         MacroLog.i("the exit didn't take us anywhere yet")
+    }
+
+    /**
+     * A question after tapping a "!" exit (Underworld: going on to a chest area, with no way back):
+     * Yes. Never when the box asks for anything bought: then Cancel/No and stop.
+     */
+    private fun answerYes(r: Run) {
+        val ctx = r.ctx
+        for (i in 0 until 4) {
+            val lines = ctx.readText()
+            val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+            if (PURCHASE_WORDS.any { it in all }) {
+                tapText(r, "Cancel", "No", "Back", exact = true, tries = 1)
+                ctx.stop("the way on asks for something bought: '${lines.joinToString(" ") { it.text }.take(120)}'")
+            }
+            val yes = lines.firstOrNull { Ocr.norm(it.text) == "yes" }
+            if (yes != null) {
+                MacroLog.i("question at the exit: '${lines.joinToString(" ") { it.text }.take(120)}' → Yes")
+                ctx.tapExact(yes.center); ctx.wait(1.5); return
+            }
+            // a few lines of talk before the question: tap on (never on the field itself)
+            ctx.refresh()
+            if (ctx.find("field_menu_button") == null && all.isNotBlank()) { ctx.tap(Point(0.5, 0.75)); ctx.wait(0.8) } else ctx.wait(0.5)
+        }
     }
 
     /** Fights on one map before it is taken as cleared even without the banner (a safety cap). */
@@ -1414,6 +1445,8 @@ object AnotherDungeon {
     }
 
     private val AD_CLOSE = Point(0.88, 0.03)
+    /** The Another Dungeon map's "???" tab (Underworld; it glows with a White Key: see [phantomTabGlows]). */
+    private val AD_OTHER_TAB = Point(0.38, 0.11)
     private val MAP_BUTTON = Point(0.385, 0.917)
     /** The World Map's "???" tab (Spacetime Rift, Nopaew Emporium, ...). */
     private val ERA_OTHER = Point(0.379, 0.17)

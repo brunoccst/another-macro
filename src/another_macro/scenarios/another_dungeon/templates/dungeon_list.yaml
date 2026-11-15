@@ -516,7 +516,7 @@ underworld:
   light_shadow: [light, shadow]
   drops: [Dragon Bearer Psalms, All Treatises, All Codices]
   wiki: Underworld (Another Dungeon)
-  macro: todo
+  macro: underworld
 mysterious_vortex_warped_cochlea:
   name: "Mysterious Vortex - Warped Cochlea"
   kind: mysterious_vortex
