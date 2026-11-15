@@ -54,6 +54,15 @@ class MacrosPage(private val a: MainActivity) {
     private val diagramCard: LinearLayout
     private val diagramButton: TextView
     private val detailUse: android.widget.Switch
+    /** "Statistics: N runs ›": opens the open macro's own page on Statistics. */
+    private val detailStats = LinearLayout(a).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        isClickable = true
+        background = Ui.pressable(a, Ui.CARD, 12)
+        setPadding(0, dp(4), 0, dp(4))
+        setOnClickListener { scenario?.let { s -> a.show(MainActivity.Page.STATS); a.stats.open(s.name) } }
+    }
     private val libraryListener: () -> Unit = { a.runOnUiThread { reload() } }
 
     val view: View
@@ -157,6 +166,8 @@ class MacrosPage(private val a: MainActivity) {
                     }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
                     addView(detailUse)
                 })
+                addView(Ui.divider(a))
+                addView(detailStats)
             })
             addView(Ui.section(a, "Options"))
             addView(Ui.card(a).apply { addView(paramsBox) })
@@ -415,6 +426,21 @@ class MacrosPage(private val a: MainActivity) {
         else "The floating buttons over the game then start, pause and stop it."
     }
 
+    private fun drawStatsLink(s: Scenario) {
+        RunStats.init(a)
+        val runs = RunStats.all().filter { it.macro == s.name }
+        detailStats.removeAllViews()
+        detailStats.addView(Ui.icon(a, R.drawable.ic_chart, 22))
+        detailStats.addView(LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL
+            addView(Ui.text(a, "Statistics", 15f, bold = true))
+            addView(Ui.text(a, if (runs.isEmpty()) "No runs yet" else
+                "${runs.size} run(s) · ${RunStats.duration(runs.sumOf { it.ms })} · last ${java.text.SimpleDateFormat("EEE d MMM, HH:mm", java.util.Locale.getDefault()).format(java.util.Date(runs.maxOf { it.start }))}",
+                12.5f, Ui.MUTED))
+        }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+        detailStats.addView(Ui.text(a, "›", 22f, Ui.MUTED).apply { setPadding(dp(8), 0, dp(4), 0) })
+    }
+
     private fun toggleDiagram() {
         val show = diagramCard.visibility != View.VISIBLE
         diagramCard.visibility = if (show) View.VISIBLE else View.GONE
@@ -468,6 +494,7 @@ class MacrosPage(private val a: MainActivity) {
         detailUse.isChecked = MacroChoice.isUsed(a, s.name)
         detailUse.setOnCheckedChangeListener { _, on -> MacroChoice.setUsed(a, s.name, on) }
         showSelected(s)
+        drawStatsLink(s)
         if (diagramCard.visibility == View.VISIBLE) drawDiagram()
         paramsBox.removeAllViews()
         paramFields.clear()

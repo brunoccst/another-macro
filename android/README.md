@@ -17,7 +17,7 @@ Runs the macros on the phone **by itself**: no PC, no ADB, no root.
   the Macros page, in a list that scrolls), start/pause/stop/restart, shown while screen capture is on.
 
 ## Screens
-A sidebar (≡ at the top left) switches between three pages, all in `MainActivity.kt`:
+A sidebar (≡ at the top left) switches between four pages, all in `MainActivity.kt`:
 - **Home** (`HomePage.kt`): what the app is, what's still missing (taps, capture), the selected
   macro, how to use the app, and links (GitHub, docs, relay guide, releases).
 - **Macros** (`MacrosPage.kt`): a search box, tabs "In use" plus one per group (Daily, Another
@@ -26,7 +26,15 @@ A sidebar (≡ at the top left) switches between three pages, all in `MainActivi
   it does (a diagram of its YAML, `MacroDiagram.kt`; the macros it runs open from there), its
   options and **Select this macro**: the floating buttons start, pause and stop it (nothing runs
   from the app itself). Options are kept per macro (`MacroParams`) and used by every run of it.
-  The macro library card shows the installed pack and checks for a newer one.
+  The macro library card shows the installed pack and checks for a newer one. A macro's page
+  links to its own statistics.
+- **Statistics** (`StatsPage.kt`, data in `RunStats.kt`): every macro run on this phone, saved
+  when the run stops (`files/stats/runs.jsonl`: start, end, stop reason, the macro's counters,
+  who started it, the routine it was a step of, and the run reports dungeon macros wrote to
+  `runs.log` meanwhile). The overview shows totals, runs and minutes per day and the time spent
+  by macro; tap a macro for its totals, runs per day, the length of its last runs (coloured by
+  how each ended), stop reasons, counters, dungeon keys / chests / White Keys, the items and
+  rewards read, and each run. "Clear" removes all statistics or one macro's.
 - **System** (`SystemPage.kt`), in tabs: Setup (taps, screen capture), Claude (the phone
   connector and what Claude may do), Settings (live log), Updates and Log.
 

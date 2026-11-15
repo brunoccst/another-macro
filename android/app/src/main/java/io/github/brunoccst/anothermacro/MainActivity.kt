@@ -18,23 +18,27 @@ import android.widget.TextView
  *  - Home: what the app is, how to use it, quick links (HomePage)
  *  - Macros: the macros in tabs by group (downloaded from the GitHub project), the ones you use,
  *    what each does, its options and "Select this macro"; the floating buttons run it (MacrosPage)
+ *  - Statistics: every macro run (totals, graphs, each run), all macros or one; can be cleared (StatsPage)
  *  - System: taps / screen capture, the Claude phone connector, settings, updates and the log (SystemPage)
  *
  * Can also be driven from adb for testing:
  *   am start -n io.github.brunoccst.anothermacro/.MainActivity --es run grind-battles --es params "battles=3,mode=skill"
  *   am start -n io.github.brunoccst.anothermacro/.MainActivity --es page system
+ *   am start -n io.github.brunoccst.anothermacro/.MainActivity --es page stats --es macro sea-of-ice
  */
 class MainActivity : Activity() {
 
     enum class Page(val id: String, val title: String, val iconRes: Int) {
         HOME("home", "Home", R.drawable.ic_home),
         MACROS("macros", "Macros", R.drawable.ic_macros),
+        STATS("stats", "Statistics", R.drawable.ic_chart),
         SYSTEM("system", "System", R.drawable.ic_sliders),
     }
 
     internal lateinit var home: HomePage
     internal lateinit var macros: MacrosPage
     internal lateinit var system: SystemPage
+    internal lateinit var stats: StatsPage
     private lateinit var pages: Map<Page, View>
     var page = Page.HOME
         private set
@@ -59,7 +63,8 @@ class MainActivity : Activity() {
         home = HomePage(this)
         macros = MacrosPage(this)
         system = SystemPage(this)
-        pages = mapOf(Page.HOME to home.view, Page.MACROS to macros.view, Page.SYSTEM to system.view)
+        stats = StatsPage(this)
+        pages = mapOf(Page.HOME to home.view, Page.MACROS to macros.view, Page.STATS to stats.view, Page.SYSTEM to system.view)
 
         // --- top bar: ≡ and the page's name --------------------------------------------
         pageTitle = Ui.text(this, "", 20f, bold = true)
@@ -112,6 +117,7 @@ class MainActivity : Activity() {
 
         val start = savedInstanceState?.getString(STATE_PAGE) ?: intent?.getStringExtra(EXTRA_PAGE)
         show(Page.values().firstOrNull { it.id == start } ?: Page.HOME)
+        if (page == Page.STATS) intent?.getStringExtra(EXTRA_MACRO)?.let { stats.open(it) }
         if (Build.VERSION.SDK_INT >= 33) requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 2)
         Updater.clearNotification(this)
         handleAdbIntent(intent)
@@ -149,6 +155,7 @@ class MainActivity : Activity() {
         page = p
         for ((k, v) in pages) v.visibility = if (k == p) View.VISIBLE else View.GONE
         pageTitle.text = p.title
+        if (p == Page.STATS) stats.refresh()
         for ((k, row) in navRows) {
             val sel = k == p
             row.background = if (sel) Ui.rounded(Ui.ACCENT_DIM, dp(14).toFloat()) else Ui.pressable(this, Ui.CARD, 14)
@@ -177,6 +184,7 @@ class MainActivity : Activity() {
         when {
             drawerOpen -> closeDrawer()
             page == Page.MACROS && macros.back() -> {}
+            page == Page.STATS && stats.back() -> {}
             page != Page.HOME -> show(Page.HOME)
             else -> @Suppress("DEPRECATION") super.onBackPressed()
         }
@@ -217,6 +225,7 @@ class MainActivity : Activity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         intent.getStringExtra(EXTRA_PAGE)?.let { id -> Page.values().firstOrNull { it.id == id }?.let { show(it) } }
+        intent.getStringExtra(EXTRA_MACRO)?.let { if (page == Page.STATS) stats.open(it) }
         handleAdbIntent(intent)
     }
 
@@ -226,6 +235,7 @@ class MainActivity : Activity() {
         Runner.listeners += runListener
         system.onResume()
         macros.onResume()
+        stats.onResume()
         refreshStatus()
     }
 
@@ -234,6 +244,7 @@ class MainActivity : Activity() {
         Runner.listeners -= runListener
         system.onPause()
         macros.onPause()
+        stats.onPause()
         super.onPause()
     }
 
@@ -310,8 +321,10 @@ class MainActivity : Activity() {
     companion object {
         private const val REQUEST_CAPTURE = 1
         const val EXTRA_RESUME = "resume_after_update"
-        /** Open on this page: home, macros or system. */
+        /** Open on this page: home, macros, stats or system. */
         const val EXTRA_PAGE = "page"
+        /** With page stats: open this macro's statistics. */
+        const val EXTRA_MACRO = "macro"
         private const val STATE_PAGE = "page"
         const val REPO = "https://github.com/brunoccst/another-macro"
         /** This app's screen is the one in front (resumed): the floating ⌂ then goes back to the game. */
