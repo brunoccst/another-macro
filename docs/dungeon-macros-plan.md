@@ -23,6 +23,12 @@ the parts every dungeon shares:
   **boss map** (sweep, "!" taps, "A major trial awaits... Proceed?" → Yes, `boss_setup` skills).
 - **End of run**: rewards, light/shadow animation, "Continue to skip?" → End, White Key
   (`white_key: phantom/stop/keep_going`), `runs` 1-10/all, never buying keys.
+- **Before the first run**: `party` picks one of the game's saved parties by name or number
+  (Menu → Party, `logic/Party.kt`); `current` keeps the party in front.
+- **Both key colours** (Hard + Very Hard dungeons): `both_keys` with `red_runs` and
+  `green_runs` (0-10/all each) and `key_order` (red first by default). A colour that runs out
+  ends its runs and the loop goes on with the other colour; keys are never bought. A
+  Very Hard-only dungeon (Sea of Ice) leaves these out.
 
 So a new dungeon needs **data, not code**: one `dungeons.yaml` entry (era, area/label, map
 names, each map's layout, chests, arrival, exit, boss map) and a 40-line macro YAML copied

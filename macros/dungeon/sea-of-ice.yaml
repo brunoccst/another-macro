@@ -8,12 +8,13 @@ name: sea-of-ice
 group: dungeon
 icon: chest
 description: "Another Dungeon: Sea of Ice (Celestial Soul, Very Hard). All enemies, all chests and sparkles, then the boss."
-templates: [another_dungeon]
+templates: [another_dungeon, daily_ads]
 params:
   key: {default: red, choices: [red], help: "key to use: Sea of Ice is Very Hard only, so red"}
   # every dungeon macro: how many runs in a row, and what to do when a White Key drops
   runs: {default: 1, choices: [1, 2, 3, 5, 10, all], help: "runs in a row; all = until the chosen key runs out"}
   white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
+  party: {default: current, help: "the game's party to use: its name as the game shows it (e.g. Dungeon) or its number (3 = Party 3); current = the party in front now. Picked once on the field before the first run"}
   cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
   clear_first: {default: true, type: bool, help: "fight every map until \"The enemies have disappeared\" before going for its chests; off = walk straight to the chests and fight only the battles on the way (faster)"}
   clear_max_battles: {default: 15, show_if: clear_first, help: "every map's enemies are fought until the game says \"The enemies have disappeared\"; this is a safety cap on fights per map in case the banner is missed (0 = no cap)"}
