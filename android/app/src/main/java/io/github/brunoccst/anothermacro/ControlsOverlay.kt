@@ -6,7 +6,6 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -18,13 +17,14 @@ import android.widget.TextView
 import kotlin.math.abs
 
 /**
- * Floating controls over the game: the selected macro (tap it to pick another: tabs like the
+ * Floating controls over the game (round gold-on-blue icons from res/drawable-nodpi/overlay_*):
+ * the selected macro (tap it to pick another: tabs like the
  * Macros page, in a list that scrolls), and start / pause-resume / stop / restart it without
  * leaving the game, and ⌂ swaps between this app and the game: it opens this app, or, when this
  * app is already in front, brings the game back (no trip through the home screen). Drawn as an accessibility overlay (no
  * "draw over other apps" permission needed). Drag the handle to move it; tap
- * the handle to fold the buttons away. The handle's colour shows the state:
- * grey = idle, green = running, amber = paused.
+ * the handle (the round app badge) to fold the buttons away. A ring around the handle shows
+ * the state: none = idle, green = running, amber = paused.
  *
  * It sits on the screen edge, away from the game's buttons; macros that tap
  * near it could hit it, so move it if it's in the way.
@@ -36,11 +36,18 @@ class ControlsOverlay(private val service: InputService) {
     private val density = service.resources.displayMetrics.density
     private val root = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
     private val buttons = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
-    private val handle = round("≡", Color.GRAY)
-    private val playPause = round("▶", Color.parseColor("#2E7D32"))
-    private val stop = round("■", Color.parseColor("#C62828"))
-    private val restart = round("↻", Color.parseColor("#1565C0"))
-    private val home = round("⌂", Color.parseColor("#455A64"))
+    /** The state ring drawn around the handle's badge. */
+    private val ring = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.TRANSPARENT) }
+    private val handle = round(R.drawable.overlay_bubble, "Another Macro controls").apply {
+        background = android.graphics.drawable.LayerDrawable(arrayOf(ring, service.getDrawable(R.drawable.overlay_bubble)))
+            .apply { setLayerInset(1, dp(RING), dp(RING), dp(RING), dp(RING)) }
+    }
+    private val playIcon = service.getDrawable(R.drawable.overlay_play)
+    private val pauseIcon = service.getDrawable(R.drawable.overlay_pause)
+    private val playPause = round(R.drawable.overlay_play, "Start")
+    private val stop = round(R.drawable.overlay_stop, "Stop")
+    private val restart = round(R.drawable.overlay_restart, "Restart")
+    private val home = round(R.drawable.overlay_home, "Switch between the app and the game")
     private val liveLog = LiveLogOverlay(service)
     private val liveListener: () -> Unit = { main.post { refresh() } }
     /** The selected macro (what ▶ starts); tap it to pick another. */
@@ -261,11 +268,13 @@ class ControlsOverlay(private val service: InputService) {
         }
         val color = when {
             Runner.isPaused -> Color.parseColor("#F9A825")
-            Runner.isRunning -> Color.parseColor("#2E7D32")
-            else -> Color.GRAY
+            Runner.isRunning -> Color.parseColor("#43A047")
+            else -> Color.TRANSPARENT
         }
-        (handle.background as GradientDrawable).setColor(color)
-        playPause.text = if (Runner.isRunning && !Runner.isPaused) "❚❚" else "▶"
+        ring.setColor(color)
+        val pause = Runner.isRunning && !Runner.isPaused
+        playPause.background = if (pause) pauseIcon else playIcon
+        playPause.contentDescription = if (pause) "Pause" else if (Runner.isPaused) "Resume" else "Start"
         selected.label("▸ " + (Runner.current?.takeIf { Runner.isRunning } ?: LastRun.load(service)?.first ?: "pick a macro"))
         relayout()
     }
@@ -295,14 +304,15 @@ class ControlsOverlay(private val service: InputService) {
         }
     }
 
-    private fun round(label: String, color: Int) = TextView(service).apply {
-        text = label
-        setTextColor(Color.WHITE)
-        textSize = 16f
-        gravity = Gravity.CENTER
-        background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
+    /** A round icon button (the art is a disc on a transparent square, so the shadow is made round too). */
+    private fun round(icon: Int, description: String) = View(service).apply {
+        background = service.getDrawable(icon)
+        contentDescription = description
         layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { setMargins(0, dp(4), 0, dp(4)) }
-        if (Build.VERSION.SDK_INT >= 21) elevation = dp(3).toFloat()
+        outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) = outline.setOval(0, 0, view.width, view.height)
+        }
+        elevation = dp(3).toFloat()
     }
 
     /** Set a pill's text and size it to fit (the overlay window doesn't size text views on its own). */
@@ -342,5 +352,7 @@ class ControlsOverlay(private val service: InputService) {
     companion object {
         private const val IN_USE = "in_use"
         private const val PICKER_W = 230
+        /** Width of the state ring around the handle, dp. */
+        private const val RING = 3
     }
 }

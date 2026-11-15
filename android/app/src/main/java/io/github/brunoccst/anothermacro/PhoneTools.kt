@@ -146,7 +146,7 @@ class PhoneTools(
     /**
      * The unfolded floating buttons' window swallows every tap inside it (the empty part too,
      * e.g. over the World Map's Expand button): fold them before a tap or swipe that starts
-     * there. Null = go ahead; a result = the point is under the ≡ handle itself.
+     * there. Null = go ahead; a result = the point is under the handle itself.
      */
     private fun clearControls(p: Point): ToolResult? {
         val input = InputService.instance ?: return null
@@ -158,7 +158,7 @@ class PhoneTools(
             Thread.sleep(400) // the window shrinks on the next layout
             if (!inside(p, input.controls()?.second)) return null
         }
-        return ToolResult("that point is under this app's floating ≡ handle, not the game; ask the user to drag the handle elsewhere", isError = true)
+        return ToolResult("that point is under this app's floating handle (the round Another Macro badge), not the game; ask the user to drag the handle elsewhere", isError = true)
     }
 
     /** Fold, unfold or report the app's floating buttons (connector tool floating_controls). */
@@ -176,7 +176,7 @@ class PhoneTools(
             val f = shotW.toDouble() / capture.width
             " They cover [${(r.left * f).roundToInt()}, ${(r.top * f).roundToInt()}, ${(r.right * f).roundToInt()}, ${(r.bottom * f).roundToInt()}] in screenshot pixels."
         }.orEmpty()
-        return ToolResult((if (folded) "folded (only the ≡ handle shows)." else "unfolded.") + where)
+        return ToolResult((if (folded) "folded (only the round badge handle shows)." else "unfolded.") + where)
     }
 
     private fun refused(reason: String): ToolResult {
