@@ -138,6 +138,18 @@ object CatDaily {
     /** "Karek Swampland (Enter from Baruoki)": the cat is on a map the party walks to from a travel point. */
     private val ENTER_FROM = Regex("""^(.*?)\s*\(Enter from ([^)]*)\)""")
 
+    private val CONTINENT_NAMES = listOf("Migleina", "Garulea", "Zerberiya", "Kiliphe")
+
+    /**
+     * "Light's Fading, Garulea": the map label is "Light's Fading", on Garulea Continent's map.
+     * Returns the label and that continent's Expand entry (null when the name carries none).
+     */
+    internal fun splitPlace(place: String): Pair<String, String?> {
+        val m = Regex("""^(.+),\s*([A-Za-z]+)$""").find(place.trim()) ?: return place to null
+        val c = CONTINENT_NAMES.firstOrNull { it.equals(m.groupValues[2], true) } ?: return place to null
+        return m.groupValues[1].trim() to "$c Continent"
+    }
+
     /** The islands' continents (Konium, on Snake Bone Island, was learned on Migleina Continent, 2026-11-03). */
     private val ISLAND_CONTINENT = mapOf("Snake Bone Island" to "Migleina Continent")
 
@@ -147,6 +159,7 @@ object CatDaily {
      * island's label has to be found on whatever map the era tab shows, which a sweep can miss.
      */
     internal fun continentFor(ctx: Context, place: String, era: String): String? {
+        splitPlace(place).second?.let { return it }
         KnownPlaces.continent(ctx, place, era)?.let { return it }
         val region = regionOf(place) ?: return null
         REGIONS[region].orEmpty().firstNotNullOfOrNull { KnownPlaces.continent(ctx, it, era) }?.let { return it }
@@ -187,14 +200,14 @@ object CatDaily {
 
     // --- 2. world map travel ----------------------------------------------------
     fun travel(ctx: Context, clue: Clue): Boolean {
-        val place = clue.location.substringBefore(" (").substringBefore(" –").substringBefore(" -").trim()
+        val place = splitPlace(clue.location.substringBefore(" (").substringBefore(" –").substringBefore(" -").trim()).first
         // "Moonlight Forest (Forest Edge)" / "Nadara Volcano – Caldera Edge": the sub-destination
         val sub = Regex("""\(([^)]*)\)|[–-] (.+)$""").find(clue.location)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }?.trim() ?: ""
         if (!openWorldMap(ctx, clue.era)) return false
         // the place's own region (from the wiki's map list): islands show as a label on a continent's map
         val region = regionOf(place)
         // learned before: go straight to its continent
-        val known = continentFor(ctx, place, clue.era)
+        val known = splitPlace(clue.location).second ?: continentFor(ctx, place, clue.era)
         if (known != null) {
             MacroLog.i("$place: known to be on $known")
             step("looking for $place on $known")
