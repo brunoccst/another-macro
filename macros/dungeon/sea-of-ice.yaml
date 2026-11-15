@@ -1,0 +1,46 @@
+# One run of the Sea of Ice Another Dungeon (Antiquity era, Glacial Place; Very Hard only, red key):
+# every map's enemies first (until "The enemies have disappeared"), then every chest and T. Black Pearl
+# sparkle by the map's fixed path, then the chest of The Abyss and the boss (Abyssal Queen).
+# Stops when the run ends, and says so when a White Key opened the Phantom Crystal Dimension.
+# Never buys keys: a purchase offer stops it. Start it anywhere on the field: away from the Another
+# Dungeon door it travels to the Spacetime Rift and walks to the door (or start inside the dungeon).
+name: sea-of-ice
+group: dungeon
+icon: chest
+description: "Another Dungeon: Sea of Ice (Celestial Soul, Very Hard). All enemies, all chests and sparkles, then the boss."
+templates: [another_dungeon]
+params:
+  key: {default: red, choices: [red], help: "key to use: Sea of Ice is Very Hard only, so red"}
+  # every dungeon macro: how many runs in a row, and what to do when a White Key drops
+  runs: {default: 1, choices: [1, 2, 3, 5, 10, all], help: "runs in a row; all = until the chosen key runs out"}
+  white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
+  cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
+  clear_first: {default: true, type: bool, help: "fight every map until \"The enemies have disappeared\" before going for its chests; off = walk straight to the chests and fight only the battles on the way (faster)"}
+  clear_max_battles: {default: 15, show_if: clear_first, help: "every map's enemies are fought until the game says \"The enemies have disappeared\"; this is a safety cap on fights per map in case the banner is missed (0 = no cap)"}
+  # the mobs are fought with the skills set on the basic macro battle (one place for every battle)
+  boss_setup: {default: false, type: bool, help: "fight the boss with its own skills (below) instead of the ones set on the battle macro"}
+  boss_skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 1: auto or skill 1-4"}
+  boss_skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 2: auto or skill 1-4"}
+  boss_skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 3: auto or skill 1-4"}
+  boss_skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 4: auto or skill 1-4"}
+screens: [field, battle_command, battle, battle_result]
+unknown_timeout_s: 120
+
+# the whole run is one action (AnotherDungeon.kt); it starts from the field or inside the dungeon
+handlers:
+  field: [{another_dungeon: sea_of_ice}]
+  battle_command: [{another_dungeon: sea_of_ice}]
+  battle: [{another_dungeon: sea_of_ice}]
+  battle_result: [{another_dungeon: sea_of_ice}]
+
+# nothing recognised for a few seconds (the boss gate's question, the area map left open):
+# the run itself looks at the screen's text; the area map closes with a tap at the bottom
+setup: [{set: {unknown_ticks: 0}}]
+unknown:
+  - set: {unknown_ticks: unknown_ticks + 1}
+  - if: unknown_ticks >= 8
+    then:
+      - set: {unknown_ticks: 0}
+      - if: text_has('Proceed') or text_has('major trial')
+        then: [{another_dungeon: sea_of_ice}]
+        else: [{tap: [0.5, 0.93]}, {wait: 1.5}]

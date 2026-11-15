@@ -59,6 +59,14 @@ object AreaNav {
     private var last: View? = null
 
     /**
+     * The layout of a map whose area map scrolls up and down with the party (Sea of Ice: a
+     * see-through overlay drawn higher when the party is on a lower street). While set, every
+     * look lines this layout up with the streets it shows and gives the party's spot in the
+     * layout's y (as the map is drawn with the party on its arrival street). Null: no scrolling.
+     */
+    @Volatile var align: Layout? = null
+
+    /**
      * Open the area map, find the [targets] (given the grey frame) and the party marker, close it.
      * [readText] also OCRs the map (its title names the area).
      */
@@ -81,7 +89,8 @@ object AreaNav {
         val text = if (readText) ctx.readText() else emptyList()
         val found = targets(frame)
         ctx.tap(MAP_CLOSE); ctx.wait(1.0)
-        val cands = bgr?.let { findPartyMarkers(it, found) } ?: emptyList()
+        val dy = align?.let { l -> bgr?.let { verticalShift(it, l) } } ?: 0.0
+        val cands = (bgr?.let { findPartyMarkers(it, found) } ?: emptyList()).map { if (dy != 0.0) Point(it.x, it.y - dy) else it }
         val party = cands.firstOrNull()
         if (party == null && bgr != null) {
             // keep the map for debugging (app storage, not shared)
@@ -173,6 +182,47 @@ object AreaNav {
         val (a, b) = if (up) 0.74 to 0.42 else 0.42 to 0.74
         ctx.drag(Point(0.5, a), Point(0.5, b), 150)
         ctx.wait(2.5)
+    }
+
+    /**
+     * How much lower than [l] the area map draws its streets now (screen-height fraction; negative:
+     * higher), by sliding the layout up and down over the streets that show. 0 when no fit is clear.
+     * The streets are light grey (most maps) or a see-through grey-blue over a dark sea (Sea of Ice).
+     */
+    internal fun verticalShift(bgr: Mat, l: Layout): Double {
+        val w = 512
+        val h = Math.round(bgr.rows() * w.toDouble() / bgr.cols()).toInt()
+        val small = Mat(); Imgproc.resize(bgr, small, Size(w.toDouble(), h.toDouble()), 0.0, 0.0, Imgproc.INTER_AREA)
+        val hsv = Mat(); Imgproc.cvtColor(small, hsv, Imgproc.COLOR_BGR2HSV)
+        // (wide: Sea of Ice streets read from S 20/V 135 grey to S 90/V 80 blue, 2026-11-15)
+        val streets = Mat(); Core.inRange(hsv, Scalar(0.0, 0.0, 90.0), Scalar(180.0, 60.0, 230.0), streets)
+        val blue = Mat(); Core.inRange(hsv, Scalar(90.0, 20.0, 60.0), Scalar(140.0, 130.0, 170.0), blue)
+        Core.bitwise_or(streets, blue, streets)
+        val right = (w * 0.93).toInt()
+        streets.submat(0, h, right, w).setTo(Scalar(0.0))
+        val model = Mat(h, w, org.opencv.core.CvType.CV_8U)
+        val both = Mat()
+        val th = 0.024 * h
+        fun pt(x: Double, y: Double) = org.opencv.core.Point(Math.round(x).toDouble(), Math.round(y).toDouble())
+        var best = 0.0; var bestDy = 0.0; var atZero = 0.0
+        // from 0.16 higher to 0.10 lower, in steps of 0.004
+        for (step in -40..25) {
+            val dy = step * 0.004
+            model.setTo(Scalar(0.0))
+            for (s in l.segs) Imgproc.rectangle(model, pt(s.x1 * w, (s.y + dy) * h - th / 2), pt(s.x2 * w, (s.y + dy) * h + th / 2), Scalar(255.0), -1)
+            for (k in l.links) Imgproc.rectangle(model, pt(k.x * w - th / 2, (k.y1 + dy) * h), pt(k.x * w + th / 2, (k.y2 + dy) * h), Scalar(255.0), -1)
+            val total = Core.countNonZero(model)
+            if (total == 0) continue
+            Core.bitwise_and(model, streets, both)
+            val score = Core.countNonZero(both).toDouble() / total
+            if (step == 0) atZero = score
+            if (score > best) { best = score; bestDy = dy }
+        }
+        listOf(small, hsv, streets, blue, model, both).forEach { it.release() }
+        // the right layout fits 0.89-0.95, another map's up to 0.65 (Sea of Ice screenshots, 2026-11-15)
+        val ok = best >= 0.75 && (bestDy == 0.0 || best - atZero >= 0.05)
+        MacroLog.i("area map drawn ${"%.3f".format(bestDy)} lower (fit ${"%.2f".format(best)}, unshifted ${"%.2f".format(atZero)})${if (ok) "" else ": not clear, taken as 0"}")
+        return if (ok) bestDy else 0.0
     }
 
     /** The streets on the area map: light grey, unsaturated lines (the side buttons are cut off). */

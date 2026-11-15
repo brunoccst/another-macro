@@ -32,12 +32,15 @@ object AnotherDungeon {
                        val path: List<Route.Leg>? = null,
                        /** False for a map without enemies (no fights first). */
                        val enemies: Boolean = true,
-                       /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000", "boss L" (walk to the boss). */
-                       val steps: List<String>? = null) {
+                       /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
+                       val steps: List<String>? = null,
+                       /** Items picked up from the ground (green/blue sparks, e.g. T. Black Pearls): stops on the path, tapped when they show. */
+                       val sparkles: List<Point> = emptyList()) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
             chests = chests.map { Point(it.x + dx, it.y) }, exit = exit?.let { Point(it.x + dx, it.y) },
+            sparkles = sparkles.map { Point(it.x + dx, it.y) },
         )
     }
     data class Spec(
@@ -46,12 +49,18 @@ object AnotherDungeon {
         val area: String? = null,
         /** The label's first line when the game wraps the name ("Burning Beast King's" / "Castle"). */
         val label: String? = null,
+        /** The area map scrolls up and down with the party (Sea of Ice): every look lines the layout up. */
+        val areaMapScrolls: Boolean = false,
+        /** A walk's first second can look still on screen though the party walks (no late-start correction). */
+        val cameraLags: Boolean = false,
     )
 
     private const val DATA = "templates/another_dungeon/dungeons.yaml"
     private const val BUBBLE = "field_interact_bubble"
     /** The bubble's inside only, for bright or busy backgrounds (the Throne Room's light pillar and fires). */
     private const val BUBBLE_CORE = "field_interact_bubble_core"
+    /** The bubble drawn small, on a map the camera shows zoomed out (Sea of Ice's The Abyss). */
+    private const val BUBBLE_SMALL = "field_interact_bubble_small"
     /** How far the party walks each way while clearing a map's enemies (area-map units). */
     private const val GRIND_SPAN = 0.09
 
@@ -79,9 +88,11 @@ object AnotherDungeon {
                 (m["path"] as? List<*>)?.mapNotNull { (it as? List<*>)?.let { leg -> Route.parseLeg(leg) } }?.takeIf { it.isNotEmpty() },
                 m["enemies"] != false,
                 (m["steps"] as? List<*>)?.map { it.toString() },
+                lists(m["sparkles"]).map { Point(it[0], it[1]) },
             )
         }
-        return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString())
+        return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
+            d["area_map_scrolls"] == true, d["camera_lags"] == true)
     }
 
     private class Run(val ctx: Context, val spec: Spec) {
@@ -93,6 +104,8 @@ object AnotherDungeon {
         var map = -1
         var shift = 0.0
         var chestsDone = 0
+        /** Following a path: how many of its legs (chests, sparkles) are done. */
+        var legsDone = 0
         var cleared = false
         var onBossMap = false
         var bossNext = false
@@ -152,7 +165,8 @@ object AnotherDungeon {
         while (done < total) {
             if (total > 1) MacroLog.status("${spec.name}: run ${done + 1}${if (total == Int.MAX_VALUE) "" else "/$total"}")
             val r = Run(ctx, spec).also { it.ignoreHeldKey = ignore }
-            val outcome = try { runInner(r) } catch (s: StopScenario) { s.message ?: "stopped" }
+            Route.ignoreLateStart = spec.cameraLags
+            val outcome = try { runInner(r) } catch (s: StopScenario) { s.message ?: "stopped" } finally { AreaNav.align = null; Route.ignoreLateStart = false }
             if (r.outOfKeys) { end = outcome; break }
             if (r.heldKey && !r.entered) {
                 // a White Key from before: deal with it first, then this run
@@ -214,6 +228,7 @@ object AnotherDungeon {
                 return finish(r)
             }
             if (idx != r.map) {
+                AreaNav.align = if (spec.areaMapScrolls) spec.maps[idx].layout else null
                 val path = spec.maps[idx].path
                 val arrival = spec.maps[idx].arrival
                 if (path != null && arrival != null) {
@@ -233,7 +248,7 @@ object AnotherDungeon {
                 }
                 // clear_first off: no grinding; the path is walked at once and the battles on the way are
                 // fought where they come (the walk reads its spot on the area map after each one)
-                r.map = idx; r.chestsDone = 0; r.cleared = !spec.maps[idx].enemies || !clearFirst(ctx)
+                r.map = idx; r.chestsDone = 0; r.legsDone = 0; r.cleared = !spec.maps[idx].enemies || !clearFirst(ctx)
                 r.onBossMap = spec.maps[idx].boss
                 r.chestsTotal += spec.maps[idx].chests.size.takeIf { it > 0 } ?: spec.maps[idx].chestsCount
                 task(r, "Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
@@ -249,6 +264,16 @@ object AnotherDungeon {
                     grind(r, ms)
                     // the fights moved the party a little: read its spot once before the path
                     if (r.pos != null) { r.unsure = true; r.lastDir = 0.0 }
+                }
+                // on a path: its legs in order (chests, sparkles), then the exit
+                ms.path != null && r.pos != null && r.legsDone < ms.path.size && ms.path[r.legsDone].target != "exit" -> {
+                    val leg = ms.path[r.legsDone]
+                    when {
+                        leg.chest != null && leg.chest < ms.chests.size -> takeChest(r, ms, ms.chests[leg.chest])
+                        leg.sparkle != null && leg.sparkle < ms.sparkles.size -> takeSparkle(r, ms, leg, ms.sparkles[leg.sparkle])
+                        else -> MacroLog.i("path leg ${leg.target}: nothing to do")
+                    }
+                    r.legsDone++
                 }
                 r.chestsDone < ms.chests.size -> takeChest(r, ms, ms.chests[r.order.getOrElse(r.chestsDone) { r.chestsDone }])
                 ms.exit != null -> leave(r, ms, idx)
@@ -560,7 +585,11 @@ object AnotherDungeon {
             MacroLog.i("${wants.first()} label not in the clear (${part?.text ?: "not seen"}): dragging the map")
             // blind drags go over open sea: one that starts on the islands in the middle (0.49, 0.65)
             // doesn't pan the Present map (seen 2026-11-11); each moves it about a third of the screen
-            if (part != null) ctx.drag(part.center, Point(0.45, 0.5), 700)
+            // (a part cut by the top edge sits on the map's title bar: the drag starts lower, same way and length)
+            if (part != null) {
+                val from = Point(part.center.x.coerceIn(0.05, 0.9), part.center.y.coerceAtLeast(0.2))
+                ctx.drag(from, Point(0.45 + from.x - part.center.x, 0.5 + from.y - part.center.y), 700)
+            }
             else if (blind[attempt] < 0) ctx.drag(Point(0.6, 0.43), Point(0.25, 0.5), 700)
             else ctx.drag(Point(0.25, 0.43), Point(0.6, 0.5), 700)
             ctx.wait(1.2)
@@ -667,7 +696,16 @@ object AnotherDungeon {
                 MacroLog.i("no \"!\" yet: the map shows the party at (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}), chest at ${"%.3f".format(chest.x)}")
                 r.pos = at
                 val d = chest.x - at.x
-                if (Route.segOf(l0, at) != Route.segOf(l0, chest) || abs(d) < 0.004) return@repeat
+                if (Route.segOf(l0, at) != Route.segOf(l0, chest)) {
+                    // on another street (stairs missed): walk there by the area map, then look again
+                    // (Sea of Ice, 2026-11-15: a missed flick left the party a street above the chest)
+                    MacroLog.i("not on the chest's street: walking there by the area map")
+                    AreaNav.walkLayout(ctx, l0, chest, onStep(r))
+                    r.pos = Point(chest.x, Route.segOf(l0, chest)?.y ?: chest.y)
+                    if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); r.unsure = true; return }
+                    return@repeat
+                }
+                if (abs(d) < 0.004) return@repeat
                 // a read a little behind the way the party walked is a wobbly marker: don't turn back for it
                 if (r.lastDir != 0.0 && d * r.lastDir < 0 && abs(d) <= 0.01) return@repeat
                 r.pos = Route.hold(ctx, l0, t, at, d > 0, t.holdMs(abs(d)).toLong()) { fight(r) }
@@ -704,6 +742,80 @@ object AnotherDungeon {
             (at?.let { " (the map shows the party at (${"%.3f".format(it.x)}, ${"%.3f".format(it.y)}))" } ?: ""))
         r.unsure = r.pos != null
         r.chestsDone++
+    }
+
+    /**
+     * A sparkle stop: walk the path's leg there, then watch a few frames for the green sparkle (it
+     * twinkles) and tap it. Some don't show every run (Sea of Ice: only as many T. Black Pearls as
+     * the map's Pip count), so a stop without one is fine. The party can step toward the sparkle: the spot is read again
+     * before the next leg.
+     */
+    private fun takeSparkle(r: Run, ms: MapSpec, leg: Route.Leg, at: Point) {
+        val ctx = r.ctx
+        task(r, "Map ${r.map + 1}: ${leg.target}")
+        walkLeg(r, ms, leg, at)
+        fight(r)
+        // up to two taps: a tap on a sparkle that got no banner (seen once, 2026-11-15) is tried again
+        var taps = 0
+        // (3 s to see it, then 3 s more after a tap that got no banner)
+        var end = System.currentTimeMillis() + 3000
+        while (System.currentTimeMillis() < end && taps < 2) {
+            val p = sparkle(ctx)
+            if (p == null) { ctx.wait(0.2); continue }
+            end = System.currentTimeMillis() + 7000
+            taps++
+            MacroLog.i("sparkle at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)})")
+            ctx.tapExact(p); ctx.wait(0.5)
+            r.unsure = true
+            val until = System.currentTimeMillis() + 3000
+            while (System.currentTimeMillis() < until) {
+                val read = ctx.readText(POPUP)
+                if (read.any { "obtained" in Ocr.norm(it.text) }) {
+                    MacroLog.i("sparkle: ${read.joinToString(" ") { it.text }.take(120)}")
+                    noteItems(r, read)
+                    ctx.count("sparkles")
+                    ctx.tap(Point(0.5, 0.75)); ctx.wait(0.5)
+                    if (!waitForField(ctx, 6)) fight(r)
+                    return
+                }
+                ctx.wait(0.2)
+            }
+            MacroLog.i("tapped the sparkle, no \"Obtained\" banner")
+            waitForField(ctx, 4)
+        }
+        if (taps > 0) return
+        MacroLog.i("no sparkle by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
+    }
+
+    /**
+     * A green sparkle on the field (an item to pick up, e.g. T. Black Pearls): the biggest pale-green blob on the ground (lower
+     * half, away from the edges and buttons), or null. Sparkles sat at y 0.53-0.57; a green thing at
+     * y 0.33 in the background was no sparkle (2026-11-15).
+     */
+    private fun sparkle(ctx: Context): Point? {
+        val bgr = ctx.colorMat() ?: return null
+        val hsv = org.opencv.core.Mat(); org.opencv.imgproc.Imgproc.cvtColor(bgr, hsv, org.opencv.imgproc.Imgproc.COLOR_BGR2HSV)
+        val mask = org.opencv.core.Mat()
+        org.opencv.core.Core.inRange(hsv, org.opencv.core.Scalar(60.0, 40.0, 140.0), org.opencv.core.Scalar(95.0, 255.0, 255.0), mask)
+        val w = bgr.cols(); val h = bgr.rows()
+        val keep = org.opencv.core.Mat.zeros(h, w, org.opencv.core.CvType.CV_8U)
+        val x0 = (w * 0.08).toInt(); val x1 = (w * 0.9).toInt(); val y0 = (h * 0.4).toInt(); val y1 = (h * 0.8).toInt()
+        keep.submat(y0, y1, x0, x1).setTo(org.opencv.core.Scalar(255.0))
+        org.opencv.core.Core.bitwise_and(mask, keep, mask)
+        val labels = org.opencv.core.Mat(); val stats = org.opencv.core.Mat(); val cents = org.opencv.core.Mat()
+        val n = org.opencv.imgproc.Imgproc.connectedComponentsWithStats(mask, labels, stats, cents)
+        // ~15 px of a 1024-wide screen at least, and no wider than a sparkle
+        val minArea = 15.0 * w * h / (1024.0 * 461.0)
+        var best: Point? = null; var bestArea = 0.0
+        for (k in 1 until n) {
+            val area = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_AREA)[0]
+            val bw = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_WIDTH)[0]
+            if (area < minArea || bw > w * 0.08 || area <= bestArea) continue
+            bestArea = area
+            best = Point(cents.get(k, 0)[0] / w, cents.get(k, 1)[0] / h)
+        }
+        listOf(bgr, hsv, mask, keep, labels, stats, cents).forEach { it.release() }
+        return best
     }
 
     /**
@@ -881,10 +993,10 @@ object AnotherDungeon {
     }
 
     /** Tap a "!" bubble on screen and clear what it opens (a chest's "Obtained ..."). True if there was one. */
-    private fun openBubble(r: Run): Boolean {
+    private fun openBubble(r: Run, small: Boolean = false): Boolean {
         val ctx = r.ctx
         ctx.refresh()
-        val b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE) ?: return false
+        val b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE) ?: (if (small) ctx.find(BUBBLE_SMALL) else null) ?: return false
         val tapAt = System.currentTimeMillis()
         ctx.tap(b); ctx.wait(0.5)
         // the chest's banner comes ~1-2 s after the tap: read just the top of the screen (quicker) every
@@ -937,8 +1049,15 @@ object AnotherDungeon {
         // the arrow shows on the ground once the party is near; walk on toward the exit until it does
         val toward = if (exit.x > 0.5) 1.0 else -1.0
         for (attempt in 0..7) {
-            ctx.refresh()
-            val arrow = ARROWS.mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
+            // the sign can show only a moment after the party stops (Sea of Ice, 2026-11-15: missed at once,
+            // then the holds into the street's end lost it): watch for it a little first
+            var arrow: Match? = null
+            val until = System.currentTimeMillis() + if (attempt == 0) 2500 else 800
+            while (arrow == null && System.currentTimeMillis() < until) {
+                ctx.refresh()
+                arrow = ARROWS.mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
+                if (arrow == null) ctx.wait(0.25)
+            }
             if (arrow != null) {
                 MacroLog.i("taking the ground arrow at (${"%.2f".format(arrow.center.x)}, ${"%.2f".format(arrow.center.y)})")
                 ctx.tap(arrow); ctx.wait(1.5)
@@ -970,7 +1089,7 @@ object AnotherDungeon {
     internal const val CLEAR_MAX_BATTLES = 15
 
     /** The round signs where a staircase/door leads to another map (on the ground, or a door sign over it). */
-    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps", "door_sign")
+    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps", "door_sign", "door_sign_round")
 
     /**
      * Walk back and forth fighting (like grind-battles with until_cleared) until the game says
@@ -1130,6 +1249,26 @@ object AnotherDungeon {
                         if (fight(r) && r.bossBeaten) break
                         ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), 1500)
                         ctx.wait(0.5)
+                    }
+                }
+                // "chest L": walk that way in short steps until the chest's "!" shows (drawn small where the
+                // camera is zoomed out) and open it. The boss's question first means the chest was passed:
+                // No, and back the other way (Sea of Ice's The Abyss, 2026-11-15)
+                "CHEST" -> {
+                    var dir = if (parts.getOrNull(1)?.uppercase() == "R") 1.0 else -1.0
+                    var turned = false
+                    for (i in 0 until 24) {
+                        if (openBubble(r, small = true)) break
+                        val lines = ctx.readText()
+                        if (lines.any { val t = Ocr.norm(it.text); "major trial" in t || "proceed" in t }) {
+                            lines.firstOrNull { Ocr.norm(it.text) == "no" }?.let { ctx.tapExact(it.center); ctx.wait(1.5) }
+                            if (turned) break
+                            MacroLog.i("step chest: at the boss's question, no \"!\" on the way: back the other way")
+                            dir = -dir; turned = true
+                            continue
+                        }
+                        ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), 400)
+                        ctx.wait(0.6)
                     }
                 }
                 "U" -> AreaNav.flick(ctx, up = true)

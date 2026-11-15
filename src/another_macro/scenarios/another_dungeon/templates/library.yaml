@@ -22,6 +22,15 @@ templates:
     scales: [0.9, 1.0, 1.1, 1.2]
     bright: [[0.432, 0.048, 0.159, 0.548], [0.432, 0.905, 0.159, 0.071]]   # x, y, w, h in the template
     dim: [[0.273, 0.048, 0.091, 0.548], [0.659, 0.048, 0.091, 0.548], [0.432, 0.69, 0.159, 0.143]]
+  field_interact_bubble_small:
+    notes: >-
+      The same "!" bubble drawn at about 0.6 of its size, on a map the camera shows zoomed out (Sea of
+      Ice's The Abyss, 2026-11-15: 0.89 there at 0.6). Only looked for where a step asks for it.
+    file: field_interact_bubble.png
+    ref: [2400, 1080]
+    region: [0.05, 0.1, 0.9, 0.6]
+    threshold: 0.82
+    scales: [0.5, 0.55, 0.6, 0.65]   # grey: 0.87-0.89 at 0.5-0.55 (2026-11-15)
   ground_arrow_bars:
     notes: Round sign (bars icon) on the ground at a staircase to another map; tap it to take it.
     file: ground_arrow_bars.png
@@ -41,4 +50,15 @@ templates:
     region: [0.05, 0.1, 0.8, 0.9]
     threshold: 0.72
     scales: [0.9, 1.0, 1.1]
+  door_sign_round:
+    notes: >-
+      Round sign with an open-door icon over the way to the next map (Sea of Ice: over a ground arrow, or a
+      glowing portal); tap it to take it. (Not named exit_door_round: a user template of that name, saved
+      while mapping, would shadow it.) Upscaled from a 1024-wide screenshot (0.92-0.99 on the three exits
+      seen 2026-11-15, under 0.72 elsewhere).
+    file: door_sign_round.png
+    ref: [2400, 1080]
+    region: [0.05, 0.1, 0.8, 0.9]
+    threshold: 0.8
+    scales: [0.9, 0.95, 1.0, 1.05, 1.1]   # sharp: 0.91 at 1.0, 0.76 at 0.9
 screens: {}

@@ -28,12 +28,13 @@ object Route {
         data class Flick(val up: Boolean) : Step() { override fun toString() = if (up) "U" else "D" }
     }
 
-    /** One stop of a path: a chest ([chest], 0-based) or the exit, and the steps to it. */
-    data class Leg(val target: String, val chest: Int?, val steps: List<Step>)
+    /** One stop of a path: a chest ([chest], 0-based), a sparkle ([sparkle], 0-based) or the exit, and the steps to it. */
+    data class Leg(val target: String, val chest: Int?, val steps: List<Step>, val sparkle: Int? = null)
 
     fun parseLeg(raw: List<*>): Leg {
         val target = raw.first().toString().trim()
         val chest = Regex("""^chest\s+(\d+)$""").find(target)?.groupValues?.get(1)?.toInt()?.minus(1)
+        val sparkle = Regex("""^sparkle\s+(\d+)$""").find(target)?.groupValues?.get(1)?.toInt()?.minus(1)
         val steps = raw.drop(1).map { s ->
             val t = s.toString().trim().split(Regex("\\s+"))
             when (t[0]) {
@@ -42,7 +43,7 @@ object Route {
                 else -> throw IllegalArgumentException("unknown path step '$s'")
             }
         }
-        return Leg(target, chest, steps)
+        return Leg(target, chest, steps, sparkle)
     }
 
     /** walk.yaml: hold time from rest ↔ distance on the area map. */
@@ -143,6 +144,12 @@ object Route {
     private const val LATE_START_MS = 1000L
     /** ...by its time less this (when the first walking frame usually shows). */
     private const val NORMAL_START_MS = 700L
+
+    /**
+     * The view can stand still for the first second of a walk that started at once (Sea of Ice: a dark
+     * scene where the camera waits before following, 2026-11-15): no late start is counted then.
+     */
+    @Volatile var ignoreLateStart = false
 
     /** A hold was cut short by a battle since this was last cleared: the position is less sure. */
     @Volatile var disturbed = false
@@ -251,7 +258,7 @@ object Route {
             val lag = if (why == "battle screen") t.hudLagMs else t.lagMs
             // the party sometimes starts late (right after a chest's popup the hold did nothing for ~1 s,
             // 2026-11-12); a walk usually shows by 0.5-0.9 s: count a later start as time not walked
-            val lateStart = if (frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
+            val lateStart = if (!ignoreLateStart && frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
             if (lateStart > 0) MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the party started walking late (${firstWalk}ms)")
             val walkedMs = when {
                 !interrupted -> holdMs - lateStart

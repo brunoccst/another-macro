@@ -705,7 +705,7 @@ sea_of_ice:
   light_shadow: [light, shadow]
   drops: [Sirenaria Tome, All Treatises, All Codices, All Opuses]
   wiki: Sea of Ice (Another Dungeon)
-  macro: todo
+  macro: sea-of-ice
 temporal_surveillance_ship_kairos_blood_ritual_site:
   name: "Temporal Surveillance Ship Kairos - Blood Ritual Site"
   kind: kairos

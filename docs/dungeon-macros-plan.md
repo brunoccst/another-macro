@@ -42,7 +42,7 @@ only needed for a family with its own rules (below).
 
 ## Order
 
-1. **Standard dungeons with an era tab** (47 left): same entry as the castle, so only
+1. **Standard dungeons with an era tab** (46 left): same entry as the castle, so only
    data. Start with the ones that drop tomes or that the user farms; easy low-level ones
    (Moonlight Forest, Industrial Ruins, Nadara Volcano, Man-eating Marsh) are good first
    checks that the generic flow holds on a new map style.
@@ -146,7 +146,7 @@ on day one, and its logs (where chests and exits were found) would seed the fixe
 | City of Lost Paradise | standard | Antiquity | - | 80 | light, shadow | yes | todo |
 | Iscariot | standard | Future | - | 80 | light, shadow | yes | todo |
 | Sapient Complex: Midnight | standard | Future | - | 80 | light, shadow | yes | todo |
-| Sea of Ice | standard | Antiquity | - | 80 | light, shadow | yes | todo |
+| Sea of Ice | standard | Antiquity | - | 80 | light, shadow | yes | sea-of-ice |
 | Temporal Surveillance Ship Kairos - Blood Ritual Site | kairos | Present | - | 80 | light, shadow |  | todo |
 | Temporal Surveillance Ship Kairos - Holy Meadow | kairos | Present | - | 80 | light, shadow |  | todo |
 | Temporal Surveillance Ship Kairos - Institute of Despair | kairos | Present | - | 80 | light, shadow |  | todo |
