@@ -165,8 +165,8 @@ object AnotherDungeon {
         while (done < total) {
             if (total > 1) MacroLog.status("${spec.name}: run ${done + 1}${if (total == Int.MAX_VALUE) "" else "/$total"}")
             val r = Run(ctx, spec).also { it.ignoreHeldKey = ignore }
-            Route.ignoreLateStart = spec.cameraLags
-            val outcome = try { runInner(r) } catch (s: StopScenario) { s.message ?: "stopped" } finally { AreaNav.align = null; Route.ignoreLateStart = false }
+            Route.cameraLags = spec.cameraLags
+            val outcome = try { runInner(r) } catch (s: StopScenario) { s.message ?: "stopped" } finally { AreaNav.align = null; Route.cameraLags = false; Route.loose = false }
             if (r.outOfKeys) { end = outcome; break }
             if (r.heldKey && !r.entered) {
                 // a White Key from before: deal with it first, then this run
@@ -1111,7 +1111,9 @@ object AnotherDungeon {
         val span = r.pos?.let { p -> seg?.let { s -> if (s.x2 - p.x >= p.x - s.x1) p.x to minOf(s.x2, p.x + GRIND_SPAN) else maxOf(s.x1, p.x - GRIND_SPAN) to p.x } }
         // "The enemies have disappeared" shows for a moment, often while the party walks or the game
         // autosaves: watch the whole screen for it all along, beside the walking and fighting
-        BannerWatch(r).use { watch ->
+        // (the spot is read on the map once after clearing: no map looks for it while walking back and forth)
+        Route.loose = true
+        try { BannerWatch(r).use { watch ->
             while (quiet < 12) {
                 if (watch.check()) return
                 val p = r.pos
@@ -1132,7 +1134,7 @@ object AnotherDungeon {
             }
             MacroLog.i("no encounter in $quiet walks: taking ${ms.names.first()} as cleared")
             r.cleared = true
-        }
+        } } finally { Route.loose = false }
     }
 
     /** Reads the whole screen over and over on its own thread while a map is being cleared, for the banner. */
@@ -1315,7 +1317,7 @@ object AnotherDungeon {
             Battle.Outcome.WON -> {
                 ctx.count("battles")
                 if (r.task.isNotEmpty()) MacroLog.status(r.task)
-                if (wasBoss) { r.bossBeaten = true; ctx.count("bosses") }
+                if (wasBoss) { r.bossBeaten = true; ctx.count("bosses"); MacroLog.i("the boss is beaten") }
                 // "The enemies have disappeared" flashes for a moment after a map's last enemy: a short
                 // look here (while a map is cleared, BannerWatch keeps looking as the party walks on)
                 val end = System.currentTimeMillis() + 1000

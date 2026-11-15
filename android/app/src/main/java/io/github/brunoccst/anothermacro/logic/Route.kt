@@ -140,16 +140,32 @@ object Route {
     private const val STILL_FRAMES = 6
     /** A still view this long (ms) after walking ends a hold to look for a battle. */
     private const val STILL_MS = 450L
+    /**
+     * The same where the camera lags ([cameraLags]): the dark view there barely changes for moments in
+     * mid-walk, and 450 ms ended long holds early as "stood still" (4 times in one Sea of Ice run,
+     * 2026-11-15, each followed by a ~2.5 s battle wait and a ~3.5 s area-map look).
+     */
+    private const val STILL_MS_LAGGING = 900L
+    /** Below this share of the field's usual brightness (and [Table.darkLevel]) the screen is dark: an encounter. */
+    private const val DARK_SHARE = 0.6
     /** A hold's first walking frame later than this (ms) means the party started late... */
     private const val LATE_START_MS = 1000L
     /** ...by its time less this (when the first walking frame usually shows). */
     private const val NORMAL_START_MS = 700L
 
     /**
-     * The view can stand still for the first second of a walk that started at once (Sea of Ice: a dark
-     * scene where the camera waits before following, 2026-11-15): no late start is counted then.
+     * A dark scene where the camera waits before following (Sea of Ice, 2026-11-15): the view can stand
+     * still for the first second of a walk that started at once, so no late start is counted; a short
+     * hold may show no walking frame at all, which is no sign of an encounter there; and a still view
+     * must last longer ([STILL_MS_LAGGING]) before it ends a hold.
      */
-    @Volatile var ignoreLateStart = false
+    @Volatile var cameraLags = false
+
+    /**
+     * Only a rough position is needed (clearing a map's enemies back and forth: the spot is read on the
+     * map once afterwards): a hold that stood still with no battle doesn't look at the area map.
+     */
+    @Volatile var loose = false
 
     /** A hold was cut short by a battle since this was last cleared: the position is less sure. */
     @Volatile var disturbed = false
@@ -200,10 +216,12 @@ object Route {
                 if (held - prevMs >= 200) { trace.append(" ").append(held).append(":").append("%.0f".format(level)).append("/").append("%.0f".format(stepChange)).append(if (walking) "w" else "").append(still); prevMs = held }
                 when {
                     Battle.inBattle(ctx) -> { why = "battle screen"; true }
-                    level < t.darkLevel -> { if (++dark >= 2) why = "dark screen (${"%.0f".format(level)})"; dark >= 2 }
+                    // (relative too: Sea of Ice's field is ~35 and dimmed to 29-30 in places, which ended 3 holds
+                    // as "dark screen" with no battle, 2026-11-15; the castle's ~65 keeps the plain level)
+                    level < (if (baseLevel > 0) minOf(t.darkLevel, baseLevel * DARK_SHARE) else t.darkLevel) -> { if (++dark >= 2) why = "dark screen (${"%.0f".format(level)})"; dark >= 2 }
                     baseLevel > 0 && level > 100 && level > baseLevel * 1.6 -> { why = "flash (${"%.0f".format(level)})"; true }
                     // by time, not frames: the capture sends few frames while the screen stands still
-                    walking && stepChange < STILL_STEP && held - lastWalk >= STILL_MS -> { why = "view stood still"; true }
+                    walking && stepChange < STILL_STEP && held - lastWalk >= (if (cameraLags) STILL_MS_LAGGING else STILL_MS) -> { why = "view stood still"; true }
                     else -> {
                         dark = 0
                         // (a single shimmer frame of 7-11 in the encounter's still screen doesn't restart the count:
@@ -258,7 +276,7 @@ object Route {
             val lag = if (why == "battle screen") t.hudLagMs else t.lagMs
             // the party sometimes starts late (right after a chest's popup the hold did nothing for ~1 s,
             // 2026-11-12); a walk usually shows by 0.5-0.9 s: count a later start as time not walked
-            val lateStart = if (!ignoreLateStart && frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
+            val lateStart = if (!cameraLags && frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
             if (lateStart > 0) MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the party started walking late (${firstWalk}ms)")
             val walkedMs = when {
                 !interrupted -> holdMs - lateStart
@@ -281,7 +299,9 @@ object Route {
                 // a battle the screen checks missed: the party stopped somewhere along the way. Its
                 // screen can take seconds to show (the flash comes ~2 s after the party stops dead):
                 // wait until it does or the field's menu is back
-                val stoppedEarly = frames > 5 && lastField < holdMs - 250
+                // (where the camera lags, a short hold often shows no walking frame at all: that's no early
+                // stop; taking it for one waited ~3 s for a battle after most short holds, 2026-11-15)
+                val stoppedEarly = frames > 5 && lastField < holdMs - 250 && !(cameraLags && lastField == 0L)
                 if (stoppedEarly && !fight()) {
                     // the view's last walking frame came early, but the party is at the hold's goal: no encounter
                     // stopped it (the walk slows into its stop, the camera stops at a map's edge)
@@ -315,6 +335,10 @@ object Route {
                     MacroLog.i("a battle came during the hold without being seen: the position is unknown")
                     disturbed = true; unseen = true
                 }
+                return p
+            }
+            if (!battle && why == "view stood still" && loose) {
+                MacroLog.i("walk ${if (right) "right" else "left"} stood still after ${walkedMs}ms of $holdMs with no battle (rough position: no map look)")
                 return p
             }
             if (!battle && why == "view stood still") {
