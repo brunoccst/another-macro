@@ -882,16 +882,15 @@ object AnotherDungeon {
         var taps = 0
         // (3 s to see it, then 3 s more after a tap that got no banner)
         var end = System.currentTimeMillis() + 3000
-        // on a map whose sparkles come from the area map's bag icons the party stands on the spot, so only the
-        // middle of the screen is searched: green scenery at x 0.16 and 0.79 was taken for sparkles (Zero Point,
-        // 2026-11-15), and a sparkle under the party got no banner from the first tap, so it is stepped away
-        // from before any tap
-        val narrow = ms.sparkleIcons
+        // on a map whose sparkles come from the area map's bag icons the bright star finder is used: the blob
+        // finder took green scenery (plants at x 0.16, 0.74, 0.79) and the party for sparkles in Zero Point
+        // (2026-11-15), and the camera doesn't keep the party in the middle near a street's end
+        val star = ms.sparkleIcons
         var steps = 0
         while (System.currentTimeMillis() < end && taps < 3) {
-            val p = if (narrow) sparkle(ctx, 0.25, 0.75) else sparkle(ctx)
+            val p = if (star) sparkleStar(ctx) else sparkle(ctx)
             if (p == null) { ctx.wait(0.2); continue }
-            if ((taps > 0 || narrow) && steps < 2 && abs(p.x - 0.5) < SPARKLE_NEAR) {
+            if (taps > 0 && steps < 2 && abs(p.x - 0.5) < SPARKLE_NEAR) {
                 MacroLog.i("sparkle at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)}) right by the party: a step away first")
                 val away = if (p.x < 0.5) 1.0 else -1.0
                 ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * away, 0.65), SPARKLE_STEP_MS); ctx.wait(0.6)
@@ -941,18 +940,55 @@ object AnotherDungeon {
     }
 
     /**
+     * A sparkle's star: a small near-white green core (H 45-82, S 10-75, V 215+) inside a teal glow (H 74-102,
+     * S 85+), on the ground band (every one seen sat at y 0.53-0.58). The best core by size x glow, or null.
+     * Measured on 15 screenshots of Sea of Ice and Zero Point (2026-11-15): plants, the party and the
+     * floor have no such core-in-glow.
+     */
+    private fun sparkleStar(ctx: Context): Point? {
+        val bgr = ctx.colorMat() ?: return null
+        val hsv = org.opencv.core.Mat(); org.opencv.imgproc.Imgproc.cvtColor(bgr, hsv, org.opencv.imgproc.Imgproc.COLOR_BGR2HSV)
+        val core = org.opencv.core.Mat(); val glow = org.opencv.core.Mat()
+        org.opencv.core.Core.inRange(hsv, org.opencv.core.Scalar(45.0, 10.0, 215.0), org.opencv.core.Scalar(82.0, 75.0, 255.0), core)
+        org.opencv.core.Core.inRange(hsv, org.opencv.core.Scalar(74.0, 85.0, 70.0), org.opencv.core.Scalar(102.0, 255.0, 200.0), glow)
+        val w = bgr.cols(); val h = bgr.rows(); val s = w / 1024.0
+        val labels = org.opencv.core.Mat(); val stats = org.opencv.core.Mat(); val cents = org.opencv.core.Mat()
+        val n = org.opencv.imgproc.Imgproc.connectedComponentsWithStats(core, labels, stats, cents)
+        var best: Point? = null; var bestScore = 0.0
+        for (k in 1 until n) {
+            val area = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_AREA)[0] / (s * s)
+            val bw = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_WIDTH)[0] / s
+            val bh = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_HEIGHT)[0] / s
+            if (area < 8 || bw > 16 || bh > 16) continue
+            val cx = cents.get(k, 0)[0]; val cy = cents.get(k, 1)[0]
+            if (cx < w * 0.08 || cx > w * 0.9 || cy < h * 0.45 || cy > h * 0.68) continue
+            val r = (10 * s).toInt().coerceAtLeast(3)
+            val x0 = (cx - r).toInt().coerceAtLeast(0); val x1 = (cx + r).toInt().coerceAtMost(w)
+            val y0 = (cy - r).toInt().coerceAtLeast(0); val y1 = (cy + r).toInt().coerceAtMost(h)
+            val sub = glow.submat(y0, y1, x0, x1)
+            val share = org.opencv.core.Core.countNonZero(sub).toDouble() / ((y1 - y0) * (x1 - x0)).coerceAtLeast(1)
+            sub.release()
+            if (share < 0.5) continue
+            val score = area * share
+            if (score > bestScore) { bestScore = score; best = Point(cx / w, cy / h) }
+        }
+        listOf(bgr, hsv, core, glow, labels, stats, cents).forEach { it.release() }
+        return best
+    }
+
+    /**
      * A green sparkle on the field (an item to pick up, e.g. T. Black Pearls): the biggest pale-green blob on the ground (lower
      * half, away from the edges and buttons), or null. Sparkles sat at y 0.53-0.57; a green thing at
      * y 0.33 in the background was no sparkle (2026-11-15).
      */
-    private fun sparkle(ctx: Context, left: Double = 0.08, right: Double = 0.9): Point? {
+    private fun sparkle(ctx: Context): Point? {
         val bgr = ctx.colorMat() ?: return null
         val hsv = org.opencv.core.Mat(); org.opencv.imgproc.Imgproc.cvtColor(bgr, hsv, org.opencv.imgproc.Imgproc.COLOR_BGR2HSV)
         val mask = org.opencv.core.Mat()
         org.opencv.core.Core.inRange(hsv, org.opencv.core.Scalar(60.0, 40.0, 140.0), org.opencv.core.Scalar(95.0, 255.0, 255.0), mask)
         val w = bgr.cols(); val h = bgr.rows()
         val keep = org.opencv.core.Mat.zeros(h, w, org.opencv.core.CvType.CV_8U)
-        val x0 = (w * left).toInt(); val x1 = (w * right).toInt(); val y0 = (h * 0.4).toInt(); val y1 = (h * 0.8).toInt()
+        val x0 = (w * 0.08).toInt(); val x1 = (w * 0.9).toInt(); val y0 = (h * 0.4).toInt(); val y1 = (h * 0.8).toInt()
         keep.submat(y0, y1, x0, x1).setTo(org.opencv.core.Scalar(255.0))
         org.opencv.core.Core.bitwise_and(mask, keep, mask)
         val labels = org.opencv.core.Mat(); val stats = org.opencv.core.Mat(); val cents = org.opencv.core.Mat()

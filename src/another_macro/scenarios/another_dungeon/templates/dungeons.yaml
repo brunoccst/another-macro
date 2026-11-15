@@ -228,6 +228,9 @@ underworld:
       exit: [0.700, 0.607]
       exit_walk: true
     - names: [Zero Point]
+      # its enemies come back without end ("The enemies have disappeared" never showed; 15 fights in
+      # 10 min, 2026-11-15), so no clearing first: the battles on the way are fought as they come
+      enemies: false
       # rows from the top: a short top street, A, B (the party comes in on its left part, ~0.427), C, D
       # (the door sign to Demon's Den at its right end). Lined up on the phone 2026-11-15 (the wiki
       # screenshot matched within ~0.005)
