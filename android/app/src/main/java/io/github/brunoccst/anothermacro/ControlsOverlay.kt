@@ -23,7 +23,7 @@ import kotlin.math.abs
  * leaving the game, and ⌂ swaps between this app and the game: it opens this app, or, when this
  * app is already in front, brings the game back (no trip through the home screen). Drawn as an accessibility overlay (no
  * "draw over other apps" permission needed). Drag the handle to move it; tap
- * the handle (the round app badge) to fold the buttons away. A ring around the handle shows
+ * the handle (the round "AM" badge) to fold the buttons away. A ring around the handle shows
  * the state: none = idle, green = running, amber = paused.
  *
  * It sits on the screen edge, away from the game's buttons; macros that tap
@@ -38,7 +38,10 @@ class ControlsOverlay(private val service: InputService) {
     private val buttons = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
     /** The state ring drawn around the handle's badge. */
     private val ring = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.TRANSPARENT) }
-    private val handle = round(R.drawable.overlay_bubble, "Another Macro controls")
+    private val handle = round(R.drawable.overlay_bubble, "Another Macro controls").apply {
+        background = android.graphics.drawable.LayerDrawable(arrayOf(ring, service.getDrawable(R.drawable.overlay_bubble)))
+            .apply { setLayerInset(1, dp(RING), dp(RING), dp(RING), dp(RING)) }
+    }
     private val playIcon = service.getDrawable(R.drawable.overlay_play)
     private val pauseIcon = service.getDrawable(R.drawable.overlay_pause)
     private val playPause = round(R.drawable.overlay_play, "Start")
@@ -60,10 +63,6 @@ class ControlsOverlay(private val service: InputService) {
     private val pickerList = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL }
     private val prefs = service.getSharedPreferences("overlay", Context.MODE_PRIVATE)
     private var tab: String = prefs.getString("tab", IN_USE) ?: IN_USE
-    /** Redraw the handle when the badge choice (System → Settings) changes. Kept here: prefs hold listeners weakly. */
-    private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
-        if (key == SHORT_BADGE) main.post { badge() }
-    }
     private val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
@@ -109,17 +108,9 @@ class ControlsOverlay(private val service: InputService) {
         home.setOnClickListener { if (MainActivity.inFront) openGame() else openApp() }
         selected.setOnClickListener { togglePicker() }
         dragAndFold()
-        badge()
-        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
         refresh()
     }
 
-    /** The handle: the round badge ("Another Macro", or "AM" when the short badge is on) inside the state ring. */
-    private fun badge() {
-        val art = if (prefs.getBoolean(SHORT_BADGE, false)) R.drawable.overlay_bubble_short else R.drawable.overlay_bubble
-        handle.background = android.graphics.drawable.LayerDrawable(arrayOf(ring, service.getDrawable(art)))
-            .apply { setLayerInset(1, dp(RING), dp(RING), dp(RING), dp(RING)) }
-    }
 
     fun show() {
         runCatching { wm.addView(root, params) }.onFailure { MacroLog.e("could not show the controls", it) }
@@ -334,14 +325,19 @@ class ControlsOverlay(private val service: InputService) {
 
     private fun pill(initial: String) = TextView(service).apply {
         text = initial
-        setTextColor(Color.WHITE)
-        textSize = 12f
+        // styled like the round buttons: gold serif lettering on deep blue inside a gold rim
+        setTextColor(GOLD)
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD)
+        setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.parseColor("#CC000814"))
+        textSize = 13f
         isSingleLine = true
         ellipsize = android.text.TextUtils.TruncateAt.END
         maxWidth = dp(220)
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(10), dp(6), dp(10), dp(6))
-        background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Color.parseColor("#DD37474F")) }
+        background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(BLUE_TOP, BLUE_BOTTOM)).apply {
+            cornerRadius = dp(16).toFloat(); setStroke(dp(2), RIM)
+        }
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             .apply { setMargins(0, dp(3), 0, dp(3)); gravity = Gravity.END }
         label(initial)
@@ -364,11 +360,10 @@ class ControlsOverlay(private val service: InputService) {
         private const val PICKER_W = 230
         /** Width of the state ring around the handle, dp. */
         private const val RING = 3
-        /** Pref (in "overlay"): show the short "AM" badge as the handle. */
-        const val SHORT_BADGE = "short_badge"
-
-        fun shortBadge(context: Context) = context.getSharedPreferences("overlay", Context.MODE_PRIVATE).getBoolean(SHORT_BADGE, false)
-        fun setShortBadge(context: Context, on: Boolean) =
-            context.getSharedPreferences("overlay", Context.MODE_PRIVATE).edit().putBoolean(SHORT_BADGE, on).apply()
+        /** The buttons' art: gold on deep blue, with a gold rim. */
+        private val GOLD = Color.parseColor("#E9C77B")
+        private val RIM = Color.parseColor("#C9A15A")
+        private val BLUE_TOP = Color.parseColor("#1D4FA6")
+        private val BLUE_BOTTOM = Color.parseColor("#0A1F5C")
     }
 }

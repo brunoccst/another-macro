@@ -158,7 +158,7 @@ class PhoneTools(
             Thread.sleep(400) // the window shrinks on the next layout
             if (!inside(p, input.controls()?.second)) return null
         }
-        return ToolResult("that point is under this app's floating handle (the round Another Macro badge), not the game; ask the user to drag the handle elsewhere", isError = true)
+        return ToolResult("that point is under this app's floating handle (the round AM badge), not the game; ask the user to drag the handle elsewhere", isError = true)
     }
 
     /** Fold, unfold or report the app's floating buttons (connector tool floating_controls). */
