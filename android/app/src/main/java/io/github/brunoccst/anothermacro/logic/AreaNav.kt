@@ -194,8 +194,9 @@ object AreaNav {
         val h = Math.round(bgr.rows() * w.toDouble() / bgr.cols()).toInt()
         val small = Mat(); Imgproc.resize(bgr, small, Size(w.toDouble(), h.toDouble()), 0.0, 0.0, Imgproc.INTER_AREA)
         val hsv = Mat(); Imgproc.cvtColor(small, hsv, Imgproc.COLOR_BGR2HSV)
-        val streets = Mat(); Core.inRange(hsv, Scalar(0.0, 0.0, 125.0), Scalar(180.0, 25.0, 215.0), streets)
-        val blue = Mat(); Core.inRange(hsv, Scalar(90.0, 30.0, 65.0), Scalar(140.0, 120.0, 140.0), blue)
+        // (wide: Sea of Ice streets read from S 20/V 135 grey to S 90/V 80 blue, 2026-11-15)
+        val streets = Mat(); Core.inRange(hsv, Scalar(0.0, 0.0, 90.0), Scalar(180.0, 60.0, 230.0), streets)
+        val blue = Mat(); Core.inRange(hsv, Scalar(90.0, 20.0, 60.0), Scalar(140.0, 130.0, 170.0), blue)
         Core.bitwise_or(streets, blue, streets)
         val right = (w * 0.93).toInt()
         streets.submat(0, h, right, w).setTo(Scalar(0.0))
@@ -218,8 +219,8 @@ object AreaNav {
             if (score > best) { best = score; bestDy = dy }
         }
         listOf(small, hsv, streets, blue, model, both).forEach { it.release() }
-        // a wrong layout still fits ~0.33 somewhere; the right one 0.55-0.9 (Sea of Ice, 2026-11-15)
-        val ok = best >= 0.45 && (bestDy == 0.0 || best - atZero >= 0.05)
+        // the right layout fits 0.89-0.95, another map's up to 0.65 (Sea of Ice screenshots, 2026-11-15)
+        val ok = best >= 0.75 && (bestDy == 0.0 || best - atZero >= 0.05)
         MacroLog.i("area map drawn ${"%.3f".format(bestDy)} lower (fit ${"%.2f".format(best)}, unshifted ${"%.2f".format(atZero)})${if (ok) "" else ": not clear, taken as 0"}")
         return if (ok) bestDy else 0.0
     }

@@ -67,6 +67,9 @@ object MiniMap {
      * [near] are considered (the followed spot; after a flick, both ends of the stairs).
      */
     fun locate(ctx: Context, l: AreaNav.Layout, near: List<Point>, tol: Double = 0.08): Read? {
+        // a map whose area map scrolls (Sea of Ice): its see-through minimap gave a wrong "clear" read
+        // after a flick that missed the stairs (2026-11-15): only the area map is trusted there
+        if (AreaNav.align != null) return null
         val bgr = ctx.colorMat() ?: return null
         try {
             return locate(bgr, l, near, tol)

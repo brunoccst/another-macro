@@ -145,6 +145,12 @@ object Route {
     /** ...by its time less this (when the first walking frame usually shows). */
     private const val NORMAL_START_MS = 700L
 
+    /**
+     * The view can stand still for the first second of a walk that started at once (Sea of Ice: a dark
+     * scene where the camera waits before following, 2026-11-15): no late start is counted then.
+     */
+    @Volatile var ignoreLateStart = false
+
     /** A hold was cut short by a battle since this was last cleared: the position is less sure. */
     @Volatile var disturbed = false
     /** The last hold ran its full time, but a battle was there right after it (not seen during it). */
@@ -252,7 +258,7 @@ object Route {
             val lag = if (why == "battle screen") t.hudLagMs else t.lagMs
             // the party sometimes starts late (right after a chest's popup the hold did nothing for ~1 s,
             // 2026-11-12); a walk usually shows by 0.5-0.9 s: count a later start as time not walked
-            val lateStart = if (frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
+            val lateStart = if (!ignoreLateStart && frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
             if (lateStart > 0) MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the party started walking late (${firstWalk}ms)")
             val walkedMs = when {
                 !interrupted -> holdMs - lateStart
