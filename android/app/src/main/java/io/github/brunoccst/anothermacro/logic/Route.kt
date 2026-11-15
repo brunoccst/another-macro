@@ -28,12 +28,13 @@ object Route {
         data class Flick(val up: Boolean) : Step() { override fun toString() = if (up) "U" else "D" }
     }
 
-    /** One stop of a path: a chest ([chest], 0-based) or the exit, and the steps to it. */
-    data class Leg(val target: String, val chest: Int?, val steps: List<Step>)
+    /** One stop of a path: a chest ([chest], 0-based), a sparkle ([sparkle], 0-based) or the exit, and the steps to it. */
+    data class Leg(val target: String, val chest: Int?, val steps: List<Step>, val sparkle: Int? = null)
 
     fun parseLeg(raw: List<*>): Leg {
         val target = raw.first().toString().trim()
         val chest = Regex("""^chest\s+(\d+)$""").find(target)?.groupValues?.get(1)?.toInt()?.minus(1)
+        val sparkle = Regex("""^sparkle\s+(\d+)$""").find(target)?.groupValues?.get(1)?.toInt()?.minus(1)
         val steps = raw.drop(1).map { s ->
             val t = s.toString().trim().split(Regex("\\s+"))
             when (t[0]) {
@@ -42,7 +43,7 @@ object Route {
                 else -> throw IllegalArgumentException("unknown path step '$s'")
             }
         }
-        return Leg(target, chest, steps)
+        return Leg(target, chest, steps, sparkle)
     }
 
     /** walk.yaml: hold time from rest ↔ distance on the area map. */
@@ -144,6 +145,12 @@ object Route {
     /** ...by its time less this (when the first walking frame usually shows). */
     private const val NORMAL_START_MS = 700L
 
+    /**
+     * The view can stand still for the first second of a walk that started at once (Sea of Ice: a dark
+     * scene where the camera waits before following, 2026-11-15): no late start is counted then.
+     */
+    @Volatile var ignoreLateStart = false
+
     /** A hold was cut short by a battle since this was last cleared: the position is less sure. */
     @Volatile var disturbed = false
     /** The last hold ran its full time, but a battle was there right after it (not seen during it). */
@@ -236,13 +243,22 @@ object Route {
                 }
             }
             val interrupted = interrupted0
+            // the view stood still with the party already at the hold's goal (the street's end, a junction):
+            // that's arriving, not an encounter. Waiting for a battle there cost ~3 s at every junction (2026-11-12)
+            if (interrupted && why == "view stood still" && !fight()) {
+                arrived(ctx, l, walked(l, p, right, left))?.let {
+                    MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the view stood still at ${res.stoppedAtMs}ms with the party at its goal " +
+                        "(minimap x ${"%.3f".format(it.x)}): arrived, no battle wait")
+                    return it
+                }
+            }
             // the flash (or the dead stop before it) comes seconds before the battle screen: wait for it
             // rather than taking the quiet screen for "no battle" and holding on into the encounter
             val battle = interrupted && (fight() || ((why?.startsWith("flash") == true || why == "view stood still") && awaitBattle(ctx) && fight()))
             val lag = if (why == "battle screen") t.hudLagMs else t.lagMs
             // the party sometimes starts late (right after a chest's popup the hold did nothing for ~1 s,
             // 2026-11-12); a walk usually shows by 0.5-0.9 s: count a later start as time not walked
-            val lateStart = if (frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
+            val lateStart = if (!ignoreLateStart && frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
             if (lateStart > 0) MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the party started walking late (${firstWalk}ms)")
             val walkedMs = when {
                 !interrupted -> holdMs - lateStart
@@ -266,6 +282,14 @@ object Route {
                 // screen can take seconds to show (the flash comes ~2 s after the party stops dead):
                 // wait until it does or the field's menu is back
                 val stoppedEarly = frames > 5 && lastField < holdMs - 250
+                if (stoppedEarly && !fight()) {
+                    // the view's last walking frame came early, but the party is at the hold's goal: no encounter
+                    // stopped it (the walk slows into its stop, the camera stops at a map's edge)
+                    arrived(ctx, l, p)?.let {
+                        MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the view last moved at ${lastField}ms, the minimap shows the party at its goal: no battle wait")
+                        return it
+                    }
+                }
                 if (fight() || (stoppedEarly && awaitBattle(ctx, 6.0) && fight())) {
                     MacroLog.i("hold trace (ms:brightness/change):$trace")
                     if (stoppedEarly) {
@@ -333,6 +357,18 @@ object Route {
             holdMs = t.holdMs(left).toLong()
         }
         return p
+    }
+
+    /** Where the minimap shows the party, when that's on [goal]'s street within 0.008 of it (else null). */
+    private fun arrived(ctx: Context, l: AreaNav.Layout, goal: Point): Point? {
+        val t0 = System.currentTimeMillis()
+        val m = try { MiniMap.locate(ctx, l, listOf(goal), 0.03) } catch (e: Exception) { MacroLog.i("minimap: ${e.message}"); null } ?: return null
+        val seg = segOf(l, goal) ?: return null
+        if (segOf(l, m.at) != seg || abs(m.at.x - goal.x) >= 0.008) {
+            MacroLog.i("not at the hold's goal: the minimap shows x ${"%.3f".format(m.at.x)}, goal ${"%.3f".format(goal.x)} (${System.currentTimeMillis() - t0}ms)")
+            return null
+        }
+        return Point(m.at.x.coerceIn(seg.x1, seg.x2), seg.y)
     }
 
     /**

@@ -11,8 +11,8 @@ One folder per group, the same as the app's tabs (a macro's `group:` must match 
 | Folder | Tab | Macros |
 |---|---|---|
 | `basic/` | Basic | building blocks other macros run: `watch-ad`, `battle`, `grind-battles`, `open-menu`, `back-to-field` |
-| `daily/` | Daily | `daily-routine`, `daily-ads`, `shop-ad`, `cat-scratchbook` |
-| `dungeon/` | Another Dungeon | `dogma-tower`, `burning-beast-kings-castle`, `phantom-crystal` |
+| `daily/` | Daily | `daily-routine`, `daily-ads`, `shop-ad`, `cat-scratchbook`, `inbox` |
+| `dungeon/` | Another Dungeon | `dogma-tower`, `burning-beast-kings-castle`, `sea-of-ice`, `phantom-crystal` |
 | `game/` | Game | `start-game`, `stop-game` |
 
 ## Basic macros: reuse them, don't copy them

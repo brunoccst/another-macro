@@ -19,7 +19,7 @@ object MacroLog {
     fun i(message: String) {
         Log.i(TAG, message)
         lines.addLast("${fmt.format(Date())} $message")
-        while (lines.size > 200) lines.removeFirst()
+        while (lines.size > 600) lines.removeFirst()
         val text = text()
         main.post { listeners.forEach { it(text) } }
     }

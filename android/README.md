@@ -1,11 +1,11 @@
 # Another Macro — Android app
 
-Runs the macros on the phone **by itself**: no Termux, no ADB, no root.
+Runs the macros on the phone **by itself**: no PC, no ADB, no root.
 
 - **Screen capture:** MediaProjection (Android asks "Start recording?" once per session).
 - **Input:** an accessibility service dispatches taps, slide-and-hold walking and Back.
-- **Vision:** OpenCV template matching on the same `library.yaml` + PNG templates as the
-  Python tool.
+- **Vision:** OpenCV template matching on the `library.yaml` + PNG templates of the macro
+  pack.
 - **Macros are downloaded, not built in:** the app installs the macro pack (macros, templates,
   dungeon data) CI publishes from the repo, and updates it by itself (see *The macro library*).
 - **Basic macros** other macros run: `watch-ad` (watch a commercial, close it, take the reward),
@@ -42,7 +42,7 @@ keeps a WebSocket open to the user's relay, a small Cloudflare Worker on their o
   without tool calls, and maps the connector's tools (screenshot, zoom, tap, swipe, back, wait,
   walk, read_text, find_template, list_templates, list_macros, read_macro, start_macro,
   macro_status, stop_macro, save_template, save_macro, launch_game, floating_controls,
-  wake_screen) onto `PhoneTools`. tap and swipe fold the floating buttons first when their window
+  wake_screen, update_app, update_macros, delete_macro) onto `PhoneTools`. tap and swipe fold the floating buttons first when their window
   covers the point.
 - `ScreenWake.kt`: turns the screen on and keeps it on while Claude or a macro drives the game
   (a bright-screen wake lock that wakes the screen; if that doesn't, a see-through activity that
@@ -65,13 +65,10 @@ keeps a WebSocket open to the user's relay, a small Cloudflare Worker on their o
   safety word checks.
 
 ## Install / first run
-1. Download `another-macro.apk` from the latest GitHub Release and install it.
-2. In the app: **1. Turn on taps** → enable *Another Macro* in Accessibility. On Android 13+,
-   if it's greyed out ("restricted setting"): Settings → Apps → Another Macro → ⋮ →
-   *Allow restricted settings*, then enable it.
-3. **2. Allow screen capture** → *Start now*.
-4. The macros download by themselves (internet once). In **Macros**, open one, set its options,
-   **Select this macro**, then start it with ▶ on the floating buttons over the game.
+See [docs/setup-android.md](../docs/setup-android.md). In short: install `another-macro.apk`
+from the `dev-main` pre-release, turn on taps (Accessibility; on Android 13+ first *Allow
+restricted settings* in App info → ⋮) and allow screen capture on System → Setup, then pick
+a macro on **Macros** and start it with ▶ on the floating buttons over the game.
 
 ## Build
 CI (`.github/workflows/android.yml`) builds the APK. It is signed with the permanent key
@@ -79,24 +76,29 @@ from the `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` secrets, so update
 over an existing copy. Keep a backup of that key: without it installed apps can't be updated.
 
 ## Notes
-- Whether the game is in front is read from the capture: a portrait app (home screen, Termux)
+- Whether the game is in front is read from the capture: a portrait app (e.g. the home screen)
   shows pillar-boxed in the landscape capture.
-- Dev builds from CI (`0.0.N-dev`) don't check for updates (a release would replace them).
 - `uiautomator dump` suspends accessibility services while it runs; don't use it while testing.
 
-## Testing from a computer/Termux
+## Testing from a computer
 `adb shell am start -n io.github.brunoccst.anothermacro/.MainActivity --es run grind-battles --es params "battles=3"`
 and `adb logcat -s AnotherMacro` for the log.
 
 ## Releases and auto-update
-- Push a tag `vX.Y.Z` → `.github/workflows/release.yml` builds the signed APK and publishes
-  it as a GitHub Release asset `another-macro.apk`.
-- Users install from
-  https://github.com/brunoccst/another-macro/releases/latest/download/another-macro.apk
-  (the browser asks to allow installing unknown apps once).
-- The app checks GitHub for a newer release when it opens (at most every 6 hours, or with
-  **Check for updates**), downloads it and hands it to Android's installer. Android asks to
-  confirm; the first time it also asks to allow Another Macro to install apps.
+- **Dev builds** (`0.0.N-dev`): CI (`android.yml`) publishes every pushed branch's APK and
+  logic pack as the pre-release `dev-<branch>`. A dev build follows its branch (`BuildConfig.BRANCH`,
+  normally `main`): it checks every 3 minutes while the connector is on and idle, on the
+  connector's `update_app`, and on System → Updates → *Install the newest build*. When only
+  `logic/` changed it loads the logic pack with no install ([docs/logic-pack.md](../docs/logic-pack.md));
+  otherwise it installs the APK. If Play Protect blocks an unattended install, the app taps
+  *Got it* (never *Install anyway*) and doesn't retry that version; the user installs it from
+  System → Updates. After any install, screen capture and the connector stay off until the
+  user turns them on.
+- **Releases:** push a tag `vX.Y.Z`, or run `.github/workflows/release.yml` by hand on main
+  with the version (it creates the tag). It publishes the signed APK as the GitHub Release
+  asset `another-macro.apk`, with `docs/releases/<tag>.md` above the generated notes. Release
+  builds check GitHub for a newer release when they open (at most every 6 hours, or with
+  *Check for updates*). They don't load logic packs, so stay on dev builds to follow `main`.
 - versionCode is derived from the version (1.2.3 → 10203), so releases always upgrade.
 
 ## The macro library

@@ -1,9 +1,8 @@
 # Shared templates and screens used by every scenario.
 #
-# Entries without `ref` have not been captured yet: cut them from a screenshot of
-# YOUR phone with `another-macro capture-template <name> ...` (see
-# docs/writing-scenarios.md), which saves the PNG next to this file and fills in
-# `file`, `ref` and `region`. `notes` says what to cut.
+# Entries without `ref` have not been captured yet: cut them from a phone screenshot with
+# the capture-templates skill, which saves the PNG next to this file and fills in `file`,
+# `ref` and `region`. `notes` says what to cut.
 
 templates:
   shop_title:
