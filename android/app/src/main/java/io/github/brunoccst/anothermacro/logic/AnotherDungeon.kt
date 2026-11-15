@@ -851,10 +851,11 @@ object AnotherDungeon {
             val seg = l.segs.filter { abs(it.y - y) < 0.05 && p.x >= it.x1 - 0.02 && p.x <= it.x2 + 0.02 }.minByOrNull { abs(it.y - y) }
             seg?.let { Point(p.x.coerceIn(it.x1, it.x2), it.y) }
         }
-        val from = view.party ?: r.pos ?: ms.arrival
+        val from: Point? = view.party ?: r.pos ?: ms.arrival
         fun perms(xs: List<Point>): List<List<Point>> = if (xs.size <= 1) listOf(xs) else xs.flatMap { x -> perms(xs - x).map { listOf(x) + it } }
-        val order = if (from == null || spots.size > 7) spots else perms(spots).minByOrNull { o ->
-            var at = from; var cost = 0.0
+        val start = from
+        val order = if (start == null || spots.size > 7) spots else perms(spots).minByOrNull { o ->
+            var at: Point = start; var cost = 0.0
             for (q in o) { cost += AreaNav.pathCost(l, at, q); at = q }
             ms.exit?.let { cost += AreaNav.pathCost(l, at, it) }
             cost
