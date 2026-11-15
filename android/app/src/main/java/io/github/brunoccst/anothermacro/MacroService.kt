@@ -158,9 +158,23 @@ class MacroService : Service() {
         stopSelf()
     }
 
+    /**
+     * The user closed the app (swiped it away in recents, or "Close all"): close everything with it,
+     * the floating buttons, any running macro, the connector and the screen capture. Sending the app
+     * to the background (⌂, Home, the game in front) removes no task, so it doesn't land here.
+     * Only the main window's task counts: the screen-wake window has a task of its own.
+     */
+    override fun onTaskRemoved(rootIntent: Intent?) {
+        if (rootIntent?.component?.className != MainActivity::class.java.name) return
+        MacroLog.i("app closed: stopping the macro, the connector and screen capture")
+        shutdown()
+        super.onTaskRemoved(rootIntent)
+    }
+
     override fun onDestroy() {
         PhoneConnector.stopConnector("the app's service stopped")
         Runner.requestStop()
+        InputService.instance?.showControls(false)
         capture?.release(); capture = null
         projection?.stop(); projection = null
         super.onDestroy()

@@ -50,6 +50,8 @@ The Home page shows what is still missing.
 4. Open the game. While screen capture is on, the **floating buttons** show over it: the
    selected macro's name (tap it to pick another), ▶ start, ❚❚ pause, ■ stop, ↻ restart and
    ⌂ (switch between the app and the game). Drag ≡ to move them, tap it to fold them.
+   Closing the app (swiping it away in recents) closes the buttons too, and with them any
+   running macro, the connector and screen capture. Sending it to the background doesn't.
 
 A line at the bottom right (the **live log**, System → Settings) says what the macro is
 doing. The full log is on **System → Log**.
