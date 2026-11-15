@@ -38,10 +38,7 @@ class ControlsOverlay(private val service: InputService) {
     private val buttons = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
     /** The state ring drawn around the handle's badge. */
     private val ring = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.TRANSPARENT) }
-    private val handle = round(R.drawable.overlay_bubble, "Another Macro controls").apply {
-        background = android.graphics.drawable.LayerDrawable(arrayOf(ring, service.getDrawable(R.drawable.overlay_bubble)))
-            .apply { setLayerInset(1, dp(RING), dp(RING), dp(RING), dp(RING)) }
-    }
+    private val handle = round(R.drawable.overlay_bubble, "Another Macro controls")
     private val playIcon = service.getDrawable(R.drawable.overlay_play)
     private val pauseIcon = service.getDrawable(R.drawable.overlay_pause)
     private val playPause = round(R.drawable.overlay_play, "Start")
@@ -63,6 +60,10 @@ class ControlsOverlay(private val service: InputService) {
     private val pickerList = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL }
     private val prefs = service.getSharedPreferences("overlay", Context.MODE_PRIVATE)
     private var tab: String = prefs.getString("tab", IN_USE) ?: IN_USE
+    /** Redraw the handle when the badge choice (System → Settings) changes. Kept here: prefs hold listeners weakly. */
+    private val prefsListener = android.content.SharedPreferences.OnSharedPreferenceChangeListener { _, key ->
+        if (key == SHORT_BADGE) main.post { badge() }
+    }
     private val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
@@ -108,7 +109,16 @@ class ControlsOverlay(private val service: InputService) {
         home.setOnClickListener { if (MainActivity.inFront) openGame() else openApp() }
         selected.setOnClickListener { togglePicker() }
         dragAndFold()
+        badge()
+        prefs.registerOnSharedPreferenceChangeListener(prefsListener)
         refresh()
+    }
+
+    /** The handle: the round badge ("Another Macro", or "AM" when the short badge is on) inside the state ring. */
+    private fun badge() {
+        val art = if (prefs.getBoolean(SHORT_BADGE, false)) R.drawable.overlay_bubble_short else R.drawable.overlay_bubble
+        handle.background = android.graphics.drawable.LayerDrawable(arrayOf(ring, service.getDrawable(art)))
+            .apply { setLayerInset(1, dp(RING), dp(RING), dp(RING), dp(RING)) }
     }
 
     fun show() {
@@ -354,5 +364,11 @@ class ControlsOverlay(private val service: InputService) {
         private const val PICKER_W = 230
         /** Width of the state ring around the handle, dp. */
         private const val RING = 3
+        /** Pref (in "overlay"): show the short "AM" badge as the handle. */
+        const val SHORT_BADGE = "short_badge"
+
+        fun shortBadge(context: Context) = context.getSharedPreferences("overlay", Context.MODE_PRIVATE).getBoolean(SHORT_BADGE, false)
+        fun setShortBadge(context: Context, on: Boolean) =
+            context.getSharedPreferences("overlay", Context.MODE_PRIVATE).edit().putBoolean(SHORT_BADGE, on).apply()
     }
 }
