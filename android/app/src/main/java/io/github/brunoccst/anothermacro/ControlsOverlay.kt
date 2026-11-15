@@ -6,7 +6,6 @@ import android.content.Intent
 import android.graphics.Color
 import android.graphics.PixelFormat
 import android.graphics.drawable.GradientDrawable
-import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
@@ -18,13 +17,14 @@ import android.widget.TextView
 import kotlin.math.abs
 
 /**
- * Floating controls over the game: the selected macro (tap it to pick another: tabs like the
+ * Floating controls over the game (round gold-on-blue icons from res/drawable-nodpi/overlay_*):
+ * the selected macro (tap it to pick another: tabs like the
  * Macros page, in a list that scrolls), and start / pause-resume / stop / restart it without
  * leaving the game, and ⌂ swaps between this app and the game: it opens this app, or, when this
  * app is already in front, brings the game back (no trip through the home screen). Drawn as an accessibility overlay (no
  * "draw over other apps" permission needed). Drag the handle to move it; tap
- * the handle to fold the buttons away. The handle's colour shows the state:
- * grey = idle, green = running, amber = paused.
+ * the handle (the round "AM" badge) to fold the buttons away. A ring around the handle shows
+ * the state: none = idle, green = running, amber = paused.
  *
  * It sits on the screen edge, away from the game's buttons; macros that tap
  * near it could hit it, so move it if it's in the way.
@@ -34,13 +34,26 @@ class ControlsOverlay(private val service: InputService) {
     private val wm = service.getSystemService(Context.WINDOW_SERVICE) as WindowManager
     private val main = Handler(Looper.getMainLooper())
     private val density = service.resources.displayMetrics.density
+    /**
+     * Two windows: the handle's never changes size, so the badge stays still; the buttons'
+     * window sits right under it and is only on screen while unfolded (its size changes with
+     * the macro's name and the picker, and the buttons slide down out of the badge).
+     */
+    private val handleRoot = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
     private val root = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
     private val buttons = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
-    private val handle = round("≡", Color.GRAY)
-    private val playPause = round("▶", Color.parseColor("#2E7D32"))
-    private val stop = round("■", Color.parseColor("#C62828"))
-    private val restart = round("↻", Color.parseColor("#1565C0"))
-    private val home = round("⌂", Color.parseColor("#455A64"))
+    /** The state ring drawn around the handle's badge. */
+    private val ring = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.TRANSPARENT) }
+    private val handle = round(R.drawable.overlay_bubble, "Another Macro controls").apply {
+        background = android.graphics.drawable.LayerDrawable(arrayOf(ring, service.getDrawable(R.drawable.overlay_bubble)))
+            .apply { setLayerInset(1, dp(RING), dp(RING), dp(RING), dp(RING)) }
+    }
+    private val playIcon = service.getDrawable(R.drawable.overlay_play)
+    private val pauseIcon = service.getDrawable(R.drawable.overlay_pause)
+    private val playPause = round(R.drawable.overlay_play, "Start")
+    private val stop = round(R.drawable.overlay_stop, "Stop")
+    private val restart = round(R.drawable.overlay_restart, "Restart")
+    private val home = round(R.drawable.overlay_home, "Switch between the app and the game")
     private val liveLog = LiveLogOverlay(service)
     private val liveListener: () -> Unit = { main.post { refresh() } }
     /** The selected macro (what ▶ starts); tap it to pick another. */
@@ -56,7 +69,7 @@ class ControlsOverlay(private val service: InputService) {
     private val pickerList = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL }
     private val prefs = service.getSharedPreferences("overlay", Context.MODE_PRIVATE)
     private var tab: String = prefs.getString("tab", IN_USE) ?: IN_USE
-    private val params = WindowManager.LayoutParams(
+    private fun windowParams() = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.WRAP_CONTENT,
         WindowManager.LayoutParams.TYPE_ACCESSIBILITY_OVERLAY,
@@ -67,7 +80,14 @@ class ControlsOverlay(private val service: InputService) {
         gravity = Gravity.TOP or Gravity.END
         x = dp(12)
         y = dp(70)
+        windowAnimations = 0
     }
+    /** The handle's window. */
+    private val handleParams = windowParams()
+    /** The buttons' window, right under the handle's. */
+    private val params = windowParams()
+    /** Folded = only the handle shows (the buttons' window is off screen). */
+    private var isFolded = false
     private val listener: () -> Unit = { main.post { refresh() } }
     private var wasRunning = false
 
@@ -86,7 +106,13 @@ class ControlsOverlay(private val service: InputService) {
         buttons.addView(stop)
         buttons.addView(restart)
         buttons.addView(home)
-        root.addView(handle)
+        handleRoot.addView(handle)
+        // the handle's window is sized once, to the handle
+        val any = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+        handleRoot.measure(any, any)
+        handleParams.width = handleRoot.measuredWidth
+        handleParams.height = handleRoot.measuredHeight
+        handleRoot.alpha = 0.85f
         root.addView(buttons, LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT))
         root.alpha = 0.85f
 
@@ -104,8 +130,10 @@ class ControlsOverlay(private val service: InputService) {
         refresh()
     }
 
+
     fun show() {
-        runCatching { wm.addView(root, params) }.onFailure { MacroLog.e("could not show the controls", it) }
+        runCatching { wm.addView(handleRoot, handleParams) }.onFailure { MacroLog.e("could not show the controls", it) }
+        if (!isFolded) placePanel()
         Runner.listeners += listener
         LiveLog.listeners += liveListener
         liveLog.start()
@@ -115,28 +143,76 @@ class ControlsOverlay(private val service: InputService) {
         Runner.listeners -= listener
         LiveLog.listeners -= liveListener
         liveLog.stop()
-        runCatching { wm.removeView(root) }
+        buttons.animate().cancel()
+        runCatching { if (root.parent != null) wm.removeView(root) }
+        runCatching { wm.removeView(handleRoot) }
     }
 
-    /** Whether the buttons are folded away (only the ≡ handle shows). Main thread. */
-    val folded: Boolean get() = buttons.visibility != View.VISIBLE
+    /** Whether the buttons are folded away (only the round badge handle shows). Main thread. */
+    val folded: Boolean get() = isFolded
 
     /**
-     * Fold the buttons down to the handle, or unfold them: for Claude (the connector's
-     * floating_controls tool, and before a tap the unfolded window would swallow). Main thread.
+     * Fold the buttons up into the handle, or unfold them: for Claude (the connector's
+     * floating_controls tool, and before a tap the unfolded window would swallow) at once, and
+     * for a tap on the handle with the slide. Main thread.
      */
-    fun setFolded(fold: Boolean) {
-        if (fold) picker.visibility = View.GONE
-        buttons.visibility = if (fold) View.GONE else View.VISIBLE
-        relayout()
+    fun setFolded(fold: Boolean, animate: Boolean = false) {
+        if (fold == isFolded) return
+        isFolded = fold
+        buttons.animate().cancel()
+        if (!fold) {
+            placePanel(slide = animate)
+            return
+        }
+        val gone = {
+            picker.visibility = View.GONE
+            runCatching { if (root.parent != null) wm.removeView(root) }
+            buttons.translationY = 0f; buttons.alpha = 1f
+        }
+        if (animate && root.parent != null && root.height > 0) {
+            buttons.animate().translationY(-root.height.toFloat()).alpha(0f).setDuration(SLIDE_MS)
+                .setInterpolator(android.view.animation.AccelerateInterpolator()).withEndAction { if (isFolded) gone() }.start()
+        } else gone()
     }
 
-    /** The window's area on the screen in screen pixels (taps there reach these buttons, not the game). Main thread. */
+    /** The windows' area on the screen in screen pixels (taps there reach these buttons, not the game). Main thread. */
     fun area(): android.graphics.Rect? {
-        if (!root.isAttachedToWindow || root.width == 0) return null
-        val at = IntArray(2)
-        root.getLocationOnScreen(at)
-        return android.graphics.Rect(at[0], at[1], at[0] + root.width, at[1] + root.height)
+        fun rect(v: View): android.graphics.Rect? {
+            if (!v.isAttachedToWindow || v.width == 0) return null
+            val at = IntArray(2)
+            v.getLocationOnScreen(at)
+            return android.graphics.Rect(at[0], at[1], at[0] + v.width, at[1] + v.height)
+        }
+        val r = rect(handleRoot) ?: return null
+        if (!isFolded) rect(root)?.let { r.union(it) }
+        return r
+    }
+
+    /** Size the buttons' window to its content and put it right under the handle; [slide] = slide the buttons down out of the badge. */
+    private fun placePanel(slide: Boolean = false) {
+        runCatching {
+            if (handleRoot.parent == null) return@runCatching // not on screen
+            val any = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
+            root.measure(any, any)
+            params.width = root.measuredWidth
+            params.height = root.measuredHeight
+            params.x = handleParams.x
+            params.y = handleParams.y + handleParams.height
+            if (slide) { buttons.alpha = 0f; buttons.translationY = -params.height.toFloat() }
+            if (root.parent != null) wm.updateViewLayout(root, params) else wm.addView(root, params)
+            if (slide) {
+                // start once the window has its new size, so nothing is drawn at the old one
+                root.viewTreeObserver.addOnPreDrawListener(object : android.view.ViewTreeObserver.OnPreDrawListener {
+                    override fun onPreDraw(): Boolean {
+                        if (root.width != params.width || root.height != params.height) return true
+                        root.viewTreeObserver.removeOnPreDrawListener(this)
+                        if (!isFolded) buttons.animate().translationY(0f).alpha(1f).setDuration(SLIDE_MS)
+                            .setInterpolator(android.view.animation.DecelerateInterpolator()).start()
+                        return true
+                    }
+                })
+            }
+        }.onFailure { MacroLog.e("could not show the buttons", it) }
     }
 
     private fun start() {
@@ -165,17 +241,8 @@ class ControlsOverlay(private val service: InputService) {
 
     /** The overlay window keeps the size it was first laid out with: re-measure after the content changes. */
     private fun relayout() {
-        root.post {
-            runCatching {
-                if (!root.isAttachedToWindow) return@runCatching
-                // measure the content ourselves and size the window to it (WRAP_CONTENT doesn't grow it)
-                val any = View.MeasureSpec.makeMeasureSpec(0, View.MeasureSpec.UNSPECIFIED)
-                root.measure(any, any)
-                params.width = root.measuredWidth
-                params.height = root.measuredHeight
-                wm.updateViewLayout(root, params)
-            }
-        }
+        // measure the content ourselves and size the window to it (WRAP_CONTENT doesn't grow it)
+        root.post { if (!isFolded && root.parent != null) placePanel() }
     }
 
     /** Show or hide the macro picker; picking one makes it what ▶ starts. */
@@ -256,16 +323,17 @@ class ControlsOverlay(private val service: InputService) {
         // the macro sees them too); tap the handle to unfold for pause/stop
         if (Runner.isRunning != wasRunning) {
             wasRunning = Runner.isRunning
-            buttons.visibility = if (wasRunning) View.GONE else View.VISIBLE
-            if (wasRunning) picker.visibility = View.GONE
+            setFolded(wasRunning, animate = true)
         }
         val color = when {
             Runner.isPaused -> Color.parseColor("#F9A825")
-            Runner.isRunning -> Color.parseColor("#2E7D32")
-            else -> Color.GRAY
+            Runner.isRunning -> Color.parseColor("#43A047")
+            else -> Color.TRANSPARENT
         }
-        (handle.background as GradientDrawable).setColor(color)
-        playPause.text = if (Runner.isRunning && !Runner.isPaused) "❚❚" else "▶"
+        ring.setColor(color)
+        val pause = Runner.isRunning && !Runner.isPaused
+        playPause.background = if (pause) pauseIcon else playIcon
+        playPause.contentDescription = if (pause) "Pause" else if (Runner.isPaused) "Resume" else "Start"
         selected.label("▸ " + (Runner.current?.takeIf { Runner.isRunning } ?: LastRun.load(service)?.first ?: "pick a macro"))
         relayout()
     }
@@ -276,33 +344,35 @@ class ControlsOverlay(private val service: InputService) {
         handle.setOnTouchListener { _, e ->
             when (e.action) {
                 MotionEvent.ACTION_DOWN -> {
-                    downX = e.rawX; downY = e.rawY; startX = params.x; startY = params.y; moved = false
+                    downX = e.rawX; downY = e.rawY; startX = handleParams.x; startY = handleParams.y; moved = false
                 }
                 MotionEvent.ACTION_MOVE -> {
                     val dx = e.rawX - downX; val dy = e.rawY - downY
                     if (abs(dx) > dp(6) || abs(dy) > dp(6)) moved = true
                     if (moved) {
-                        params.x = startX - dx.toInt(); params.y = startY + dy.toInt() // x counts from the right edge
-                        runCatching { wm.updateViewLayout(root, params) }
+                        handleParams.x = startX - dx.toInt(); handleParams.y = startY + dy.toInt() // x counts from the right edge
+                        runCatching { wm.updateViewLayout(handleRoot, handleParams) }
+                        if (!isFolded && root.parent != null) {
+                            params.x = handleParams.x; params.y = handleParams.y + handleParams.height
+                            runCatching { wm.updateViewLayout(root, params) }
+                        }
                     }
                 }
-                MotionEvent.ACTION_UP -> if (!moved) {
-                    buttons.visibility = if (buttons.visibility == View.VISIBLE) View.GONE else View.VISIBLE
-                    relayout()
-                }
+                MotionEvent.ACTION_UP -> if (!moved) setFolded(!isFolded, animate = true)
             }
             true
         }
     }
 
-    private fun round(label: String, color: Int) = TextView(service).apply {
-        text = label
-        setTextColor(Color.WHITE)
-        textSize = 16f
-        gravity = Gravity.CENTER
-        background = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(color) }
+    /** A round icon button (the art is a disc on a transparent square, so the shadow is made round too). */
+    private fun round(icon: Int, description: String) = View(service).apply {
+        background = service.getDrawable(icon)
+        contentDescription = description
         layoutParams = LinearLayout.LayoutParams(dp(44), dp(44)).apply { setMargins(0, dp(4), 0, dp(4)) }
-        if (Build.VERSION.SDK_INT >= 21) elevation = dp(3).toFloat()
+        outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) = outline.setOval(0, 0, view.width, view.height)
+        }
+        elevation = dp(3).toFloat()
     }
 
     /** Set a pill's text and size it to fit (the overlay window doesn't size text views on its own). */
@@ -314,14 +384,19 @@ class ControlsOverlay(private val service: InputService) {
 
     private fun pill(initial: String) = TextView(service).apply {
         text = initial
-        setTextColor(Color.WHITE)
-        textSize = 12f
+        // styled like the round buttons: gold serif lettering on deep blue inside a gold rim
+        setTextColor(GOLD)
+        typeface = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD)
+        setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.parseColor("#CC000814"))
+        textSize = 13f
         isSingleLine = true
         ellipsize = android.text.TextUtils.TruncateAt.END
         maxWidth = dp(220)
         gravity = Gravity.CENTER_VERTICAL
         setPadding(dp(10), dp(6), dp(10), dp(6))
-        background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Color.parseColor("#DD37474F")) }
+        background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(BLUE_TOP, BLUE_BOTTOM)).apply {
+            cornerRadius = dp(16).toFloat(); setStroke(dp(2), RIM)
+        }
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             .apply { setMargins(0, dp(3), 0, dp(3)); gravity = Gravity.END }
         label(initial)
@@ -342,5 +417,14 @@ class ControlsOverlay(private val service: InputService) {
     companion object {
         private const val IN_USE = "in_use"
         private const val PICKER_W = 230
+        /** Width of the state ring around the handle, dp. */
+        private const val RING = 3
+        /** How long the buttons take to slide out of / back into the badge, ms. */
+        private const val SLIDE_MS = 200L
+        /** The buttons' art: gold on deep blue, with a gold rim. */
+        private val GOLD = Color.parseColor("#E9C77B")
+        private val RIM = Color.parseColor("#C9A15A")
+        private val BLUE_TOP = Color.parseColor("#1D4FA6")
+        private val BLUE_BOTTOM = Color.parseColor("#0A1F5C")
     }
 }

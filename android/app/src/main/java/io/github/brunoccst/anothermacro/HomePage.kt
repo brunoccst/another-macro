@@ -54,7 +54,7 @@ class HomePage(private val a: MainActivity) {
             step(this, "1", "Set up", "System → Setup: turn on taps and allow screen capture. Use ≡ at the top left to move between pages.")
             step(this, "2", "Pick your macros", "Macros: the tabs group them (Daily, Another Dungeon, Farming, Game, Basic…) and the search finds them by name. The app downloads them from the GitHub project and keeps them up to date. Switch on the ones you use: they show in the \"In use\" tab.")
             step(this, "3", "Select one", "Tap a macro to see what it does (its diagram), set its options and tap \"Select this macro\".")
-            step(this, "4", "Play it from the floating buttons", "Over the game: ▶ start, ❚❚ pause, ■ stop, ↻ restart, and the macro's name to pick another (tabs, like the Macros page). Drag ≡ to move them, tap it to fold them.")
+            step(this, "4", "Play it from the floating buttons", "Over the game: ▶ start, ❚❚ pause, ■ stop, ↻ restart, and the macro's name to pick another (tabs, like the Macros page). Drag the round AM badge on top to move them, tap it to fold them.")
             step(this, "5", "Claude (optional)", "System → Claude: turn on the phone connector to let Claude play or write macros from your Claude chat.", last = true)
         })
         column.addView(Ui.button(a, "Open macros", primary = true) { a.show(MainActivity.Page.MACROS) })
