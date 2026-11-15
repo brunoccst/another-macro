@@ -801,13 +801,22 @@ object AnotherDungeon {
         task(r, "Map ${r.map + 1}: ${leg.target}")
         walkLeg(r, ms, leg, at)
         fight(r)
-        // up to two taps: a tap on a sparkle that got no banner (seen once, 2026-11-15) is tried again
+        // up to three taps: a tap on a sparkle that got no banner is tried again (seen twice by 2026-11-15; once two
+        // taps in a row at x 0.46-0.47, right by the party in the middle of the screen, got nothing: from the 2nd
+        // try a sparkle that close is first stepped away from, so the tap lands on it and not on the party)
         var taps = 0
         // (3 s to see it, then 3 s more after a tap that got no banner)
         var end = System.currentTimeMillis() + 3000
-        while (System.currentTimeMillis() < end && taps < 2) {
+        while (System.currentTimeMillis() < end && taps < 3) {
             val p = sparkle(ctx)
             if (p == null) { ctx.wait(0.2); continue }
+            if (taps > 0 && abs(p.x - 0.5) < SPARKLE_NEAR) {
+                MacroLog.i("sparkle at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)}) right by the party: a step away first")
+                val away = if (p.x < 0.5) 1.0 else -1.0
+                ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * away, 0.65), SPARKLE_STEP_MS); ctx.wait(0.6)
+                fight(r)
+                continue
+            }
             end = System.currentTimeMillis() + 7000
             taps++
             MacroLog.i("sparkle at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)})")
@@ -816,7 +825,8 @@ object AnotherDungeon {
             val until = System.currentTimeMillis() + 3000
             while (System.currentTimeMillis() < until) {
                 val read = ctx.readText(POPUP)
-                if (read.any { "obtained" in Ocr.norm(it.text) }) {
+                // ("obtain": OCR reads the banner as "Obtalned" at times)
+                if (read.any { val t = Ocr.norm(it.text); "obtain" in t || "obtalned" in t }) {
                     MacroLog.i("sparkle: ${read.joinToString(" ") { it.text }.take(120)}")
                     noteItems(r, read)
                     ctx.count("sparkles")
@@ -832,7 +842,15 @@ object AnotherDungeon {
                 }
                 ctx.wait(0.2)
             }
-            MacroLog.i("tapped the sparkle, no \"Obtained\" banner")
+            MacroLog.i("tapped the sparkle, no \"Obtained\" banner: ${ctx.readText().joinToString(" | ") { it.text }.take(160)}")
+            // a picture of the screen for working out why (the app's own storage, never shared)
+            if (taps == 1) runCatching {
+                ctx.colorMat()?.let { m ->
+                    val f = java.io.File(ctx.debugDir, "no-sparkle-banner-map${r.map + 1}.png")
+                    org.opencv.imgcodecs.Imgcodecs.imwrite(f.path, m); m.release()
+                    MacroLog.i("saved ${f.name} in the app's debug folder")
+                }
+            }
             waitForField(ctx, 4)
         }
         if (taps > 0) return
@@ -933,7 +951,12 @@ object AnotherDungeon {
             }
         }
         Route.disturbed = false
-        if (r.unsure && !resync("after looking around for the chest")) { r.pos = p; offPath("not on the street the path expects"); return }
+        // a leg to a sparkle with no stairs on the way needs no exact spot: the sparkle is found on screen, and its
+        // pickup puts the party on its spot. The unsure spot (after clearing the map, say) is read later if the
+        // sparkle doesn't show (saves a ~3.5 s area-map look, e.g. Sea of Heat's first leg)
+        val roughOk = leg.sparkle != null && leg.steps.none { it is Route.Step.Flick }
+        if (r.unsure && roughOk) MacroLog.i("path to ${leg.target}: no stairs, no map look for the spot")
+        if (r.unsure && !roughOk && !resync("before the leg (the spot is unsure)")) { r.pos = p; offPath("not on the street the path expects"); return }
         for (st in leg.steps) {
             if (Route.segOf(l, p) != Route.segOf(l, plan)) { r.pos = p; offPath("not on the street the path expects"); return }
             when (st) {
@@ -1136,6 +1159,11 @@ object AnotherDungeon {
         }
         MacroLog.i("the exit didn't take us anywhere yet")
     }
+
+    /** A sparkle this close to the screen's middle (where the party stands) is stepped away from before a retap. */
+    private const val SPARKLE_NEAR = 0.06
+    /** That step: a short walk. */
+    private const val SPARKLE_STEP_MS = 350L
 
     /** Fights on one map before it is taken as cleared even without the banner (a safety cap). */
     internal const val CLEAR_MAX_BATTLES = 15

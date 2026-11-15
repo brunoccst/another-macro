@@ -70,14 +70,18 @@ object Charts {
                 canvas.drawPath(path, barPaint)
             }
             canvas.drawLine(left, bottom, right, bottom, axis)
-            // labels: first, middle and last (more when they fit)
-            val every = ((label.measureText("00/00") + 10 * d) / w).toInt().coerceAtLeast(1)
-            for ((i, b) in bars.withIndex()) {
-                if (i % every != 0 && i != bars.lastIndex) continue
-                if (i != bars.lastIndex && bars.lastIndex - i < every) continue
+            // labels: as many as fit with clear space between them, counted back from the last
+            // bar (today) so it is always labelled and the spacing stays even
+            val widest = bars.maxOf { label.measureText(it.label) }
+            val every = kotlin.math.ceil((widest + 12 * d) / w).toInt().coerceAtLeast(1)
+            var lastStart = Float.MAX_VALUE
+            for (i in bars.lastIndex downTo 0 step every) {
+                val b = bars[i]
                 val tw = label.measureText(b.label)
                 val x = (left + w * i + w / 2 - tw / 2).coerceIn(left, right - tw)
+                if (x + tw + 6 * d > lastStart) continue  // never let two labels touch
                 canvas.drawText(b.label, x, height - 5 * d, label)
+                lastStart = x
             }
             val text = if (selected in bars.indices) bars[selected].detail else "Touch a bar for details"
             focus.color = if (selected in bars.indices) Ui.TEXT else Ui.MUTED
