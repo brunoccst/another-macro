@@ -28,13 +28,13 @@ object Route {
         data class Flick(val up: Boolean) : Step() { override fun toString() = if (up) "U" else "D" }
     }
 
-    /** One stop of a path: a chest ([chest], 0-based), a pearl sparkle ([pearl], 0-based) or the exit, and the steps to it. */
-    data class Leg(val target: String, val chest: Int?, val steps: List<Step>, val pearl: Int? = null)
+    /** One stop of a path: a chest ([chest], 0-based), a sparkle ([sparkle], 0-based) or the exit, and the steps to it. */
+    data class Leg(val target: String, val chest: Int?, val steps: List<Step>, val sparkle: Int? = null)
 
     fun parseLeg(raw: List<*>): Leg {
         val target = raw.first().toString().trim()
         val chest = Regex("""^chest\s+(\d+)$""").find(target)?.groupValues?.get(1)?.toInt()?.minus(1)
-        val pearl = Regex("""^pearl\s+(\d+)$""").find(target)?.groupValues?.get(1)?.toInt()?.minus(1)
+        val sparkle = Regex("""^sparkle\s+(\d+)$""").find(target)?.groupValues?.get(1)?.toInt()?.minus(1)
         val steps = raw.drop(1).map { s ->
             val t = s.toString().trim().split(Regex("\\s+"))
             when (t[0]) {
@@ -43,7 +43,7 @@ object Route {
                 else -> throw IllegalArgumentException("unknown path step '$s'")
             }
         }
-        return Leg(target, chest, steps, pearl)
+        return Leg(target, chest, steps, sparkle)
     }
 
     /** walk.yaml: hold time from rest ↔ distance on the area map. */

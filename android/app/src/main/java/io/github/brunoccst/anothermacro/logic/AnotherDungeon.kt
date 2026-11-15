@@ -34,13 +34,13 @@ object AnotherDungeon {
                        val enemies: Boolean = true,
                        /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
                        val steps: List<String>? = null,
-                       /** T. Black Pearl sparkles (Sea of Ice): stops on the path, tapped when they show. */
-                       val pearls: List<Point> = emptyList()) {
+                       /** Items picked up from the ground (green/blue sparks, e.g. T. Black Pearls): stops on the path, tapped when they show. */
+                       val sparkles: List<Point> = emptyList()) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
             chests = chests.map { Point(it.x + dx, it.y) }, exit = exit?.let { Point(it.x + dx, it.y) },
-            pearls = pearls.map { Point(it.x + dx, it.y) },
+            sparkles = sparkles.map { Point(it.x + dx, it.y) },
         )
     }
     data class Spec(
@@ -88,7 +88,7 @@ object AnotherDungeon {
                 (m["path"] as? List<*>)?.mapNotNull { (it as? List<*>)?.let { leg -> Route.parseLeg(leg) } }?.takeIf { it.isNotEmpty() },
                 m["enemies"] != false,
                 (m["steps"] as? List<*>)?.map { it.toString() },
-                lists(m["pearls"]).map { Point(it[0], it[1]) },
+                lists(m["sparkles"]).map { Point(it[0], it[1]) },
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
@@ -104,7 +104,7 @@ object AnotherDungeon {
         var map = -1
         var shift = 0.0
         var chestsDone = 0
-        /** Following a path: how many of its legs (chests, pearls) are done. */
+        /** Following a path: how many of its legs (chests, sparkles) are done. */
         var legsDone = 0
         var cleared = false
         var onBossMap = false
@@ -265,12 +265,12 @@ object AnotherDungeon {
                     // the fights moved the party a little: read its spot once before the path
                     if (r.pos != null) { r.unsure = true; r.lastDir = 0.0 }
                 }
-                // on a path: its legs in order (chests, pearls), then the exit
+                // on a path: its legs in order (chests, sparkles), then the exit
                 ms.path != null && r.pos != null && r.legsDone < ms.path.size && ms.path[r.legsDone].target != "exit" -> {
                     val leg = ms.path[r.legsDone]
                     when {
                         leg.chest != null && leg.chest < ms.chests.size -> takeChest(r, ms, ms.chests[leg.chest])
-                        leg.pearl != null && leg.pearl < ms.pearls.size -> takePearl(r, ms, leg, ms.pearls[leg.pearl])
+                        leg.sparkle != null && leg.sparkle < ms.sparkles.size -> takeSparkle(r, ms, leg, ms.sparkles[leg.sparkle])
                         else -> MacroLog.i("path leg ${leg.target}: nothing to do")
                     }
                     r.legsDone++
@@ -745,14 +745,14 @@ object AnotherDungeon {
     }
 
     /**
-     * A T. Black Pearl stop: walk the path's leg there, then watch a few frames for the green
-     * sparkle (it twinkles) and tap it. The game shows only as many as the map's Pip count, so a
-     * stop without one is fine. The party can step toward the sparkle: the spot is read again
+     * A sparkle stop: walk the path's leg there, then watch a few frames for the green sparkle (it
+     * twinkles) and tap it. Some don't show every run (Sea of Ice: only as many T. Black Pearls as
+     * the map's Pip count), so a stop without one is fine. The party can step toward the sparkle: the spot is read again
      * before the next leg.
      */
-    private fun takePearl(r: Run, ms: MapSpec, leg: Route.Leg, at: Point) {
+    private fun takeSparkle(r: Run, ms: MapSpec, leg: Route.Leg, at: Point) {
         val ctx = r.ctx
-        task(r, "Map ${r.map + 1}: ${leg.target} (T. Black Pearls)")
+        task(r, "Map ${r.map + 1}: ${leg.target}")
         walkLeg(r, ms, leg, at)
         fight(r)
         // up to two taps: a tap on a sparkle that got no banner (seen once, 2026-11-15) is tried again
@@ -764,16 +764,16 @@ object AnotherDungeon {
             if (p == null) { ctx.wait(0.2); continue }
             end = System.currentTimeMillis() + 7000
             taps++
-            MacroLog.i("pearl sparkle at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)})")
+            MacroLog.i("sparkle at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)})")
             ctx.tapExact(p); ctx.wait(0.5)
             r.unsure = true
             val until = System.currentTimeMillis() + 3000
             while (System.currentTimeMillis() < until) {
                 val read = ctx.readText(POPUP)
                 if (read.any { "obtained" in Ocr.norm(it.text) }) {
-                    MacroLog.i("pearl: ${read.joinToString(" ") { it.text }.take(120)}")
+                    MacroLog.i("sparkle: ${read.joinToString(" ") { it.text }.take(120)}")
                     noteItems(r, read)
-                    ctx.count("pearls")
+                    ctx.count("sparkles")
                     ctx.tap(Point(0.5, 0.75)); ctx.wait(0.5)
                     if (!waitForField(ctx, 6)) fight(r)
                     return
@@ -784,13 +784,13 @@ object AnotherDungeon {
             waitForField(ctx, 4)
         }
         if (taps > 0) return
-        MacroLog.i("no pearl sparkle by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
+        MacroLog.i("no sparkle by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
     }
 
     /**
-     * A green sparkle on the field (T. Black Pearls): the biggest pale-green blob on the ground (lower
+     * A green sparkle on the field (an item to pick up, e.g. T. Black Pearls): the biggest pale-green blob on the ground (lower
      * half, away from the edges and buttons), or null. Sparkles sat at y 0.53-0.57; a green thing at
-     * y 0.33 in the background was no pearl (2026-11-15).
+     * y 0.33 in the background was no sparkle (2026-11-15).
      */
     private fun sparkle(ctx: Context): Point? {
         val bgr = ctx.colorMat() ?: return null
