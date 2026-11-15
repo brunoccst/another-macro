@@ -33,6 +33,8 @@ class DungeonOptionsTest {
         assertTrue(Party.matches("Dungeon", "dungeon"))
         assertTrue(Party.matches("Dungeon", "Dungon"))
         assertTrue(Party.matches("Party 3", "3"))
+        assertTrue(Party.matches("2 Dungeon ROnt Line", "Dungeon"))
+        assertFalse(Party.matches("Dungeons", "Dungeon x"))
         assertFalse(Party.matches("Party 13", "3"))
         assertFalse(Party.matches("Farming", "Dungeon"))
     }

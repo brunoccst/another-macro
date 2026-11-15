@@ -22,8 +22,8 @@ import kotlin.math.abs
 object Party {
     private val LEFT = Point(0.124, 0.553)
     private val RIGHT = Point(0.874, 0.553)
-    /** The party's name box at the top left. */
-    private val NAME = Region(0.17, 0.03, 0.30, 0.15)
+    /** The party's name in its box at the top left (right of the pen icon, above "Front Line"). */
+    private val NAME = Region(0.195, 0.04, 0.24, 0.10)
     /** The members' names under the portraits. */
     private val MEMBERS = Region(0.15, 0.58, 0.70, 0.11)
     /** At most this many switches (the game keeps 10 parties; the arrows wrap around). */
@@ -35,7 +35,8 @@ object Party {
         val w = Ocr.norm(want)
         if (t.isEmpty() || w.isEmpty()) return false
         if (w.all { it.isDigit() }) return t == "party $w" || t == "party$w" || Regex("""^(party )?0*$w( |$)""").containsMatchIn(t)
-        return t == w || Ocr.similarity(line, want) >= 0.85
+        // the name read with a stray word of the box around it ("2 Dungeon"): the name's words in a row
+        return t == w || Ocr.similarity(line, want) >= 0.85 || " $t ".contains(" $w ")
     }
 
     /** "with Altena" → "Altena"; else null. */
