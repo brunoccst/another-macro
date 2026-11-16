@@ -287,6 +287,9 @@ object AnotherDungeon {
         }
         repeat(300) {
             if (r.phantom) return phantomDone(r)
+            // the boss was beaten in a fight that ended the last step early (e.g. its question met
+            // while not on the map's own steps): the run is over
+            if (r.bossBeaten) return finish(r)
             val idx = r.nextMap ?: if (r.map >= 0 && !r.moved) r.map else whereAmI(r)
             r.moved = false
             r.nextMap = null
