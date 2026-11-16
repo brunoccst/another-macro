@@ -553,8 +553,10 @@ class MacrosPage(private val a: MainActivity) {
                 paramFields[key] = { cur }
                 continue
             }
+            // a number box keeps only a number (an old saved "all" becomes the side switch, below)
+            val text = if (p.isNumber && value.trim().removeSuffix(".0").toIntOrNull() == null) p.default else value
             val field = EditText(a).apply {
-                setText(value)
+                setText(text)
                 inputType = if (p.isNumber) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT
                 setSingleLine()
                 setTextColor(Ui.TEXT)
@@ -569,7 +571,7 @@ class MacrosPage(private val a: MainActivity) {
             }
             // the box and, on its side, a switch (all_keys beside runs) that greys the box out while on
             val (sideKey, sideParam) = side.key to side.value
-            var on = FlowScenario.typed(last[sideKey] ?: sideParam.default) == true
+            var on = FlowScenario.typed(last[sideKey] ?: sideParam.default) == true || value.trim().lowercase() == "all"
             fun grey() { field.isEnabled = !on; field.alpha = if (on) 0.4f else 1f }
             grey()
             paramFields[sideKey] = { on.toString() }
