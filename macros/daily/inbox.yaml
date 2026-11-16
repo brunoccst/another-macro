@@ -15,7 +15,7 @@ screens: [inbox_item, inbox, menu_open, field]
 unknown_timeout_s: 45
 
 setup:
-  - set: {done: false, menu_taps: 0, misses: 0, this_visit: 0, checks: 0, empty_looks: 0, connecting_looks: 0}
+  - set: {done: false, game_starts: 0, misses: 0, this_visit: 0, checks: 0, empty_looks: 0, connecting_looks: 0}
 
 handlers:
   inbox_item:   # an opened item: "The items below have been received" + the rewards, OK
@@ -68,31 +68,38 @@ handlers:
                         - status: "closing the inbox"
                       else:
                         - status: "reopening the inbox for the items further down"
-                    - set: {this_visit: 0, misses: 0, menu_taps: 0, checks: 0, empty_looks: 0}
+                    - set: {this_visit: 0, misses: 0, checks: 0, empty_looks: 0}
                     - tap: inbox_close_button
                     - wait: 1.5
 
+  # Menu → Inbox (also to reopen it): the basic macro open-menu-page (it opens the menu from the
+  # field, and the game first if it isn't open)
   menu_open:
     - if: done
       then:
         - back: true
         - wait: 1.5
         - stop: "inbox: {stats.items_opened} item(s) opened"
-    - set: {menu_taps: menu_taps + 1}
-    - if: menu_taps > 4
-      then: [{stop: "the Inbox button didn't open the inbox"}]
-    - status: "menu: opening the Inbox"
-    - tap: menu_inbox_button
-    - wait: 2
+    - run: {macro: open-menu-page, params: {page: "'inbox'"}}
+    - if: result != 'inbox open'
+      then: [{stop: "{result}"}]
 
   field:
     - if: done
       then: [{stop: "inbox: {stats.items_opened} item(s) opened"}]
-    - run: open-menu
-    - if: result != 'menu open'
+    - run: {macro: open-menu-page, params: {page: "'inbox'"}}
+    - if: result != 'inbox open'
       then: [{stop: "{result}"}]
 
 unknown:
+  # the game isn't open: open-menu-page starts it (once) and goes back to the inbox
   - if: not game_in_front()
-    then: [{stop: "the game is not in front"}]
-  - wait: 1.5
+    then:
+      - if: done or game_starts > 0
+        then: [{stop: "the game is not in front"}]
+      - set: {game_starts: game_starts + 1}
+      - run: {macro: open-menu-page, params: {page: "'inbox'"}}
+      - if: result != 'inbox open'
+        then: [{stop: "{result}"}]
+    else:
+      - wait: 1.5

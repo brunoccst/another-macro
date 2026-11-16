@@ -1,6 +1,6 @@
 # The Shop's daily commercial: Menu → Shop → play button (top-left) → 10 free Chronos Stones.
 # The commercial itself is the basic macro watch-ad (watch it, close it, take the reward); this
-# one only gets to the shop, taps the play button, and closes the shop when there's none left.
+# one gets to the shop (the basic macro open-menu-page), taps the play button, and closes the shop when there's none left.
 # Only the play button, OK/Close of the reward dialogs and the shop's X are ever tapped:
 # nothing in the shop itself is touched, so nothing can be bought.
 name: shop-ad
@@ -16,7 +16,7 @@ screens: [premium_thanks, shop_ok_dialog, shop, menu_open, field]
 unknown_timeout_s: 120
 
 setup:
-  - set: {game_starts: 0, done: false, menu_taps: 0, shop_misses: 0, shop_since: 0}
+  - set: {game_starts: 0, done: false, shop_misses: 0, shop_since: 0}
 
 handlers:
   shop:
@@ -68,33 +68,39 @@ handlers:
     - tap: dialog_ok_button
     - wait: 2
 
+  # Menu → Shop: the basic macro open-menu-page (it opens the menu from the field, and the game
+  # first if it isn't open)
   menu_open:
     - if: done
       then:
         - back: true
         - wait: 1.5
         - stop: "shop: {stats.ad_rewards} commercial reward(s) this run ({stats.ads_started} started; none = already watched today)"
-    - set: {menu_taps: menu_taps + 1}
-    - if: menu_taps > 4
-      then: [{stop: "the Shop button didn't open the shop"}]
-    - status: "menu: opening the Shop"
-    - tap: menu_shop_button
     - set: {shop_since: 0, shop_misses: 0}
-    - wait: 3
+    - run: {macro: open-menu-page, params: {page: "'shop'"}}
+    - if: result != 'shop open'
+      then: [{stop: "{result}"}]
 
   field:
     - if: done
       then: [{stop: "shop: {stats.ad_rewards} commercial reward(s) this run ({stats.ads_started} started; none = already watched today)"}]
-    - run: open-menu
-    - if: result != 'menu open'
+    - set: {shop_since: 0, shop_misses: 0}
+    - run: {macro: open-menu-page, params: {page: "'shop'"}}
+    - if: result != 'shop open'
       then: [{stop: "{result}"}]
 
 unknown:
-  # the game isn't open: the basic macro start-game opens it (once)
+  # the game isn't open: open-menu-page starts it (once) and goes back to the shop
   - if: not game_in_front()
     then:
       - if: game_starts > 0
         then: [{stop: "the game is not in front"}]
       - set: {game_starts: game_starts + 1}
-      - run: start-game
-  - wait: 2
+      - if: done
+        then: [{stop: "shop: {stats.ad_rewards} commercial reward(s) this run (then the game closed)"}]
+      - set: {shop_since: 0, shop_misses: 0}
+      - run: {macro: open-menu-page, params: {page: "'shop'"}}
+      - if: result != 'shop open'
+        then: [{stop: "{result}"}]
+    else:
+      - wait: 2

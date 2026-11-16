@@ -2,7 +2,7 @@
 # The counter counts groups: one Watch Video can play 1 to 3 commercials in a row (watch-ad
 # watches the whole group).
 # Each commercial is the basic macro watch-ad (watch it, close it, take the reward); this one
-# opens the ad chest, taps Watch Video and taps through the chest that follows.
+# reaches the ad chest (the basic macro open-menu-page), taps Watch Video and taps through the chest that follows.
 # Premium subscribers get a thank-you instead of the commercial; the chest opens either way.
 name: daily-ads
 group: daily
@@ -16,7 +16,7 @@ screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, ad_chest, menu_o
 unknown_timeout_s: 120
 
 setup:
-  - set: {game_starts: 0, menu_taps: 0}
+  - set: {game_starts: 0}
 
 handlers:
   ad_chest:
@@ -59,33 +59,34 @@ handlers:
     - tap: confirm_ok_button
     - wait: 1.5
 
+  # Menu → video icon: the basic macro open-menu-page (it opens the menu from the field, and the
+  # game first if it isn't open); it says so when the video icon's red "!" is gone (all done today)
   menu_open:
-    # the red "!" on the video icon is gone once all of today's commercials are used
-    - if: not found('menu_ad_badge')
-      then:
-        - back: true
-        - stop: "all of today's commercials are done ({stats.ads_started} watched this run, {stats.rewards} rewards)"
-    - set: {menu_taps: menu_taps + 1}
-    - status: "menu: opening the commercials (video icon)"
-    - if: menu_taps > 4
-      then: [{stop: "the video icon didn't open the ad chest (maybe no commercials today)"}]
-    - tap: menu_ad_icon
-    - wait: 2.5
+    - run: {macro: open-menu-page, params: {page: "'ads'"}}
+    - if: result == 'no commercials left today'
+      then: [{stop: "all of today's commercials are done ({stats.ads_started} watched this run, {stats.rewards} rewards)"}]
+    - if: result != 'ads open'
+      then: [{stop: "{result}"}]
 
   field:
-    - run: open-menu
-    - if: result != 'menu open'
+    - run: {macro: open-menu-page, params: {page: "'ads'"}}
+    - if: result == 'no commercials left today'
+      then: [{stop: "all of today's commercials are done ({stats.ads_started} watched this run, {stats.rewards} rewards)"}]
+    - if: result != 'ads open'
       then: [{stop: "{result}"}]
 
 unknown:
-  # the game isn't open: the basic macro start-game opens it (once)
+  # the game isn't open: open-menu-page starts it (once) and goes back to the commercials
   - if: not game_in_front()
     then:
       - if: game_starts > 0
         then: [{stop: "the game is not in front"}]
       - set: {game_starts: game_starts + 1}
-      - run: start-game
-  # the chest opening: tap through it
-  - status: "opening the chest"
-  - tap: [0.5, 0.65]
-  - wait: 1.5
+      - run: {macro: open-menu-page, params: {page: "'ads'"}}
+      - if: result != 'ads open'
+        then: [{stop: "{result}"}]
+    else:
+      # the chest opening: tap through it
+      - status: "opening the chest"
+      - tap: [0.5, 0.65]
+      - wait: 1.5

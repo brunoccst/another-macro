@@ -51,14 +51,21 @@ class MacroLibraryTest {
         val macros = Scenarios.parseAll(LibraryFiles(repo)).associateBy { it.name }
         for (n in listOf("start-game", "daily-ads", "shop-ad")) assertTrue(n, "watch-ad" in (macros.getValue(n) as FlowScenario).uses)
         assertEquals("basic", macros.getValue("watch-ad").group)
-        for (n in listOf("watch-ad", "battle", "grind-battles", "open-menu", "back-to-field")) assertEquals(n, "basic", macros.getValue(n).group)
+        for (n in listOf("watch-ad", "battle", "grind-battles", "open-menu", "open-menu-page", "back-to-field")) assertEquals(n, "basic", macros.getValue(n).group)
         // every battle goes through the battle macro
         assertTrue("battle" in (macros.getValue("cat-scratchbook") as FlowScenario).uses)
         assertTrue("battle" in (macros.getValue("grind-battles") as FlowScenario).uses)
         assertTrue(macros.getValue("battle").params.keys.containsAll(listOf("skill_1", "skill_4")))
         assertFalse(macros.getValue("grind-battles").params.containsKey("skill_1"))
         assertTrue("back-to-field" in (macros.getValue("stop-game") as FlowScenario).uses)
-        for (n in listOf("daily-ads", "shop-ad")) assertTrue(n, (macros.getValue(n) as FlowScenario).uses.containsAll(listOf("open-menu", "start-game")))
+        // the menu pages go through open-menu-page, which starts the game and opens the menu itself
+        for (n in listOf("daily-ads", "shop-ad", "inbox")) {
+            val m = macros.getValue(n) as FlowScenario
+            assertEquals(n, listOf("open-menu-page"), m.uses.filter { it.startsWith("open-menu") || it == "start-game" })
+            assertFalse(n, m.params.containsKey("open-menu-page.page"))   // each one passes its own page
+            assertTrue(n, m.params.containsKey("open-menu.max_taps") && m.params.containsKey("start-game.watch_ad"))
+        }
+        assertTrue((macros.getValue("open-menu-page") as FlowScenario).uses.containsAll(listOf("open-menu", "start-game")))
     }
 
     @Test fun mapsAreFoughtUntilTheEnemiesDisappear() {

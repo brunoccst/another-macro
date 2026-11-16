@@ -11,7 +11,8 @@ Runs the macros on the phone **by itself**: no PC, no ADB, no root.
 - **Basic macros** other macros run: `watch-ad` (watch a commercial, close it, take the reward),
   `battle` (one battle, skill per party slot: every battle uses its skills), `grind-battles`
   (walk and run `battle` for every encounter),
-  `open-menu`, `back-to-field`, and `start-game` when the game isn't open. See `macros/README.md`.
+  `open-menu`, `open-menu-page` (a menu page, starting the game when it isn't open), `back-to-field`,
+  `pick-party`. See `macros/README.md`.
 - **Claude:** let your own Claude chat play or write macros through the phone connector (see below).
 - **Floating controls** over the game: the selected macro (tap it to pick another, in tabs like
   the Macros page, in a list that scrolls), start/pause/stop/restart, shown while screen capture is on.
