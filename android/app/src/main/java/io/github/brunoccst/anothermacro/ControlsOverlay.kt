@@ -17,14 +17,14 @@ import android.widget.TextView
 import kotlin.math.abs
 
 /**
- * Floating controls over the game (round gold-on-blue icons from res/drawable-nodpi/overlay_*):
+ * Floating controls over the game (round chrome-and-navy icons from res/drawable-nodpi/overlay_*):
  * the selected macro (tap it to pick another: tabs like the
  * Macros page, in a list that scrolls), and start / pause-resume / stop / restart it without
  * leaving the game, and ⌂ swaps between this app and the game: it opens this app, or, when this
  * app is already in front, brings the game back (no trip through the home screen). Drawn as an accessibility overlay (no
  * "draw over other apps" permission needed). Drag the handle to move it; tap
  * the handle (the round "AM" badge) to fold the buttons away. A ring around the handle shows
- * the state: none = idle, a green arc spinning round the badge = running, a steady amber ring = paused.
+ * the state: none = idle, a bright chrome-blue arc spinning round the badge = running, a steady amber ring = paused.
  *
  * It sits on the screen edge, away from the game's buttons; macros that tap
  * near it could hit it, so move it if it's in the way.
@@ -62,7 +62,7 @@ class ControlsOverlay(private val service: InputService) {
     private val picker = LinearLayout(service).apply {
         orientation = LinearLayout.VERTICAL
         visibility = View.GONE
-        background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Color.parseColor("#E61A1F26")) }
+        background = GradientDrawable().apply { cornerRadius = dp(14).toFloat(); setColor(Ui.OVERLAY_BG); setStroke(dp(1), Ui.LINE) }
         setPadding(dp(6), dp(6), dp(6), dp(6))
     }
     private val pickerTabs = LinearLayout(service).apply { orientation = LinearLayout.HORIZONTAL }
@@ -265,8 +265,8 @@ class ControlsOverlay(private val service: InputService) {
             pickerTabs.addView(TextView(service).apply {
                 text = title
                 textSize = 11.5f
-                setTextColor(if (sel) Color.parseColor("#0B1A22") else Color.WHITE)
-                background = GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(if (sel) Color.parseColor("#4FC3F7") else Color.parseColor("#DD37474F")) }
+                setTextColor(if (sel) Ui.ON_ACCENT else Ui.TEXT)
+                background = if (sel) Ui.chrome(dp(12).toFloat()) else GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(Ui.OVERLAY_ITEM) }
                 setPadding(dp(10), dp(5), dp(10), dp(5))
                 setOnClickListener {
                     tab = id
@@ -281,7 +281,7 @@ class ControlsOverlay(private val service: InputService) {
         val sections = if (tab == IN_USE) Groups.sort(MacroChoice.used(service, all)) else groups.filter { it.first.id == tab }
         if (sections.isEmpty()) pickerList.addView(TextView(service).apply {
             text = if (all.isEmpty()) "No macros yet: open the app once with internet to download them." else "No macros here."
-            setTextColor(Color.parseColor("#B0BEC5"))
+            setTextColor(Ui.MUTED)
             textSize = 12f
             setPadding(dp(8), dp(8), dp(8), dp(8))
         })
@@ -292,19 +292,20 @@ class ControlsOverlay(private val service: InputService) {
                 text = " ${group.title}"
                 setCompoundDrawablesWithIntrinsicBounds(service.getDrawable(group.iconRes)?.apply { setBounds(0, 0, dp(14), dp(14)) }, null, null, null)
                 compoundDrawablePadding = dp(4)
-                setTextColor(Color.parseColor("#B0BEC5"))
+                setTextColor(Ui.MUTED)
                 textSize = 11f
                 setPadding(dp(6), dp(6), dp(6), dp(1))
             })
             for (sc in list) {
                 pickerList.addView(TextView(service).apply {
-                    text = (if (sc.name == current) "● " else "○ ") + sc.name
-                    setTextColor(Color.WHITE)
+                    val cur = sc.name == current
+                    text = (if (cur) "● " else "○ ") + sc.name
+                    setTextColor(if (cur) Ui.ACCENT else Ui.TEXT)
                     textSize = 12.5f
                     isSingleLine = true
                     ellipsize = android.text.TextUtils.TruncateAt.END
                     setPadding(dp(10), dp(8), dp(10), dp(8))
-                    background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(if (sc.name == current) Color.parseColor("#DD1D3A4A") else Color.parseColor("#DD37474F")) }
+                    background = GradientDrawable().apply { cornerRadius = dp(10).toFloat(); setColor(if (cur) Ui.ACCENT_DIM else Ui.OVERLAY_ITEM); if (cur) setStroke(dp(1), Ui.ACCENT) }
                     setOnClickListener {
                         // the macro's own options, as last chosen in the app
                         LastRun.save(service, sc.name, MacroParams.load(service, sc.name))
@@ -383,19 +384,17 @@ class ControlsOverlay(private val service: InputService) {
 
     private fun pill(initial: String) = TextView(service).apply {
         text = initial
-        // styled like the round buttons: gold serif lettering on deep blue inside a gold rim
-        setTextColor(GOLD)
+        // styled like the round buttons: navy serif lettering on a misty off-white face,
+        // inside a navy ring and a chrome bezel
+        setTextColor(Ui.NAVY)
         typeface = android.graphics.Typeface.create(android.graphics.Typeface.SERIF, android.graphics.Typeface.BOLD)
-        setShadowLayer(dp(2).toFloat(), 0f, dp(1).toFloat(), Color.parseColor("#CC000814"))
         textSize = 13f
         isSingleLine = true
         ellipsize = android.text.TextUtils.TruncateAt.END
         maxWidth = dp(220)
         gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(10), dp(6), dp(10), dp(6))
-        background = GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, intArrayOf(BLUE_TOP, BLUE_BOTTOM)).apply {
-            cornerRadius = dp(16).toFloat(); setStroke(dp(2), RIM)
-        }
+        setPadding(dp(13), dp(8), dp(13), dp(8))
+        background = Ui.bezel(service, 17)
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             .apply { setMargins(0, dp(3), 0, dp(3)); gravity = Gravity.END }
         label(initial)
@@ -420,13 +419,8 @@ class ControlsOverlay(private val service: InputService) {
         private const val RING = 3
         /** How long the buttons take to slide out of / back into the badge, ms. */
         private const val SLIDE_MS = 200L
-        /** The buttons' art: gold on deep blue, with a gold rim. */
-        private val GOLD = Color.parseColor("#E9C77B")
-        private val RIM = Color.parseColor("#C9A15A")
-        private val BLUE_TOP = Color.parseColor("#1D4FA6")
-        private val BLUE_BOTTOM = Color.parseColor("#0A1F5C")
         /** State ring colours. */
-        private val RUNNING = Color.parseColor("#4CDA5A")
-        private val PAUSED = Color.parseColor("#F9A825")
+        private val RUNNING = Color.parseColor("#9CC2FF") // bright chrome blue
+        private val PAUSED = Ui.WARN
     }
 }

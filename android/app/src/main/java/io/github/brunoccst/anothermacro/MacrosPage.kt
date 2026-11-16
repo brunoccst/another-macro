@@ -254,10 +254,10 @@ class MacrosPage(private val a: MainActivity) {
         val tabs = listOf(IN_USE to "In use") + Groups.sort(macros).map { it.first.id to it.first.title }
         for ((id, title) in tabs) {
             val sel = id == tab
-            tabsRow.addView(Ui.text(a, title, 14f, if (sel) Color.parseColor("#0B1A22") else Ui.TEXT, bold = true).apply {
+            tabsRow.addView(Ui.text(a, title, 14f, if (sel) Ui.ON_ACCENT else Ui.TEXT, bold = true).apply {
                 gravity = Gravity.CENTER
                 setPadding(dp(16), dp(9), dp(16), dp(9))
-                background = Ui.pressable(a, if (sel) Ui.ACCENT else Ui.CARD_ALT, 18)
+                background = if (sel) Ui.pressableChrome(a, 18) else Ui.pressable(a, Ui.CARD_ALT, 18)
                 isClickable = true
                 setOnClickListener {
                     tab = id
@@ -543,8 +543,8 @@ class MacrosPage(private val a: MainActivity) {
                 val pills = ArrayList<TextView>()
                 fun paint() = pills.forEach { t ->
                     val sel = t.tag == cur
-                    t.setTextColor(if (sel) Color.parseColor("#0B1A22") else Ui.TEXT)
-                    t.background = Ui.pressable(a, if (sel) Ui.ACCENT else Ui.CARD_ALT, 16)
+                    t.setTextColor(if (sel) Ui.ON_ACCENT else Ui.TEXT)
+                    t.background = if (sel) Ui.pressableChrome(a, 16) else Ui.pressable(a, Ui.CARD_ALT, 16)
                 }
                 for (o in options) {
                     val t = Ui.text(a, o, 14f).apply {

@@ -139,8 +139,8 @@ object MacroDiagram {
 
     // --- drawing --------------------------------------------------------------------------
 
-    private val COND get() = Color.parseColor("#FFB74D")
-    private val CALL get() = Color.parseColor("#66BB6A")
+    private val COND get() = Ui.WARN
+    private val CALL get() = Ui.GOOD
 
     /** The diagram of [sections] as views; tapping a macro that's run opens it ([open]). */
     fun render(a: android.content.Context, sections: List<Section>, open: (String) -> Unit): View = LinearLayout(a).apply {
@@ -162,7 +162,7 @@ object MacroDiagram {
 
     private fun nodeView(a: android.content.Context, n: Node, open: (String) -> Unit): View = when (n) {
         is Node.Step -> box(a, n.text, when (n.kind) {
-            Kind.ACTION -> Ui.ACCENT; Kind.WAIT -> Ui.MUTED; Kind.STOP -> Ui.BAD; Kind.BUILTIN -> Color.parseColor("#BA68C8")
+            Kind.ACTION -> Ui.ACCENT; Kind.WAIT -> Ui.MUTED; Kind.STOP -> Ui.BAD; Kind.BUILTIN -> Ui.VIOLET
         })
         is Node.Call -> box(a, "▶  Run macro ${n.macro}" + (if (n.detail.isNotBlank()) "\n${n.detail}" else "") + "   ›", CALL).apply {
             isClickable = true

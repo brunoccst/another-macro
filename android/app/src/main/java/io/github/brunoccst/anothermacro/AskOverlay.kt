@@ -36,14 +36,14 @@ object AskOverlay {
             val box = LinearLayout(service).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(18), dp(14), dp(18), dp(14))
-                background = Ui.rounded(Color.parseColor("#EE161B22"), dp(16).toFloat(), Ui.ACCENT, dp(2))
+                background = Ui.rounded(Ui.OVERLAY_BG, dp(16).toFloat(), Ui.ACCENT, dp(2))
                 addView(TextView(service).apply {
                     text = "Claude asks"
                     setTextColor(Ui.ACCENT); textSize = 12f
                 })
                 addView(TextView(service).apply {
                     text = question
-                    setTextColor(Color.WHITE); textSize = 15f
+                    setTextColor(Ui.TEXT); textSize = 15f
                     setPadding(0, dp(4), 0, dp(10))
                     maxWidth = dp(420)
                 })
@@ -51,10 +51,10 @@ object AskOverlay {
                 options.forEachIndexed { i, o ->
                     row.addView(TextView(service).apply {
                         text = o
-                        setTextColor(if (i == 0) Color.parseColor("#0B1A22") else Color.WHITE)
+                        setTextColor(if (i == 0) Ui.ON_ACCENT else Ui.TEXT)
                         textSize = 14f
                         setPadding(dp(14), dp(8), dp(14), dp(8))
-                        background = Ui.rounded(if (i == 0) Ui.ACCENT else Color.parseColor("#2A313A"), dp(14).toFloat())
+                        background = if (i == 0) Ui.chrome(dp(14).toFloat()) else Ui.rounded(Ui.CARD_ALT, dp(14).toFloat())
                         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(8) }
                         setOnClickListener { picked.set(i); done.countDown() }
                     })

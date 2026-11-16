@@ -21,7 +21,7 @@ class HomePage(private val a: MainActivity) {
             setPadding(dp(16), dp(16), dp(16), dp(32))
         }
 
-        column.addView(Ui.text(a, "Another Macro", 26f, bold = true))
+        column.addView(Ui.brand(a, 26f, 44))
         column.addView(Ui.text(a,
             "Automation for the mobile game Another Eden that runs on this phone: no PC and no root. " +
                 "Macros read the game screen (screen capture) and tap for you (accessibility), " +

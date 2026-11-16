@@ -62,7 +62,7 @@ class LiveLogOverlay(private val service: InputService) {
         ellipsize = android.text.TextUtils.TruncateAt.END
         gravity = Gravity.END or Gravity.CENTER_VERTICAL
         setPadding(dp(8), dp(3), dp(8), dp(3))
-        background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(Color.parseColor("#B0263238")) }
+        background = GradientDrawable().apply { cornerRadius = dp(8).toFloat(); setColor(Color.parseColor("#B30A1230")) }
     }
     private val params = WindowManager.LayoutParams(
         WindowManager.LayoutParams.WRAP_CONTENT,
