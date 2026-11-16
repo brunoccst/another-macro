@@ -165,32 +165,31 @@ object AnotherDungeon {
 
     private fun task(r: Run, text: String) { r.task = text; MacroLog.status(text) }
 
+    /** Which keys the loop uses, in order (red first), and how many runs in all (Int.MAX_VALUE = until they run out). */
+    internal data class KeyPlan(val keys: List<String>, val runs: Int)
+
     /**
-     * The loop's legs, in order: which key and how many runs with it (Int.MAX_VALUE = until that key
-     * runs out). One leg normally (`key` × `runs`); with `both_keys` one leg per colour
-     * (`red_runs`, `green_runs`) in `key_order`, red first by default; a leg of 0 runs is left out.
+     * The loop's plan from the options: one switch per key colour (`red_key`, `green_key`; a
+     * dungeon that takes one colour only has only that switch), `runs` (a number) and `all_keys`
+     * (on: until every switched-on key runs out, `runs` not used). With both colours on, `runs`
+     * counts runs in all: red keys first, and when they run out green ones. No colour on: no runs.
+     * Old saved options still work: `key` green/red when neither switch is there, `runs` "all".
      */
-    internal fun keyPlan(p: Map<String, String>): List<Pair<String, Int>> {
+    internal fun keyPlan(p: Map<String, String>): KeyPlan {
         fun on(v: String?) = v?.trim()?.lowercase() in setOf("1", "true", "yes", "on", "y")
-        fun count(v: String?, default: Int): Int {
-            val t = v?.trim()?.lowercase()?.removeSuffix(".0") ?: return default
-            return if (t == "all") Int.MAX_VALUE else t.toIntOrNull()?.coerceAtLeast(0) ?: default
-        }
-        if (on(p["both_keys"])) {
-            val legs = listOf("red" to count(p["red_runs"], 0), "green" to count(p["green_runs"], 0))
-            return (if (p["key_order"]?.trim()?.lowercase() == "green_first") legs.reversed() else legs).filter { it.second > 0 }
-        }
-        val key = p["key"]?.trim()?.lowercase()?.takeIf { it == "red" || it == "green" } ?: "green"
-        return listOf(key to count(p["runs"], 1).coerceAtLeast(1))
+        val keys = if ("red_key" in p || "green_key" in p) listOf("red", "green").filter { on(p["${it}_key"]) }
+            else listOf(p["key"]?.trim()?.lowercase()?.takeIf { it == "red" || it == "green" } ?: "green")
+        val t = p["runs"]?.trim()?.lowercase()?.removeSuffix(".0")
+        val runs = if (on(p["all_keys"]) || t == "all") Int.MAX_VALUE else t?.toIntOrNull()?.coerceAtLeast(1) ?: 1
+        return KeyPlan(keys, runs)
     }
 
     /**
-     * Run the dungeon by [keyPlan]: `runs` times in a row with the chosen key ("all": until it runs
-     * out), or with `both_keys` so many runs with each colour, one after the other; a colour that
-     * runs out ends its leg and the next colour goes on. Keys are never bought. Before the first
-     * run the `party` option picks the game's party (Party.kt). After every run a White Key is
-     * checked for: `white_key` = phantom runs the Phantom Crystal Dimension and comes back to the
-     * loop, stop ends the loop, keep_going ignores it.
+     * Run the dungeon by [keyPlan]: `runs` times in a row ("all keys": until the keys run out),
+     * with the switched-on key colours, red first; a colour that runs out hands over to the next
+     * one. Keys are never bought. Before the first run the `party` option picks the game's party
+     * (Party.kt). After every run a White Key is checked for: `white_key` = phantom runs the
+     * Phantom Crystal Dimension and comes back to the loop, stop ends the loop, keep_going ignores it.
      */
     fun run(ctx: Context, id: String): String {
         val spec = spec(ctx, id)
@@ -205,8 +204,8 @@ object AnotherDungeon {
         } ?: ctx.params["party"]?.trim()?.takeIf { it.isNotEmpty() && it.lowercase() != "current" }?.let {
             MacroLog.i("the party option takes a number (1 = the first party of the list): keeping the party in front")
         }
-        // both keys with 0 runs each: only the party is picked
-        if (plan.isEmpty()) return "${spec.name}: no runs to do (both keys on, 0 green and 0 red runs)"
+        // no key switched on: only the party is picked
+        if (plan.keys.isEmpty()) return "${spec.name}: no runs to do (no key switched on)"
         val onWhiteKey = ctx.params["white_key"]?.trim()?.lowercase() ?: "phantom"
         val start = System.currentTimeMillis()
         val lines = ArrayList<String>()
@@ -215,13 +214,15 @@ object AnotherDungeon {
         var ignore = false
         var end = ""
         val notes = ArrayList<String>()
-        val single = plan.size == 1 && plan[0].second == 1
-        legs@ for ((key, total) in plan) {
+        val total = plan.runs
+        val single = plan.keys.size == 1 && total == 1
+        val both = plan.keys.size > 1
+        legs@ for (key in plan.keys) {
             var legDone = 0
-            if (plan.size > 1) MacroLog.i("${spec.name}: ${if (total == Int.MAX_VALUE) "all" else "$total"} run(s) with $key keys")
-            while (legDone < total) {
+            if (both) MacroLog.i("${spec.name}: on with $key keys (${if (total == Int.MAX_VALUE) "until they run out" else "${total - done} run(s) to go"})")
+            while (done < total) {
                 val count = if (total == Int.MAX_VALUE) "" else "/$total"
-                if (!single) MacroLog.status("${spec.name}: ${if (plan.size > 1) "$key key " else ""}run ${legDone + 1}$count")
+                if (!single) MacroLog.status("${spec.name}: ${if (both) "$key key " else ""}run ${done + 1}$count")
                 val r = Run(ctx, spec, key).also { it.ignoreHeldKey = ignore }
                 Route.cameraLags = spec.cameraLags
                 val outcome = try { runInner(r) } catch (s: StopScenario) { s.message ?: "stopped" } finally { AreaNav.align = null; Route.cameraLags = false; Route.loose = false }
@@ -259,7 +260,7 @@ object AnotherDungeon {
         if (single && lines.size == 1 && phantoms == 0 && end.isEmpty()) return lines[0].substringAfter(": ")
         if (single && lines.isEmpty() && phantoms == 0) return end
         val mins = (System.currentTimeMillis() - start) / 60000
-        val perKey = if (plan.size > 1) " (" + plan.joinToString { (k, _) -> "${ctx.stats["runs_$k"] ?: 0} $k" } + ")" else ""
+        val perKey = if (both) " (" + plan.keys.joinToString { k -> "${ctx.stats["runs_$k"] ?: 0} $k" } + ")" else ""
         val summary = "${spec.name}: $done run(s)$perKey" + (if (phantoms > 0) ", $phantoms Phantom Crystal Dimension run(s)" else "") +
             " in ${mins}m" + (if (end.isNotEmpty()) "; $end" else "")
         lines.forEach { MacroLog.i(it) }

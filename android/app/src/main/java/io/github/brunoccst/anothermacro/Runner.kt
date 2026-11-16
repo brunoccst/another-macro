@@ -10,12 +10,19 @@ const val BLACK_STOP_MS = 120_000L
 
 /**
  * A user-tunable option, given as text (from the app's form or an intent extra).
- * [choices] makes the form show a dropdown; [type] "bool" a checkbox; otherwise a text box.
+ * [choices] makes the form show a dropdown; [type] "bool" a checkbox, "number" a number box;
+ * otherwise a text box.
  */
 data class Param(val default: String, val help: String, val choices: List<String> = emptyList(), val type: String = "text",
                  /** Shown in the app only while this switch param is on (e.g. the boss skills under boss_setup). */
-                 val showIf: String? = null) {
+                 val showIf: String? = null,
+                 /**
+                  * A switch drawn on the side of another option's box instead of on its own row
+                  * (e.g. all_keys next to runs); while it is on, that box is greyed out.
+                  */
+                 val beside: String? = null) {
     val isBool get() = type == "bool"
+    val isNumber get() = type == "number"
 }
 
 /** What a handler gets: the current frame, vision, input and helpers. Mirrors the Python tool's Context. */

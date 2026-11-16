@@ -46,6 +46,9 @@ group: daily
 templates: [shop_ad]                  # template folders besides "common" (the user's own are always there)
 params:
   ad_wait_s: {default: 45, help: "how long to wait for the commercial"}
+  # option kinds: choices: [...] = pills; type: bool = switch (show_if: <switch> hides an option
+  # while that switch is off; beside: <option> draws the switch on the side of that option's box);
+  # type: number = number box; anything else = text box
 screens: [shop, field]                # priority order: specific screens first
 define_screens:
   my_screen: {require: [my_template], reject: [other_template]}

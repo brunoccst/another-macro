@@ -504,7 +504,10 @@ class MacrosPage(private val a: MainActivity) {
         val dependents = HashMap<String, MutableList<View>>()
         val switches = HashMap<String, Boolean>()
         var first = true
+        // switches drawn on the side of another option's box (all_keys beside runs), by that option
+        val besides = s.params.filter { (_, p) -> p.isBool && p.beside != null && p.beside in s.params }.entries.associateBy { it.value.beside!! }
         for ((key, p) in s.params) {
+            if (p.isBool && besides[p.beside]?.key == key) continue
             val value = last[key] ?: p.default
             val box = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
             paramsBox.addView(box)
@@ -552,15 +555,31 @@ class MacrosPage(private val a: MainActivity) {
             }
             val field = EditText(a).apply {
                 setText(value)
-                inputType = InputType.TYPE_CLASS_TEXT
+                inputType = if (p.isNumber) InputType.TYPE_CLASS_NUMBER else InputType.TYPE_CLASS_TEXT
                 setSingleLine()
                 setTextColor(Ui.TEXT)
                 background = Ui.rounded(Ui.CARD_ALT, dp(12).toFloat())
                 setPadding(dp(12), dp(10), dp(12), dp(10))
-                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) }
             }
             paramFields[key] = { field.text.toString() }
-            box.addView(field)
+            val side = besides[key]
+            if (side == null) {
+                box.addView(field, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
+                continue
+            }
+            // the box and, on its side, a switch (all_keys beside runs) that greys the box out while on
+            val (sideKey, sideParam) = side.key to side.value
+            var on = FlowScenario.typed(last[sideKey] ?: sideParam.default) == true
+            fun grey() { field.isEnabled = !on; field.alpha = if (on) 0.4f else 1f }
+            grey()
+            paramFields[sideKey] = { on.toString() }
+            box.addView(LinearLayout(a).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(field, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                addView(Ui.text(a, Ui.title(sideKey), 14f).apply { setPadding(dp(14), 0, dp(6), 0) })
+                addView(switch(on) { v -> on = v; grey() })
+            }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
         }
     }
 

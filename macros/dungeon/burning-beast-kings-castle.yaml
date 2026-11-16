@@ -9,16 +9,14 @@ icon: chest
 description: "Another Dungeon: Burning Beast King's Castle (Ethereal Dewdrop). All enemies, all chests, then the boss."
 templates: [another_dungeon, daily_ads]
 params:
-  key: {default: green, choices: [green, red], help: "key to use: green = Hard, red = Very Hard"}
-  # every dungeon macro: how many runs in a row, and what to do when a White Key drops
-  runs: {default: 1, choices: [1, 2, 3, 5, 10, all], help: "runs in a row; all = until the chosen key runs out"}
+  # the keys to use: either or both (red first, then green); keys are never bought
+  green_key: {default: true, type: bool, help: "use green keys (Hard)"}
+  red_key: {default: false, type: bool, help: "use red keys (Very Hard)"}
+  # every dungeon macro: how many runs in a row (or all keys), and what to do when a White Key drops
+  runs: {default: 1, type: number, help: "runs in a row, any number; switch All keys on (beside it) to run until the keys run out. With both keys on, runs count in all: red keys first, then green when the red ones run out"}
+  all_keys: {default: false, type: bool, beside: runs, help: "run until the switched-on keys run out (runs above not used)"}
   white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
   party: {default: current, choices: [current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the game's party to use, by its number in the game's party list (1 = the first; Menu → Party, the dots under it); current = the party in front now. Picked once on the field before the first run (basic macro pick-party)"}
-  # both key colours, one after the other (key and runs above are then not used); a colour that runs out ends its runs
-  both_keys: {default: false, type: bool, help: "use green AND red keys: so many runs with each (below), one colour after the other"}
-  red_runs: {default: 0, choices: [0, 1, 2, 3, 5, all], show_if: both_keys, help: "runs with red keys (Very Hard); all = until the red keys run out"}
-  green_runs: {default: 0, choices: [0, 1, 2, 3, 5, 10, all], show_if: both_keys, help: "runs with green keys (Hard); all = until the green keys run out"}
-  key_order: {default: red_first, choices: [red_first, green_first], show_if: both_keys, help: "which colour first: red_first spends the red keys (5 max) first, then green"}
   cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
   clear_first: {default: true, type: bool, help: "fight every map until \"The enemies have disappeared\" before going for its chests; off = walk straight to the chests and fight only the battles on the way (faster)"}
   clear_max_battles: {default: 15, show_if: clear_first, help: "every map's enemies are fought until the game says \"The enemies have disappeared\"; this is a safety cap on fights per map in case the banner is missed (0 = no cap)"}
