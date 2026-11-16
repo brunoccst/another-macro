@@ -80,6 +80,18 @@ object AnotherDungeon {
     private val PURCHASE_WORDS = listOf("purchase", "chronos stone", "tsubura", "insufficient", "not enough")
 
     @Suppress("UNCHECKED_CAST")
+    /**
+     * A hub dungeon's chest area (the macro's `area` option, e.g. Underworld's cathedral): the data entry
+     * "<id>_<area>" when there is one, else the dungeon's own entry (its default area).
+     */
+    internal fun areaId(ctx: Context, id: String): String {
+        val area = ctx.params["area"]?.trim()?.lowercase()?.replace(Regex("[^a-z0-9]+"), "_")?.trim('_')
+        if (area.isNullOrEmpty()) return id
+        val text = ctx.assets.open(DATA).bufferedReader().use { it.readText() }
+        val all = Load(LoadSettings.builder().build()).loadFromString(text) as Map<String, Any?>
+        return if ("${id}_$area" in all) "${id}_$area" else id.also { MacroLog.i("area '$area': the dungeon's own data") }
+    }
+
     fun spec(ctx: Context, id: String): Spec {
         val text = ctx.assets.open(DATA).bufferedReader().use { it.readText() }
         val all = Load(LoadSettings.builder().build()).loadFromString(text) as Map<String, Map<String, Any?>>
@@ -193,7 +205,7 @@ object AnotherDungeon {
      * loop, stop ends the loop, keep_going ignores it.
      */
     fun run(ctx: Context, id: String): String {
-        val spec = spec(ctx, id)
+        val spec = spec(ctx, areaId(ctx, id))
         val plan = keyPlan(ctx.params)
         // the party first, from the field (the menu's Party page)
         // (by its number in the game's list, through the basic macro pick-party)
