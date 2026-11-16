@@ -6,7 +6,8 @@ import kotlin.math.sqrt
 
 /**
  * Pick one of the game's saved parties by its place in the list: Menu → Party ("Organize Party"),
- * switch with the arrows until the wanted party is in front, then Back to the field.
+ * switch with the arrows until the wanted party is in front. The basic macro pick-party runs it
+ * between open-menu (to the menu) and back-to-field (back from the Party page).
  *
  * The party is given only by its number (1 = the first party of the list), never by its name or
  * who is in it: every user names and fills their parties differently. The basic macro `pick-party`
@@ -47,53 +48,42 @@ object Party {
         return Dots.read(px, w, h)
     }
 
-    /** Put party [want] (from 1) in front; the stop reason the basic macro ends with. */
+    /**
+     * With the game's menu open: open its Party page and put party [want] (from 1) in front. The
+     * result the basic macro pick-party ends with ("party N picked", or why not). It leaves the
+     * Party page open: getting to the menu and back to the field are the basic macros open-menu
+     * and back-to-field, which pick-party runs around this step.
+     */
     fun choose(ctx: Context, want: Int): String {
         MacroLog.status("Party: picking party $want")
-        openPartyPage(ctx)
-        var now: Pair<Int, Int> = inFront(ctx) ?: run { ctx.wait(1.5); inFront(ctx) } ?: run {
-            toField(ctx)
-            ctx.stop("couldn't tell which party is in front (the dots under the party); the party in front was kept")
-        }
+        if (!openPartyPage(ctx)) return "couldn't open the menu's Party page"
+        var now: Pair<Int, Int> = inFront(ctx) ?: run { ctx.wait(1.5); inFront(ctx) }
+            ?: return "couldn't tell which party is in front (the dots under the party); the party in front was kept"
         val count = now.second
-        if (want > count) { toField(ctx); ctx.stop("there is no party $want (the game shows $count)") }
+        if (want > count) return "there is no party $want (the game shows $count)"
         MacroLog.i("party in front: ${now.first} of $count")
         for (attempt in 1..3) {
             if (now.first == want) break
             val n = steps(now.first, want, count)
             for (i in 1..abs(n)) { ctx.tapExact(if (n > 0) RIGHT else LEFT); ctx.wait(1.2) }
-            now = inFront(ctx) ?: run { ctx.wait(1.5); inFront(ctx) } ?: run {
-                toField(ctx)
-                ctx.stop("couldn't tell which party is in front after switching")
-            }
+            now = inFront(ctx) ?: run { ctx.wait(1.5); inFront(ctx) }
+                ?: return "couldn't tell which party is in front after switching"
             MacroLog.i("party in front: ${now.first} of $count")
         }
-        toField(ctx)
-        if (now.first != want) ctx.stop("couldn't get party $want in front (party ${now.first} is)")
-        return "party $want picked"
+        return if (now.first == want) "party $want picked" else "couldn't get party $want in front (party ${now.first} is)"
     }
 
-    private fun openPartyPage(ctx: Context) {
+    /** The menu is open (open-menu): tap its Party button. */
+    private fun openPartyPage(ctx: Context): Boolean {
         repeat(4) {
             ctx.refresh()
             if (ctx.find("menu_party_button") != null) {
                 ctx.tap("menu_party_button"); ctx.wait(2.5)
-                return
+                return true
             }
-            if (ctx.find("field_menu_button") != null) { ctx.tap("field_menu_button"); ctx.wait(2.0) } else ctx.wait(1.0)
+            ctx.wait(1.0)
         }
-        ctx.stop("couldn't open the menu's Party page")
-    }
-
-    /** Back until the field shows (never Back on the field: that asks to close the game). */
-    private fun toField(ctx: Context) {
-        repeat(8) {
-            ctx.refresh()
-            if (ctx.find("field_menu_button") != null) return
-            ctx.back(); ctx.wait(1.5)
-        }
-        ctx.refresh()
-        if (ctx.find("field_menu_button") == null) ctx.stop("couldn't get back to the field from the Party page")
+        return false
     }
 
     /**

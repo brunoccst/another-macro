@@ -146,6 +146,14 @@ class MacroLibraryTest {
             // its own options stay as they are
             assertEquals(n, null, p.getValue("boss_setup").from)
         }
+        // the party option goes through pick-party, which is built from open-menu and back-to-field:
+        // the dungeon has its own party (so not pick-party's), and those two macros' options
+        for (n in listOf("dogma-tower", "sea-of-ice")) {
+            val p = macros.getValue(n).params
+            assertFalse(n, p.containsKey("pick-party.party"))
+            assertTrue(n, p.containsKey("open-menu.max_taps") && p.containsKey("back-to-field.max_backs"))
+        }
+        assertTrue((macros.getValue("pick-party") as FlowScenario).uses.containsAll(listOf("open-menu", "back-to-field")))
         assertTrue(macros.getValue("grind-battles").params.containsKey("battle.skill_1"))
         assertTrue(macros.getValue("cat-scratchbook").params.containsKey("battle.skill_1"))
         // the ad macros don't repeat watch-ad's options: they have them as their own copy

@@ -24,7 +24,8 @@ class Entry : LogicEntry {
     companion object {
         /** Keep in step with the code: each step here runs these macros (ctx.runBasic / ctx.innerOptions). */
         val STEP_USES = mapOf(
-            "another_dungeon" to listOf("battle"),   // every fight: the battle macro's step with its skills
+            // every fight: the battle macro's step with its skills; the party option: the basic macro pick-party
+            "another_dungeon" to listOf("battle", "pick-party"),
             "cat_daily" to listOf("battle"),         // encounters on the way to a cat
         )
         val ACTIONS = setOf("if", "tap", "tap_exact", "drag", "walk", "back", "wait", "launch", "log", "status", "set", "count",
