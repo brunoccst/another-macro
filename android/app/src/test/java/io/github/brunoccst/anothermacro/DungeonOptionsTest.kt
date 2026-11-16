@@ -17,6 +17,8 @@ class DungeonOptionsTest {
         assertEquals(plan(listOf("green"), 27), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to " 27 ")))
         assertEquals(plan(listOf("green"), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to "0")))
         assertEquals(plan(listOf("green"), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to "")))
+        assertEquals(plan(listOf("green"), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to "-4")))
+        assertEquals(plan(listOf("green"), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to "lots")))
     }
 
     @Test fun bothKeysRedFirstRunsPerColour() {
