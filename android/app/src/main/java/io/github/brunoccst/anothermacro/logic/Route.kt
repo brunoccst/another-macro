@@ -143,9 +143,12 @@ object Route {
     /**
      * The same where the camera lags ([cameraLags]): the dark view there barely changes for moments in
      * mid-walk, and 450 ms ended long holds early as "stood still" (4 times in one Sea of Ice run,
-     * 2026-11-15, each followed by a ~2.5 s battle wait and a ~3.5 s area-map look).
+     * 2026-11-15, each followed by a ~2.5 s battle wait and a ~3.5 s area-map look); 900 ms still did
+     * twice a run (5150 and 5813 ms holds), so 1.5 s. An encounter there flashes anyway.
      */
-    private const val STILL_MS_LAGGING = 900L
+    private const val STILL_MS_LAGGING = 1500L
+    /** Where the camera lags, a hold's last walking frame this long (ms) before its end is no early stop yet. */
+    private const val EARLY_LAGGING_MS = 650L
     /** Below this share of the field's usual brightness (and [Table.darkLevel]) the screen is dark: an encounter. */
     private const val DARK_SHARE = 0.6
     /** A hold's first walking frame later than this (ms) means the party started late... */
@@ -302,7 +305,11 @@ object Route {
                 // wait until it does or the field's menu is back
                 // (where the camera lags, a short hold often shows no walking frame at all: that's no early
                 // stop; taking it for one waited ~3 s for a battle after most short holds, 2026-11-15)
-                val stoppedEarly = frames > 5 && lastField < holdMs - 250 && !(cameraLags && lastField == 0L)
+                // (and its last walking frame comes early: the walk shows late and the dark view settles early. A
+                // ~1 s hold onto a chest waited ~2.5 s for a battle about every other time, 2026-11-15: there an early
+                // stop counts only from [EARLY_LAGGING_MS] before the end)
+                val earlyBefore = holdMs - if (cameraLags) EARLY_LAGGING_MS else 250L
+                val stoppedEarly = frames > 5 && lastField < earlyBefore && !(cameraLags && lastField == 0L)
                 if (stoppedEarly && !fight()) {
                     // the view's last walking frame came early, but the party is at the hold's goal: no encounter
                     // stopped it (the walk slows into its stop, the camera stops at a map's edge)
@@ -311,7 +318,10 @@ object Route {
                         return it
                     }
                 }
-                if (fight() || (stoppedEarly && awaitBattle(ctx, 6.0) && fight())) {
+                val waitAt = System.currentTimeMillis()
+                val came = fight() || (stoppedEarly && awaitBattle(ctx, 6.0) && fight())
+                if (stoppedEarly && !came) MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the view last moved at ${lastField}ms; no battle came (waited ${System.currentTimeMillis() - waitAt}ms)")
+                if (came) {
                     MacroLog.i("hold trace (ms:brightness/change):$trace")
                     if (stoppedEarly) {
                         // the view stopped moving before the hold's end: that's where the encounter stopped the party
