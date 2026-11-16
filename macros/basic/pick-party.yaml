@@ -14,14 +14,25 @@ params:
 screens: [menu_open, field]
 unknown_timeout_s: 30
 
-# the whole pick is one step (logic/Party.kt); it stops with "party N picked" or why it couldn't
+# built from the basic macros: open-menu gets to the menu, the pick_party step (logic/Party.kt)
+# opens the Party page and switches, back-to-field gets back; it stops with "party N picked" or why not
+setup:
+  - set: {picked: "'none'"}
+
 handlers:
+  field:
+    - if: picked != 'none'
+      then: [{stop: "{picked}"}]
+    - run: open-menu
+    - if: result != 'menu open'
+      then: [{stop: "{result}"}]
   menu_open:
     - pick_party: party
-    - stop: "{result}"
-  field:
-    - pick_party: party
-    - stop: "{result}"
+    - set: {picked: result}
+    - run: back-to-field
+    - if: result != 'on the field'
+      then: [{stop: "{picked}; then {result}"}]
+    - stop: "{picked}"
 
 unknown:
   - if: not game_in_front()

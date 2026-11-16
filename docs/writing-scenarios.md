@@ -44,8 +44,8 @@ name: my-macro
 description: One line shown in the app.
 group: daily
 templates: [shop_ad]                  # template folders besides "common" (the user's own are always there)
-params:
-  ad_wait_s: {default: 45, help: "how long to wait for the commercial"}
+params:                               # its own options (the inner macros' come along by themselves)
+  max_ads: {default: 3, help: "commercials to watch at most"}
   # option kinds: choices: [...] = pills; type: bool = switch (show_if: <switch> hides an option
   # while that switch is off; beside: <option> draws the switch on the side of that option's box);
   # type: number = number box; anything else = text box
@@ -60,7 +60,7 @@ handlers:
   shop:
     - tap: shop_watch_button
     - wait: 3
-    - run: {macro: watch-ad, params: {ad_wait_s: ad_wait_s}, until: [shop]}
+    - run: {macro: watch-ad, until: [shop]}   # its options (watch-ad.*) come along by themselves
     - stop: "the commercial: {result}"
 unknown: [{wait: 1}]
 ```
@@ -89,6 +89,28 @@ example. A new step written in Kotlin goes in `logic/FlowRun.kt` and `logic/Entr
 
 `python -m pytest -q tests/test_macro_pack.py` checks every library macro: YAML, names,
 groups, template folders, and that every `run:` names a macro that exists.
+
+### Inner macros' options come along by themselves
+
+A macro takes over the options of every macro it runs, and keeps its own settings for them: never
+declare them again. They show in the app under a folded section per inner macro ("Battle
+options") and are keyed `<macro>.<option>` (`battle.skill_1`). So every dungeon macro has its own
+battle skills, and one routine can run the daily ads differently from another.
+
+- **Which macros:** its `run:` steps, a routine's `steps:`, the basic macros a Kotlin step runs
+  (listed in `logic/Entry.kt` `STEP_USES`: `another_dungeon` and `cat_daily` fight with `battle`),
+  anything under a top-level `uses: [...]`, and the macros those run in turn. Each inner macro
+  once: one set of battle options per outer macro, wherever its battles happen.
+- **Left out:** options every `run:` of it passes in `params:` (the caller decides them), and
+  options the caller has itself under the same name (it hands its own down, e.g. `party`).
+- **Unset**, an inner option is the inner macro's own setting; once the outer macro's options are
+  saved, it keeps its own copy.
+- A Kotlin step that runs a basic macro uses `ctx.runBasic(name)` (options handed down by
+  itself) or reads them with `ctx.innerOptions(name)`, and gets a line in `STEP_USES`.
+- Own option names never have a dot (the pack check refuses them).
+
+**Reuse first.** Before writing steps into a macro, ask whether that part could be a basic macro
+other macros run (`macros/basic/`): its options then reach every macro using it for free.
 
 ## Templates and screens
 

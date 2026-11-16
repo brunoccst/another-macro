@@ -111,10 +111,11 @@ object AnotherDungeon {
     }
 
     private class Run(val ctx: Context, val spec: Spec, /** The key this run enters with: "green" (Hard) or "red" (Very Hard). */ val key: String) {
-        // every fight is the basic macro battle's step with its skills; the boss with the dungeon's own
-        // boss skills when set. (Done here, not by running that macro: the run must tell the boss by its
-        // name on the first turn and read the White Key off the results while they show.)
-        val mobs = Battle.Setup.from(ctx.optionsOf("battle"), "skill_")
+        // every fight is the basic macro battle's step with its skills as this dungeon macro has them
+        // (battle.skill_1.. among its options, taken over from the battle macro: InnerParams); the boss
+        // with the dungeon's own boss skills when set. (Done here, not by running that macro: the run
+        // must tell the boss by its name on the first turn and read the White Key off the results.)
+        val mobs = Battle.Setup.from(ctx.innerOptions("battle"), "skill_")
         val bossSetup = if (ctx.bool("boss_setup")) Battle.Setup.from(ctx.params, "boss_skill_") else mobs
         var map = -1
         var shift = 0.0

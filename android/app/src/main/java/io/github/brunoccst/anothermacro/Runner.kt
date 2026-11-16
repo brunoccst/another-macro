@@ -17,12 +17,21 @@ data class Param(val default: String, val help: String, val choices: List<String
                  /** Shown in the app only while this switch param is on (e.g. the boss skills under boss_setup). */
                  val showIf: String? = null,
                  /**
+                  * Set on an option this macro takes over from a macro it runs (see [InnerParams]): that
+                  * macro's name. The option's key is then "<from>.<its key there>", e.g. battle.skill_1.
+                  */
+                 val from: String? = null,
+                 /** The macros between this one and [from], [from] last (e.g. [cat-scratchbook, battle]). */
+                 val via: List<String> = emptyList(),
+                 /**
                   * A switch drawn on the side of another option's box instead of on its own row
                   * (e.g. all_keys next to runs); while it is on, that box is greyed out.
                   */
                  val beside: String? = null) {
     val isBool get() = type == "bool"
     val isNumber get() = type == "number"
+    /** Its key in the macro it comes from (skill_1 for battle.skill_1). */
+    fun innerKey(key: String) = if (from == null) key else key.removePrefix("$from.")
 }
 
 /** What a handler gets: the current frame, vision, input and helpers. Mirrors the Python tool's Context. */
@@ -245,6 +254,15 @@ class Context(
         return Runner.runInside(sub, given, this, until)
     }
 
+    /**
+     * The options the basic macro [name] runs with inside this macro (without running it): its own
+     * as the user chose them, then this macro's own settings for it (e.g. a dungeon's battle.skill_1).
+     */
+    fun innerOptions(name: String): Map<String, String> {
+        val sub = findMacro(name) ?: return emptyMap()
+        return Runner.resolve(sub, optionsOf(name) + InnerParams.scoped(params, name))
+    }
+
     /** A context for a macro run inside this one: same screen, input, stop and pause. */
     fun child(vision: Vision, params: Map<String, String>) =
         Context(capture, files, vision, params, stopRequested, depth + 1).also {
@@ -308,6 +326,8 @@ object Scenarios {
             // a library macro keeps its name: a custom one can't replace it
             load({ f.readText() }, f.name, custom = true)?.let { if (it.name !in found) found[it.name] = it }
         }
+        // each macro takes over the options of the macros it runs (custom ones too)
+        InnerParams.link(found.values)
         return found.values.toList()
     }
 
@@ -322,6 +342,7 @@ object Scenarios {
             }
         }
         walk("macros")
+        InnerParams.link(out)
         return out
     }
 
@@ -404,9 +425,13 @@ object Runner {
         return true
     }
 
-    /** The params a run uses: the macro's defaults, then [given] (only names it has). */
+    /**
+     * The params a run uses: the macro's defaults, then [given] (only names it has). Options taken
+     * over from the macros it runs (battle.skill_1, see [InnerParams]) get no default here: unset,
+     * the inner macro runs with its own.
+     */
     fun resolve(scenario: Scenario, given: Map<String, String>) =
-        scenario.params.mapValues { it.value.default } + given.filterKeys { it in scenario.params }
+        scenario.params.filterValues { it.from == null }.mapValues { it.value.default } + given.filterKeys { it in scenario.params }
 
     private fun library(scenario: Scenario, files: LibraryFiles, userTemplates: java.io.File?): Library {
         val library = Library.load(files, "templates/common", *scenario.templateFolders.map { "templates/$it" }.toTypedArray())
@@ -471,8 +496,9 @@ object Runner {
 
     /**
      * Run [sub] inside the running macro (Flow's `run:` step) and return its stop reason, for the
-     * caller to go on. It starts from its own options as the user chose them in the app (so a
-     * basic macro's settings, e.g. the battle macro's skills, apply wherever it is run), then [given]. It ends like any macro (its own stop), or as soon as one of [until] (the
+     * caller to go on. It starts from its own options as the user chose them in the app, then the
+     * caller's own settings for it (the options the caller took over from it, e.g. a dungeon's
+     * battle.skill_1, see [InnerParams]), then [given]. It ends like any macro (its own stop), or as soon as one of [until] (the
      * caller's screens) shows: "back to <screen>". A stop request or a safety stop ends the caller
      * too. Its counters are added to the caller's.
      */
@@ -481,7 +507,8 @@ object Runner {
         val lib = library(sub, parent.assets, parent.userTemplates)
         // the caller's templates and screens too: [until] is made of them
         lib.addMissing(parent.vision.library)
-        val params = resolve(sub, parent.optionsOf(sub.name) + given)
+        // its own options, then the caller's own settings for it (battle.skill_1 -> skill_1), then the step's params
+        val params = resolve(sub, parent.optionsOf(sub.name) + InnerParams.scoped(parent.params, sub.name) + given)
         val ctx = parent.child(Vision(lib), params)
         MacroLog.i("running ${sub.name} inside it with $params")
         val reason = try {

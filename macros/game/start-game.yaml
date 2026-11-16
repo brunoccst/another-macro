@@ -6,7 +6,7 @@ description: Turn the game on, always watch the daily login-bonus ad, stop on th
 templates: [start_game]
 params:
   watch_ad: {default: true, help: "take the daily login-bonus ad; false = just open the game"}
-  ad_wait_s: {default: 45, help: "how long to let an ad play before pressing back to close it"}
+  # how long a commercial plays etc.: the Watch Ad options (watch-ad.*), taken over from the basic macro
 screens: [ad_reward, premium_thanks, ad_offer, field, title]
 unknown_timeout_s: 180
 
@@ -38,7 +38,7 @@ handlers:
     - status: "login-bonus ad"
     - tap: watch_video_button
     - wait: 3
-    - run: {macro: watch-ad, params: {ad_wait_s: ad_wait_s}, until: [field, ad_offer]}
+    - run: {macro: watch-ad, until: [field, ad_offer]}
     - log: "login-bonus ad: {result}"
 
   premium_thanks:   # premium subscribers get this instead of an ad

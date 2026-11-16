@@ -9,7 +9,7 @@ icon: chest
 description: "Watch the Shop's daily commercial (Menu → Shop → play button) for 10 Chronos Stones."
 templates: [start_game, daily_ads, shop_ad]
 params:
-  ad_wait_s: {default: 45, help: "how long to let a commercial play before pressing back to close it"}
+  # how long a commercial plays etc.: the Watch Ad options (watch-ad.*), taken over from the basic macro
   max_ads: {default: 3, help: "commercials to watch at most (the play button stays while there are more today)"}
   connecting_wait_s: {default: 30, help: "how long to wait out the shop's \"Connecting\" overlay before deciding there is no commercial button"}
 screens: [premium_thanks, shop_ok_dialog, shop, menu_open, field]
@@ -35,7 +35,7 @@ handlers:
             - set: {shop_misses: 0}
             - wait: 3
             # the commercial and its reward dialog: the basic macro; back here once it's over
-            - run: {macro: watch-ad, params: {ad_wait_s: ad_wait_s}, until: [shop]}
+            - run: {macro: watch-ad, until: [shop]}
             - log: "shop commercial {stats.ads_started}: {result}"
           else:
             # The shop often opens under a "Connecting" overlay that hides the play button.
