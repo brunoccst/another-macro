@@ -10,7 +10,7 @@ One folder per group, the same as the app's tabs (a macro's `group:` must match 
 
 | Folder | Tab | Macros |
 |---|---|---|
-| `basic/` | Basic | building blocks other macros run: `watch-ad`, `battle`, `grind-battles`, `open-menu`, `back-to-field` |
+| `basic/` | Basic | building blocks other macros run: `watch-ad`, `battle`, `grind-battles`, `open-menu`, `back-to-field`, `pick-party` |
 | `daily/` | Daily | `daily-routine`, `daily-ads`, `shop-ad`, `cat-scratchbook`, `inbox` |
 | `dungeon/` | Another Dungeon | `dogma-tower`, `burning-beast-kings-castle`, `sea-of-ice`, `underworld` (Demon's Den), `phantom-crystal` |
 | `game/` | Game | `start-game`, `stop-game` |
@@ -37,6 +37,7 @@ A macro runs another one with `run:` and goes on when it ends:
 | `battle` | fights the battle on screen to its end; `skill_1`..`skill_4` = auto or skill 1-4 per party slot (all auto = plain Attack every turn; never changes the battle speed); ends with `won` / `none` / `party was defeated` | `grind-battles`, the cat hunt's and the cat routine's encounters; the Another Dungeon fights use its skills (the boss: the dungeon's boss skills when set) |
 | `grind-battles` | walks back and forth and runs `battle` for every encounter, until `battles` are won | for clearing a map |
 | `open-menu` | from the field, opens the game's menu | `daily-ads`, `shop-ad` |
+| `pick-party` | Menu → Party: puts party `party` (1-10, its number in the game's list; never a name) in front, back to the field; ends with `party N picked` | every dungeon macro's `party` option |
 | `back-to-field` | presses Back until the field shows | `stop-game` |
 | `start-game` (Game) | opens the game, takes the login-bonus ad, stops on the field | `daily-ads`, `shop-ad` when the game isn't open; the daily routine |
 

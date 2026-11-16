@@ -71,3 +71,19 @@ def test_watch_ad_closes_google_play_sheet():
     after = list(_flat(play[0]["else"]))
     assert not any("tap" in a or "tap_exact" in a for a in after)
     assert any("commercials are over" in str(a.get("stop", "")) for a in after)
+
+
+def test_party_is_picked_by_number_only():
+    # every user names and fills their parties differently: the party option is a number
+    all_macros = macro_pack.macros()
+    _, spec = all_macros["pick-party"]
+    assert spec["group"] == "basic"
+    assert [str(c) for c in spec["params"]["party"]["choices"]] == [str(i) for i in range(1, 11)]
+    for name, (f, spec) in all_macros.items():
+        party = (spec.get("params") or {}).get("party")
+        if party is None or name == "pick-party":
+            continue
+        choices = [str(c) for c in party["choices"]]
+        assert choices == ["current"] + [str(i) for i in range(1, 11)], name
+        assert str(party["default"]) in choices, name
+        assert "with " not in party["help"].lower(), name

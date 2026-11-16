@@ -23,9 +23,10 @@ the parts every dungeon shares:
   **boss map** (sweep, "!" taps, "A major trial awaits... Proceed?" → Yes, `boss_setup` skills).
 - **End of run**: rewards, light/shadow animation, "Continue to skip?" → End, White Key
   (`white_key: phantom/stop/keep_going`), `runs` 1-10/all, never buying keys.
-- **Before the first run**: `party` picks one of the game's saved parties by name or number
-  (Menu → Party, `logic/Party.kt`), or by place (`next`, `next 2`, `previous`); `current`
-  keeps the party in front.
+- **Before the first run**: `party` picks one of the game's saved parties by its number in the
+  game's party list (1 = the first; read from the dots on Menu → Party), through the basic macro
+  `pick-party` (`logic/Party.kt`); `current` keeps the party in front. Never by a party's name or
+  members, and the log only says "party N": every user names and fills their parties differently.
 - **Both key colours** (Hard + Very Hard dungeons): `both_keys` with `red_runs` and
   `green_runs` (0-10/all each) and `key_order` (red first by default). A colour that runs out
   ends its runs and the loop goes on with the other colour; keys are never bought. A dungeon

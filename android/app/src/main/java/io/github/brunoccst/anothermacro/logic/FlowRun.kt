@@ -92,6 +92,11 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
             }
             "another_dungeon" in a -> ctx.stop(AnotherDungeon.run(ctx, a["another_dungeon"].toString()))
             "phantom_crystal" in a -> ctx.stop(PhantomCrystal.run(ctx))
+            "pick_party" in a -> {
+                val v = Expr.str(value(ctx, a["pick_party"]))
+                val n = Party.number(v) ?: throw IllegalArgumentException("$name: pick_party: '$v' is not a party number")
+                vars["result"] = Party.choose(ctx, n)
+            }
             else -> throw IllegalArgumentException("$name: unknown action ${a.keys}")
         }
     }

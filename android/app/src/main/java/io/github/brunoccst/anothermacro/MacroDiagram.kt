@@ -97,6 +97,7 @@ object MacroDiagram {
             "cat_daily" in a -> Node.Step("Read the clues, travel to each place and find what they describe, then stop", Kind.BUILTIN)
             "another_dungeon" in a -> Node.Step("Play the Another Dungeon run \"${words(a["another_dungeon"].toString())}\" (enemies, chests, boss), then stop", Kind.BUILTIN)
             "phantom_crystal" in a -> Node.Step("Play the Phantom Crystal Dimension world by world, then stop", Kind.BUILTIN)
+            "pick_party" in a -> Node.Step("Open Menu → Party and put party ${a["pick_party"]} (its number in the list) in front", Kind.BUILTIN)
             else -> Node.Step(a.keys.joinToString())
         }
     }

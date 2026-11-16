@@ -196,9 +196,14 @@ object AnotherDungeon {
         val spec = spec(ctx, id)
         val plan = keyPlan(ctx.params)
         // the party first, from the field (the menu's Party page)
-        ctx.params["party"]?.trim()?.takeIf { it.isNotEmpty() && it.lowercase() != "current" }?.let { want ->
-            if (waitForField(ctx, 5)) Party.choose(ctx, want)
-            else MacroLog.i("party '$want': not on the field (a battle?), keeping the current party")
+        // (by its number in the game's list, through the basic macro pick-party)
+        Party.number(ctx.params["party"])?.let { n ->
+            if (waitForField(ctx, 5)) {
+                val got = ctx.runBasic("pick-party", mapOf("party" to "$n"))
+                if (got != "party $n picked") ctx.stop("party $n: $got")
+            } else MacroLog.i("party $n: not on the field (a battle?), keeping the party in front")
+        } ?: ctx.params["party"]?.trim()?.takeIf { it.isNotEmpty() && it.lowercase() != "current" }?.let {
+            MacroLog.i("the party option takes a number (1 = the first party of the list): keeping the party in front")
         }
         // both keys with 0 runs each: only the party is picked
         if (plan.isEmpty()) return "${spec.name}: no runs to do (both keys on, 0 green and 0 red runs)"

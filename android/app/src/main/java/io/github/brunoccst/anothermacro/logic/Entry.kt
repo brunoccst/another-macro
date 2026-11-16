@@ -20,6 +20,6 @@ class Entry : LogicEntry {
 
     companion object {
         val ACTIONS = setOf("if", "tap", "tap_exact", "drag", "walk", "back", "wait", "launch", "log", "status", "set", "count",
-            "stop", "repeat", "reset_view", "find_feather", "read_cat_clues", "cat_daily", "fight", "run", "another_dungeon", "phantom_crystal")
+            "stop", "repeat", "reset_view", "find_feather", "read_cat_clues", "cat_daily", "fight", "run", "another_dungeon", "phantom_crystal", "pick_party")
     }
 }
