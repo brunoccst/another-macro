@@ -124,12 +124,14 @@ def test_watch_ad_leaves_commercials_that_wont_close():
     # leave_ad step (Home, then the game's own screen) instead of tapping it; the step is known
     # to the logic pack, and callers never tap while a commercial is still in front
     entry = (ROOT / "android/app/src/main/java/io/github/brunoccst/anothermacro/logic/Entry.kt").read_text()
-    assert '"leave_ad"' in entry and '"home"' in entry
+    assert '"leave_ad"' in entry and '"home"' in entry and '"close_game"' in entry
     all_macros = macro_pack.macros()
     _, spec = all_macros["watch-ad"]
     acts = list(_flat(spec["unknown"]))
     leave = [a for a in acts if "tries >= leave_after" in str(a.get("if", ""))]
     assert leave and any(a.get("leave_ad") for a in _flat(leave[0]["then"]))
+    # left once and still on: the game is closed from recent apps
+    assert any(a.get("close_game") for a in _flat(leave[0]["then"]))
     assert not any("tap" in a or "tap_exact" in a for a in _flat(leave[0]["then"]))
     for name in ("daily-ads", "start-game"):
         _, caller = all_macros[name]

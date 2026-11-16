@@ -64,6 +64,8 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
             "home" in a -> AdEscape.home()
             // a commercial that won't close (no X, Back ignored): Home, then the game's own screen
             "leave_ad" in a -> AdEscape.leave(ctx)
+            // the last resort: swipe the game away in recent apps; sets `closed`
+            "close_game" in a -> vars["closed"] = AdEscape.closeGame(ctx)
             "wait" in a -> ctx.wait(num(ctx, a["wait"]))
             "launch" in a -> ctx.launchApp(Expr.str(value(ctx, a["launch"])))
             "log" in a -> MacroLog.i(text(ctx, a["log"]))
