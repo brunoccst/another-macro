@@ -336,7 +336,7 @@ object PhantomCrystal {
             Regex("""^\s*([0-9,OoIl]+)\s*Git obtained""").find(t)?.let { m ->
                 m.groupValues[1].replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(",", "").toIntOrNull()?.let { r.items["Git"] = (r.items["Git"] ?: 0) + it }
             }
-            Regex("""^\s*Obtained\s+([A-Za-z'.\- ]+?)\s*[x×X]\s*([0-9OoIl,]+)""").find(t)?.let { m ->
+            Regex("""^\s*Obtained\s*([A-Za-z'.\- ]+?)\s*[x×X]\s*([0-9OoIl,]+)""").find(t)?.let { m ->
                 val n = m.groupValues[2].replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(",", "").toIntOrNull() ?: return@let
                 val name = m.groupValues[1].trim()
                 r.items[name] = (r.items[name] ?: 0) + n
