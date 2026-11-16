@@ -14,7 +14,11 @@
 #   - a commercial that opens a Google Play app sheet by itself (often ~45 s in): Back closes the
 #     sheet (never tap anything in Play: no installs, no purchases), then the usual Backs close the
 #     commercial behind it (tapping its X only pulled down the status bar)
-# Never taps inside a commercial: only Back closes it.
+#   - a commercial that won't close (a playable one with no X, not even on its end card, and Back
+#     ignored): after leave_after Backs, leave it: Home, then the game's own screen again (the
+#     step leave_ad closes the commercial's activity; the game carries on, the reward is usually
+#     lost), then the group ends as usual when the game's screen is back
+# Never taps inside a commercial (never its "Play Now", never a store page): only Back closes it.
 name: watch-ad
 group: basic
 icon: chest
@@ -26,11 +30,13 @@ params:
   max_backs: {default: 10, help: "give up after this many Backs (a group of up to 3 commercials takes a few each)"}
   field_s: {default: 5, help: "stop once the field has shown this long (a short field between two commercials of a group doesn't count)"}
   max_play: {default: 6, help: "give up after closing this many Google Play sheets"}
+  leave_after: {default: 4, help: "a commercial still on after this many Backs (no close button): leave it with Home and go back to the game"}
+  max_leaves: {default: 2, help: "give up after leaving commercials this many times"}
 screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, close_app, field]
 unknown_timeout_s: 300
 
 setup:
-  - set: {since: now(), backs: 0, tries: 0, last_back: 0, granted: false, ads: 1, field_since: 0, ad_seen: false, gone_since: 0, plays: 0, play_back: 0}
+  - set: {since: now(), backs: 0, tries: 0, last_back: 0, granted: false, ads: 1, field_since: 0, ad_seen: false, gone_since: 0, plays: 0, play_back: 0, leaves: 0}
   - status: "watching the commercial (closing it after {ad_wait_s}s)"
 
 handlers:
@@ -103,6 +109,8 @@ unknown:
         then:
           - if: gone_since == 0
             then: [{set: {gone_since: now()}}]
+          - if: now() - gone_since >= 3 and leaves > 0
+            then: [{stop: "left a commercial that wouldn't close (no close button): the game is back ({ads} in this group)"}]
           - if: now() - gone_since >= 3
             then: [{stop: "the commercials are over ({ads} in this group)"}]
           - wait: 1
@@ -113,13 +121,24 @@ unknown:
             then:
               - set: {since: now(), tries: 0, granted: false, ads: ads + 1}
               - status: "watching commercial {ads} of this group"
+          # Backs don't close it (a playable commercial with no X): leave it, Home then the game's own
+          # screen; the branch above ends the group once the game is back
+          - if: tries >= leave_after and now() - last_back > 5
+            then:
+              - if: leaves >= max_leaves
+                then: [{stop: "a commercial wouldn't close, even after leaving it {leaves} times"}]
+              - set: {leaves: leaves + 1, tries: 0, since: now(), last_back: now(), granted: false}
+              - count: ads_left
+              - log: "commercial {ads} didn't close after {leave_after} Backs (no close button): leaving it (Home, then the game)"
+              - status: "leaving a commercial that won't close"
+              - leave_ad: true
           # the commercial is playing: let it run, then Back closes it; never tap inside it.
           # "Reward granted" (top right) = it counted: close it now instead of waiting ad_wait_s
           - if: now() - last_back > 5 and text_has('reward granted')
             then:
               - if: backs >= max_backs
                 then: [{stop: "the commercials didn't close after {backs} Backs"}]
-              - set: {backs: backs + 1, last_back: now(), granted: true}
+              - set: {backs: backs + 1, tries: tries + 1, last_back: now(), granted: true}
               - count: ad_backs
               - log: "commercial {ads} says reward granted: pressing Back ({backs}/{max_backs})"
               - back: true

@@ -86,7 +86,16 @@ unknown:
       - if: result != 'ads open'
         then: [{stop: "{result}"}]
     else:
-      # the chest opening: tap through it
-      - status: "opening the chest"
-      - tap: [0.5, 0.65]
-      - wait: 1.5
+      # a commercial still in front (watch-ad gave up on it): never tap it (that plays it), leave it
+      - if: ad_in_front()
+        then:
+          - if: stats.ads_left_here >= 2
+            then: [{stop: "a commercial wouldn't close"}]
+          - count: ads_left_here
+          - status: "leaving a commercial that won't close"
+          - leave_ad: true
+        else:
+          # the chest opening: tap through it
+          - status: "opening the chest"
+          - tap: [0.5, 0.65]
+          - wait: 1.5

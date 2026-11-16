@@ -71,7 +71,16 @@ unknown:
           - launch: "'games.wfs.anothereden'"
           - wait: 3
         else:
-          # loading screens and the cat delivering the login bonus
-          - status: "loading (tapping through the login bonus)"
-          - tap: [0.5, 0.3]
-          - wait: 1.5
+          # a commercial still in front (watch-ad gave up on it): never tap it (that plays it), leave it
+          - if: ad_in_front()
+            then:
+              - if: stats.ads_left_here >= 2
+                then: [{stop: "a commercial wouldn't close"}]
+              - count: ads_left_here
+              - status: "leaving a commercial that won't close"
+              - leave_ad: true
+            else:
+              # loading screens and the cat delivering the login bonus
+              - status: "loading (tapping through the login bonus)"
+              - tap: [0.5, 0.3]
+              - wait: 1.5

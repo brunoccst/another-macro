@@ -61,6 +61,9 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
                 ctx.drag(Point(0.5, 0.55), Point(0.5 + dx, 0.55 + dy), num(ctx, m["ms"] ?: 1500).toLong())
             }
             "back" in a -> ctx.back()
+            "home" in a -> AdEscape.home()
+            // a commercial that won't close (no X, Back ignored): Home, then the game's own screen
+            "leave_ad" in a -> AdEscape.leave(ctx)
             "wait" in a -> ctx.wait(num(ctx, a["wait"]))
             "launch" in a -> ctx.launchApp(Expr.str(value(ctx, a["launch"])))
             "log" in a -> MacroLog.i(text(ctx, a["log"]))

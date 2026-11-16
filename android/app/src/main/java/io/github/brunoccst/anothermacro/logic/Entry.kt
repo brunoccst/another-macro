@@ -28,7 +28,7 @@ class Entry : LogicEntry {
             "another_dungeon" to listOf("battle", "pick-party"),
             "cat_daily" to listOf("battle"),         // encounters on the way to a cat
         )
-        val ACTIONS = setOf("if", "tap", "tap_exact", "drag", "walk", "back", "wait", "launch", "log", "status", "set", "count",
+        val ACTIONS = setOf("if", "tap", "tap_exact", "drag", "walk", "back", "home", "leave_ad", "wait", "launch", "log", "status", "set", "count",
             "stop", "repeat", "reset_view", "find_feather", "read_cat_clues", "cat_daily", "fight", "run", "another_dungeon", "phantom_crystal", "pick_party")
     }
 }
