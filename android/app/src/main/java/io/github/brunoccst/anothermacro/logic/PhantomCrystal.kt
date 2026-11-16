@@ -213,11 +213,14 @@ object PhantomCrystal {
         ctx.tapExact(b); ctx.wait(1.0)
         // the chest's banner can take ~3 s to show (read at 2 s it was blank, and the run then waited for a
         // new world with the banner open, 2026-11-12): read until there's text, a fade, or ~4.5 s
-        var lines = ctx.readText()
+        // (the app's own "AM" badge is always read: it is no banner, so it doesn't end the wait; with it counted,
+        // most chests' banners were only caught 2-5 s later as "late banners", 2026-11-16)
+        fun game() = ctx.readText().filter { Ocr.norm(it.text) != "am" }
+        var lines = game()
         val readUntil = System.currentTimeMillis() + 3500
         while (lines.isEmpty() && System.currentTimeMillis() < readUntil) {
             ctx.refresh(); if (dark(ctx)) break
-            ctx.wait(0.3); lines = ctx.readText()
+            ctx.wait(0.3); lines = game()
         }
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         MacroLog.i("World ${r.world}: \"!\" shows: ${lines.joinToString(" | ") { it.text }.take(120)}")
