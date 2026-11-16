@@ -36,6 +36,7 @@ object InnerParams {
                 for ((k, p) in shown) {
                     out["$u.$k"] = p.copy(
                         showIf = p.showIf?.takeIf { it in shown }?.let { "$u.$it" },
+                        beside = p.beside?.takeIf { it in shown }?.let { "$u.$it" },
                         from = u, via = via)
                 }
                 visit(inner, via)

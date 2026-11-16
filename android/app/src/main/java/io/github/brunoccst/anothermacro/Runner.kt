@@ -10,7 +10,8 @@ const val BLACK_STOP_MS = 120_000L
 
 /**
  * A user-tunable option, given as text (from the app's form or an intent extra).
- * [choices] makes the form show a dropdown; [type] "bool" a checkbox; otherwise a text box.
+ * [choices] makes the form show a dropdown; [type] "bool" a checkbox, "number" a number box;
+ * otherwise a text box.
  */
 data class Param(val default: String, val help: String, val choices: List<String> = emptyList(), val type: String = "text",
                  /** Shown in the app only while this switch param is on (e.g. the boss skills under boss_setup). */
@@ -21,8 +22,14 @@ data class Param(val default: String, val help: String, val choices: List<String
                   */
                  val from: String? = null,
                  /** The macros between this one and [from], [from] last (e.g. [cat-scratchbook, battle]). */
-                 val via: List<String> = emptyList()) {
+                 val via: List<String> = emptyList(),
+                 /**
+                  * A switch drawn on the side of another option's box instead of on its own row
+                  * (e.g. all_keys next to runs); while it is on, that box is greyed out.
+                  */
+                 val beside: String? = null) {
     val isBool get() = type == "bool"
+    val isNumber get() = type == "number"
     /** Its key in the macro it comes from (skill_1 for battle.skill_1). */
     fun innerKey(key: String) = if (from == null) key else key.removePrefix("$from.")
 }

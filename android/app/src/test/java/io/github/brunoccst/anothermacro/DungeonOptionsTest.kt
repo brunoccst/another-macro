@@ -5,26 +5,39 @@ import io.github.brunoccst.anothermacro.logic.Party
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
-/** The dungeon macros' key plan (one key, or both colours with a count each) and the party pick by number. */
+/** The dungeon macros' key plan (a switch per key colour, runs or all keys) and the party pick by number. */
 class DungeonOptionsTest {
     private val all = Int.MAX_VALUE
 
-    @Test fun oneKey() {
-        assertEquals(listOf("green" to 1), AnotherDungeon.keyPlan(mapOf("key" to "green", "runs" to "1")))
-        assertEquals(listOf("red" to all), AnotherDungeon.keyPlan(mapOf("key" to "red", "runs" to "all")))
-        assertEquals(listOf("green" to 3), AnotherDungeon.keyPlan(mapOf("key" to "green", "runs" to "3.0", "both_keys" to "false")))
-        assertEquals(listOf("green" to 1), AnotherDungeon.keyPlan(mapOf("key" to "green", "runs" to "0")))
+    private fun plan(keys: List<String>, runs: Int) = AnotherDungeon.KeyPlan(keys, runs)
+
+    @Test fun oneKeySwitch() {
+        assertEquals(plan(listOf("green"), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "red_key" to "false", "runs" to "1")))
+        assertEquals(plan(listOf("red"), 3), AnotherDungeon.keyPlan(mapOf("red_key" to "true", "runs" to "3.0")))
+        assertEquals(plan(listOf("green"), 27), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to " 27 ")))
+        assertEquals(plan(listOf("green"), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to "0")))
+        assertEquals(plan(listOf("green"), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to "")))
+        assertEquals(plan(listOf("green"), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to "-4")))
+        assertEquals(plan(listOf("green"), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to "lots")))
     }
 
-    @Test fun bothKeysRedFirst() {
-        val p = mapOf("key" to "green", "runs" to "10", "both_keys" to "true", "green_runs" to "3", "red_runs" to "2", "key_order" to "red_first")
-        assertEquals(listOf("red" to 2, "green" to 3), AnotherDungeon.keyPlan(p))
-        assertEquals(listOf("green" to 3, "red" to 2), AnotherDungeon.keyPlan(p + ("key_order" to "green_first")))
+    @Test fun bothKeysRedFirstRunsPerColour() {
+        assertEquals(plan(listOf("red", "green"), 7), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "red_key" to "true", "runs" to "7")))
     }
 
-    @Test fun bothKeysSkipsZeroAndKeepsAll() {
-        assertEquals(listOf("green" to all), AnotherDungeon.keyPlan(mapOf("both_keys" to "true", "red_runs" to "0", "green_runs" to "all")))
-        assertEquals(emptyList<Pair<String, Int>>(), AnotherDungeon.keyPlan(mapOf("both_keys" to "true", "red_runs" to "0", "green_runs" to "0")))
+    @Test fun allKeysSwitch() {
+        assertEquals(plan(listOf("red", "green"), all), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "red_key" to "true", "runs" to "4", "all_keys" to "true")))
+        assertEquals(plan(listOf("red"), all), AnotherDungeon.keyPlan(mapOf("red_key" to "true", "runs" to "4", "all_keys" to "true")))
+    }
+
+    @Test fun noKeyOn() {
+        assertEquals(plan(emptyList(), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "false", "red_key" to "false", "runs" to "1")))
+    }
+
+    @Test fun oldSavedOptions() {
+        assertEquals(plan(listOf("red"), all), AnotherDungeon.keyPlan(mapOf("key" to "red", "runs" to "all")))
+        assertEquals(plan(listOf("green"), 2), AnotherDungeon.keyPlan(mapOf("runs" to "2")))
+        assertEquals(plan(listOf("green"), all), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to "all")))
     }
 
     @Test fun partyNumbers() {

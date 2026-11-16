@@ -125,6 +125,16 @@ def check(root: Path = ROOT) -> list[str]:
         for k in spec.get("params") or {}:
             if "." in str(k):
                 problems.append(f"{rel}: option {k!r}: a dot is for the options taken over from inner macros")
+        # show_if / beside must name another option; beside goes on a switch (type: bool)
+        params = spec.get("params") or {}
+        for k, p in params.items():
+            if not isinstance(p, dict):
+                continue
+            for ref in ("show_if", "beside"):
+                if ref in p and p[ref] not in params:
+                    problems.append(f"{rel}: option {k!r} {ref} unknown option {p[ref]!r}")
+            if "beside" in p and p.get("type") != "bool" and not isinstance(p.get("default"), bool):
+                problems.append(f"{rel}: option {k!r} has beside but is not a switch")
         for u in used:
             if u not in all_macros:
                 problems.append(f"{rel}: runs unknown macro {u!r}")

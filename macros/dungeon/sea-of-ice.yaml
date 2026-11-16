@@ -10,9 +10,10 @@ icon: chest
 description: "Another Dungeon: Sea of Ice (Celestial Soul, Very Hard). All enemies, all chests and sparkles, then the boss."
 templates: [another_dungeon, daily_ads]
 params:
-  key: {default: red, choices: [red], help: "key to use: Sea of Ice is Very Hard only, so red"}
-  # every dungeon macro: how many runs in a row, and what to do when a White Key drops
-  runs: {default: 1, choices: [1, 2, 3, 5, 10, all], help: "runs in a row; all = until the chosen key runs out"}
+  red_key: {default: true, type: bool, help: "use red keys: Sea of Ice is Very Hard only (off = only pick the party)"}
+  # every dungeon macro: how many runs in a row (or all keys), and what to do when a White Key drops
+  runs: {default: 1, type: number, help: "runs in a row, any number; switch All keys on (beside it) to run until the keys run out"}
+  all_keys: {default: false, type: bool, beside: runs, help: "run until the switched-on keys run out (runs above not used)"}
   white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
   party: {default: 10, choices: [current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the game's party to use, by its number in the game's party list (1 = the first; Menu → Party, the dots under it); current = the party in front now. Picked once on the field before the first run (basic macro pick-party)"}
   cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
