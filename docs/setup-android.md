@@ -105,6 +105,11 @@ tool. The floating ■ stops whatever Claude is doing.
     version: install it from System → Updates and choose **Install anyway**.
   - After any install or restart, allow screen capture again (step 2.2) and turn the
     connector back on.
+- **Test builds:** System → Updates → **Build to follow** lists `main` and the newest build of
+  every open pull request. Tap one to install it (or only load its logic, when that is all
+  that changed). The app then follows that branch, its macros included, until you pick
+  `main` again. A build marked "older app than this one" can't be installed over a newer
+  app, so the app only follows it and takes its next build.
 
 ## Tips
 
