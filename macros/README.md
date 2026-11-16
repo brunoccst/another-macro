@@ -73,6 +73,8 @@ it works and fits a category (Daily, Another Dungeon, Farming, Game, Basic), pub
 - Reuse: before writing steps into a macro, check whether that part is (or should be) a basic
   macro, and run it. Never copy a basic macro's options into the caller: they come along by
   themselves.
+- A `set:` value is an expression: write `''` for empty text, never an empty value (it crashes
+  the macro; the pack check refuses it).
 - Generic: party slots and skill numbers, never character names. A user's own choices
   (e.g. skill 4 for slot 1) are options they set in the app, which keeps them per macro.
 - Never spend premium currency or confirm a purchase (the app refuses taps in the shop anyway).
