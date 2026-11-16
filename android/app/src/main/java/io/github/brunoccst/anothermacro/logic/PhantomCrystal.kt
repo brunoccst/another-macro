@@ -176,7 +176,10 @@ object PhantomCrystal {
         if (r.last) ctx.stop("Last World: chests taken; the Sensationalist is left for you (free Treatise/Codex/Opus of your choice, then the way out)")
         // the Sensationalist can wait in the Cape too (the user, 2026-11-12): never take the way out there, the
         // user looks and finishes the dimension (no way to tell him on screen yet)
-        if (r.cape) ctx.stop("World's Cape: chests taken; left for you: talk to the Sensationalist if he's here, then take the stairs out")
+        if (r.cape) {
+            capeCats(r)
+            ctx.stop("World's Cape: chests and cat taken; left for you: talk to the Sensationalist if he's here, then take the stairs out")
+        }
         // nothing left to take: a portal (or, in the Cape / final world, the stairs out)
         return leave(r)
     }
@@ -213,16 +216,23 @@ object PhantomCrystal {
         ctx.tapExact(b); ctx.wait(1.0)
         // the chest's banner can take ~3 s to show (read at 2 s it was blank, and the run then waited for a
         // new world with the banner open, 2026-11-12): read until there's text, a fade, or ~4.5 s
-        var lines = ctx.readText()
+        // (the app's own "AM" badge is always read: it is no banner, so it doesn't end the wait; with it counted,
+        // most chests' banners were only caught 2-5 s later as "late banners", 2026-11-16)
+        fun game() = ctx.readText().filter { Ocr.norm(it.text) != "am" }
+        var lines = game()
         val readUntil = System.currentTimeMillis() + 3500
         while (lines.isEmpty() && System.currentTimeMillis() < readUntil) {
             ctx.refresh(); if (dark(ctx)) break
-            ctx.wait(0.3); lines = ctx.readText()
+            ctx.wait(0.3); lines = game()
         }
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         MacroLog.i("World ${r.world}: \"!\" shows: ${lines.joinToString(" | ") { it.text }.take(120)}")
         when {
             "treatise" in all || "codex" in all || "opus" in all -> ctx.stop("an NPC offers a free Treatise/Codex/Opus: choose it yourself")
+            // the game autosaves on arriving in a world: the last straw dummy of a bonus room moved the party on
+            // with no fade the watcher saw, and the run went on in the jungle as "world 2" until it stopped with
+            // "no way out" (2026-11-16)
+            "autosaving" in all -> { MacroLog.i("World ${r.world}: autosave: a new world"); ctx.wait(1.5); return Taken.LEFT }
             "stamp" in all && ("you got" in all || "filled out" in all) -> {
                 r.stamps++; MacroLog.i("paw stamp"); dismiss(ctx); return Taken.SOME
             }
@@ -246,6 +256,39 @@ object PhantomCrystal {
             }
         }
         return afterLeaving(r)
+    }
+
+    /**
+     * The World's Cape's cat sits still, so the walking-cat check never took it (the user got its stamp by hand,
+     * 2026-11-16). Walk the Cape in short steps and tap each still "!" that is neither the stairs out (a "!" with
+     * the floor's up arrow under it, high at y ~0.23) nor a person (their "!" sits higher than a cat's ~0.29).
+     */
+    private fun capeCats(r: Run) {
+        val ctx = r.ctx
+        if (InputService.instance?.controls(true)?.first == true) Thread.sleep(400)
+        val had = r.stamps
+        var dir = -1.0
+        var ends = 0
+        for (step in 0 until 30) {
+            val f = ctx.refresh()
+            val ups = findAll(f.gray, icon(ctx, "ground_arrow_up"), listOf(0.9, 1.0, 1.1), 0.75)
+            val cats = bubbles(ctx, f).filter { b ->
+                b.y > 0.25 && r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 } &&
+                    ups.none { abs(it.x - b.x) < 0.08 && it.y > b.y && it.y - b.y < 0.45 }
+            }
+            for (b in cats) {
+                MacroLog.i("World's Cape: a still \"!\" at (${"%.2f".format(b.x)}, ${"%.2f".format(b.y)}): the cat?")
+                r.skip += b
+                when (tapBubble(r, b)) {
+                    Taken.LEFT, Taken.END -> return
+                    else -> {}
+                }
+                if (r.stamps > had) return
+            }
+            val before = view(ctx)
+            walk(ctx, dir, 500)
+            if (!moved(ctx, before)) { if (++ends > 1) break; dir = -dir }
+        }
     }
 
     /** Take any "!" left (not a known menu): a portal, the stairs out. */
@@ -285,6 +328,7 @@ object PhantomCrystal {
             val lines = ctx.readText()
             val all = lines.joinToString(" ") { Ocr.norm(it.text) }
             if ("congratulations" in all || "obtained dungeon items" in all) return Taken.END
+            if ("autosaving" in all) { MacroLog.i("autosave: a new world"); ctx.wait(1.5); return Taken.LEFT }
             if (lines.any { Ocr.norm(it.text) == "another dungeon" }) return Taken.END
             // a late item or stamp banner (it hides the field's buttons, so no new world would ever be seen)
             if (!faded && ("obtained" in all || ("stamp" in all && ("you got" in all || "filled out" in all)))) {
@@ -323,12 +367,18 @@ object PhantomCrystal {
 
     // --- helpers ------------------------------------------------------------------------
     private fun noteItem(r: Run, lines: List<Ocr.Line>) {
+        // OCR can split the count off the name ("Obtained Cat Express Ticket" | "x3.", 2026-11-16): join them back
+        val texts = mutableListOf<String>()
         for (l in lines) {
-            val t = l.text
+            if (texts.isNotEmpty() && Regex("""^\s*[x×X]\s*[0-9OoIl]""").containsMatchIn(l.text) &&
+                !Regex("""[x×X]\s*[0-9OoIl,]+\.?\s*$""").containsMatchIn(texts.last())) texts[texts.size - 1] = texts.last() + " " + l.text
+            else texts += l.text
+        }
+        for (t in texts) {
             Regex("""^\s*([0-9,OoIl]+)\s*Git obtained""").find(t)?.let { m ->
                 m.groupValues[1].replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(",", "").toIntOrNull()?.let { r.items["Git"] = (r.items["Git"] ?: 0) + it }
             }
-            Regex("""^\s*Obtained\s+([A-Za-z'.\- ]+?)\s*[x×X]\s*([0-9OoIl,]+)""").find(t)?.let { m ->
+            Regex("""^\s*Obtained\s*([A-Za-z'.\- ]+?)\s*[x×X]\s*([0-9OoIl,]+)""").find(t)?.let { m ->
                 val n = m.groupValues[2].replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(",", "").toIntOrNull() ?: return@let
                 val name = m.groupValues[1].trim()
                 r.items[name] = (r.items[name] ?: 0) + n
