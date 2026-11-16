@@ -176,7 +176,10 @@ object PhantomCrystal {
         if (r.last) ctx.stop("Last World: chests taken; the Sensationalist is left for you (free Treatise/Codex/Opus of your choice, then the way out)")
         // the Sensationalist can wait in the Cape too (the user, 2026-11-12): never take the way out there, the
         // user looks and finishes the dimension (no way to tell him on screen yet)
-        if (r.cape) ctx.stop("World's Cape: chests taken; left for you: talk to the Sensationalist if he's here, then take the stairs out")
+        if (r.cape) {
+            capeCats(r)
+            ctx.stop("World's Cape: chests and cat taken; left for you: talk to the Sensationalist if he's here, then take the stairs out")
+        }
         // nothing left to take: a portal (or, in the Cape / final world, the stairs out)
         return leave(r)
     }
@@ -253,6 +256,39 @@ object PhantomCrystal {
             }
         }
         return afterLeaving(r)
+    }
+
+    /**
+     * The World's Cape's cat sits still, so the walking-cat check never took it (the user got its stamp by hand,
+     * 2026-11-16). Walk the Cape in short steps and tap each still "!" that is neither the stairs out (a "!" with
+     * the floor's up arrow under it, high at y ~0.23) nor a person (their "!" sits higher than a cat's ~0.29).
+     */
+    private fun capeCats(r: Run) {
+        val ctx = r.ctx
+        if (InputService.instance?.controls(true)?.first == true) Thread.sleep(400)
+        val had = r.stamps
+        var dir = -1.0
+        var ends = 0
+        for (step in 0 until 30) {
+            val f = ctx.refresh()
+            val ups = findAll(f.gray, icon(ctx, "ground_arrow_up"), listOf(0.9, 1.0, 1.1), 0.75)
+            val cats = bubbles(ctx, f).filter { b ->
+                b.y > 0.25 && r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 } &&
+                    ups.none { abs(it.x - b.x) < 0.08 && it.y > b.y && it.y - b.y < 0.45 }
+            }
+            for (b in cats) {
+                MacroLog.i("World's Cape: a still \"!\" at (${"%.2f".format(b.x)}, ${"%.2f".format(b.y)}): the cat?")
+                r.skip += b
+                when (tapBubble(r, b)) {
+                    Taken.LEFT, Taken.END -> return
+                    else -> {}
+                }
+                if (r.stamps > had) return
+            }
+            val before = view(ctx)
+            walk(ctx, dir, 500)
+            if (!moved(ctx, before)) { if (++ends > 1) break; dir = -dir }
+        }
     }
 
     /** Take any "!" left (not a known menu): a portal, the stairs out. */
