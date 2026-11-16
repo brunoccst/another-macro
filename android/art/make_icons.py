@@ -6,7 +6,7 @@ Lettering uses Cinzel Decorative (SIL Open Font License), downloaded on demand.
 
     python android/art/make_icons.py            # writes the res/ files
     python android/art/make_icons.py --preview out.png   # also writes a preview sheet
-    python android/art/make_icons.py --launcher monogram # "AM" launcher instead of the words
+    python android/art/make_icons.py --launcher words    # "ANOTHER MACRO" launcher instead of "AM"
 
 Needs Pillow and numpy only.
 """
@@ -282,7 +282,7 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--preview", type=Path)
     ap.add_argument("--no-write", action="store_true")
-    ap.add_argument("--launcher", choices=["words", "monogram"], default="words")
+    ap.add_argument("--launcher", choices=["words", "monogram"], default="monogram")
     args = ap.parse_args()
 
     fg = {d: launcher_foreground(px, args.launcher) for d, px in DENSITIES.items()}
