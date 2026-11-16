@@ -24,7 +24,8 @@ import io.github.brunoccst.anothermacro.MacroLog
  * [closeGame]: the last resort. Recent apps, then swipe the game's own card away (found by the
  * game's name in the recents screen's accessibility nodes, so no other app's card is touched, and
  * nothing else there, such as "Close all", is pressed), then Home. The game process ends with the
- * commercial; the caller starts the game again.
+ * commercial; the caller starts the game again. Phone-tested 11-16 on a Samsung (One UI): it
+ * freed the phone from that AppLovin playable; the game then started fresh.
  */
 object AdEscape {
     fun home(): Boolean = InputService.instance?.performGlobalAction(AccessibilityService.GLOBAL_ACTION_HOME) ?: false
@@ -52,8 +53,10 @@ object AdEscape {
         var best: Rect? = null
         fun visit(n: AccessibilityNodeInfo?, depth: Int) {
             if (n == null || depth > 40) return
-            val name = listOfNotNull(n.text, n.contentDescription).joinToString(" ").lowercase()
-            if (label in name) {
+            // named after the game itself (not an app whose name merely mentions it, such as a
+            // shortcut "Another Macro (Another Eden ...)")
+            val names = listOfNotNull(n.text, n.contentDescription).map { it.toString().trim().lowercase() }
+            if (names.any { it.startsWith(label) }) {
                 val r = Rect().also { n.getBoundsInScreen(it) }
                 val area = r.width().toLong() * r.height()
                 // the card, not a full-screen container that merely mentions it
