@@ -311,8 +311,8 @@ class StatsPage(private val a: MainActivity) {
 
     companion object {
         private const val HISTORY_STEP = 30
-        private val STOPPED = Color.parseColor("#90A4AE")
-        private val SAFETY = Color.parseColor("#BA68C8")
+        private val STOPPED = Ui.SLATE
+        private val SAFETY = Ui.VIOLET
 
         fun color(o: RunStats.Outcome) = when (o) {
             RunStats.Outcome.DONE -> Ui.GOOD
