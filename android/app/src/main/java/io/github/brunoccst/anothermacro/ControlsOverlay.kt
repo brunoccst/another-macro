@@ -24,7 +24,7 @@ import kotlin.math.abs
  * app is already in front, brings the game back (no trip through the home screen). Drawn as an accessibility overlay (no
  * "draw over other apps" permission needed). Drag the handle to move it; tap
  * the handle (the round "AM" badge) to fold the buttons away. A ring around the handle shows
- * the state: none = idle, green = running, amber = paused.
+ * the state: none = idle, a green arc spinning round the badge = running, a steady amber ring = paused.
  *
  * It sits on the screen edge, away from the game's buttons; macros that tap
  * near it could hit it, so move it if it's in the way.
@@ -42,8 +42,8 @@ class ControlsOverlay(private val service: InputService) {
     private val handleRoot = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
     private val root = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
     private val buttons = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
-    /** The state ring drawn around the handle's badge. */
-    private val ring = GradientDrawable().apply { shape = GradientDrawable.OVAL; setColor(Color.TRANSPARENT) }
+    /** The state ring drawn around the handle's badge (spins while a macro runs). */
+    private val ring = SpinnerRing(dp(RING).toFloat())
     private val handle = round(R.drawable.overlay_bubble, "Another Macro controls").apply {
         background = android.graphics.drawable.LayerDrawable(arrayOf(ring, service.getDrawable(R.drawable.overlay_bubble)))
             .apply { setLayerInset(1, dp(RING), dp(RING), dp(RING), dp(RING)) }
@@ -325,12 +325,11 @@ class ControlsOverlay(private val service: InputService) {
             wasRunning = Runner.isRunning
             setFolded(wasRunning, animate = true)
         }
-        val color = when {
-            Runner.isPaused -> Color.parseColor("#F9A825")
-            Runner.isRunning -> Color.parseColor("#43A047")
-            else -> Color.TRANSPARENT
+        when {
+            Runner.isPaused -> ring.set(SpinnerRing.Mode.STILL, PAUSED)
+            Runner.isRunning -> ring.set(SpinnerRing.Mode.SPIN, RUNNING)
+            else -> ring.set(SpinnerRing.Mode.OFF, Color.TRANSPARENT)
         }
-        ring.setColor(color)
         val pause = Runner.isRunning && !Runner.isPaused
         playPause.background = if (pause) pauseIcon else playIcon
         playPause.contentDescription = if (pause) "Pause" else if (Runner.isPaused) "Resume" else "Start"
@@ -426,5 +425,8 @@ class ControlsOverlay(private val service: InputService) {
         private val RIM = Color.parseColor("#C9A15A")
         private val BLUE_TOP = Color.parseColor("#1D4FA6")
         private val BLUE_BOTTOM = Color.parseColor("#0A1F5C")
+        /** State ring colours. */
+        private val RUNNING = Color.parseColor("#4CDA5A")
+        private val PAUSED = Color.parseColor("#F9A825")
     }
 }
