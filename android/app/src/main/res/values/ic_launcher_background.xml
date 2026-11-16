@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <!-- the navy behind the launcher icon's art (only shows if a launcher masks wider than usual) -->
-    <color name="ic_launcher_background">#FFFFFF</color>
-</resources>

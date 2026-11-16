@@ -25,8 +25,9 @@ RES = ROOT / "app/src/main/res"
 CACHE = Path(__file__).resolve().parent / ".fonts"
 FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/cinzeldecorative/CinzelDecorative-{}.ttf"
 
-NAVY = (16, 32, 72)          # subtitle / ring navy
+NAVY = (24, 38, 86)          # subtitle / ring navy
 INK = (6, 9, 16)             # outline
+CAT_INK = (14, 18, 32)       # the cat is near-black like the letters
 WHITE = (255, 255, 255)
 SS = 4                       # supersampling factor
 
@@ -72,7 +73,54 @@ def chrome(mask: Image.Image, top: int | None = None, bottom: int | None = None)
     return out
 
 
-def emboss(mask: Image.Image, fill: Image.Image, outline: int, shadow: int) -> Image.Image:
+def noise(w: int, h: int, seed: int, octaves=((6, 1.0), (14, 0.5), (32, 0.25))) -> np.ndarray:
+    """Smooth value noise in 0..1 (deterministic for a seed)."""
+    rng = np.random.default_rng(seed)
+    acc = np.zeros((h, w), np.float32)
+    for cells, amp in octaves:
+        g = (rng.random((cells, cells)) * 255).astype(np.uint8)
+        acc += amp * np.asarray(Image.fromarray(g, "L").resize((w, h), Image.BICUBIC), np.float32) / 255
+    acc -= acc.min()
+    return acc / max(1e-6, acc.max())
+
+
+def marble(mask: Image.Image, seed: int = 7) -> Image.Image:
+    """Near-black polished steel with blue sheen patches and pale cracked highlights
+    (the logo-letter look)."""
+    w, h = mask.size
+    sheen = noise(w, h, seed, ((5, 1.0), (11, 0.5), (23, 0.25)))
+    # Pale highlights: noise stretched vertically so it reads as streaky reflections.
+    rng = np.random.default_rng(seed + 1)
+    acc = np.zeros((h, w), np.float32)
+    for cx, cy, amp in ((40, 9, 1.0), (90, 20, 0.5), (180, 40, 0.25)):
+        g = (rng.random((cy, cx)) * 255).astype(np.uint8)
+        acc += amp * np.asarray(Image.fromarray(g, "L").resize((w, h), Image.BICUBIC), np.float32) / 255
+    acc = (acc - acc.min()) / max(1e-6, acc.max() - acc.min())
+    yy = np.linspace(0, 1, h, dtype=np.float32)[:, None]
+    blue = np.clip((sheen - 0.45) / 0.35, 0, 1)
+    pale = np.clip((acc - 0.70) / 0.14, 0, 1) ** 1.4 * np.clip((sheen - 0.25) / 0.4, 0, 1)
+    base = np.array([8, 10, 16], np.float32)
+    deep = np.array([52, 80, 128], np.float32)
+    light = np.array([206, 220, 240], np.float32)
+    img = base + (deep - base) * blue[..., None]
+    img = img + (light - img) * pale[..., None]
+    img *= (0.80 + 0.30 * np.exp(-((yy - 0.45) / 0.25) ** 2))[..., None]   # brighter band mid-height
+    out = Image.fromarray(np.clip(img, 0, 255).astype(np.uint8), "RGB").convert("RGBA")
+    out.putalpha(mask)
+    return out
+
+
+def mist(n: int, seed: int = 3) -> Image.Image:
+    """Warm off-white with faint grey cloud wisps (the game's title-screen backdrop)."""
+    c = noise(n, n, seed, ((3, 1.0), (7, 0.5), (16, 0.25)))
+    wisps = np.clip((c - 0.45) / 0.4, 0, 1) ** 1.6
+    hi = np.array([248, 246, 245], np.float32)
+    lo = np.array([214, 214, 220], np.float32)
+    img = hi + (lo - hi) * wisps[..., None] * 0.55
+    return Image.fromarray(img.astype(np.uint8), "RGB").convert("RGBA")
+
+
+def emboss(mask: Image.Image, fill: Image.Image, outline: int, shadow: int, inline: int = 0) -> Image.Image:
     """Outline + soft shadow under a filled shape. All sizes in (supersampled) px."""
     w, h = mask.size
     layer = Image.new("RGBA", (w, h), (0, 0, 0, 0))
@@ -84,22 +132,40 @@ def emboss(mask: Image.Image, fill: Image.Image, outline: int, shadow: int) -> I
         ring = mask.filter(ImageFilter.MaxFilter(outline * 2 + 1))
         layer.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (w, h), c) for c in INK], ring)))
     layer.alpha_composite(fill)
+    if inline:
+        cut = engrave(mask, inline)
+        layer.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (w, h), c) for c in (226, 234, 246)], cut.point(lambda v: v * 0.8))))
     # Thin inner highlight along the top edge of the shape.
     hi = ImageChops.subtract(mask, ImageChops.offset(mask, 0, max(1, outline // 2)))
     layer.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (w, h), 255)] * 3, hi.point(lambda v: v * 0.55))))
     return layer
 
 
-def text_mask(size, text, fnt, center, tracking=0) -> Image.Image:
-    m = Image.new("L", size, 0)
-    d = ImageDraw.Draw(m)
+def text_mask(size, text, fnt, center, tracking=0, squeeze=0.9, weight=0.0) -> Image.Image:
+    """Render `text` centred at `center`, narrowed by `squeeze` (taller, like the logo's capitals)
+    and thickened by `weight` x font size (Cinzel Decorative Regular is a little light for an icon)."""
+    w, h = size
+    wide = Image.new("L", (int(w / squeeze), h), 0)
+    d = ImageDraw.Draw(wide)
     widths = [d.textlength(ch, font=fnt) for ch in text]
     total = sum(widths) + tracking * (len(text) - 1)
-    x = center[0] - total / 2
+    x = wide.size[0] / 2 - total / 2
     for ch, cw in zip(text, widths):
         d.text((x, center[1]), ch, font=fnt, fill=255, anchor="lm")
         x += cw + tracking
+    if weight:
+        r = max(1, int(fnt.size * weight))
+        wide = wide.filter(ImageFilter.MaxFilter(r * 2 + 1)).filter(ImageFilter.GaussianBlur(r * 0.4))
+    m = Image.new("L", size, 0)
+    m.paste(wide.resize((int(wide.size[0] * squeeze), h), Image.LANCZOS), (int(center[0] - w / 2), 0))
     return m
+
+
+def engrave(mask: Image.Image, depth: int) -> Image.Image:
+    """A thin inline cut running inside the strokes (the logo's letters carry one)."""
+    inner = mask.filter(ImageFilter.MinFilter(depth * 2 + 1))
+    core = inner.filter(ImageFilter.MinFilter(max(3, depth // 2 * 2 + 1)))
+    return ImageChops.subtract(inner, core)
 
 
 # ---------------------------------------------------------------- the cat
@@ -156,7 +222,7 @@ def disc(size: int, inset: float) -> Image.Image:
 
 
 def round_badge(px: int, glyph_mask_fn) -> Image.Image:
-    """White face, chrome bezel, navy inner ring; glyph_mask_fn(size) -> L mask of the glyph."""
+    """Misty off-white face, chrome bezel, navy inner ring; glyph_mask_fn(size) -> L mask of the glyph."""
     n = px * SS
     out = Image.new("RGBA", (n, n), (0, 0, 0, 0))
     outer = disc(n, n * 0.015)
@@ -164,18 +230,20 @@ def round_badge(px: int, glyph_mask_fn) -> Image.Image:
     face = disc(n, n * 0.075)
     # Soft drop shadow so the white face reads on light game backgrounds.
     out.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (n, n), 0)] * 3, outer.filter(ImageFilter.GaussianBlur(n * 0.01)).point(lambda v: v * 0.5))))
-    out.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (n, n), 255)] * 3, face)))
+    m = mist(n)
+    m.putalpha(face)
+    out.alpha_composite(m)
     # Very light blue-grey vignette on the face.
     yy, xx = np.mgrid[0:n, 0:n].astype(np.float32)
     rr = np.hypot(xx - n / 2, yy - n / 2) / (n / 2)
     vig = (np.clip((rr - 0.55) / 0.4, 0, 1) ** 2 * 70).astype(np.uint8)
     vig = Image.fromarray(np.minimum(vig, np.array(face)), "L")
-    out.alpha_composite(Image.merge("RGBA", (Image.new("L", (n, n), 120), Image.new("L", (n, n), 140), Image.new("L", (n, n), 180), vig)))
+    out.alpha_composite(Image.merge("RGBA", (Image.new("L", (n, n), 150), Image.new("L", (n, n), 148), Image.new("L", (n, n), 156), vig)))
     out.alpha_composite(chrome(bezel, 0, n))
     ring = ImageChops.subtract(disc(n, n * 0.085), disc(n, n * 0.105))
     out.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (n, n), c) for c in NAVY], ring)))
     g = glyph_mask_fn(n)
-    out.alpha_composite(emboss(g, chrome(g), outline=int(n * 0.012), shadow=int(n * 0.02)))
+    out.alpha_composite(emboss(g, marble(g), outline=int(n * 0.008), shadow=int(n * 0.01)))
     return out.resize((px, px), Image.LANCZOS)
 
 
@@ -230,8 +298,8 @@ def g_restart(n):
 
 
 def g_am(n):
-    f = font("Black", int(n * 0.40))
-    return text_mask((n, n), "AM", f, (n / 2, n * 0.50), tracking=-n * 0.01)
+    f = font("Regular", int(n * 0.46))
+    return text_mask((n, n), "AM", f, (n / 2, n * 0.50), tracking=-n * 0.015, weight=0.010)
 
 
 # ---------------------------------------------------------------- launcher
@@ -241,33 +309,39 @@ def launcher_foreground(px: int, style: str = "words") -> Image.Image:
     n = px * SS
     out = Image.new("RGBA", (n, n), (0, 0, 0, 0))
     if style == "monogram":
-        m = text_mask((n, n), "AM", font("Black", int(n * 0.30)), (n / 2, n * 0.45), tracking=-n * 0.008)
-        out.alpha_composite(emboss(m, chrome(m), outline=int(n * 0.007), shadow=int(n * 0.014)))
-        ly = n * 0.685
+        m = text_mask((n, n), "AM", font("Regular", int(n * 0.345)), (n / 2, n * 0.45), tracking=-n * 0.012, weight=0.008)
+        out.alpha_composite(emboss(m, marble(m), outline=int(n * 0.004), shadow=int(n * 0.005)))
+        ly = n * 0.70
         nav = Image.new("L", (n, n), 0)
         ImageDraw.Draw(nav).polygon([(n * 0.30, ly), (n * 0.55, ly - n * 0.006), (n * 0.70, ly),
                                      (n * 0.55, ly + n * 0.006)], fill=255)
-        nav = ImageChops.lighter(nav, cat_mask((n, n), n * 0.48, ly - n * 0.003, n * 0.16))
         out.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (n, n), c) for c in NAVY], nav)))
+        cat = cat_mask((n, n), n * 0.52, ly - n * 0.003, n * 0.16)
+        out.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (n, n), c) for c in CAT_INK], cat)))
         return out.resize((px, px), Image.LANCZOS)
-    m1 = text_mask((n, n), "ANOTHER", font("Black", int(n * 0.098)), (n / 2, n * 0.405), tracking=0)
-    m2 = text_mask((n, n), "MACRO", font("Black", int(n * 0.138)), (n / 2, n * 0.528), tracking=0)
-    fill = chrome(m1)
-    fill.alpha_composite(chrome(m2))
-    out.alpha_composite(emboss(ImageChops.lighter(m1, m2), fill, outline=int(n * 0.006), shadow=int(n * 0.012)))
-    # A navy cat walking along a tapered navy line under the words.
+    m1 = text_mask((n, n), "ANOTHER", font("Regular", int(n * 0.11)), (n / 2, n * 0.405), tracking=0, weight=0.008)
+    m2 = text_mask((n, n), "MACRO", font("Regular", int(n * 0.15)), (n / 2, n * 0.528), tracking=0, weight=0.008)
+    fill = marble(ImageChops.lighter(m1, m2))
+    out.alpha_composite(emboss(ImageChops.lighter(m1, m2), fill, outline=int(n * 0.003), shadow=int(n * 0.004)))
+    # A near-black cat walking along a tapered navy line under the words.
     ly = n * 0.678
     nav = Image.new("L", (n, n), 0)
     ImageDraw.Draw(nav).polygon([(n * 0.27, ly), (n * 0.55, ly - n * 0.0055), (n * 0.73, ly),
                                  (n * 0.55, ly + n * 0.0055)], fill=255)
-    nav = ImageChops.lighter(nav, cat_mask((n, n), n * 0.49, ly - n * 0.003, n * 0.155))
     out.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (n, n), c) for c in NAVY], nav)))
+    cat = cat_mask((n, n), n * 0.49, ly - n * 0.003, n * 0.155)
+    out.alpha_composite(Image.merge("RGBA", (*[Image.new("L", (n, n), c) for c in CAT_INK], cat)))
     return out.resize((px, px), Image.LANCZOS)
 
 
+def launcher_background(px: int) -> Image.Image:
+    """Adaptive-icon background layer: misty off-white."""
+    return mist(px * 2).resize((px, px), Image.LANCZOS)
+
+
 def legacy_launcher(px: int, style: str = "words") -> Image.Image:
-    """Full square preview (white background + foreground), as a launcher would show it."""
-    bg = Image.new("RGBA", (px, px), WHITE + (255,))
+    """Full square preview (background + foreground layers), as a launcher would show it."""
+    bg = launcher_background(px)
     bg.alpha_composite(launcher_foreground(px, style))
     return bg
 
@@ -290,6 +364,7 @@ def main():
     if not args.no_write:
         for d, im in fg.items():
             im.save(RES / f"mipmap-{d}/ic_launcher_foreground.webp", lossless=True)
+            launcher_background(DENSITIES[d]).convert("RGB").save(RES / f"mipmap-{d}/ic_launcher_background.webp", quality=92)
         for k, im in ov.items():
             im.save(RES / f"drawable-nodpi/overlay_{k}.webp", lossless=True)
     if args.preview:
@@ -301,7 +376,7 @@ def preview(fg, ov):
     W, H = 1400, 640
     sheet = Image.new("RGBA", (W, H), (226, 229, 236, 255))
     n = fg.size[0]
-    full = Image.new("RGBA", fg.size, WHITE + (255,))
+    full = launcher_background(fg.size[0])
     full.alpha_composite(fg)
     full = full.crop((n // 6, n // 6, n - n // 6, n - n // 6))
     k = full.size[0]
