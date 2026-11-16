@@ -107,7 +107,8 @@ def load_maps(path: Path = DUNGEONS) -> list[tuple[str, int, MapData | None, dic
     for did, d in yaml.safe_load(path.read_text()).items():
         for i, m in enumerate(d["maps"]):
             layout = None
-            if m.get("segs"):
+            # (a layout without an arrival is walked by area-map looks: no fixed path)
+            if m.get("segs") and m.get("arrival"):
                 layout = MapData(
                     name=m["names"][0],
                     segs=[Seg(*s) for s in m["segs"]],

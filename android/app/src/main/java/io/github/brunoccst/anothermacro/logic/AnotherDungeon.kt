@@ -35,7 +35,13 @@ object AnotherDungeon {
                        /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
                        val steps: List<String>? = null,
                        /** Items picked up from the ground (green/blue sparks, e.g. T. Black Pearls): stops on the path, tapped when they show. */
-                       val sparkles: List<Point> = emptyList()) {
+                       val sparkles: List<Point> = emptyList(),
+                       /** The sparkles change place every run (Underworld's Zero Point): read off the area map's bag icons on arrival. */
+                       val sparkleIcons: Boolean = false,
+                       /** The way on is walking off the screen's edge at [exit] (no sign): Nazrik into Zero Point. */
+                       val exitWalk: Boolean = false,
+                       /** This map's area map scrolls up and down with the party (see [Spec.areaMapScrolls]). */
+                       val scrolls: Boolean = false) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
@@ -59,6 +65,10 @@ object AnotherDungeon {
 
     private const val DATA = "templates/another_dungeon/dungeons.yaml"
     private const val BUBBLE = "field_interact_bubble"
+    /** A sparkle's bag icon on the area map (Underworld's Zero Point). */
+    private const val BAG_ICON = "templates/another_dungeon/area_map_bag.png"
+    /** How far above its spot on the street the bag icon is drawn (area-map fraction, Zero Point 2026-11-15). */
+    private const val BAG_ABOVE = 0.027
     /** The bubble's inside only, for bright or busy backgrounds (the Throne Room's light pillar and fires). */
     private const val BUBBLE_CORE = "field_interact_bubble_core"
     /** The bubble drawn small, on a map the camera shows zoomed out (Sea of Ice's The Abyss). */
@@ -91,6 +101,9 @@ object AnotherDungeon {
                 m["enemies"] != false,
                 (m["steps"] as? List<*>)?.map { it.toString() },
                 lists(m["sparkles"]).map { Point(it[0], it[1]) },
+                m["sparkle_icons"] == true,
+                m["exit_walk"] == true,
+                m["area_map_scrolls"] == true,
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
@@ -141,6 +154,10 @@ object AnotherDungeon {
         var nextMap: Int? = null
         /** The followed position is unsure (a chest was looked for around its spot): read it on the map before the next leg. */
         var unsure = false
+        /** Sparkles read off the area map on a map whose sparkles move ([MapSpec.sparkleIcons]), in walking order; null: not read yet. */
+        var live: MutableList<Point>? = null
+        /** The map an exit was just taken toward: wins a tie when two maps share a title (Underworld's Demon's Den and its boss area). */
+        var expect: Int? = null
         /** A BannerWatch is reading the whole screen for "the enemies have disappeared" (no extra look after a win needed). */
         var watching = false
         /** The direction of the last walk on the path (+1 right, -1 left): a chest is looked for that way first. */
@@ -180,9 +197,14 @@ object AnotherDungeon {
         val spec = spec(ctx, id)
         val plan = keyPlan(ctx.params)
         // the party first, from the field (the menu's Party page)
-        ctx.params["party"]?.trim()?.takeIf { it.isNotEmpty() && it.lowercase() != "current" }?.let { want ->
-            if (waitForField(ctx, 5)) Party.choose(ctx, want)
-            else MacroLog.i("party '$want': not on the field (a battle?), keeping the current party")
+        // (by its number in the game's list, through the basic macro pick-party)
+        Party.number(ctx.params["party"])?.let { n ->
+            if (waitForField(ctx, 5)) {
+                val got = ctx.runBasic("pick-party", mapOf("party" to "$n"))
+                if (got != "party $n picked") ctx.stop("party $n: $got")
+            } else MacroLog.i("party $n: not on the field (a battle?), keeping the party in front")
+        } ?: ctx.params["party"]?.trim()?.takeIf { it.isNotEmpty() && it.lowercase() != "current" }?.let {
+            MacroLog.i("the party option takes a number (1 = the first party of the list): keeping the party in front")
         }
         // both keys with 0 runs each: only the party is picked
         if (plan.isEmpty()) return "${spec.name}: no runs to do (both keys on, 0 green and 0 red runs)"
@@ -275,7 +297,8 @@ object AnotherDungeon {
                 return finish(r)
             }
             if (idx != r.map) {
-                AreaNav.align = if (spec.areaMapScrolls) spec.maps[idx].layout else null
+                AreaNav.align = if (spec.areaMapScrolls || spec.maps[idx].scrolls) spec.maps[idx].layout else null
+                r.live = null; r.expect = null
                 val path = spec.maps[idx].path
                 val arrival = spec.maps[idx].arrival
                 if (path != null && arrival != null) {
@@ -312,6 +335,9 @@ object AnotherDungeon {
                     // the fights moved the party a little: read its spot once before the path
                     if (r.pos != null) { r.unsure = true; r.lastDir = 0.0 }
                 }
+                // sparkles that move every run: read where they are once the map is cleared, then each in turn
+                ms.sparkleIcons && ms.layout != null && r.live == null -> readSparkles(r, ms)
+                ms.sparkleIcons && ms.layout != null && r.live!!.isNotEmpty() -> takeSparkleAt(r, ms, r.live!!.removeAt(0))
                 // on a path: its legs in order (chests, sparkles), then the exit
                 ms.path != null && r.pos != null && r.legsDone < ms.path.size && ms.path[r.legsDone].target != "exit" -> {
                     val leg = ms.path[r.legsDone]
@@ -500,7 +526,9 @@ object AnotherDungeon {
             r.heldKey = true
             return "a White Key is held (the Phantom Crystal Dimension is open): not entering"
         }
-        tapText(r, eraLabel(r.spec.era)); ctx.wait(1.5)
+        // the "???" tab has no text OCR can read: tap it by its place (where it glows with a White Key)
+        if (r.spec.era == "???") ctx.tap(AD_OTHER_TAB) else tapText(r, eraLabel(r.spec.era))
+        ctx.wait(1.5)
         // a dungeon inside a place of the era's map: open that place's map first (a box over the
         // map; the dungeon's label can sit right of the middle there)
         val area = r.spec.area
@@ -563,6 +591,7 @@ object AnotherDungeon {
         repeat(8) {
             if (waitForField(ctx, 4)) return null
             clearPopup(r)
+            talkThrough(r)
         }
         if (!waitForField(ctx, 20)) ctx.stop("didn't arrive in ${r.spec.name}: ${seen(ctx)}")
         return null
@@ -657,7 +686,7 @@ object AnotherDungeon {
     /** Which of the dungeon's maps the area map names (its title "Dogma Tower - <map>"), or null. */
     private fun whereAmI(r: Run): Int? {
         val ctx = r.ctx
-        if (!waitForField(ctx, 10)) return null
+        if (!waitForField(ctx, 10) && !(talkThrough(r) && waitForField(ctx, 6))) return null
         ctx.tap(AreaNav.MINIMAP); ctx.wait(1.5)
         ctx.refresh()
         if (Battle.inBattle(ctx)) return null // a battle started: no close tap (it would hit a portrait)
@@ -669,8 +698,18 @@ object AnotherDungeon {
         // must read as one of the map names
         val named = Ocr.norm(title).contains(Ocr.norm(r.spec.name))
         val part = if (named) title.substringAfter("-").trim() else title.trim()
-        val best = r.spec.maps.indices.maxByOrNull { i -> r.spec.maps[i].names.maxOf { Ocr.similarity(part, it) } } ?: return null
-        return if (r.spec.maps[best].names.maxOf { Ocr.similarity(part, it) } > (if (named) 0.6 else 0.85)) best else null
+        fun sim(i: Int) = r.spec.maps[i].names.maxOf { Ocr.similarity(part, it) }
+        val best = r.spec.maps.indices.maxByOrNull { sim(it) } ?: return null
+        if (sim(best) <= (if (named) 0.6 else 0.85)) return null
+        // two maps with the same title (Underworld: Demon's Den and its boss area): the one an exit was just
+        // taken toward, else the one the party is on
+        val tied = r.spec.maps.indices.filter { sim(it) >= sim(best) - 0.02 }
+        return when {
+            tied.size < 2 -> best
+            r.expect in tied -> r.expect
+            r.map in tied -> r.map
+            else -> best
+        }
     }
 
     /** Where a map's title shows as it opens ("HARD" over "Beast King's Castle Watchtower"). */
@@ -802,20 +841,68 @@ object AnotherDungeon {
         task(r, "Map ${r.map + 1}: ${leg.target}")
         walkLeg(r, ms, leg, at)
         fight(r)
+        pickSparkle(r, ms, at)
+    }
+
+    /**
+     * On a map whose sparkles move every run ([MapSpec.sparkleIcons]): the bag icons on the area map, each put on the
+     * street under it (the icon sits ~0.027 above its spot), ordered for the shortest walk from the party to the exit.
+     */
+    private fun readSparkles(r: Run, ms: MapSpec) {
+        val ctx = r.ctx
+        val l = ms.layout!!
+        val view = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, BAG_ICON) }
+        val spots = view.targets.mapNotNull { p ->
+            val y = p.y + BAG_ABOVE
+            val seg = l.segs.filter { abs(it.y - y) < 0.05 && p.x >= it.x1 - 0.02 && p.x <= it.x2 + 0.02 }.minByOrNull { abs(it.y - y) }
+            seg?.let { Point(p.x.coerceIn(it.x1, it.x2), it.y) }
+        }
+        val from: Point? = view.party ?: r.pos ?: ms.arrival
+        fun perms(xs: List<Point>): List<List<Point>> = if (xs.size <= 1) listOf(xs) else xs.flatMap { x -> perms(xs - x).map { listOf(x) + it } }
+        val start = from
+        val order = if (start == null || spots.size > 7) spots else perms(spots).minByOrNull { o ->
+            var at: Point = start; var cost = 0.0
+            for (q in o) { cost += AreaNav.pathCost(l, at, q); at = q }
+            ms.exit?.let { cost += AreaNav.pathCost(l, at, it) }
+            cost
+        } ?: spots
+        MacroLog.i("sparkles on the area map: ${order.joinToString { "(${"%.3f".format(it.x)}, ${"%.3f".format(it.y)})" }}" +
+            " (party ${from?.let { "(${"%.3f".format(it.x)}, ${"%.3f".format(it.y)})" } ?: "not seen"})")
+        r.live = order.toMutableList()
+    }
+
+    /** Walk to a sparkle read off the area map and pick it up. */
+    private fun takeSparkleAt(r: Run, ms: MapSpec, at: Point) {
+        task(r, "Map ${r.map + 1}: sparkle at (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
+        AreaNav.walkLayout(r.ctx, ms.layout!!, at, onStep(r))
+        fight(r)
+        pickSparkle(r, ms, at)
+    }
+
+    /** Tap the sparkle by the party (it must stand close: ~0.01 on the area map) and read its banner. */
+    private fun pickSparkle(r: Run, ms: MapSpec, at: Point) {
+        val ctx = r.ctx
         // up to three taps: a tap on a sparkle that got no banner is tried again (seen twice by 2026-11-15; once two
         // taps in a row at x 0.46-0.47, right by the party in the middle of the screen, got nothing: from the 2nd
         // try a sparkle that close is first stepped away from, so the tap lands on it and not on the party)
         var taps = 0
         // (3 s to see it, then 3 s more after a tap that got no banner)
         var end = System.currentTimeMillis() + 3000
+        // on a map whose sparkles come from the area map's bag icons the bright star finder is used: the blob
+        // finder took green scenery (plants at x 0.16, 0.74, 0.79) and the party for sparkles in Zero Point
+        // (2026-11-15), and the camera doesn't keep the party in the middle near a street's end
+        val star = ms.sparkleIcons
+        var steps = 0
         while (System.currentTimeMillis() < end && taps < 3) {
-            val p = sparkle(ctx)
+            val p = if (star) sparkleStar(ctx) else sparkle(ctx)
             if (p == null) { ctx.wait(0.2); continue }
-            if (taps > 0 && abs(p.x - 0.5) < SPARKLE_NEAR) {
+            if (taps > 0 && steps < 2 && abs(p.x - 0.5) < SPARKLE_NEAR) {
                 MacroLog.i("sparkle at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)}) right by the party: a step away first")
                 val away = if (p.x < 0.5) 1.0 else -1.0
                 ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * away, 0.65), SPARKLE_STEP_MS); ctx.wait(0.6)
                 fight(r)
+                steps++
+                end = maxOf(end, System.currentTimeMillis() + 2500)
                 continue
             }
             end = System.currentTimeMillis() + 7000
@@ -856,6 +943,43 @@ object AnotherDungeon {
         }
         if (taps > 0) return
         MacroLog.i("no sparkle by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
+    }
+
+    /**
+     * A sparkle's star: a small near-white green core (H 45-82, S 10-75, V 215+) inside a teal glow (H 74-102,
+     * S 85+), on the ground band (every one seen sat at y 0.53-0.58). The best core by size x glow, or null.
+     * Measured on 15 screenshots of Sea of Ice and Zero Point (2026-11-15): plants, the party and the
+     * floor have no such core-in-glow.
+     */
+    private fun sparkleStar(ctx: Context): Point? {
+        val bgr = ctx.colorMat() ?: return null
+        val hsv = org.opencv.core.Mat(); org.opencv.imgproc.Imgproc.cvtColor(bgr, hsv, org.opencv.imgproc.Imgproc.COLOR_BGR2HSV)
+        val core = org.opencv.core.Mat(); val glow = org.opencv.core.Mat()
+        org.opencv.core.Core.inRange(hsv, org.opencv.core.Scalar(45.0, 10.0, 215.0), org.opencv.core.Scalar(82.0, 75.0, 255.0), core)
+        org.opencv.core.Core.inRange(hsv, org.opencv.core.Scalar(74.0, 85.0, 70.0), org.opencv.core.Scalar(102.0, 255.0, 200.0), glow)
+        val w = bgr.cols(); val h = bgr.rows(); val s = w / 1024.0
+        val labels = org.opencv.core.Mat(); val stats = org.opencv.core.Mat(); val cents = org.opencv.core.Mat()
+        val n = org.opencv.imgproc.Imgproc.connectedComponentsWithStats(core, labels, stats, cents)
+        var best: Point? = null; var bestScore = 0.0
+        for (k in 1 until n) {
+            val area = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_AREA)[0] / (s * s)
+            val bw = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_WIDTH)[0] / s
+            val bh = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_HEIGHT)[0] / s
+            if (area < 8 || bw > 16 || bh > 16) continue
+            val cx = cents.get(k, 0)[0]; val cy = cents.get(k, 1)[0]
+            if (cx < w * 0.08 || cx > w * 0.9 || cy < h * 0.45 || cy > h * 0.68) continue
+            val r = (10 * s).toInt().coerceAtLeast(3)
+            val x0 = (cx - r).toInt().coerceAtLeast(0); val x1 = (cx + r).toInt().coerceAtMost(w)
+            val y0 = (cy - r).toInt().coerceAtLeast(0); val y1 = (cy + r).toInt().coerceAtMost(h)
+            val sub = glow.submat(y0, y1, x0, x1)
+            val share = org.opencv.core.Core.countNonZero(sub).toDouble() / ((y1 - y0) * (x1 - x0)).coerceAtLeast(1)
+            sub.release()
+            if (share < 0.5) continue
+            val score = area * share
+            if (score > bestScore) { bestScore = score; best = Point(cx / w, cy / h) }
+        }
+        listOf(bgr, hsv, core, glow, labels, stats, cents).forEach { it.release() }
+        return best
     }
 
     /**
@@ -1122,6 +1246,14 @@ object AnotherDungeon {
         MacroLog.i("to the exit at (${"%.3f".format(exit.x)}, ${"%.3f".format(exit.y)})")
         val leg = ms.path?.firstOrNull { it.target == "exit" }
         if (leg != null && r.pos != null) walkLeg(r, ms, leg, exit) else AreaNav.walkLayout(ctx, ms.layout!!, exit, onStep(r))
+        if (ms.exitWalk) {
+            // off the screen's edge: hold on that way until the next map shows
+            val dir = if (exit.x > 0.5) 1.0 else -1.0
+            r.expect = idx + 1
+            ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), 3000); ctx.wait(1.5)
+            fight(r)
+            return
+        }
         // the arrow shows on the ground once the party is near; walk on toward the exit until it does
         val toward = if (exit.x > 0.5) 1.0 else -1.0
         for (attempt in 0..7) {
@@ -1137,6 +1269,9 @@ object AnotherDungeon {
             if (arrow != null) {
                 MacroLog.i("taking the ground arrow at (${"%.2f".format(arrow.center.x)}, ${"%.2f".format(arrow.center.y)})")
                 ctx.tap(arrow); ctx.wait(1.5)
+                r.expect = idx + 1
+                // "Go to Demon's Den? *You cannot return once you travel to the dungeon." (Underworld): Yes
+                answerExitQuestion(r)
                 // the next map's title shows over the field as it opens: read it there (no area-map look)
                 val titled = arrivalTitle(r, idx, 6.0)
                 if (titled != null) {
@@ -1165,6 +1300,51 @@ object AnotherDungeon {
     private const val SPARKLE_NEAR = 0.06
     /** That step: a short walk. */
     private const val SPARKLE_STEP_MS = 350L
+
+    /**
+     * A Yes/No question right after taking an exit (Underworld's Zero Point: "Go to Demon's Den? *You
+     * cannot return once you travel to the dungeon."): Yes. Never when the box asks for anything bought.
+     */
+    private fun answerExitQuestion(r: Run) {
+        val ctx = r.ctx
+        val until = System.currentTimeMillis() + 1500
+        while (System.currentTimeMillis() < until) {
+            val lines = ctx.readText()
+            val all = lines.joinToString(" ") { Ocr.norm(it.text) }
+            val yes = lines.firstOrNull { Ocr.norm(it.text) == "yes" }
+            if (yes != null && lines.any { Ocr.norm(it.text) == "no" }) {
+                if (PURCHASE_WORDS.any { it in all }) {
+                    tapText(r, "No", exact = true, tries = 1)
+                    ctx.stop("the way on asks for something bought: '${lines.joinToString(" ") { it.text }.take(120)}'")
+                }
+                MacroLog.i("question at the exit: '${lines.joinToString(" ") { it.text }.take(120)}' → Yes")
+                ctx.tapExact(yes.center); ctx.wait(1.5)
+                return
+            }
+            ctx.wait(0.3)
+        }
+    }
+
+    /**
+     * Lines of talk on screen (no field, no battle): tap through them, up to [max] taps. Underworld's
+     * Nazrik: a new merchant walks up and talks every few runs. Stops at a Yes/No question.
+     */
+    private fun talkThrough(r: Run, max: Int = 40): Boolean {
+        val ctx = r.ctx
+        var tapped = 0
+        while (tapped < max) {
+            ctx.refresh()
+            if (ctx.find("field_menu_button") != null) return tapped > 0
+            if (Battle.inBattle(ctx)) return tapped > 0
+            val lines = ctx.readText()
+            if (lines.isEmpty() || lines.any { val t = Ocr.norm(it.text); t == "yes" || t == "no" }) return tapped > 0
+            if (PURCHASE_WORDS.any { w -> lines.any { w in Ocr.norm(it.text) } }) return tapped > 0
+            if (tapped == 0) MacroLog.i("talk: ${lines.joinToString(" ") { it.text }.take(100)}")
+            ctx.tap(Point(0.5, 0.85)); ctx.wait(0.8)
+            tapped++
+        }
+        return true
+    }
 
     /** Fights on one map before it is taken as cleared even without the banner (a safety cap). */
     internal const val CLEAR_MAX_BATTLES = 15
@@ -1489,6 +1669,8 @@ object AnotherDungeon {
     }
 
     private val AD_CLOSE = Point(0.88, 0.03)
+    /** The Another Dungeon map's "???" tab (Underworld; it glows with a White Key: see [phantomTabGlows]). */
+    private val AD_OTHER_TAB = Point(0.38, 0.11)
     private val MAP_BUTTON = Point(0.385, 0.917)
     /** The World Map's "???" tab (Spacetime Rift, Nopaew Emporium, ...). */
     private val ERA_OTHER = Point(0.379, 0.17)

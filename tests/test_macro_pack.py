@@ -90,3 +90,19 @@ def test_dungeons_take_battle_options_from_the_battle_macro():
     for name, (_, spec) in macro_pack.macros().items():
         if spec.get("group") == "dungeon":
             assert not any(str(k).startswith("skill_") for k in spec.get("params") or {}), name
+
+
+def test_party_is_picked_by_number_only():
+    # every user names and fills their parties differently: the party option is a number
+    all_macros = macro_pack.macros()
+    _, spec = all_macros["pick-party"]
+    assert spec["group"] == "basic"
+    assert [str(c) for c in spec["params"]["party"]["choices"]] == [str(i) for i in range(1, 11)]
+    for name, (f, spec) in all_macros.items():
+        party = (spec.get("params") or {}).get("party")
+        if party is None or name == "pick-party":
+            continue
+        choices = [str(c) for c in party["choices"]]
+        assert choices == ["current"] + [str(i) for i in range(1, 11)], name
+        assert str(party["default"]) in choices, name
+        assert "with " not in party["help"].lower(), name

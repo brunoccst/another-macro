@@ -1,0 +1,29 @@
+# Basic macro: put one of the game's saved parties in front, by its number in the game's party
+# list (1 = the first; Menu → Party shows one party at a time with a dot per party under it).
+# Never by a party's name or who is in it: every user names and fills their parties differently.
+# Other macros run it before they start (`run: {macro: pick-party, params: {party: 3}}`); every
+# dungeon macro's `party` option goes through it. Start it on the field (or with the menu open);
+# it ends back on the field. Only changes which party is active.
+name: pick-party
+group: basic
+icon: sun
+description: "Basic: open Menu → Party and put party N (its number in the game's list) in front, then back to the field. Other macros run it to pick their party."
+templates: [daily_ads]
+params:
+  party: {default: 1, choices: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the party to put in front, by its number in the game's party list (1 = the first)"}
+screens: [menu_open, field]
+unknown_timeout_s: 30
+
+# the whole pick is one step (logic/Party.kt); it stops with "party N picked" or why it couldn't
+handlers:
+  menu_open:
+    - pick_party: party
+    - stop: "{result}"
+  field:
+    - pick_party: party
+    - stop: "{result}"
+
+unknown:
+  - if: not game_in_front()
+    then: [{stop: the game is not in front}]
+  - wait: 1
