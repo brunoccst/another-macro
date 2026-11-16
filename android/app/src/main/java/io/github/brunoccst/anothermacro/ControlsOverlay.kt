@@ -266,7 +266,7 @@ class ControlsOverlay(private val service: InputService) {
                 text = title
                 textSize = 11.5f
                 setTextColor(if (sel) Ui.ON_ACCENT else Ui.TEXT)
-                background = if (sel) Ui.chrome(dp(12).toFloat()) else GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(Ui.OVERLAY_ITEM) }
+                background = if (sel) Ui.bezel(service, 12) else GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(Ui.OVERLAY_ITEM) }
                 setPadding(dp(10), dp(5), dp(10), dp(5))
                 setOnClickListener {
                     tab = id

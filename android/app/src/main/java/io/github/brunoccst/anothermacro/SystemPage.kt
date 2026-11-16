@@ -230,7 +230,7 @@ class SystemPage(private val a: MainActivity) {
             tabsRow.addView(Ui.text(a, title, 14f, if (sel) Ui.ON_ACCENT else Ui.TEXT, bold = true).apply {
                 gravity = Gravity.CENTER
                 setPadding(dp(16), dp(9), dp(16), dp(9))
-                background = if (sel) Ui.pressableChrome(a, 18) else Ui.pressable(a, Ui.CARD_ALT, 18)
+                background = if (sel) Ui.pressableBezel(a, 18) else Ui.pressable(a, Ui.CARD_ALT, 18)
                 isClickable = true
                 setOnClickListener { showTab(id) }
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(8) }

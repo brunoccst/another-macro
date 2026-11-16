@@ -54,7 +54,7 @@ object AskOverlay {
                         setTextColor(if (i == 0) Ui.ON_ACCENT else Ui.TEXT)
                         textSize = 14f
                         setPadding(dp(14), dp(8), dp(14), dp(8))
-                        background = if (i == 0) Ui.chrome(dp(14).toFloat()) else Ui.rounded(Ui.CARD_ALT, dp(14).toFloat())
+                        background = if (i == 0) Ui.bezel(service, 14) else Ui.rounded(Ui.CARD_ALT, dp(14).toFloat())
                         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { leftMargin = dp(8) }
                         setOnClickListener { picked.set(i); done.countDown() }
                     })

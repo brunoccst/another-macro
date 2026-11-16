@@ -24,7 +24,7 @@ object Ui {
     val ACCENT = Color.parseColor("#B4C8F0")
     /** The logo's navy: selected rows, tonal fills. */
     val ACCENT_DIM = Color.parseColor("#1E2D5C")
-    /** Text and glyphs on an [ACCENT] or [chrome] fill: the logo's navy ink. */
+    /** Text and glyphs on an [ACCENT] fill or a [bezel] face: the logo's navy ink. */
     val ON_ACCENT = Color.parseColor("#0A1230")
     /** Background of a folded section of options taken over from an inner macro (Macros page). */
     val INNER_SECTION = Color.parseColor("#0F1626")
@@ -73,9 +73,9 @@ object Ui {
         }
     }
 
-    /** A rounded chrome background that ripples when tapped (selected tabs, primary buttons). */
-    fun pressableChrome(c: Context, radiusDp: Int = 14) =
-        RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33182656")), chrome(dp(c, radiusDp).toFloat()), null)
+    /** A [bezel] (like the overlay buttons) that ripples when tapped: selected tabs, primary buttons. */
+    fun pressableBezel(c: Context, radiusDp: Int = 14) =
+        RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33182656")), bezel(c, radiusDp), null)
 
     /** A rounded background that ripples when tapped. */
     fun pressable(c: Context, color: Int, radiusDp: Int = 14, stroke: Int? = null) =
@@ -111,8 +111,8 @@ object Ui {
         gravity = Gravity.CENTER
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         setTextColor(if (primary) ON_ACCENT else color)
-        // a primary button in the accent is chrome, like the logo; other colours stay flat
-        background = if (primary && color == ACCENT) pressableChrome(c, 24) else pressable(c, if (primary) color else CARD_ALT, 24)
+        // a primary button in the accent looks like the overlay buttons; other colours stay flat
+        background = if (primary && color == ACCENT) pressableBezel(c, 24) else pressable(c, if (primary) color else CARD_ALT, 24)
         setPadding(dp(c, 18), dp(c, 12), dp(c, 18), dp(c, 12))
         isClickable = true
         setOnClickListener { onClick() }
