@@ -93,7 +93,10 @@ object CatDaily {
     /** null when found, else why it was missed. */
     private fun go(ctx: Context, clue: Clue): String? {
         val spot = CatRoute.spot(ctx, clue.location)
-        val fight = { Battle.fight(ctx) { Battle.Setup.AUTO }.also { if (it == Battle.Outcome.LOST) ctx.stop("party was defeated") } == Battle.Outcome.WON }
+        // a battle on the fixed route (also asked when there may be none): the battle macro's step
+        // with the skills this macro has for it (battle.skill_*), not plain auto attacks
+        val skills = Battle.Setup.from(ctx.innerOptions("battle"), "skill_")
+        val fight = { Battle.fight(ctx) { skills }.also { if (it == Battle.Outcome.LOST) ctx.stop("party was defeated") } == Battle.Outcome.WON }
         // "X (Enter from Y)": travel to Y, then walk across into X
         val via = ENTER_FROM.find(clue.location)
         val walkTo = spot?.walkTo ?: via?.groupValues?.get(1)?.trim()

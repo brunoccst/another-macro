@@ -1,7 +1,8 @@
 # Basic macro: fight the battle on screen to its end, with a skill per party slot.
 # Every battle goes through it: grind-battles runs it for each encounter, the cat routine for
 # encounters on its way; the Another Dungeon fights use the same step with these skills (the
-# boss with the dungeon's own boss skills, when set). Set the skills once, here.
+# boss with the dungeon's own boss skills, when set). Every macro that runs it takes these options
+# over as its own (battle.skill_1..4, starting from the values set here), so each can fight its own way.
 name: battle
 group: basic
 icon: swords

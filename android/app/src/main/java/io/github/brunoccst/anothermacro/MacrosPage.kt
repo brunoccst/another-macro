@@ -504,24 +504,33 @@ class MacrosPage(private val a: MainActivity) {
         val dependents = HashMap<String, MutableList<View>>()
         val switches = HashMap<String, Boolean>()
         var first = true
+        // the options taken over from the macros it runs (battle.skill_1, see InnerParams): one
+        // folded section per macro, after its own options
+        var section: LinearLayout? = null
+        var sectionOf: String? = null
         for ((key, p) in s.params) {
-            val value = last[key] ?: p.default
+            val value = last[key] ?: if (p.from != null) InnerParams.effective(key, p) { MacroParams.load(a, it) } else p.default
+            if (p.from != sectionOf) {
+                sectionOf = p.from
+                section = p.from?.let { innerSection(it, first) }
+                first = true
+            }
             val box = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
-            paramsBox.addView(box)
+            (section ?: paramsBox).addView(box)
             p.showIf?.let { dependents.getOrPut(it) { ArrayList() } += box; box.visibility = if (switches[it] == true) View.VISIBLE else View.GONE }
             if (!first) box.addView(Ui.divider(a))
             first = false
             if (p.isBool) {
                 var cur = FlowScenario.typed(value) == true
                 switches[key] = cur
-                box.addView(switchRow(Ui.title(key), p.help, cur) { on ->
+                box.addView(switchRow(Ui.title(p.innerKey(key)), p.help, cur) { on ->
                     cur = on
                     dependents[key]?.forEach { it.visibility = if (on) View.VISIBLE else View.GONE }
                 })
                 paramFields[key] = { cur.toString() }
                 continue
             }
-            box.addView(Ui.text(a, Ui.title(key), 15f, bold = true))
+            box.addView(Ui.text(a, Ui.title(p.innerKey(key)), 15f, bold = true))
             if (p.help.isNotBlank()) box.addView(Ui.text(a, p.help, 12.5f, Ui.MUTED))
             if (p.choices.isNotEmpty()) {
                 val options = if (value in p.choices) p.choices else p.choices + value
@@ -562,6 +571,49 @@ class MacrosPage(private val a: MainActivity) {
             paramFields[key] = { field.text.toString() }
             box.addView(field)
         }
+    }
+
+    /**
+     * A folded section for the options taken over from the macro [inner]: a header to unfold it
+     * (and open that macro), its rows go in the returned box.
+     */
+    private fun innerSection(inner: String, firstOfAll: Boolean): LinearLayout {
+        val body = LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL
+            visibility = View.GONE
+            // the inner macro's options on their own tinted card, apart from the macro's own options
+            background = Ui.rounded(Ui.INNER_SECTION, dp(14).toFloat(), Ui.ACCENT_DIM, dp(1))
+            setPadding(dp(12), dp(4), dp(12), dp(10))
+        }
+        val arrow = Ui.text(a, "▸", 16f, Ui.ACCENT, bold = true).apply { setPadding(0, 0, dp(10), 0) }
+        val header = LinearLayout(a).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(10), 0, dp(10))
+            isClickable = true
+            addView(arrow)
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL
+                addView(Ui.text(a, "${Ui.title(inner)} options", 15f, Ui.ACCENT, bold = true))
+                addView(Ui.text(a, "This macro runs $inner and keeps its own settings for it: they start as $inner's own, and are saved with this macro.", 12.5f, Ui.MUTED))
+            }, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            addView(Ui.text(a, "Open", 13f, Ui.ACCENT).apply {
+                setPadding(dp(10), dp(6), dp(4), dp(6))
+                isClickable = true
+                setOnClickListener { open(inner) }
+            })
+            setOnClickListener {
+                val show = body.visibility != View.VISIBLE
+                body.visibility = if (show) View.VISIBLE else View.GONE
+                arrow.text = if (show) "▾" else "▸"
+            }
+        }
+        if (!firstOfAll) paramsBox.addView(Ui.divider(a))
+        paramsBox.addView(header)
+        paramsBox.addView(body, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            bottomMargin = dp(8)
+        })
+        return body
     }
 
     companion object {

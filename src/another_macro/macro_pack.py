@@ -12,8 +12,9 @@ Layout of the zip (the same paths the app reads):
                                       riddles.yaml / other data files next to them
 
 ``check`` finds what would break a macro on the phone: bad YAML, a duplicate name, a missing
-template folder, a ``run:`` or routine step naming a macro that isn't there, a macro filed under
-the wrong group folder.
+template folder, a ``run:``, routine step or ``uses:`` naming a macro that isn't there, a macro
+filed under the wrong group folder, an option name with a dot (reserved for the options a macro
+takes over from the macros it runs).
 
     python -m another_macro.macro_pack -o macros.zip [--commit SHA --branch NAME]
 """
@@ -82,6 +83,20 @@ def _runs(actions) -> list[str]:
     return names
 
 
+def _sets(actions) -> list[tuple[str, object]]:
+    """(variable, expression) of every `set:` in a list of actions (also inside if / repeat)."""
+    out: list[tuple[str, object]] = []
+    for a in actions or []:
+        if not isinstance(a, dict):
+            continue
+        if isinstance(a.get("set"), dict):
+            out += list(a["set"].items())
+        out += _sets(a.get("then")) + _sets(a.get("else"))
+        if isinstance(a.get("repeat"), dict):
+            out += _sets(a["repeat"].get("do"))
+    return out
+
+
 def check(root: Path = ROOT) -> list[str]:
     """Problems that would break a macro on the phone (empty = fine)."""
     problems: list[str] = []
@@ -99,6 +114,17 @@ def check(root: Path = ROOT) -> list[str]:
         for acts in (spec.get("handlers") or {}).values():
             used += _runs(acts)
         used += [str(s) for s in spec.get("steps") or []]
+        used += [str(s) for s in spec.get("uses") or []]
+        # a set: value is an expression: an empty one crashes the macro on the phone ('' is the empty text)
+        for acts in [spec.get("setup"), spec.get("unknown"), *(spec.get("handlers") or {}).values()]:
+            for k, v in _sets(acts):
+                if v is None or (isinstance(v, str) and not v.strip()):
+                    problems.append(f"{rel}: set {k}: an empty expression (write '' for empty text)")
+        # "<macro>.<option>" keys are the options a macro takes over from the macros it runs
+        # (the app's InnerParams): a macro's own option names never have a dot
+        for k in spec.get("params") or {}:
+            if "." in str(k):
+                problems.append(f"{rel}: option {k!r}: a dot is for the options taken over from inner macros")
         for u in used:
             if u not in all_macros:
                 problems.append(f"{rel}: runs unknown macro {u!r}")

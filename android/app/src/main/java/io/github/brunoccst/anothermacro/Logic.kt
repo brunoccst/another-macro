@@ -19,6 +19,11 @@ interface FlowEngine {
 interface LogicEntry {
     /** The macro steps this logic knows. */
     val actions: Set<String>
+    /**
+     * The basic macros a step runs in code, by step (another_dungeon fights with the battle macro):
+     * a macro using that step takes over their options like those it runs with `run:` (see [InnerParams]).
+     */
+    val stepUses: Map<String, List<String>> get() = emptyMap()
     fun engine(scenario: FlowScenario): FlowEngine
 }
 
