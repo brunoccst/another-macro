@@ -34,6 +34,9 @@ handlers:
     # the commercial and its reward dialog: the basic macro; then the chest opens here
     - run: {macro: watch-ad, until: [ad_chest, menu_open]}
     - log: "commercial {stats.ads_started}: {result}"
+    # watch-ad closed the game to get out of a commercial: starting it again is expected
+    - if: result == 'force-closed the game, a commercial did not close'
+      then: [{set: {game_starts: 0}}]
 
   # left over from a commercial watch-ad didn't see end
   premium_thanks:   # subscribers: no commercial, the chest still opens
@@ -76,17 +79,33 @@ handlers:
       then: [{stop: "{result}"}]
 
 unknown:
-  # the game isn't open: open-menu-page starts it (once) and goes back to the commercials
-  - if: not game_in_front()
+  # a commercial still in front (watch-ad gave up on it, or it came back; portrait ones too): never
+  # tap it (that plays it). Leave it once (Home, then the game); still there the next time: close
+  # the game from recent apps (the game is then started again)
+  - if: ad_in_front()
     then:
-      - if: game_starts > 0
-        then: [{stop: "the game is not in front"}]
-      - set: {game_starts: game_starts + 1}
-      - run: {macro: open-menu-page, params: {page: "'ads'"}}
-      - if: result != 'ads open'
-        then: [{stop: "{result}"}]
+      - if: stats.ads_left_here >= 2
+        then: [{stop: "a commercial did not close, even after force-closing the game"}]
+      - count: ads_left_here
+      - if: stats.ads_left_here == 1
+        then:
+          - status: "leaving a commercial that won't close"
+          - leave_ad: true
+        else:
+          - status: "force-closing the game: a commercial won't close"
+          - force_close: true
     else:
-      # the chest opening: tap through it
-      - status: "opening the chest"
-      - tap: [0.5, 0.65]
-      - wait: 1.5
+      # the game isn't open: open-menu-page starts it (once) and goes back to the commercials
+      - if: not game_in_front()
+        then:
+          - if: game_starts > 0
+            then: [{stop: "the game is not in front"}]
+          - set: {game_starts: game_starts + 1}
+          - run: {macro: open-menu-page, params: {page: "'ads'"}}
+          - if: result != 'ads open'
+            then: [{stop: "{result}"}]
+        else:
+          # the chest opening: tap through it
+          - status: "opening the chest"
+          - tap: [0.5, 0.65]
+          - wait: 1.5

@@ -73,6 +73,8 @@ Actions (one key each):
 | `drag: {from: [x, y], to: [x, y], ms: expr}` | press, slide, hold |
 | `walk: {dir: expr, ms: expr}` | walk on the field (-1 left, 1 right, `up`, `down`) |
 | `back: true`, `wait: s`, `launch: package` | |
+| `home: true`, `leave_ad: true` | Android Home; leave a commercial that won't close (no X, Back ignored): Home, then the game's own screen, which closes the commercial's activity (never tap inside a commercial) |
+| `force_close: true` | the last resort for such a commercial (not the stop-game macro): force-close the game, i.e. swipe the game's own card away in recent apps (found by its name; nothing else there is touched), then Home; sets `closed` |
 | `log: "text {expr}"`, `status: "text {expr}"` | write to the log; `status` also shows on the live log line |
 | `set: {var: expr}`, `count: stat`, `stop: "reason"` | variables, counters, end the run |
 | `if: expr` + `then:` / `else:`, `repeat: {times: expr, do: [...]}` | control flow |
