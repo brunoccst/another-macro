@@ -165,14 +165,14 @@ object AnotherDungeon {
 
     private fun task(r: Run, text: String) { r.task = text; MacroLog.status(text) }
 
-    /** Which keys the loop uses, in order (red first), and how many runs in all (Int.MAX_VALUE = until they run out). */
+    /** Which keys the loop uses, in order (red first), and how many runs with each (Int.MAX_VALUE = until it runs out). */
     internal data class KeyPlan(val keys: List<String>, val runs: Int)
 
     /**
      * The loop's plan from the options: one switch per key colour (`red_key`, `green_key`; a
      * dungeon that takes one colour only has only that switch), `runs` (a number) and `all_keys`
      * (on: until every switched-on key runs out, `runs` not used). With both colours on, `runs`
-     * counts runs in all: red keys first, and when they run out green ones. No colour on: no runs.
+     * runs are done with each colour: red keys first, then green ones. No colour on: no runs.
      * Old saved options still work: `key` green/red when neither switch is there, `runs` "all".
      */
     internal fun keyPlan(p: Map<String, String>): KeyPlan {
@@ -185,9 +185,9 @@ object AnotherDungeon {
     }
 
     /**
-     * Run the dungeon by [keyPlan]: `runs` times in a row ("all keys": until the keys run out),
-     * with the switched-on key colours, red first; a colour that runs out hands over to the next
-     * one. Keys are never bought. Before the first run the `party` option picks the game's party
+     * Run the dungeon by [keyPlan]: `runs` times in a row with each switched-on key colour, red
+     * first ("all keys": each until it runs out); a colour that runs out ends its runs and the
+     * next colour goes on. Keys are never bought. Before the first run the `party` option picks the game's party
      * (Party.kt). After every run a White Key is checked for: `white_key` = phantom runs the
      * Phantom Crystal Dimension and comes back to the loop, stop ends the loop, keep_going ignores it.
      */
@@ -219,10 +219,10 @@ object AnotherDungeon {
         val both = plan.keys.size > 1
         legs@ for (key in plan.keys) {
             var legDone = 0
-            if (both) MacroLog.i("${spec.name}: on with $key keys (${if (total == Int.MAX_VALUE) "until they run out" else "${total - done} run(s) to go"})")
-            while (done < total) {
+            if (both) MacroLog.i("${spec.name}: ${if (total == Int.MAX_VALUE) "all" else "$total"} run(s) with $key keys")
+            while (legDone < total) {
                 val count = if (total == Int.MAX_VALUE) "" else "/$total"
-                if (!single) MacroLog.status("${spec.name}: ${if (both) "$key key " else ""}run ${done + 1}$count")
+                if (!single) MacroLog.status("${spec.name}: ${if (both) "$key key " else ""}run ${legDone + 1}$count")
                 val r = Run(ctx, spec, key).also { it.ignoreHeldKey = ignore }
                 Route.cameraLags = spec.cameraLags
                 val outcome = try { runInner(r) } catch (s: StopScenario) { s.message ?: "stopped" } finally { AreaNav.align = null; Route.cameraLags = false; Route.loose = false }

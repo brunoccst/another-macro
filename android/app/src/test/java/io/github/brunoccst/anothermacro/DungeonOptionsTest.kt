@@ -19,7 +19,7 @@ class DungeonOptionsTest {
         assertEquals(plan(listOf("green"), 1), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "runs" to "")))
     }
 
-    @Test fun bothKeysRedFirstRunsInAll() {
+    @Test fun bothKeysRedFirstRunsPerColour() {
         assertEquals(plan(listOf("red", "green"), 7), AnotherDungeon.keyPlan(mapOf("green_key" to "true", "red_key" to "true", "runs" to "7")))
     }
 

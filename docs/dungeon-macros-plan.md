@@ -30,8 +30,8 @@ the parts every dungeon shares:
 - **Keys and runs**: one switch per key colour the dungeon takes (`green_key` Hard, `red_key`
   Very Hard; a dungeon with one colour only has just that switch), `runs` (any number, a
   `type: number` box) and beside it the switch `all_keys` (`beside: runs`: until the keys run
-  out). With both colours on, `runs` counts runs in all: red keys first, then green when the red
-  ones run out. No colour on = only the party is picked (a safe test). Keys are never bought. A
+  out). With both colours on, `runs` runs are done with each colour: red keys first, then
+  green (a colour that runs out ends its runs). No colour on = only the party is picked (a safe test). Keys are never bought. A
   dungeon whose run takes more than one key sets `key_cost` (Underworld: 2) in dungeons.yaml.
 
 So a new dungeon needs **data, not code**: one `dungeons.yaml` entry (era, area/label, map
