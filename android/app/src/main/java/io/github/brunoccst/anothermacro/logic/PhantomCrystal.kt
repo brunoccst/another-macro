@@ -331,8 +331,14 @@ object PhantomCrystal {
 
     // --- helpers ------------------------------------------------------------------------
     private fun noteItem(r: Run, lines: List<Ocr.Line>) {
+        // OCR can split the count off the name ("Obtained Cat Express Ticket" | "x3.", 2026-11-16): join them back
+        val texts = mutableListOf<String>()
         for (l in lines) {
-            val t = l.text
+            if (texts.isNotEmpty() && Regex("""^\s*[x×X]\s*[0-9OoIl]""").containsMatchIn(l.text) &&
+                !Regex("""[x×X]\s*[0-9OoIl,]+\.?\s*$""").containsMatchIn(texts.last())) texts[texts.size - 1] = texts.last() + " " + l.text
+            else texts += l.text
+        }
+        for (t in texts) {
             Regex("""^\s*([0-9,OoIl]+)\s*Git obtained""").find(t)?.let { m ->
                 m.groupValues[1].replace(Regex("[Oo]"), "0").replace(Regex("[Il]"), "1").replace(",", "").toIntOrNull()?.let { r.items["Git"] = (r.items["Git"] ?: 0) + it }
             }
