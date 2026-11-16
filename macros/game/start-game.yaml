@@ -46,7 +46,7 @@ handlers:
     - run: {macro: watch-ad, until: [field, ad_offer]}
     - log: "login-bonus ad: {result}"
     # watch-ad closed the game to get out of a commercial: start it again, without the ad this time
-    - if: result == 'closed the game, a commercial did not close'
+    - if: result == 'force-closed the game, a commercial did not close'
       then: [{set: {skip_ad: true}}, {launch: "'games.wfs.anothereden'"}, {wait: 3}]
 
   premium_thanks:   # premium subscribers get this instead of an ad
@@ -73,15 +73,15 @@ unknown:
   - if: ad_in_front()
     then:
       - if: stats.ads_left_here >= 2
-        then: [{stop: "a commercial did not close, even after closing the game"}]
+        then: [{stop: "a commercial did not close, even after force-closing the game"}]
       - count: ads_left_here
       - if: stats.ads_left_here == 1
         then:
           - status: "leaving a commercial that won't close"
           - leave_ad: true
         else:
-          - status: "closing the game: a commercial won't close"
-          - close_game: true
+          - status: "force-closing the game: a commercial won't close"
+          - force_close: true
     else:
       - if: not watch_ad
         then:

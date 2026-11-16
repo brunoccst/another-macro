@@ -35,7 +35,7 @@ handlers:
     - run: {macro: watch-ad, until: [ad_chest, menu_open]}
     - log: "commercial {stats.ads_started}: {result}"
     # watch-ad closed the game to get out of a commercial: starting it again is expected
-    - if: result == 'closed the game, a commercial did not close'
+    - if: result == 'force-closed the game, a commercial did not close'
       then: [{set: {game_starts: 0}}]
 
   # left over from a commercial watch-ad didn't see end
@@ -85,15 +85,15 @@ unknown:
   - if: ad_in_front()
     then:
       - if: stats.ads_left_here >= 2
-        then: [{stop: "a commercial did not close, even after closing the game"}]
+        then: [{stop: "a commercial did not close, even after force-closing the game"}]
       - count: ads_left_here
       - if: stats.ads_left_here == 1
         then:
           - status: "leaving a commercial that won't close"
           - leave_ad: true
         else:
-          - status: "closing the game: a commercial won't close"
-          - close_game: true
+          - status: "force-closing the game: a commercial won't close"
+          - force_close: true
     else:
       # the game isn't open: open-menu-page starts it (once) and goes back to the commercials
       - if: not game_in_front()

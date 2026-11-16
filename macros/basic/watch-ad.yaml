@@ -17,8 +17,8 @@
 #   - a commercial that won't close (a playable one with no X, not even on its end card, and Back
 #     ignored): after leave_after Backs, leave it once: Home, then the game's own screen (leave_ad;
 #     the game carries on, the reward is usually lost). Still there after that (some come straight
-#     back and play again): close the game from recent apps (close_game) and stop with
-#     "closed the game, a commercial did not close"; the caller starts the game again
+#     back and play again): force-close the game from recent apps (force_close) and stop with
+#     "force-closed the game, a commercial did not close"; the caller starts the game again
 # Never taps inside a commercial (never its "Play Now", never a store page): only Back closes it.
 name: watch-ad
 group: basic
@@ -126,16 +126,16 @@ unknown:
           # (once left, a commercial still on 20 s later came back by itself: no more Backs for it)
           - if: (tries >= leave_after and now() - last_back > 5) or (leaves >= 1 and now() - since > 20)
             then:
-              # left once and it is still (or again) on: close the game, the caller starts it again
+              # left once and it is still (or again) on: force-close the game, the caller starts it again
               - if: leaves >= 1
                 then:
-                  - count: games_closed
-                  - log: "commercial {ads} is still on after leaving it: closing the game from recent apps"
-                  - status: "closing the game: a commercial won't close"
-                  - close_game: true
+                  - count: games_force_closed
+                  - log: "commercial {ads} is still on after leaving it: force-closing the game from recent apps"
+                  - status: "force-closing the game: a commercial won't close"
+                  - force_close: true
                   - if: not closed
-                    then: [{stop: "a commercial did not close, and the game could not be closed from recent apps"}]
-                  - stop: "closed the game, a commercial did not close"
+                    then: [{stop: "a commercial did not close, and the game could not be force-closed from recent apps"}]
+                  - stop: "force-closed the game, a commercial did not close"
               - set: {leaves: leaves + 1, tries: 0, since: now(), last_back: now(), granted: false}
               - count: ads_left
               - log: "commercial {ads} didn't close after {leave_after} Backs (no close button): leaving it (Home, then the game)"

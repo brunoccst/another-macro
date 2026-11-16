@@ -21,7 +21,7 @@ import io.github.brunoccst.anothermacro.MacroLog
  * commercial (never its "Play Now" or a store page). The commercial's reward is usually lost.
  * Phone-tested 11-16: an AppLovin playable came straight back (and played again) after this.
  *
- * [closeGame]: the last resort. Recent apps, then swipe the game's own card away (found by the
+ * [forceClose]: the last resort. Recent apps, then swipe the game's own card away (found by the
  * game's name in the recents screen's accessibility nodes, so no other app's card is touched, and
  * nothing else there, such as "Close all", is pressed), then Home. The game process ends with the
  * commercial; the caller starts the game again. Phone-tested 11-16 on a Samsung (One UI): it
@@ -68,13 +68,13 @@ object AdEscape {
         return best
     }
 
-    /** Close the game from recent apps (see above). True when its card was found and swiped away. */
-    fun closeGame(ctx: Context): Boolean {
+    /** Force-close the game from recent apps (see above; not the stop-game macro, which quits it from the game). True when its card was found and swiped away. */
+    fun forceClose(ctx: Context): Boolean {
         val s = InputService.instance ?: throw IllegalStateException("taps are off: turn the accessibility service on")
         val label = runCatching {
             s.packageManager.getApplicationLabel(s.packageManager.getApplicationInfo(ClaudeSafety.GAME, 0)).toString()
         }.getOrDefault("Another Eden").lowercase()
-        MacroLog.i("closing the game from recent apps (a commercial won't close)")
+        MacroLog.i("force-closing the game from recent apps (a commercial won't close)")
         var closed = false
         for (attempt in 1..3) {
             // once only: Recents again while it is open would close it again
