@@ -74,8 +74,8 @@ object AdEscape {
         MacroLog.i("closing the game from recent apps (a commercial won't close)")
         var closed = false
         for (attempt in 1..3) {
-            s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS)
-            ctx.wait(2.0)
+            // once only: Recents again while it is open would close it again
+            if (attempt == 1) { s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS); ctx.wait(2.0) }
             val card = gameCard(s, label)
             if (card == null) {
                 MacroLog.i(if (closed) "the game's card is gone from recent apps" else "the game's card wasn't found in recent apps")
@@ -86,7 +86,7 @@ object AdEscape {
             val h = s.resources.displayMetrics.let { minOf(it.widthPixels, it.heightPixels) }
             val small = card.height() < h * 0.2f
             val y = card.exactCenterY() + if (attempt > 1 && small) h * 0.3f else 0f
-            MacroLog.i("swiping the game's card away (attempt $attempt)")
+            MacroLog.i("swiping the game's card away (attempt $attempt, card at ${card.toShortString()}, from y ${y.toInt()})")
             s.stroke(card.exactCenterX(), y, card.exactCenterX(), 1f, 250)
             closed = true
             ctx.wait(1.5)
