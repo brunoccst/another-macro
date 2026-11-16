@@ -263,3 +263,36 @@ underworld:
       enemies: false
       chests_count: 1
       steps: [chest R 1000, boss L]
+
+# Underworld's other chest areas (the macro's area option): the same hub, another way out of it
+underworld_cathedral:
+  name: Underworld
+  area_of: underworld
+  era: "???"
+  key_cost: 2
+  boss: Haunted Queen Himika
+  # the Dimensional Cathedral: Zero Point's upper-left exit (the ladder the user had installed).
+  # MAPPING IN PROGRESS: the exit spot is a first guess, the Cathedral's maps aren't in yet
+  maps:
+    - names: ["Nazrik, City of Shadows"]
+      enemies: false
+      # the area map scrolls up and down with the party here; Zero Point is east off the bottom street
+      area_map_scrolls: true
+      segs: [[0.382, 0.461, 0.603], [0.497, 0.461, 0.598], [0.607, 0.532, 0.700]]
+      links: [[0.520, 0.382, 0.497], [0.588, 0.382, 0.497], [0.554, 0.497, 0.607]]
+      exit: [0.700, 0.607]
+      exit_walk: true
+    - names: [Zero Point]
+      # its enemies come back without end ("The enemies have disappeared" never showed; 15 fights in
+      # 10 min, 2026-11-15), so no clearing first: the battles on the way are fought as they come
+      enemies: false
+      # rows from the top: a short top street, A, B (the party comes in on its left part, ~0.427), C, D
+      # (the door sign to Demon's Den at its right end). Lined up on the phone 2026-11-15 (the wiki
+      # screenshot matched within ~0.005)
+      segs: [[0.278, 0.468, 0.516], [0.390, 0.405, 0.580], [0.499, 0.330, 0.468], [0.499, 0.532, 0.644], [0.610, 0.420, 0.596], [0.720, 0.501, 0.659]]
+      links: [[0.484, 0.278, 0.390], [0.420, 0.390, 0.499], [0.547, 0.390, 0.499], [0.453, 0.499, 0.610], [0.580, 0.499, 0.610], [0.532, 0.610, 0.720]]
+      # the sparkles move every run (seen: (0.476, top), (0.563, A), (0.490, C), (0.613, D); the wiki's:
+      # (0.438, A), (0.621, B), (0.505, D), (0.614, D)): read off the area map's bag icons
+      sparkle_icons: true
+      # Zero Point's upper-left exit (first guess; check on the phone)
+      exit: [0.405, 0.390]
