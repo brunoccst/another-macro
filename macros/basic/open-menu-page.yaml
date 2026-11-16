@@ -1,0 +1,72 @@
+# Basic macro: open one page of the game's menu (the commercials chest, the shop or the inbox),
+# from wherever the game is: it starts the game first if it isn't open (start-game), opens the
+# menu from the field (open-menu), then taps the page's button. Other macros run it to reach their
+# page (`run: {macro: open-menu-page, params: {page: "'shop'"}}`) and do their own work there.
+# It ends with "<page> open" once the page shows, or with why not (e.g. "no commercials left today").
+name: open-menu-page
+group: basic
+icon: sun
+description: "Basic: open a page of the game's menu (commercials, shop, inbox), starting the game first if it isn't open. Other macros run it to reach their page."
+templates: [start_game, daily_ads, shop_ad, inbox]
+params:
+  page: {default: shop, choices: [ads, shop, inbox], help: "the menu page to open: ads = the daily commercials chest (video icon), shop, inbox"}
+  max_page_taps: {default: 4, help: "give up after this many taps on the page's button"}
+screens: [ad_chest, shop, inbox, menu_open, field]
+unknown_timeout_s: 60
+
+setup:
+  - if: page != 'ads' and page != 'shop' and page != 'inbox'
+    then: [{stop: "unknown menu page '{page}' (ads, shop or inbox)"}]
+  - set: {taps: 0, game_starts: 0}
+
+handlers:
+  # the page itself: done. Another menu page on top (left open by hand): Back closes it.
+  ad_chest:
+    - if: page == 'ads'
+      then: [{stop: "ads open"}]
+    - back: true
+    - wait: 1.5
+  shop:
+    - if: page == 'shop'
+      then: [{stop: "shop open"}]
+    - tap: shop_close_button
+    - wait: 2
+  inbox:
+    - if: page == 'inbox'
+      then: [{stop: "inbox open"}]
+    - tap: inbox_close_button
+    - wait: 1.5
+
+  menu_open:
+    # the red "!" on the video icon is gone once all of today's commercials are used: close the menu
+    - if: page == 'ads' and not found('menu_ad_badge')
+      then:
+        - back: true
+        - wait: 1.5
+        - stop: "no commercials left today"
+    - set: {taps: taps + 1}
+    - if: taps > max_page_taps
+      then: [{stop: "the menu's {page} button didn't open the {page} page"}]
+    - status: "menu: opening the {page} page"
+    - if: page == 'ads'
+      then: [{tap: menu_ad_icon}, {wait: 2.5}]
+    - if: page == 'shop'
+      then: [{tap: menu_shop_button}, {wait: 3}]
+    - if: page == 'inbox'
+      then: [{tap: menu_inbox_button}, {wait: 2}]
+
+  field:
+    - run: open-menu
+    - if: result != 'menu open'
+      then: [{stop: "{result}"}]
+
+unknown:
+  # the game isn't open: the macro start-game opens it (once), and stops on the field
+  - if: not game_in_front()
+    then:
+      - if: game_starts > 0
+        then: [{stop: "the game is not in front"}]
+      - set: {game_starts: game_starts + 1}
+      - run: start-game
+    else:
+      - wait: 1
