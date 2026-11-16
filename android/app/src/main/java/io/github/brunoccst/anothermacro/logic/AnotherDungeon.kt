@@ -1493,6 +1493,9 @@ object AnotherDungeon {
         val ctx = r.ctx
         task(r, "Map ${r.map + 1}: ${ms.names.first()}")
         for (step in ms.steps!!) {
+            // the boss came up during an earlier step (The Abyss's chest step met its question): the run
+            // is over, no more steps (a "!" tapped then was a travel point outside, 2026-11-16)
+            if (r.bossBeaten) return
             val parts = step.trim().split(Regex("\\s+"))
             when (parts[0].uppercase()) {
                 "BUBBLE" -> {
@@ -1640,6 +1643,15 @@ object AnotherDungeon {
             rewardWaits = 0
             // "Continue to skip?  End / Skip": End (Skip would spend another key and ticket)
             if (endNotSkip(r, lines)) return@repeat
+            // "Travel to <place>? No / Yes": a "!" next to the party after the run (seen 11-16 after Sea of
+            // Ice's boss, back outside): No, never travel away from where the run ended
+            if (lines.any { Ocr.norm(it.text).startsWith("travel to") }) {
+                lines.firstOrNull { Ocr.norm(it.text) == "no" }?.let {
+                    MacroLog.i("\"${lines.first { l -> Ocr.norm(l.text).startsWith("travel to") }.text}\": No")
+                    ctx.tapExact(it.center); ctx.wait(1.5)
+                    return@repeat
+                }
+            }
             tapText(r, "OK", "Close", "Next", exact = true, tries = 1)
                 ?: ctx.tap(Point(0.5, 0.2)) // the rest closes with a tap anywhere: up here, away from buttons
             // (2.0 s made the screens after the boss take ~1 min; each read takes a moment itself)
