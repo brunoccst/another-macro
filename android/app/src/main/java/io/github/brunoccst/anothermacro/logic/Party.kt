@@ -23,8 +23,8 @@ import kotlin.math.sqrt
 object Party {
     private val LEFT = Point(0.124, 0.553)
     private val RIGHT = Point(0.874, 0.553)
-    /** Where the page's dots are looked for (a band across the bottom). */
-    private val DOTS = Region(0.15, 0.80, 0.70, 0.19)
+    /** Where the page's dots are looked for: under the party cards, around the middle. */
+    private val DOTS = Region(0.25, 0.925, 0.50, 0.065)
 
     /** "3" / "3.0" / "party 3" → 3; "current" / "" / anything else → null (keep the party in front). */
     fun number(want: String?): Int? =
@@ -97,84 +97,89 @@ object Party {
     }
 
     /**
-     * The page dots: small blobs that stand out from the background, in one row, evenly spaced
-     * (5 to 12 of them). The marked one is the blob least like the others (colour and size).
+     * The page dots (phone 2026-11-16, 2400x1080): a row of small grey discs centred under the
+     * party, y ~0.948, ~0.017 of the width apart; the party in front is a grey RING with a white
+     * middle instead of a filled disc. Read as: the filled discs (blobs clearly darker than the
+     * light page) in one evenly spaced row, then every place of that row (one before and after
+     * too) is looked at: dark middle = a party, light middle = the party in front.
      * Pure (ARGB pixels in, place out) so it is unit-tested without a phone.
      */
     object Dots {
-        class Blob(val cx: Double, val cy: Double, val area: Int, val w: Int, val h: Int, val r: Double, val g: Double, val b: Double)
+        class Blob(val cx: Double, val cy: Double, val area: Int, val w: Int, val h: Int)
 
+        private fun lum(p: Int) = (((p shr 16) and 0xff) + ((p shr 8) and 0xff) + (p and 0xff)) / 3
+
+        /** (the party in front from 1, how many) or null when the row isn't clear. */
         fun read(px: IntArray, w: Int, h: Int): Pair<Int, Int>? {
             if (w < 20 || h < 5) return null
-            val row = bestRow(blobs(px, w, h), w, h) ?: return null
-            val i = marked(row) ?: return null
-            return (i + 1) to row.size
+            val l = IntArray(px.size) { lum(px[it]) }
+            val bg = l.sorted()[l.size / 2]
+            val row = bestRow(blobs(l, w, h, bg), w) ?: return null
+            val step = median(row.zipWithNext { a, b -> b.cx - a.cx })
+            val cy = (row.sumOf { it.cy } / row.size).toInt()
+            fun kind(x: Double): Int { // 1 = a disc, 2 = the ring, 0 = nothing
+                val sx = Math.round(x).toInt()
+                if (sx < 1 || sx >= w - 1 || cy < 1 || cy >= h - 1) return 0
+                var sum = 0
+                for (dy in -1..1) for (dx in -1..1) sum += l[(cy + dy) * w + sx + dx]
+                val v = sum / 9
+                return if (v < bg - 30) 1 else if (v >= bg + 15) 2 else 0
+            }
+            val first = row.first().cx
+            val n = Math.round((row.last().cx - first) / step).toInt()
+            val places = (-1..n + 1).map { kind(first + it * step) }.dropWhile { it == 0 }.dropLastWhile { it == 0 }
+            if (0 in places || places.count { it == 2 } != 1) return null
+            return (places.indexOf(2) + 1) to places.size
         }
 
-        /** Blobs of pixels clearly unlike the band's usual colour. */
-        internal fun blobs(px: IntArray, w: Int, h: Int): List<Blob> {
-            fun ch(p: Int, s: Int) = (p shr s) and 0xff
-            val bg = intArrayOf(16, 8, 0).map { s -> px.map { ch(it, s) }.sorted()[px.size / 2] }
-            val on = BooleanArray(px.size) { i ->
-                val p = px[i]
-                val d = abs(ch(p, 16) - bg[0]) + abs(ch(p, 8) - bg[1]) + abs(ch(p, 0) - bg[2])
-                d > 90
-            }
-            val seen = BooleanArray(px.size)
+        private fun median(v: List<Double>) = v.sorted()[v.size / 2]
+
+        /** Blobs of pixels clearly darker than the band's usual (light) colour [bg]. */
+        internal fun blobs(l: IntArray, w: Int, h: Int, bg: Int): List<Blob> {
+            val on = BooleanArray(l.size) { l[it] < bg - 30 }
+            val seen = BooleanArray(l.size)
             val out = ArrayList<Blob>()
-            val stack = IntArray(px.size)
-            for (start in px.indices) {
+            val stack = IntArray(l.size)
+            for (start in l.indices) {
                 if (!on[start] || seen[start]) continue
                 var top = 0; stack[top++] = start; seen[start] = true
-                var n = 0; var sx = 0L; var sy = 0L; var x0 = w; var x1 = 0; var y0 = h; var y1 = 0
-                var sr = 0L; var sg = 0L; var sb = 0L
+                var n = 0; var x0 = w; var x1 = 0; var y0 = h; var y1 = 0
                 while (top > 0) {
                     val i = stack[--top]
                     val x = i % w; val y = i / w
-                    n++; sx += x; sy += y
+                    n++
                     x0 = minOf(x0, x); x1 = maxOf(x1, x); y0 = minOf(y0, y); y1 = maxOf(y1, y)
-                    sr += ch(px[i], 16); sg += ch(px[i], 8); sb += ch(px[i], 0)
                     for (j in intArrayOf(if (x > 0) i - 1 else -1, if (x < w - 1) i + 1 else -1, if (y > 0) i - w else -1, if (y < h - 1) i + w else -1)) {
                         if (j >= 0 && on[j] && !seen[j]) { seen[j] = true; stack[top++] = j }
                     }
                 }
-                out += Blob(sx.toDouble() / n, sy.toDouble() / n, n, x1 - x0 + 1, y1 - y0 + 1, sr.toDouble() / n, sg.toDouble() / n, sb.toDouble() / n)
+                out += Blob((x0 + x1) / 2.0, (y0 + y1) / 2.0, n, x1 - x0 + 1, y1 - y0 + 1)
             }
             return out
         }
 
-        /** The row of dot-like blobs (left to right): same height, evenly spaced, the most of them. */
-        internal fun bestRow(all: List<Blob>, w: Int, h: Int): List<Blob>? {
-            val unit = w / 0.70 // the band is 0.70 of the screen's width
+        /**
+         * The row of dot-like blobs (left to right): same height, evenly spaced (one gap may be
+         * double: the ring isn't a disc), the most of them.
+         */
+        internal fun bestRow(all: List<Blob>, w: Int): List<Blob>? {
+            val unit = w / DOTS.w // the screen's width in pixels
             val dots = all.filter { b ->
-                b.w >= 2 && b.w <= unit * 0.035 && b.h <= unit * 0.035 && b.area >= 4 &&
-                    b.w.toDouble() / b.h in 0.5..2.0
+                b.w >= 3 && b.w <= unit * 0.02 && b.h <= unit * 0.02 && b.area >= 5 &&
+                    b.w.toDouble() / b.h in 0.6..1.7
             }
             var best: List<Blob>? = null
             for (seed in dots) {
-                val row = dots.filter { abs(it.cy - seed.cy) <= maxOf(2.0, h * 0.04) }.sortedBy { it.cx }
-                if (row.size !in 5..12) continue
+                val row = dots.filter { abs(it.cy - seed.cy) <= maxOf(2.0, seed.h * 0.4) }.sortedBy { it.cx }
+                if (row.size !in 4..12) continue
                 val gaps = row.zipWithNext { a, b -> b.cx - a.cx }
-                val mean = gaps.average()
-                if (mean < 3) continue
-                val sd = sqrt(gaps.sumOf { (it - mean) * (it - mean) } / gaps.size)
-                if (sd / mean > 0.2) continue
+                val m = median(gaps)
+                if (m < 3) continue
+                if (gaps.any { abs(it - m) > 0.2 * m && abs(it - 2 * m) > 0.2 * m }) continue
+                if (gaps.count { abs(it - 2 * m) <= 0.2 * m } > 1) continue
                 if (best == null || row.size > best.size) best = row
             }
             return best
-        }
-
-        /** The index of the blob least like the rest, if it clearly stands out. */
-        internal fun marked(row: List<Blob>): Int? {
-            fun med(v: List<Double>) = v.sorted()[v.size / 2]
-            val mr = med(row.map { it.r }); val mg = med(row.map { it.g }); val mb = med(row.map { it.b })
-            val ma = med(row.map { it.area.toDouble() })
-            val score = row.map { b ->
-                (abs(b.r - mr) + abs(b.g - mg) + abs(b.b - mb)) / 60.0 + abs(b.area - ma) / ma
-            }
-            val order = score.indices.sortedByDescending { score[it] }
-            val top = score[order[0]]; val next = score[order[1]]
-            return if (top >= 0.5 && top >= 2 * next) order[0] else null
         }
     }
 }

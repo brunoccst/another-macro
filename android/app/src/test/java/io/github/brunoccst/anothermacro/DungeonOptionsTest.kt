@@ -45,28 +45,28 @@ class DungeonOptionsTest {
         assertEquals(-3, Party.steps(7, 4, 10))
     }
 
-    /** A dark band with [count] grey dots in a row, the [marked]th (from 1) white and a bit bigger. */
-    private fun dots(count: Int, marked: Int, w: Int = 700, h: Int = 120): IntArray {
-        val px = IntArray(w * h) { 0xff202830.toInt() }
+    /** A light band like the Party page: grey discs in a row, the [marked]th (from 1) a ring with a white middle. */
+    private fun dots(count: Int, marked: Int, w: Int = 1200, h: Int = 70): IntArray {
+        val px = IntArray(w * h) { 0xffd2d0d8.toInt() }
         fun disc(cx: Int, cy: Int, r: Int, c: Int) {
             for (y in cy - r..cy + r) for (x in cx - r..cx + r)
                 if ((x - cx) * (x - cx) + (y - cy) * (y - cy) <= r * r) px[y * w + x] = c
         }
-        // something else on the band too: a wide button
-        for (y in 10..40) for (x in 20..200) px[y * w + x] = 0xffd0b060.toInt()
-        val gap = 24
+        // a dark strip along the top (the bottom of the party cards)
+        for (y in 0..6) for (x in 0 until w) px[y * w + x] = 0xff203050.toInt()
+        val gap = 41
         val x0 = w / 2 - gap * (count - 1) / 2
         for (i in 0 until count) {
-            if (i + 1 == marked) disc(x0 + i * gap, 90, 6, 0xffffffff.toInt())
-            else disc(x0 + i * gap, 90, 5, 0xff8090a0.toInt())
+            if (i + 1 == marked) { disc(x0 + i * gap, 40, 11, 0xff8a8a90.toInt()); disc(x0 + i * gap, 40, 7, 0xfff8f8f8.toInt()) }
+            else disc(x0 + i * gap, 40, 8, 0xff969498.toInt())
         }
         return px
     }
 
     @Test fun partyDots() {
-        assertEquals(1 to 10, Party.Dots.read(dots(10, 1), 700, 120))
-        assertEquals(7 to 10, Party.Dots.read(dots(10, 7), 700, 120))
-        assertEquals(10 to 10, Party.Dots.read(dots(10, 10), 700, 120))
-        assertEquals(null, Party.Dots.read(dots(10, 0), 700, 120))   // none marked: unreadable
+        assertEquals(1 to 10, Party.Dots.read(dots(10, 1), 1200, 70))
+        assertEquals(5 to 10, Party.Dots.read(dots(10, 5), 1200, 70))
+        assertEquals(10 to 10, Party.Dots.read(dots(10, 10), 1200, 70))
+        assertEquals(null, Party.Dots.read(dots(10, 0), 1200, 70))   // none marked: unreadable
     }
 }
