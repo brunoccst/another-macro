@@ -1,13 +1,14 @@
 # One run of the Underworld Another Dungeon ("???" tab, right-hand continent; Hard only, 2 green keys):
-# Nazrik → Zero Point (every enemy first, then its Sea-Drift sparkles, read off the area map since they move
-# every run) → Demon's Den (every enemy first, then its 4 chests by the fixed path) → the boss area's chest
+# Nazrik → Zero Point (its Sea-Drift sparkles, read off the area map since they move every run; its enemies
+# never run out, so they're fought only as they come) → Demon's Den (its 4 chests by the fixed path, battles
+# as they come) → the boss area's chest
 # and the boss (Titan Ogre). Never spends Sea-Drifts and never buys keys: a purchase offer stops it.
 # Stops when the run ends, and says so when a White Key opened the Phantom Crystal Dimension.
 # Start it anywhere on the field: away from the Another Dungeon door it travels to the Spacetime Rift.
 name: underworld
 group: dungeon
 icon: chest
-description: "Another Dungeon: Underworld (Hard, 2 green keys). Zero Point's enemies and Sea-Drift sparkles, Demon's Den's enemies and chests, then the boss."
+description: "Another Dungeon: Underworld (Hard, 2 green keys). Zero Point's Sea-Drift sparkles, Demon's Den's chests, then the boss."
 templates: [another_dungeon, daily_ads]
 params:
   key: {default: green, choices: [green], help: "key to use: Underworld is Hard only, so green (2 a run)"}
