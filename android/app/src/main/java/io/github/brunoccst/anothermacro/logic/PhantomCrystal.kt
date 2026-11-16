@@ -223,6 +223,10 @@ object PhantomCrystal {
         MacroLog.i("World ${r.world}: \"!\" shows: ${lines.joinToString(" | ") { it.text }.take(120)}")
         when {
             "treatise" in all || "codex" in all || "opus" in all -> ctx.stop("an NPC offers a free Treatise/Codex/Opus: choose it yourself")
+            // the game autosaves on arriving in a world: the last straw dummy of a bonus room moved the party on
+            // with no fade the watcher saw, and the run went on in the jungle as "world 2" until it stopped with
+            // "no way out" (2026-11-16)
+            "autosaving" in all -> { MacroLog.i("World ${r.world}: autosave: a new world"); ctx.wait(1.5); return Taken.LEFT }
             "stamp" in all && ("you got" in all || "filled out" in all) -> {
                 r.stamps++; MacroLog.i("paw stamp"); dismiss(ctx); return Taken.SOME
             }
@@ -285,6 +289,7 @@ object PhantomCrystal {
             val lines = ctx.readText()
             val all = lines.joinToString(" ") { Ocr.norm(it.text) }
             if ("congratulations" in all || "obtained dungeon items" in all) return Taken.END
+            if ("autosaving" in all) { MacroLog.i("autosave: a new world"); ctx.wait(1.5); return Taken.LEFT }
             if (lines.any { Ocr.norm(it.text) == "another dungeon" }) return Taken.END
             // a late item or stamp banner (it hides the field's buttons, so no new world would ever be seen)
             if (!faded && ("obtained" in all || ("stamp" in all && ("you got" in all || "filled out" in all)))) {
