@@ -34,6 +34,12 @@ class SystemPage(private val a: MainActivity) {
     private val progressListener: (Updater.Progress) -> Unit = { showProgress(it) }
     private lateinit var log: TextView
     private var available: Updater.Release? = null
+    /** Dev builds only: the CI builds the phone can follow (main and open pull requests). */
+    private lateinit var buildsCard: LinearLayout
+    private lateinit var buildsList: LinearLayout
+    private lateinit var buildsInfo: TextView
+    private var buildsFetched = 0L
+    private var buildsBusy = false
     private val logListener: (String) -> Unit = { text -> if (::log.isInitialized) log.text = text }
     private val connectorListener: () -> Unit = { a.runOnUiThread { refreshConnector() } }
     val view: View
@@ -146,6 +152,28 @@ class SystemPage(private val a: MainActivity) {
             addView(updateButton)
         })
 
+        // dev builds: pick main or a branch with an open pull request; the phone then follows it
+        into.addView(Ui.card(a).apply {
+            buildsCard = this
+            addView(LinearLayout(a).apply {
+                orientation = LinearLayout.HORIZONTAL
+                gravity = Gravity.CENTER_VERTICAL
+                addView(Ui.text(a, "Build to follow", 15f, bold = true), LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+                addView(Ui.text(a, "Refresh", 13f, Ui.ACCENT, bold = true).apply {
+                    setPadding(dp(12), dp(4), 0, dp(4))
+                    isClickable = true
+                    setOnClickListener { loadBuilds(force = true) }
+                })
+            })
+            buildsInfo = Ui.text(a, "Pick main or a test build of an open pull request. The app installs it (or only " +
+                "loads its logic when that is all that changed) and from then on follows that branch: its newer builds " +
+                "and its macros. Pick main again when the test is over.", 12.5f, Ui.MUTED).apply { setPadding(0, dp(4), 0, dp(4)) }
+            addView(buildsInfo)
+            buildsList = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL }
+            addView(buildsList)
+            visibility = if (BuildConfig.VERSION_NAME.contains("-dev")) View.VISIBLE else View.GONE
+        })
+
         into.addView(Ui.text(a, "Macros update by themselves, without an app update: Macros → Macro library.", 12.5f, Ui.MUTED).apply { setPadding(dp(6), dp(2), dp(6), 0) })
 
         // --- log -----------------------------------------------------------------------------
@@ -189,6 +217,7 @@ class SystemPage(private val a: MainActivity) {
         if (id !in tabs) return
         tab = id
         a.getSharedPreferences("system_page", android.content.Context.MODE_PRIVATE).edit().putString("tab", id).apply()
+        if (id == "updates") loadBuilds(force = false)
         drawTabs()
         scroll.post { scroll.scrollTo(0, 0) }
     }
@@ -215,6 +244,7 @@ class SystemPage(private val a: MainActivity) {
         log.text = MacroLog.text()
         refreshConnector()
         checkForUpdates(automatic = true)
+        if (tab == "updates") loadBuilds(force = false)
         Updater.progressListeners += progressListener
         Updater.progress?.let { showProgress(it) }
     }
@@ -371,6 +401,96 @@ class SystemPage(private val a: MainActivity) {
                     .onFailure { updateInfo.text = "Update failed: ${it.message}" }
             }
         }.start()
+    }
+
+    // --- dev builds: the picker ------------------------------------------------------------
+
+    /** Fetch the builds to offer (at most every 2 minutes unless [force]: GitHub allows 60 calls an hour). */
+    private fun loadBuilds(force: Boolean) {
+        if (!BuildConfig.VERSION_NAME.contains("-dev") || buildsBusy) return
+        if (!force && System.currentTimeMillis() - buildsFetched < 2 * 60_000L) return
+        buildsBusy = true
+        if (buildsList.childCount == 0) buildsList.addView(Ui.text(a, "Looking for builds…", 13f, Ui.MUTED))
+        val followed = Updater.channel(a)
+        Thread {
+            val result = runCatching { DevBuilds.fetch(followed) }
+            a.runOnUiThread {
+                buildsBusy = false
+                result.onSuccess { buildsFetched = System.currentTimeMillis(); showBuilds(it) }
+                    .onFailure {
+                        buildsList.removeAllViews()
+                        buildsList.addView(Ui.text(a, "Could not list the builds: ${it.message}", 13f, Ui.MUTED))
+                    }
+            }
+        }.start()
+    }
+
+    private var shownBuilds: List<DevBuilds.Build> = emptyList()
+
+    private fun showBuilds(builds: List<DevBuilds.Build>) {
+        shownBuilds = builds
+        buildsList.removeAllViews()
+        if (builds.isEmpty()) { buildsList.addView(Ui.text(a, "No builds published yet.", 13f, Ui.MUTED)); return }
+        Logic.init(a)
+        val followed = Updater.channel(a)
+        for (b in builds) {
+            val sel = b.branch == followed
+            val effect = DevBuilds.effect(b, BuildConfig.SHELL_ID, Logic.current().commit, Logic.code())
+            buildsList.addView(LinearLayout(a).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(14), dp(10), dp(14), dp(10))
+                background = Ui.pressable(a, Ui.CARD_ALT, 14, if (sel) Ui.ACCENT else null)
+                isClickable = true
+                setOnClickListener { pickBuild(b) }
+                layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(8) }
+                addView(Ui.text(a, (if (sel) "●  " else "○  ") + b.label, 14f, if (sel) Ui.ACCENT else Ui.TEXT, bold = true).apply { maxLines = 2 })
+                val where = if (b.branch == "main" || b.pr == null) "" else "${b.branch} · "
+                val status = if (sel && effect != DevBuilds.Effect.IN_USE) "followed · " + DevBuilds.describe(effect) else DevBuilds.describe(effect)
+                addView(Ui.text(a, "$where${b.version} · ${b.published.take(16).replace('T', ' ')} UTC · $status", 12f, Ui.MUTED))
+            })
+        }
+    }
+
+    /** Follow [b]'s branch and bring its newest build in, like Claude's update_app tool. */
+    private fun pickBuild(b: DevBuilds.Build) {
+        if (Runner.isRunning) { updateInfo.text = "Stop the running macro first."; return }
+        if (Updater.progress?.active == true) { a.toast("An update is already running."); return }
+        Logic.init(a)
+        val effect = DevBuilds.effect(b, BuildConfig.SHELL_ID, Logic.current().commit, Logic.code())
+        val followed = Updater.channel(a)
+        if (effect == DevBuilds.Effect.IN_USE && b.branch == followed) { a.toast("That build is already in use."); return }
+        if (effect == DevBuilds.Effect.INSTALL && !Updater.canInstall(a)) {
+            updateInfo.text = "Allow Another Macro to install apps (\"Install unknown apps\"), come back and pick the build again."
+            Updater.openInstallPermission(a)
+            return
+        }
+        if (effect == DevBuilds.Effect.OLDER || effect == DevBuilds.Effect.IN_USE) {
+            // nothing to load or install now: follow the branch (its macros, and its next newer build)
+            Updater.setChannel(a, b.branch)
+            MacroLog.i("updates: now following ${b.branch}")
+            updateInfo.text = if (effect == DevBuilds.Effect.IN_USE) "Following ${b.label} now. Its build is already the one running."
+                else "Following ${b.label} now. Its newest build is an older app than this one, which Android can't install " +
+                    "over it, so this app stays until the branch has a newer build. Its macros load now."
+            afterPick()
+            return
+        }
+        updateButton.isEnabled = false
+        updateInfo.text = "Switching to ${b.label}…"
+        Thread {
+            val result = runCatching { Updater.update(a, b.branch, userStarted = true) }
+            a.runOnUiThread {
+                updateButton.isEnabled = Updater.progress?.active != true
+                result.onSuccess { updateInfo.text = "Following ${b.label}. " + it.replaceFirstChar { c -> c.uppercase() } + "." }
+                    .onFailure { updateInfo.text = "Switching to ${b.label} failed: ${it.message}" }
+                afterPick()
+            }
+        }.start()
+    }
+
+    /** The followed branch changed: its macros, and the picker's marks. */
+    private fun afterPick() {
+        MacroLibrary.updateAsync(a, force = true)
+        showBuilds(shownBuilds)
     }
 
     // --- views -------------------------------------------------------------------------------
