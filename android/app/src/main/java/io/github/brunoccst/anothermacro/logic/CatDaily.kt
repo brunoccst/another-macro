@@ -28,7 +28,9 @@ object CatDaily {
     private val PANEL_CLOSE = Point(0.825, 0.10) // the X of an island's panel on the world map
     // the era tabs' top half: their lower edge (y ~0.18) sits over the map, where a place
     // label under it takes the tap and opens "Moving to ..." (seen with Moonlight Forest)
-    private val ERA = mapOf("Antiquity" to Point(0.1525, 0.135), "Present" to Point(0.2283, 0.135), "Future" to Point(0.3029, 0.135))
+    // "???" is the fourth tab (Nazrik, Zero Point: the Underworld), right of Future (phone 2026-11-16)
+    private val ERA = mapOf("Antiquity" to Point(0.1525, 0.135), "Present" to Point(0.2283, 0.135), "Future" to Point(0.3029, 0.135),
+        "???" to Point(0.378, 0.15))
     private val EXPAND = Point(0.844, 0.935)
     // "found" messages that replace a clue once its cat is back home
     private val FOUND = listOf("So, you have returned", "Nya! I did think you would be returning", "You took so long", "I've been beside myself")
