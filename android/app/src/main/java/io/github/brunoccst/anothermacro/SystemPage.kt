@@ -228,8 +228,8 @@ class SystemPage(private val a: MainActivity) {
         for ((id, title) in tabTitles) {
             val sel = id == tab
             tabsRow.addView(Ui.text(a, title, 14f, if (sel) Ui.ON_ACCENT else Ui.TEXT, bold = true).apply {
-                gravity = Gravity.CENTER
-                setPadding(dp(16), dp(9), dp(16), dp(9))
+                Ui.centered(this)
+                setPadding(dp(16), dp(10), dp(16), dp(10))
                 background = if (sel) Ui.pressableBezel(a, 18) else Ui.pressable(a, Ui.CARD_ALT, 18)
                 isClickable = true
                 setOnClickListener { showTab(id) }

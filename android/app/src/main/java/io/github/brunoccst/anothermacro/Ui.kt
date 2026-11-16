@@ -73,6 +73,16 @@ object Ui {
         }
     }
 
+    /**
+     * Centres a label in its pill both ways: no extra line spacing or font padding, which
+     * would push the text above the middle of the face.
+     */
+    fun centered(v: TextView) = v.apply {
+        gravity = Gravity.CENTER
+        includeFontPadding = false
+        setLineSpacing(0f, 1f)
+    }
+
     /** A [bezel] (like the overlay buttons) that ripples when tapped: selected tabs, primary buttons. */
     fun pressableBezel(c: Context, radiusDp: Int = 14) =
         RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33182656")), bezel(c, radiusDp), null)
@@ -114,6 +124,7 @@ object Ui {
         // a primary button in the accent looks like the overlay buttons; other colours stay flat
         background = if (primary && color == ACCENT) pressableBezel(c, 24) else pressable(c, if (primary) color else CARD_ALT, 24)
         setPadding(dp(c, 18), dp(c, 12), dp(c, 18), dp(c, 12))
+        centered(this)
         isClickable = true
         setOnClickListener { onClick() }
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)

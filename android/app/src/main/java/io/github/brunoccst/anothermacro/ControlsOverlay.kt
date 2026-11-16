@@ -267,7 +267,8 @@ class ControlsOverlay(private val service: InputService) {
                 textSize = 11.5f
                 setTextColor(if (sel) Ui.ON_ACCENT else Ui.TEXT)
                 background = if (sel) Ui.bezel(service, 12) else GradientDrawable().apply { cornerRadius = dp(12).toFloat(); setColor(Ui.OVERLAY_ITEM) }
-                setPadding(dp(10), dp(5), dp(10), dp(5))
+                Ui.centered(this)
+                setPadding(dp(10), dp(6), dp(10), dp(6))
                 setOnClickListener {
                     tab = id
                     prefs.edit().putString("tab", id).apply()
@@ -392,8 +393,8 @@ class ControlsOverlay(private val service: InputService) {
         isSingleLine = true
         ellipsize = android.text.TextUtils.TruncateAt.END
         maxWidth = dp(220)
-        gravity = Gravity.CENTER_VERTICAL
-        setPadding(dp(13), dp(8), dp(13), dp(8))
+        Ui.centered(this)
+        setPadding(dp(13), dp(9), dp(13), dp(9))
         background = Ui.bezel(service, 17)
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT)
             .apply { setMargins(0, dp(3), 0, dp(3)); gravity = Gravity.END }
