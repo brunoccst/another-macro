@@ -71,3 +71,22 @@ def test_watch_ad_closes_google_play_sheet():
     after = list(_flat(play[0]["else"]))
     assert not any("tap" in a or "tap_exact" in a for a in after)
     assert any("commercials are over" in str(a.get("stop", "")) for a in after)
+
+
+def test_check_catches_dotted_option_and_unknown_uses(tmp_path):
+    (tmp_path / "macros" / "daily").mkdir(parents=True)
+    (tmp_path / "macros" / "daily" / "x.yaml").write_text(yaml.safe_dump({
+        "name": "x", "group": "daily", "screens": [], "uses": ["nope"],
+        "params": {"battle.skill_1": {"default": "auto"}},
+    }))
+    problems = macro_pack.check(tmp_path)
+    assert any("unknown macro 'nope'" in p for p in problems)
+    assert any("'battle.skill_1'" in p for p in problems)
+
+
+def test_dungeons_take_battle_options_from_the_battle_macro():
+    # the dungeon macros don't declare the battle skills: the app adds battle.skill_1..4 to their
+    # options from the basic macro battle (InnerParams); only the boss has its own
+    for name, (_, spec) in macro_pack.macros().items():
+        if spec.get("group") == "dungeon":
+            assert not any(str(k).startswith("skill_") for k in spec.get("params") or {}), name

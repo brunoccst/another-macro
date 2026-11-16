@@ -126,7 +126,8 @@ class MacroService : Service() {
                     updateNotification("${scenario.name}: $step (${i + 1}/${steps.size})")
                     MacroLog.prefix = "${scenario.name} ${i + 1}/${steps.size}"
                     MacroLog.i("${scenario.name}: step ${i + 1}/${steps.size} $step")
-                    val reason = Runner.run(sub, MacroParams.load(this, step), cap, this, routine = scenario.name)
+                    // the step's own options, then the routine's own settings for it (see InnerParams)
+                    val reason = Runner.run(sub, MacroParams.load(this, step) + InnerParams.scoped(params, step), cap, this, routine = scenario.name)
                     results += "$step: $reason"
                     if (reason == "stop requested") { routineEnd = reason; break }
                     if (reason.startsWith("safety stop")) { routineEnd = reason; MacroLog.i("${scenario.name}: safety stop, skipping the remaining steps"); break }

@@ -1,5 +1,5 @@
 # Basic macro: walk back and forth on the current map, and fight every encounter with the basic
-# macro battle (its skills), until enough battles are won, or (until_cleared) until the game says
+# macro battle, until enough battles are won, or (until_cleared) until the game says
 # "The enemies have disappeared". Other macros run it to clear a map:
 # `run: {macro: grind-battles, params: {until_cleared: true, battles: 15}}`.
 name: grind-battles
@@ -14,7 +14,7 @@ params:
   walk_ms: {default: 1500, help: "how long each walk in one direction lasts"}
   first_walk: {default: -1, choices: [-1, 1], help: "direction of the first walk: -1 = left, 1 = right"}
   stuck_walks: {default: 8, help: "stop if this many walks in a row leave the view unchanged (0 = never)"}
-  # the skills: set them on the basic macro battle
+  # the skills: the Battle options the app adds from the basic macro battle (battle.skill_1..4)
 screens: [title, defeat, battle_result, skill_list, battle_command, battle, field]
 
 setup:

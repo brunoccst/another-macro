@@ -16,9 +16,17 @@ class Entry : LogicEntry {
     /** Every step a macro may use (see the list at the top of Flow.kt). */
     override val actions: Set<String> = ACTIONS
 
+    /** Steps that run basic macros in code: macros using them take over those macros' options. */
+    override val stepUses: Map<String, List<String>> = STEP_USES
+
     override fun engine(scenario: FlowScenario): FlowEngine = FlowRun(scenario)
 
     companion object {
+        /** Keep in step with the code: each step here runs these macros (ctx.runBasic / ctx.innerOptions). */
+        val STEP_USES = mapOf(
+            "another_dungeon" to listOf("battle"),   // every fight: the battle macro's step with its skills
+            "cat_daily" to listOf("battle"),         // encounters on the way to a cat
+        )
         val ACTIONS = setOf("if", "tap", "tap_exact", "drag", "walk", "back", "wait", "launch", "log", "status", "set", "count",
             "stop", "repeat", "reset_view", "find_feather", "read_cat_clues", "cat_daily", "fight", "run", "another_dungeon", "phantom_crystal")
     }

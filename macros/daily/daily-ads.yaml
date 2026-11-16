@@ -10,7 +10,7 @@ icon: chest
 description: "Watch the 5 daily commercial groups (Menu → video icon, 1-3 ads each) for the random chest."
 templates: [start_game, daily_ads]
 params:
-  ad_wait_s: {default: 45, help: "how long to let a commercial play before pressing back to close it"}
+  # how long a commercial plays etc.: the Watch Ad options (watch-ad.*), taken over from the basic macro
   max_ads: {default: 5, help: "stop after this many groups (Watch Video taps)"}
 screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, ad_chest, menu_open, field]
 unknown_timeout_s: 120
@@ -32,7 +32,7 @@ handlers:
     - tap: ad_watch_button
     - wait: 3
     # the commercial and its reward dialog: the basic macro; then the chest opens here
-    - run: {macro: watch-ad, params: {ad_wait_s: ad_wait_s}, until: [ad_chest, menu_open]}
+    - run: {macro: watch-ad, until: [ad_chest, menu_open]}
     - log: "commercial {stats.ads_started}: {result}"
 
   # left over from a commercial watch-ad didn't see end

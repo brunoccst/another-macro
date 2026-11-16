@@ -130,6 +130,70 @@ class MacroLibraryTest {
         assertFalse(MacroDiagram.condition("done or stats.ads_started >= max_ads").contains("stats."))
     }
 
+    // --- a macro takes over the options of the macros it runs (InnerParams) ---------------------
+
+    @Test fun outerMacrosTakeOverTheInnerMacrosOptions() {
+        val macros = Scenarios.parseAll(LibraryFiles(repo)).associateBy { it.name }
+        // every dungeon fights with the battle macro (in code): its own copy of the battle skills
+        for (n in listOf("dogma-tower", "burning-beast-kings-castle", "sea-of-ice")) {
+            val p = macros.getValue(n).params
+            for (i in 1..4) {
+                val k = p.getValue("battle.skill_$i")
+                assertEquals(n, "battle", k.from)
+                assertEquals(n, "skill_$i", k.innerKey("battle.skill_$i"))
+                assertEquals(n, listOf("auto", "1", "2", "3", "4"), k.choices)
+            }
+            // its own options stay as they are
+            assertEquals(n, null, p.getValue("boss_setup").from)
+        }
+        assertTrue(macros.getValue("grind-battles").params.containsKey("battle.skill_1"))
+        assertTrue(macros.getValue("cat-scratchbook").params.containsKey("battle.skill_1"))
+        // the ad macros don't repeat watch-ad's options: they have them as their own copy
+        for (n in listOf("start-game", "daily-ads", "shop-ad")) {
+            val p = macros.getValue(n).params
+            assertFalse(n, p.containsKey("ad_wait_s"))
+            assertTrue(n, p.containsKey("watch-ad.ad_wait_s") && p.containsKey("watch-ad.retry_s"))
+        }
+        // a routine: every step's options, and theirs in turn (each macro once)
+        val routine = macros.getValue("daily-routine").params
+        assertEquals(listOf("cat-scratchbook", "battle"), routine.getValue("battle.skill_1").via)
+        assertTrue(routine.containsKey("daily-ads.max_ads") && routine.containsKey("watch-ad.retry_s"))
+        // basic macros that run nothing have only their own
+        assertTrue(macros.getValue("battle").params.values.all { it.from == null })
+    }
+
+    @Test fun innerOptionsHideWhatTheCallerHasOrGives() {
+        val inner = FlowScenario.parse("name: in\nparams:\n  party: {default: 1}\n  tries: {default: 3}\n  boss: {default: false, type: bool}\n" +
+            "  boss_hp: {default: 5, show_if: boss}\n  x: {default: 0, show_if: given}\n  given: {default: false, type: bool}\nscreens: []\n", "in")
+        val outer = FlowScenario.parse("name: out\nparams: {party: {default: 2}}\nscreens: [field]\nhandlers:\n  field:\n" +
+            "    - run: {macro: in, params: {given: true}}\n    - if: true\n      then: [{run: {macro: in, params: {given: false, tries: 1}}}]\n", "out")
+        InnerParams.link(listOf(inner, outer))
+        // party: the outer has its own; given: every run gives it; tries: only one run gives it
+        assertEquals(listOf("in.tries", "in.boss", "in.boss_hp", "in.x"), outer.innerParams.keys.toList())
+        assertEquals("in.boss", outer.params.getValue("in.boss_hp").showIf)
+        assertEquals(null, outer.params.getValue("in.x").showIf)   // its switch is the caller's
+        // unset, an inner option gets no default here: the inner macro runs with its own
+        assertEquals(setOf("party"), Runner.resolve(outer, emptyMap()).keys)
+        assertEquals("7", Runner.resolve(outer, mapOf("in.tries" to "7"))["in.tries"])
+    }
+
+    @Test fun innerOptionsAreHandedDown() {
+        val params = mapOf("runs" to "2", "battle.skill_1" to "4", "grind-battles.battles" to "15")
+        assertEquals(mapOf("battle.skill_1" to "4", "battles" to "15"), InnerParams.scoped(params, "grind-battles"))
+        assertEquals(mapOf("grind-battles.battles" to "15", "skill_1" to "4"), InnerParams.scoped(params, "battle"))
+        val battle = FlowScenario.parse("name: battle\nparams: {skill_1: {default: auto}}\nscreens: []\n", "b")
+        assertEquals(mapOf("skill_1" to "4"), Runner.resolve(battle, mapOf("skill_1" to "auto") + InnerParams.scoped(params, "battle")))
+    }
+
+    @Test fun unsetInnerOptionsShowTheInnerMacrosOwn() {
+        val p = Param("auto", "", from = "battle", via = listOf("cat-scratchbook", "battle"))
+        val saved = mutableMapOf("battle" to mapOf("skill_1" to "4"))
+        assertEquals("4", InnerParams.effective("battle.skill_1", p) { saved[it].orEmpty() })
+        saved["cat-scratchbook"] = mapOf("battle.skill_1" to "2")   // the macro in between keeps its own
+        assertEquals("2", InnerParams.effective("battle.skill_1", p) { saved[it].orEmpty() })
+        assertEquals("auto", InnerParams.effective("battle.skill_2", p.copy()) { saved[it].orEmpty() })
+    }
+
     @Test fun savedOptionsRoundTrip() {
         val p = mapOf("skill_1" to "4", "runs" to "all")
         assertEquals(p, MacroParams.decode(MacroParams.encode(p)))
