@@ -106,3 +106,11 @@ def test_party_is_picked_by_number_only():
         assert choices == ["current"] + [str(i) for i in range(1, 11)], name
         assert str(party["default"]) in choices, name
         assert "with " not in party["help"].lower(), name
+
+
+def test_check_catches_empty_set_expression(tmp_path):
+    (tmp_path / "macros" / "daily").mkdir(parents=True)
+    (tmp_path / "macros" / "daily" / "x.yaml").write_text(yaml.safe_dump({
+        "name": "x", "group": "daily", "screens": [], "setup": [{"set": {"picked": ""}}],
+    }))
+    assert any("empty expression" in p for p in macro_pack.check(tmp_path))
