@@ -3,6 +3,7 @@ package io.github.brunoccst.anothermacro
 import android.Manifest
 import android.app.Activity
 import android.content.Intent
+import android.content.res.Configuration
 import android.media.projection.MediaProjectionManager
 import android.os.Build
 import android.os.Bundle
@@ -11,6 +12,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
 
 /**
@@ -44,7 +46,7 @@ class MainActivity : Activity() {
         private set
 
     private lateinit var pageTitle: TextView
-    private lateinit var drawer: LinearLayout
+    private lateinit var drawer: View
     private lateinit var scrim: View
     private var drawerOpen = false
     private val navRows = HashMap<Page, LinearLayout>()
@@ -123,20 +125,31 @@ class MainActivity : Activity() {
         handleAdbIntent(intent)
     }
 
-    private fun buildDrawer(): LinearLayout = LinearLayout(this).apply {
-        orientation = LinearLayout.VERTICAL
+    /**
+     * The sidebar. Its content scrolls, so every page stays reachable on short screens; in
+     * landscape the header is compacted (no subtitle, tighter spacing) so all items fit at once.
+     */
+    private fun buildDrawer(): View = ScrollView(this).apply {
         setBackgroundColor(Ui.CARD)
         isClickable = true // taps on the sidebar don't fall through to the page
-        setPadding(dp(12), dp(24), dp(12), dp(16))
-        addView(Ui.text(this@MainActivity, "Another Macro", 22f, bold = true).apply { setPadding(dp(8), 0, 0, 0) })
-        addView(Ui.text(this@MainActivity, "Automation for Another Eden, on this phone", 12.5f, Ui.MUTED).apply { setPadding(dp(8), dp(2), 0, dp(10)) })
-        addView(statusChips().apply { setPadding(dp(8), 0, 0, dp(14)) })
-        addView(View(this@MainActivity).apply { setBackgroundColor(Ui.LINE) }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply { bottomMargin = dp(10) })
+        isFillViewport = true // the version line still sits at the bottom when there is room
+        isVerticalScrollBarEnabled = false
+        addView(buildDrawerContent(), FrameLayout.LayoutParams(FrameLayout.LayoutParams.MATCH_PARENT, FrameLayout.LayoutParams.WRAP_CONTENT))
+    }
+
+    private fun buildDrawerContent(): LinearLayout = LinearLayout(this).apply {
+        val land = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        orientation = LinearLayout.VERTICAL
+        setPadding(dp(12), dp(if (land) 12 else 24), dp(12), dp(if (land) 10 else 16))
+        addView(Ui.text(this@MainActivity, "Another Macro", if (land) 18f else 22f, bold = true).apply { setPadding(dp(8), 0, 0, if (land) dp(6) else 0) })
+        if (!land) addView(Ui.text(this@MainActivity, "Automation for Another Eden, on this phone", 12.5f, Ui.MUTED).apply { setPadding(dp(8), dp(2), 0, dp(10)) })
+        addView(statusChips().apply { setPadding(dp(8), 0, 0, dp(if (land) 8 else 14)) })
+        addView(View(this@MainActivity).apply { setBackgroundColor(Ui.LINE) }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply { bottomMargin = dp(if (land) 6 else 10) })
         for (p in Page.values()) {
             val row = LinearLayout(this@MainActivity).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
-                setPadding(dp(14), dp(12), dp(14), dp(12))
+                setPadding(dp(14), dp(if (land) 8 else 12), dp(14), dp(if (land) 8 else 12))
                 isClickable = true
                 addView(Ui.icon(this@MainActivity, p.iconRes, 22).apply { (layoutParams as LinearLayout.LayoutParams).rightMargin = dp(16) })
                 addView(Ui.text(this@MainActivity, p.title, 16f, bold = true))
