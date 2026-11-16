@@ -581,7 +581,6 @@ class MacrosPage(private val a: MainActivity) {
         val body = LinearLayout(a).apply {
             orientation = LinearLayout.VERTICAL
             visibility = View.GONE
-            setPadding(dp(10), 0, 0, 0)
         }
         val arrow = Ui.text(a, "▸", 16f, Ui.ACCENT, bold = true).apply { setPadding(0, 0, dp(10), 0) }
         val header = LinearLayout(a).apply {
@@ -606,9 +605,16 @@ class MacrosPage(private val a: MainActivity) {
                 arrow.text = if (show) "▾" else "▸"
             }
         }
-        if (!firstOfAll) paramsBox.addView(Ui.divider(a))
-        paramsBox.addView(header)
-        paramsBox.addView(body)
+        // the whole section on its own tinted card, so it reads apart from the macro's own options
+        paramsBox.addView(LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL
+            background = Ui.rounded(Ui.INNER_SECTION, dp(14).toFloat(), Ui.ACCENT_DIM, dp(1))
+            setPadding(dp(12), dp(2), dp(12), dp(8))
+            addView(header)
+            addView(body)
+        }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply {
+            topMargin = dp(if (firstOfAll) 4 else 12)
+        })
         return body
     }
 

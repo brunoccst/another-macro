@@ -21,6 +21,8 @@ object Ui {
     val MUTED = Color.parseColor("#94A0AE")
     val ACCENT = Color.parseColor("#4FC3F7")
     val ACCENT_DIM = Color.parseColor("#1D3A4A")
+    /** Background of a folded section of options taken over from an inner macro (Macros page). */
+    val INNER_SECTION = Color.parseColor("#15232C")
     val GOOD = Color.parseColor("#66BB6A")
     val WARN = Color.parseColor("#FFB74D")
     val BAD = Color.parseColor("#EF5350")
