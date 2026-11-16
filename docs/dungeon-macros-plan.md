@@ -134,7 +134,7 @@ on day one, and its logs (where chests and exits were found) would seed the fixe
 | Jasmond | standard | none | 80 | - | light, shadow |  | todo |
 | Omegapolis | standard | none | 80 | - | light, shadow |  | todo |
 | Present Garulea Continent | standard | Present | 80 | - | light, shadow |  | todo |
-| Underworld | standard | none | 80 | - | light, shadow | yes | todo |
+| Underworld | standard | none | 80 | - | light, shadow | yes | underworld (Demon's Den) |
 | Mysterious Vortex - Warped Cochlea | mysterious vortex | none | - | ? | light, shadow |  | todo |
 | Mysterious Vortex - Dust City | mysterious vortex | none | - | 50-70 | light, shadow |  | todo |
 | Mysterious Vortex - Isle of Gospel | mysterious vortex | none | - | 50-70 | light, shadow |  | todo |
