@@ -16,9 +16,9 @@ Claude (Anthropic cloud) --HTTPS /mcp/<connector token>--> this Worker <--WebSoc
 ## Set it up (once, about 10 minutes, all from the phone's browser)
 
 1. **Tokens.** In Another Macro open **System → Claude** and tap **Make new tokens**.
-2. **Deploy.** Tap this button and sign in to Cloudflare (a free account is enough):
-
-   [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/brunoccst/another-macro/tree/main/relay)
+2. **Deploy.** Open `https://deploy.workers.cloudflare.com/?url=` followed by the address of this
+   repository's `relay` folder (`https://github.com/<owner>/<repo>/tree/main/relay`) and sign in
+   to Cloudflare (a free account is enough).
 
    If it asks for `PHONE_TOKEN` and `CONNECTOR_TOKEN`, paste them from the app (**Copy phone
    token**, **Copy connector token**). If it doesn't, add them after the deploy: Cloudflare

@@ -11,7 +11,7 @@ You do steps 1–3 once. Step 4 (Claude) is optional.
 There is no official release yet, so install the development build that follows `main`:
 
 1. On the phone, open the
-   [`dev-main` pre-release](https://github.com/brunoccst/another-macro/releases/tag/dev-main)
+   [`dev-main` pre-release](../../../releases/tag/dev-main)
    and download `another-macro.apk`.
 2. Open it. Android asks once to allow your browser (or file manager) to **install unknown
    apps**: allow it, then **Install**.
@@ -19,8 +19,8 @@ There is no official release yet, so install the development build that follows 
    anyway**. The app is signed with the same key on every build, so updates install over it
    and keep your settings.
 
-Once there is an official release, its APK will be at
-`https://github.com/brunoccst/another-macro/releases/latest/download/another-macro.apk`.
+Once there is an official release, its APK will be on the repository's
+[latest release](../../../releases/latest) as `another-macro.apk`.
 
 ## 2. Turn on taps and screen capture
 

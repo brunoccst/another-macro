@@ -4,12 +4,15 @@ Installing a new APK needs Play Protect's approval on the phone every time, so a
 test of an app change would stall at the first install. To avoid that, the app is split in two:
 
 - **The shell** is the installed APK. It holds the permissions, taps, screen capture, OCR, vision,
-  the phone connector, the UI, the updater and the macro runner. Every file of
-  `android/app/src/main` outside `logic/` belongs to it.
-- **The logic** is the `io.github.brunoccst.anothermacro.logic` package
-  (`android/app/src/main/java/.../logic/`). It holds the macro steps (`FlowRun`), battles, Another
-  Dungeons, routes, area navigation, the cat scratchbook and the Phantom Crystal. It is built into
-  the APK as a fallback, and CI also ships it on its own as `logic.zip`.
+  the phone connector, the UI, the updater and the macro runner. It is the generic core in
+  `core/android/core` (Kotlin package `macroforge`), plus this app's resources (icons, name) in
+  `android/app/src/main/res`.
+- **The logic** is two packages: the generic macro steps in `macroforge.logic`
+  (`core/android/core/src/main/java/macroforge/logic/`, `FlowRun`), and this game's plugin in
+  `anothermacro.logic` (`android/app/src/main/java/anothermacro/logic/`: battles, Another
+  Dungeons, routes, area navigation, the cat scratchbook and the Phantom Crystal). game.yaml's
+  `plugin:` names the plugin class. Both are built into the APK as a fallback, and CI also ships
+  them on their own as `logic.zip`.
 
 ## How a build reaches the phone
 
@@ -28,12 +31,12 @@ A dev build checks its branch every 3 minutes while the connector is on and idle
 - **Shell changed:** the APK has to be installed as before, which needs the user's approval
   while Play Protect blocks it. A pack built for another shell is never loaded.
 
-`SHELL_ID` is a hash of every shell file, plus the Gradle build files. Any change to them, even
+`SHELL_ID` is a hash of every shell file, plus the Gradle build files and game.yaml. Any change to them, even
 a comment, means a new install.
 
 ## Rules for code
 
-- **Overnight or unattended tests:** keep the change inside `logic/`. If the shell must change,
+- **Overnight or unattended tests:** keep the change inside the two `logic` packages. If the shell must change,
   batch those changes and ask the user for one install.
 - **Shell code never names a class in `logic`.** It reaches the logic only through the
   `LogicEntry` / `FlowEngine` interfaces (`Logic.kt`), and creates `logic.Entry` by name.

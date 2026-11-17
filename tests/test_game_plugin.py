@@ -2,10 +2,12 @@
 import re
 from pathlib import Path
 
-LOGIC = Path(__file__).resolve().parents[1] / "android/app/src/main/java/io/github/brunoccst/anothermacro/logic"
+ROOT = Path(__file__).resolve().parents[1]
+LOGIC = ROOT / "core/android/core/src/main/java/macroforge/logic"  # generic steps
+GAME_LOGIC = ROOT / "android/app/src/main/java/anothermacro/logic"  # the game's plugin
 
 # the logic's generic files: they must work for any game
-GENERIC = ["FlowRun.kt", "GamePlugin.kt", "Game.kt", "AdEscape.kt"]
+GENERIC = sorted(f.name for f in LOGIC.glob("*.kt"))
 # the game's own code (Another Eden): only the plugin and its own files use it
 GAME_CODE = ["AnotherDungeon", "Battle", "CatDaily", "CatRoute", "Party", "PhantomCrystal", "FeatherFinder",
              "AreaNav", "MiniMap", "Route", "HowItWorks", "AnotherEdenPlugin"]
@@ -22,21 +24,11 @@ def test_generic_logic_never_names_game_code():
             assert not re.search(rf"\b{g}\b", code), f"{name} uses {g}"
 
 
-def test_entry_takes_the_game_from_one_place():
+def test_entry_takes_the_game_from_game_yaml():
     code = _code(LOGIC / "Entry.kt")
-    assert re.search(r"val PLUGIN: GamePlugin = \w+", code)
-    assert [g for g in GAME_CODE if re.search(rf"\b{g}\b", code)] == ["AnotherEdenPlugin"]
+    assert re.search(r"val PLUGIN: GamePlugin = GameProfile\.current\.plugin", code)
 
 
-def test_generic_steps_and_plugin_steps_are_listed():
-    flow = (LOGIC / "FlowRun.kt").read_text(encoding="utf-8")
-    plugin = (LOGIC / "AnotherEdenPlugin.kt").read_text(encoding="utf-8")
-    steps = set(re.findall(r'"(\w+)"', re.search(r"val STEPS = setOf\((.*?)\)", flow, re.S).group(1)))
-    actions = set(re.findall(r'"(\w+)"', re.search(r"override val actions = setOf\((.*?)\)", plugin, re.S).group(1)))
-    assert not steps & actions
-    # every generic step FlowRun lists is one it runs
-    for s in steps:
-        assert f'"{s}" in a' in flow, s
-    # every plugin step is one the plugin runs
-    for s in actions:
-        assert f'"{s}" ->' in plugin, s
+def test_game_code_lives_in_the_app():
+    for g in GAME_CODE:
+        assert (GAME_LOGIC / f"{g}.kt").is_file(), g

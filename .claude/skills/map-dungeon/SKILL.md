@@ -210,6 +210,6 @@ bubbles are drawn at different sizes per world (scales 0.8-1.35 of the template)
 
 Build (CI `android.yml`), install, re-allow screen capture, and run from next to the
 Another Dungeon door with the live log on. Check the run report at the end (time,
-chests n/total, items) and `adb logcat -s AnotherMacro:I` for "no chest found",
+chests n/total, items) and `adb logcat -s MacroForge:I` for "no chest found",
 "gave up walking" or many looks at the same stairs: those mean a position in the data
 is off. Fix it and run again.

@@ -14,6 +14,10 @@ package: games.wfs.anothereden
 activity: net.wrightflyer.toybox.AppActivity
 # the GitHub repo that hosts this app's builds and packs
 repo: brunoccst/another-macro
+# the Android app's id (its package on the phone)
+application_id: anothermacro.app
+# the game's own macro steps (logic pack): the Kotlin object implementing GamePlugin
+plugin: anothermacro.logic.AnotherEdenPlugin
 
 safety:
   # anywhere on screen: an offer to pay; never tapped
