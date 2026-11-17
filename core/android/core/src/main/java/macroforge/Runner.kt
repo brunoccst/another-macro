@@ -21,7 +21,7 @@ data class Param(val default: String, val help: String, val choices: List<String
                   * macro's name. The option's key is then "<from>.<its key there>", e.g. battle.skill_1.
                   */
                  val from: String? = null,
-                 /** The macros between this one and [from], [from] last (e.g. [cat-scratchbook, battle]). */
+                 /** The macros between this one and [from], [from] last (e.g. [daily-quest, battle]). */
                  val via: List<String> = emptyList(),
                  /**
                   * A switch drawn on the side of another option's box instead of on its own row
@@ -66,7 +66,7 @@ class Context(
         items[key] = (items[key] ?: 0) + n
     }
 
-    /** The items named in a reward text ("Rewards received: Chronos Stone x5"); how many were read. */
+    /** The items named in a reward text ("Rewards received: Gold Coin x5"); how many were read. */
     fun gotText(text: String): Int {
         val found = RunSummary.parseItems(text)
         for ((k, v) in found) got(k, v)
@@ -273,7 +273,7 @@ class Context(
 
     /**
      * The options the basic macro [name] runs with inside this macro (without running it): its own
-     * as the user chose them, then this macro's own settings for it (e.g. a dungeon's battle.skill_1).
+     * as the user chose them, then this macro's own settings for it (e.g. a quest's battle.skill_1).
      */
     fun innerOptions(name: String): Map<String, String> {
         val sub = findMacro(name) ?: return emptyMap()
@@ -306,7 +306,7 @@ class Context(
 abstract class Scenario {
     abstract val name: String
     abstract val description: String
-    /** Which group the app lists it under (Groups: daily, dungeon, farm, game, other). */
+    /** Which group the app lists it under (the groups of game.yaml). */
     open val group: String = "other"
     /** Its icon in the app (chest, paw, crystal, key, swords, sun, power); empty = its group's. */
     open val icon: String = ""
@@ -522,7 +522,7 @@ object Runner {
     /**
      * Run [sub] inside the running macro (Flow's `run:` step) and return its stop reason, for the
      * caller to go on. It starts from its own options as the user chose them in the app, then the
-     * caller's own settings for it (the options the caller took over from it, e.g. a dungeon's
+     * caller's own settings for it (the options the caller took over from it, e.g. a quest's
      * battle.skill_1, see [InnerParams]), then [given]. It ends like any macro (its own stop), or as soon as one of [until] (the
      * caller's screens) shows: "back to <screen>". A stop request or a safety stop ends the caller
      * too. Its counters are added to the caller's.

@@ -341,6 +341,6 @@ object PhoneConnector {
             mapOf("action" to mapOf("type" to "string", "enum" to listOf("fold", "unfold", "status"), "description" to "default status")), listOf("action")),
         McpServer.McpTool("update_app", "Update the ${GameProfile.current.appName} app itself to the newest CI build of a GitHub branch of ${GameProfile.current.repo}, with no taps from the user. The app restarts; the connector is back in about 90 s.",
             mapOf("branch" to str("branch whose build to install, e.g. main (default: the branch the phone follows now)"))),
-        McpServer.McpTool("update_macros", "Download the newest macro pack (macros, templates, dungeon data) published by CI for the branch the phone follows (falls back to main). No app restart.", emptyMap()),
+        McpServer.McpTool("update_macros", "Download the newest macro pack (macros, templates, data files) published by CI for the branch the phone follows (falls back to main). No app restart.", emptyMap()),
     )
 }

@@ -8,8 +8,8 @@ package macroforge
  * Where the steps come from:
  * - a macro's `how:` list (macro file): text lines, `if:`/`then:`/`else:` on its options, `run:`
  *   for a macro it runs (opened up into that macro's steps, with the options it would run with),
- *   and any step of the logic (e.g. `another_dungeon: dogma_tower`), which the logic describes
- *   itself from its code and data ([LogicEntry.explain]: a dungeon's maps, chests and route);
+ *   and any step of the logic (e.g. `quest: forest`), which the logic describes
+ *   itself from its code and data ([LogicEntry.explain]: e.g. a quest's maps and route);
  * - a routine: its macros, one after another, each opened up;
  * - no `how:`: the logic's own steps the macro uses, else the macros it runs.
  *
@@ -29,7 +29,7 @@ object MacroSteps {
     interface Env {
         /** The macro's options as set now (its own and the ones it takes over, "battle.skill_1"). */
         val options: Map<String, String>
-        /** A file of the macro library (templates/another_dungeon/dungeons.yaml), or null. */
+        /** A file of the macro library (e.g. templates/<folder>/<file>.yaml), or null. */
         fun file(path: String): String?
         /** The steps of the macro [name] when this macro runs it with [given] (null: no such macro). */
         fun steps(name: String, given: Map<String, String> = emptyMap()): List<Step>?

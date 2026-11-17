@@ -4,7 +4,7 @@ import macroforge.Context
 import macroforge.MacroSteps
 
 /**
- * What a game adds to the generic macro steps: its own steps (fights, dungeons, ...), the basic
+ * What a game adds to the generic macro steps: its own steps (fights, quests, ...), the basic
  * macros those steps run in code, and their words for "How it works". The generic steps
  * ([FlowRun.STEPS]: tap, walk, run, ...) know nothing about the game; [FlowRun] hands every
  * other step to the plugin. [Entry.PLUGIN] names the game's plugin.

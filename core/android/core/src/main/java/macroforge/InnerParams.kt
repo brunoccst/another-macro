@@ -2,15 +2,15 @@ package macroforge
 
 /**
  * A macro takes over the options of the macros it runs, so it keeps its own settings for them
- * without declaring them again: a dungeon macro that fights with the basic macro battle gets
- * battle.skill_1 .. battle.skill_4 among its own options, and every dungeon can fight its own way.
+ * without declaring them again: a quest macro that fights with the basic macro battle gets
+ * battle.skill_1 .. battle.skill_4 among its own options, and every quest can fight its own way.
  *
  * - Which macros: [FlowScenario.uses] (`run:` steps, a routine's steps, the basic macros its own
  *   steps run in code, `uses:`), and theirs in turn, each macro once: one set of battle options per
  *   outer macro, wherever the battles happen inside it. The key is "<macro>.<its option>".
  * - Left out: an option the caller's `run:` steps always give (the caller decides it, e.g.
  *   grind-battles' until_cleared from a map-clearing macro), and one the caller has itself under
- *   the same name (it passes its own, e.g. a dungeon's party to pick-party).
+ *   the same name (it passes its own, e.g. a quest's party to pick-party).
  * - Unset (never saved with the outer macro), an inner option is the inner macro's own: the app
  *   shows that value, and once saved the outer macro keeps its own copy.
  * - At run time [scoped] hands them down: battle.skill_1 becomes the battle macro's skill_1; other

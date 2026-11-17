@@ -9,8 +9,8 @@ import java.io.File
  * one macro's) from the Statistics page.
  *
  * A run keeps its counters (the macro's `count:` stats: battles, chests, cats found...) and the
- * run reports the dungeon macros wrote meanwhile (files/runs.log: one per dungeon run, with time,
- * chests, items, rewards, key, White Key).
+ * run reports the macros wrote meanwhile (files/runs.log: one per round, with the fields game.yaml
+ * reports: lists).
  */
 object RunStats {
     /** Runs kept at most (the oldest go first). */
@@ -34,7 +34,7 @@ object RunStats {
         val reason: String,
         /** The macro's counters (battles, chests, ...), the ones of macros it ran included. */
         val counts: Map<String, Int> = emptyMap(),
-        /** The run reports written meanwhile (one per round of a macro, e.g. a dungeon run), as read from runs.log. */
+        /** The run reports written meanwhile (one per round of a macro), as read from runs.log. */
         val reports: List<Map<String, Any?>> = emptyList(),
         /** Who started it: "app" (the floating buttons), "connector" (Claude) or "schedule" (the daily schedule). */
         val source: String = "app",

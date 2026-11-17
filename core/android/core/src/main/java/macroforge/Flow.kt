@@ -23,7 +23,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   back: true        wait: seconds        launch: package        log: "text {expr}"
  *   status: "text {expr}"       (log it and show it on the live log: what the macro is doing now)
  *   set: {var: expr, ...}       count: stat_name        stop: "text {expr}"
- *   got: "reward text {expr}"   (items it names, "Chronos Stone x5", go in the outcome message) | got: {item: "text", n: expr}
+ *   got: "reward text {expr}"   (items it names, "Gold Coin x5", go in the outcome message) | got: {item: "text", n: expr}
  *   if: expr  then: [actions]  else: [actions]          repeat: {times: expr, do: [actions]}
  *   reset_view: true            (forget the last view for view_moved())
  *   fight: skill_       (fight the battle on screen until the field is back, with skills from params
@@ -35,11 +35,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *                        This macro takes over the options of every macro it runs, as "<macro>.<option>"
  *                        (battle.skill_1), with no need to declare them: see [InnerParams])
  *   uses: [battle]      (top level, optional: macros it runs some other way, to take over their options too)
- *   another_dungeon: dogma_tower   (run that Another Dungeon; see AnotherDungeon.kt)
- *   phantom_crystal: true          (the Phantom Crystal Dimension with a White Key; see PhantomCrystal.kt)
- *   find_feather: true          (cat scratchbook: tap the feather bubble if visible; sets `tapped`)
- *   read_cat_clues: true        (cat scratchbook: sets `report` to today's clues and their places)
- *   cat_daily: true             (cat scratchbook: read clues by OCR, travel to each cat, find it; stops with a summary)
+ *   ...                 (any step of the game's plugin, game.yaml `plugin:`: see logic/GamePlugin.kt)
  *
  * The steps run in logic/FlowRun.kt, which ships in the downloadable logic pack (see Logic.kt).
  *
@@ -100,8 +96,8 @@ class FlowScenario(val spec: Map<String, Any?>, val source: String,
 
     /**
      * The macros this one runs (for the app: what it's built from, and whose options it takes over):
-     * its `run:` steps, a routine's steps, the basic macros its own steps run in code (e.g. the
-     * Another Dungeon run fights with the battle macro: [LogicEntry.stepUses]) and any it names
+     * its `run:` steps, a routine's steps, the basic macros its own steps run in code (e.g. a
+     * game step that fights with the battle macro: [LogicEntry.stepUses]) and any it names
      * under `uses:`.
      */
     val uses: List<String>

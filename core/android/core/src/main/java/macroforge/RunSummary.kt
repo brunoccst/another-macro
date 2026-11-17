@@ -13,7 +13,7 @@ import android.widget.ScrollView
  * The outcome message: when a macro ends, one card over the game says how it went. A run that
  * ended by itself lists what it got (chest items, rewards, the `got:` step's items) and what it
  * did; one that failed says why and where it was (its last step and screen). A macro that loops
- * (dungeon runs 1-10 or "all") is one run, so the card comes once, after the last loop; a
+ * (runs 1-10 or "all") is one run, so the card comes once, after the last loop; a
  * routine shows one card for all its steps when it ends.
  *
  * Shown for runs started on the phone (floating buttons, the app, the daily schedule); runs Claude
@@ -48,7 +48,7 @@ object RunSummary {
 
     private fun pretty(macro: String) = macro.replace('-', ' ').replaceFirstChar { it.uppercase() }
 
-    /** The outcome of one run (a loop of dungeon runs included). */
+    /** The outcome of one run (a loop of rounds included). */
     fun of(r: RunStats.Record): Outcome {
         val o = r.outcome
         val name = pretty(r.macro)
@@ -141,8 +141,8 @@ object RunSummary {
         "you", "obtained", "got", "ok", "close", "and", "of", "with", "rewarded", "thank", "for", "watching")
 
     /**
-     * The items a reward text names, with their numbers: "Rewards received: 1 / Chronos Stone x5"
-     * → {Chronos Stone: 5}; "You have been rewarded 10 Chronos Stones." → {Chronos Stones: 10}.
+     * The items a reward text names, with their numbers: "Rewards received: 1 / Gold Coin x5"
+     * → {Gold Coin: 5}; "You have been rewarded 10 Gold Coins." → {Gold Coins: 10}.
      * Names are the words right before "x5" / "×5" (or after a leading number), dialog words left out.
      */
     fun parseItems(text: String): Map<String, Int> {
@@ -158,7 +158,7 @@ object RunSummary {
             val w = words[i]
             val times = Regex("""^(?i)x(\d[\d,]*)[.,;]?$""").find(w)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
             if (times != null) {
-                // "Chronos Stone x5": up to 5 words back
+                // "Gold Coin x5": up to 5 words back
                 val name = ArrayList<String>()
                 var j = i - 1
                 while (j >= 0 && name.size < 5 && isWord(words[j].trimEnd(',', ':'))) { name.add(0, words[j].trimEnd(',', ':')); j-- }
@@ -167,7 +167,7 @@ object RunSummary {
             }
             val lead = Regex("""^(\d[\d,]*)$""").find(w)?.groupValues?.get(1)?.replace(",", "")?.toIntOrNull()
             if (lead != null && i + 1 < words.size && isWord(words[i + 1])) {
-                // "rewarded 10 Chronos Stones.": the words after the number, up to the sentence end
+                // "rewarded 10 Gold Coins.": the words after the number, up to the sentence end
                 val name = ArrayList<String>()
                 var j = i + 1
                 while (j < words.size && name.size < 5 && isWord(words[j].trimEnd('.', ',', '!'))) {

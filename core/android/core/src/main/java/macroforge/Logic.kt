@@ -20,12 +20,12 @@ interface LogicEntry {
     /** The macro steps this logic knows. */
     val actions: Set<String>
     /**
-     * The basic macros a step runs in code, by step (another_dungeon fights with the battle macro):
+     * The basic macros a step runs in code, by step (e.g. a game step that fights with the battle macro):
      * a macro using that step takes over their options like those it runs with `run:` (see [InnerParams]).
      */
     val stepUses: Map<String, List<String>> get() = emptyMap()
     /**
-     * A logic step ([action] with its argument [arg], e.g. another_dungeon: dogma_tower) in plain
+     * A logic step ([action] with its argument [arg], e.g. a game step `quest: forest`) in plain
      * words for the app's "How it works": the steps the code takes, from its data and the options
      * as set now ([MacroSteps]). Null: no description (the step's name is shown).
      */
@@ -36,7 +36,7 @@ interface LogicEntry {
 }
 
 /**
- * The logic pack: the code that changes most (macro steps, battles, dungeons, cats, Phantom Crystal,
+ * The logic pack: the code that changes most (macro steps and the game plugin's own steps,
  * routes: everything in the `logic` package) also ships apart from the app, as `logic.zip` next to
  * each branch's CI build. A phone whose installed app has the same shell (every other source file:
  * [BuildConfig.SHELL_ID]) downloads it and loads it at runtime, so a change to the logic needs no

@@ -80,7 +80,7 @@ class FlowRun(private val scenario: FlowScenario, private val plugin: GamePlugin
             "status" in a -> MacroLog.status("$name: ${text(ctx, a["status"])}")
             "set" in a -> map(a["set"]).forEach { (k, v) -> vars[k.toString()] = value(ctx, v) }
             "count" in a -> ctx.count(a["count"].toString())
-            // what the macro got, for the outcome message: a reward text ("Chronos Stone x5"), or {item, n}
+            // what the macro got, for the outcome message: a reward text ("Gold Coin x5"), or {item, n}
             "got" in a -> when (val g = a["got"]) {
                 is Map<*, *> -> map(g).let { ctx.got(text(ctx, it["item"]), (it["n"] ?: 1).let { n -> num(ctx, n).toInt() }) }
                 else -> ctx.gotText(text(ctx, g))
@@ -99,7 +99,7 @@ class FlowRun(private val scenario: FlowScenario, private val plugin: GamePlugin
                 val until = list(m?.get("until")).map { it.toString() }
                 vars["result"] = Runner.runInside(sub, given, ctx, until)
             }
-            // a step of the game's own (fights, dungeons, ...)
+            // a step of the game's own (fights, quests, ...)
             else -> plugin.actions.firstOrNull { it in a }?.let { game.run(macro(ctx), it, a) }
                 ?: throw IllegalArgumentException("$name: unknown action ${a.keys}")
         }
