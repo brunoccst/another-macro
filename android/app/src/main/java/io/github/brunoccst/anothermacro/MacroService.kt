@@ -37,6 +37,8 @@ class MacroService : Service() {
         if (!OpenCVLoader.initLocal()) MacroLog.e("OpenCV failed to load")
         ScreenWake.init(this)
         Logic.init(this)
+        PhoneEvents.init(this)
+        DailySchedule.arm(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
@@ -107,12 +109,15 @@ class MacroService : Service() {
         val params = HashMap<String, String>()
         intent.getBundleExtra(EXTRA_PARAMS)?.let { b -> b.keySet().forEach { k -> b.getString(k)?.let { params[k] = it } } }
         val scenario = try { Scenarios.get(this, name) } catch (e: Exception) { MacroLog.e(e.message ?: "unknown macro"); return }
-        LastRun.save(this, name, params)
+        // who started it: "app" (floating buttons, the app), "connector" (Claude: no outcome card over
+        // its screenshots) or "schedule" (DailySchedule); only the user's own start is what ↻ restarts
+        val source = intent.getStringExtra(EXTRA_SOURCE) ?: "app"
+        if (source == "app") LastRun.save(this, name, params)
         updateNotification("Running ${scenario.name}")
         val steps = (scenario as? FlowScenario)?.steps.orEmpty()
         worker = Thread({
             if (steps.isEmpty()) {
-                val reason = Runner.run(scenario, params, cap, this)
+                val reason = Runner.run(scenario, params, cap, this, source = source)
                 updateNotification("Stopped: $reason")
                 return@Thread
             }
@@ -129,7 +134,7 @@ class MacroService : Service() {
                     MacroLog.prefix = "${scenario.name} ${i + 1}/${steps.size}"
                     MacroLog.i("${scenario.name}: step ${i + 1}/${steps.size} $step")
                     // the step's own options, then the routine's own settings for it (see InnerParams)
-                    val reason = Runner.run(sub, MacroParams.load(this, step) + InnerParams.scoped(params, step), cap, this, routine = scenario.name)
+                    val reason = Runner.run(sub, MacroParams.load(this, step) + InnerParams.scoped(params, step), cap, this, source = source, routine = scenario.name)
                     results += "$step: $reason"
                     if (reason == "stop requested") { routineEnd = reason; break }
                     if (reason.startsWith("safety stop")) { routineEnd = reason; MacroLog.i("${scenario.name}: safety stop, skipping the remaining steps"); break }
@@ -148,7 +153,7 @@ class MacroService : Service() {
                         if (routineEnd == "finished") "finished ${results.size} step(s)" else routineEnd,
                         counts, steps.flatMap { it.reports }, items = items))
                     // one outcome message for the whole routine, after its last step
-                    RunSummary.finished(this, RunSummary.ofRoutine(scenario.name, steps, missing, routineEnd, end - routineStart))
+                    RunSummary.finished(this, RunSummary.ofRoutine(scenario.name, steps, missing, routineEnd, end - routineStart), show = source != "connector")
                 }.onFailure { MacroLog.e("could not save the routine's statistics", it) }
             }
             MacroLog.i("${scenario.name} done — " + results.joinToString(" | "))
@@ -226,6 +231,7 @@ class MacroService : Service() {
         const val EXTRA_RESULT_DATA = "result_data"
         const val EXTRA_SCENARIO = "scenario"
         const val EXTRA_PARAMS = "params"
+        const val EXTRA_SOURCE = "source"
         private const val CHANNEL = "macros"
         private const val NOTIFICATION_ID = 1
 

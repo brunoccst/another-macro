@@ -92,6 +92,24 @@ Then, whenever Claude should use the phone:
 Claude can't tap the app's own floating buttons; it folds and unfolds them with its own
 tool. The floating ■ stops whatever Claude is doing.
 
+When Claude asks to tap something risky (sell, discard, exchange...), the app asks you on the
+screen first. If nobody answers within 2 minutes, the question moves to a notification with
+**Allow** and **Deny** for 15 minutes; Claude asks you in the chat and tries the same tap again
+after you answer. Claude's `macro_status` also lists what happened on the phone since a chat
+last looked (macro outcomes, scheduled runs, your answers), once each, so a new chat picks up
+where things stand.
+
+## 5. Optional: runs with nobody watching
+
+On **System → Settings**:
+
+- **Notifications:** when a macro ends (how it went) or a scheduled run can't start, a
+  notification says so.
+- **Daily schedule:** runs one macro (by default `daily-routine`) every day a few minutes
+  after the game's daily reset (15:00 UTC), with that macro's own saved options. Screen
+  capture must be on at that time; if it is off, the run is skipped and a notification says
+  so. If another macro is running, it tries again every 15 minutes, up to an hour.
+
 ## Updates
 
 - **Macros** update by themselves between runs (Macros → Macro library card shows the

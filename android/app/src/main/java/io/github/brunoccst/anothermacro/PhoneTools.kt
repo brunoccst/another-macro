@@ -106,8 +106,10 @@ class PhoneTools(
         ctx.refresh()
         when (val v = ClaudeSafety.check(ctx, p)) {
             is ClaudeSafety.Verdict.Refuse -> return refused(v.reason)
-            is ClaudeSafety.Verdict.Confirm -> if (!confirm("Claude wants to tap '${v.what}'. Allow it?")) {
-                return ToolResult("the user did not allow tapping '${v.what}'; don't try it again, pick another way or ask the user", isError = true)
+            is ClaudeSafety.Verdict.Confirm -> when (confirm(v.what, "Claude wants to tap '${v.what}'. Allow it?")) {
+                Answer.ALLOWED -> {}
+                Answer.DENIED -> return ToolResult("the user did not allow tapping '${v.what}'; don't try it again, pick another way or ask the user", isError = true)
+                Answer.DEFERRED -> return deferred(v.what)
             }
             ClaudeSafety.Verdict.Ok -> {}
         }
@@ -125,8 +127,10 @@ class PhoneTools(
         ctx.refresh()
         when (val v = ClaudeSafety.check(ctx, from)) {
             is ClaudeSafety.Verdict.Refuse -> return refused(v.reason)
-            is ClaudeSafety.Verdict.Confirm -> if (!confirm("Claude wants to swipe on '${v.what}'. Allow it?")) {
-                return ToolResult("the user did not allow it", isError = true)
+            is ClaudeSafety.Verdict.Confirm -> when (confirm(v.what, "Claude wants to swipe on '${v.what}'. Allow it?")) {
+                Answer.ALLOWED -> {}
+                Answer.DENIED -> return ToolResult("the user did not allow it", isError = true)
+                Answer.DEFERRED -> return deferred(v.what)
             }
             ClaudeSafety.Verdict.Ok -> {}
         }
@@ -186,10 +190,28 @@ class PhoneTools(
         return ToolResult("Refused by the app: $reason", isError = true)
     }
 
-    private fun confirm(question: String): Boolean {
+    private enum class Answer { ALLOWED, DENIED, DEFERRED }
+
+    /**
+     * Ask the user before a risky tap on [what]: an answer they already gave in the notification
+     * (see [Approvals]) counts once; otherwise the Allow/Deny overlay. No answer in time (the user
+     * is away): the question moves to a notification and the call ends as DEFERRED.
+     */
+    private fun confirm(what: String, question: String): Answer {
+        Approvals.take(what)?.let { return if (it) Answer.ALLOWED else Answer.DENIED }
         MacroLog.status("Claude: waiting for you to answer")
-        return AskOverlay.ask(question, listOf("Allow", "Deny"), stop, timeoutMs = confirmTimeoutMs) == 0
+        return when (AskOverlay.ask(question, listOf("Allow", "Deny"), stop, timeoutMs = confirmTimeoutMs)) {
+            0 -> Answer.ALLOWED
+            null -> if (stop.get()) Answer.DENIED else { Approvals.defer(app, what, question); Answer.DEFERRED }
+            else -> Answer.DENIED
+        }
     }
+
+    private fun deferred(what: String) = ToolResult(
+        "the user didn't answer on the phone's screen in time (they may be away from it). The question is now in a notification " +
+            "with Allow and Deny, for ${Approvals.TTL_MS / 60_000} minutes. Tell the user in the chat what you want to tap and why, and " +
+            "ask them to answer the notification. Then call the same tap again: if they allowed it, it goes through without asking again; " +
+            "macro_status shows their answer under news.", isError = true)
 
     // --- app tools -------------------------------------------------------------------------
 
@@ -236,7 +258,6 @@ class PhoneTools(
     private fun macro(input: Map<String, Any?>): Pair<Scenario, Map<String, String>> {
         val name = input["name"]?.toString().orEmpty()
         val s = runCatching { Scenarios.get(app, name) }.getOrElse { throw IllegalArgumentException("unknown macro '$name' (see list_macros)") }
-        if ((s as? FlowScenario)?.steps?.isNotEmpty() == true) throw IllegalArgumentException("'$name' is a routine; run its steps one by one: ${s.steps.joinToString()}")
         @Suppress("UNCHECKED_CAST")
         val given = (input["params"] as? Map<String, Any?>).orEmpty().mapValues { it.value.toString() }
         return s to given
@@ -249,6 +270,15 @@ class PhoneTools(
         Background.result = null
         Background.name = s.name
         MacroLog.i("Claude started macro ${s.name}")
+        // a routine (steps: [...]) runs its macros one after another in the app's service, like ▶ does
+        if ((s as? FlowScenario)?.steps?.isNotEmpty() == true) {
+            Background.thread = null
+            app.startService(LastRun.intent(app, s.name, MacroParams.load(app, s.name) + given).putExtra(MacroService.EXTRA_SOURCE, "connector"))
+            Thread.sleep(1500)
+            if (!Runner.isRunning) return ToolResult("the routine ${s.name} didn't start; the last log lines in macro_status say why", isError = true)
+            return ToolResult("started the routine ${s.name} (${s.steps.joinToString()}); its steps run one after another on the phone. " +
+                "Check it with macro_status: its outcome shows there when the last step ends.")
+        }
         Background.thread = Thread({
             val reason = Runner.run(s, MacroParams.load(app, s.name) + given, capture, app, source = "connector")
             Background.result = reason
@@ -267,21 +297,28 @@ class PhoneTools(
         val log = (if (find.isEmpty()) all else all.filter { it.contains(find, ignoreCase = true) }).takeLast(n).joinToString("\n")
         val head = when {
             running -> "running: ${Runner.current} — now: ${MacroLog.shown.ifEmpty { "-" }}"
-            Background.name != null -> "not running; ${Background.name} stopped: ${Background.result ?: "?"}" +
-                (RunSummary.last?.let { "\noutcome (tell the user): ${it.text.replace("\n", "\n  ")}" } ?: "")
+            Background.name != null && Background.result != null -> "not running; ${Background.name} stopped: ${Background.result}"
             else -> "no macro running"
         }
+        // what happened since Claude last looked (macro outcomes, scheduled runs, answers to its questions),
+        // kept across app restarts; each is listed once
+        PhoneEvents.init(app)
+        val news = PhoneEvents.takeUnreported()
+        val newsText = if (news.isEmpty()) "" else "\n\nnews since you last looked (tell the user what matters):\n" + PhoneEvents.describe(news)
         // a black frame is the usual reason for "the game isn't in front" loops: say it plainly
         val black = capture.grab(0)?.let { f -> f.allBlack.also { f.gray.release() } }
         val warn = if (black == true || ScreenWake.isOn() == false) "\nWARNING: " + ScreenWake.blackReason(ScreenWake.isOn(), capture.frameAgeMs()) + " (wake_screen turns it on)" else ""
-        return ToolResult("$head\n${screenState(black)}$warn\n\nlast log lines:\n$log")
+        return ToolResult("$head\n${screenState(black)}$warn$newsText\n\nlast log lines:\n$log")
     }
 
     fun stopMacro(): ToolResult {
         if (!Runner.isRunning) return ToolResult("no macro running")
         Runner.requestStop()
-        Background.thread?.join(15_000)
-        return ToolResult("stop requested; ${Background.name ?: "the macro"} stopped: ${Background.result ?: "still stopping"}")
+        val t = Background.thread
+        if (t != null) t.join(15_000)
+        else { var waited = 0; while (Runner.isRunning && waited < 15_000) { Thread.sleep(250); waited += 250 } } // a routine (no thread of ours)
+        val how = Background.result ?: if (Runner.isRunning) "still stopping" else "stop requested"
+        return ToolResult("stop requested; ${Background.name ?: "the macro"} stopped: $how")
     }
 
     fun saveTemplate(input: Map<String, Any?>): ToolResult {

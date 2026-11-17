@@ -16,8 +16,9 @@ import android.widget.ScrollView
  * (dungeon runs 1-10 or "all") is one run, so the card comes once, after the last loop; a
  * routine shows one card for all its steps when it ends.
  *
- * Shown for runs started on the phone (floating buttons, the app); runs Claude starts through the
- * connector put the same text in macro_status instead. The user can turn the card off in
+ * Shown for runs started on the phone (floating buttons, the app, the daily schedule); runs Claude
+ * starts through the connector put the same text in macro_status instead (its "news", see
+ * [PhoneEvents]). Every outcome also goes to a notification ([Alerts]). The user can turn the card off in
  * System → Settings. Built from the same [RunStats.Record] the Statistics page keeps.
  */
 object RunSummary {
@@ -33,10 +34,6 @@ object RunSummary {
     ) {
         val text get() = title + "\n" + lines.joinToString("\n")
     }
-
-    /** The last outcome (for macro_status), and when it was made. */
-    @Volatile var last: Outcome? = null
-        private set
 
     fun enabled(context: android.content.Context) =
         context.getSharedPreferences(PREFS, android.content.Context.MODE_PRIVATE).getBoolean("on", true)
@@ -192,8 +189,13 @@ object RunSummary {
 
     /** A run (or routine) ended: keep its outcome, log it, and show the card if it is switched on. */
     fun finished(app: android.content.Context, o: Outcome, show: Boolean = true) {
-        last = o
         MacroLog.i("outcome: ${o.text.replace("\n", " | ")}")
+        // kept for macro_status (also after a restart), and a notification for a user who isn't watching
+        runCatching {
+            PhoneEvents.init(app)
+            PhoneEvents.add("outcome", o.title, o.lines.joinToString("\n"), o.ok)
+            Alerts.outcome(app, o.title, o.lines.joinToString("\n"))
+        }.onFailure { MacroLog.e("could not keep the outcome", it) }
         if (show && enabled(app)) this.show(o)
     }
 

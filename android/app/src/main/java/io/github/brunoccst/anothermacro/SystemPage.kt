@@ -130,6 +130,30 @@ class SystemPage(private val a: MainActivity) {
             addView(switchRow("Outcome message", "When a macro ends (after its last loop, or a routine's last step), a card over the game says how it went: what it got, or where it got stuck and why.",
                 RunSummary.enabled(a)) { on -> RunSummary.setEnabled(a, on) })
             addView(Ui.divider(a))
+            addView(switchRow("Notifications", "When a macro ends or a scheduled run can't start, a notification says so, for when you aren't looking at the game. Claude's Allow/Deny questions always show.",
+                Alerts.enabled(a)) { on -> Alerts.setEnabled(a, on) })
+            addView(Ui.divider(a))
+            val nextRun = Ui.text(a, "", 12.5f, Ui.MUTED)
+            fun showNext() {
+                nextRun.text = if (DailySchedule.enabled(a)) "Next run: ${DailySchedule.describeNext(a)} (your time)." else "Off."
+            }
+            addView(switchRow("Daily schedule",
+                "Runs a macro every day a few minutes after the game's daily reset (${DailySchedule.RESET_HOUR_UTC}:00 UTC), with its own saved options. Screen capture must be on; if it's off, a notification says the run was skipped.",
+                DailySchedule.enabled(a)) { on -> DailySchedule.setEnabled(a, on); showNext() })
+            addView(Ui.text(a, "Macro to run", 13.5f, bold = true).apply { setPadding(0, dp(8), 0, 0) })
+            addView(field(DailySchedule.DEFAULT_MACRO).apply {
+                setText(DailySchedule.macro(a))
+                onChange { DailySchedule.setMacro(a, it) }
+            })
+            addView(Ui.text(a, "Minutes after the reset", 13.5f, bold = true).apply { setPadding(0, dp(8), 0, 0) })
+            addView(field(DailySchedule.DEFAULT_DELAY_MIN.toString()).apply {
+                inputType = InputType.TYPE_CLASS_NUMBER
+                setText(DailySchedule.delayMin(a).toString())
+                onChange { v -> v.trim().toIntOrNull()?.let { DailySchedule.setDelayMin(a, it); showNext() } }
+            })
+            showNext()
+            addView(nextRun.apply { setPadding(0, dp(6), 0, 0) })
+            addView(Ui.divider(a))
             addView(Ui.text(a, "Floating buttons", 15f, bold = true))
             addView(Ui.text(a, "While screen capture is on: the selected macro (tap it to pick another), ▶ start, ❚❚ pause, ■ stop, ↻ restart. Drag the round AM badge on top to move them, tap it to fold them.", 12.5f, Ui.MUTED))
         })
