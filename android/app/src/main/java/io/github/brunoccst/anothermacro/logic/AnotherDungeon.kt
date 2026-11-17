@@ -32,7 +32,7 @@ object AnotherDungeon {
                        val path: List<Route.Leg>? = null,
                        /** False for a map without enemies (no fights first). */
                        val enemies: Boolean = true,
-                       /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
+                       /** A small map done by fixed steps instead of a layout: "bubble", "gate" (a "!" that travels on, Yes), "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
                        val steps: List<String>? = null,
                        /** Items picked up from the ground (green/blue sparks, e.g. T. Black Pearls): stops on the path, tapped when they show. */
                        val sparkles: List<Point> = emptyList(),
@@ -1764,6 +1764,25 @@ object AnotherDungeon {
                         ctx.wait(0.6)
                     }
                 }
+                // "gate": a "!" that asks to travel on and uses up an item (Underworld's basement seal: "Go to
+                // Dark Lord's Tomb? ... *Uses 1 Mural Fragment." Yes). Without the item the game says "Not
+                // enough Mural Fragments" | Cancel: closed with Back (never a tap there) and the run stops
+                "GATE" -> {
+                    var b: Point? = null
+                    val until = System.currentTimeMillis() + 6000
+                    while (b == null && System.currentTimeMillis() < until) { ctx.refresh(); b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE); if (b == null) ctx.wait(0.4) }
+                    if (b == null) { MacroLog.i("step gate: no \"!\" here"); continue }
+                    ctx.tap(b); ctx.wait(1.2)
+                    val text = ctx.readText().joinToString(" ") { it.text }
+                    MacroLog.i("gate: ${text.take(120)}")
+                    if ("not enough" in Ocr.norm(text)) {
+                        ctx.back(); ctx.wait(1.0)
+                        ctx.stop("the way on needs an item you don't have: '${text.take(100)}' (buy it yourself; the macro never spends Sea-Drifts)")
+                    }
+                    answerExitQuestion(r)
+                    r.expect = r.map + 1; r.moved = true
+                    return
+                }
                 "U" -> AreaNav.flick(ctx, up = true)
                 "D" -> AreaNav.flick(ctx, up = false)
                 "L", "R" -> {
@@ -1776,6 +1795,8 @@ object AnotherDungeon {
             fight(r)
             if (r.bossBeaten) return
         }
+        // the next map may share this one's title (Nazrik and its basement): the next one is expected
+        r.expect = r.map + 1
         r.moved = true
     }
 
