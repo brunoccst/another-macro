@@ -28,7 +28,9 @@ object CatDaily {
     private val PANEL_CLOSE = Point(0.825, 0.10) // the X of an island's panel on the world map
     // the era tabs' top half: their lower edge (y ~0.18) sits over the map, where a place
     // label under it takes the tap and opens "Moving to ..." (seen with Moonlight Forest)
-    private val ERA = mapOf("Antiquity" to Point(0.1525, 0.135), "Present" to Point(0.2283, 0.135), "Future" to Point(0.3029, 0.135))
+    // "???" is the fourth tab (Nazrik, Zero Point: the Underworld), right of Future (phone 2026-11-16)
+    private val ERA = mapOf("Antiquity" to Point(0.1525, 0.135), "Present" to Point(0.2283, 0.135), "Future" to Point(0.3029, 0.135),
+        "???" to Point(0.378, 0.15))
     private val EXPAND = Point(0.844, 0.935)
     // "found" messages that replace a clue once its cat is back home
     private val FOUND = listOf("So, you have returned", "Nya! I did think you would be returning", "You took so long", "I've been beside myself")
@@ -46,6 +48,9 @@ object CatDaily {
         cat = ""
         val riddles = loadRiddles(ctx)
         val failed = HashSet<String>()
+        // why each missed cat was missed, in the order missed: the stop reason lists them, so a
+        // run nobody watched still says which cats need work (Statistics page, macro_status)
+        val missed = LinkedHashMap<String, String>()
         val done = ArrayList<String>()
         val skipped = HashSet<String>()
         repeat(8) { round ->
@@ -68,8 +73,11 @@ object CatDaily {
                     !supported(c) -> "skipped: not reachable from the world map yet"
                     else -> "open"
                 }
+                val open = left.filter { it.key !in missed }
                 return if (left.isEmpty() && unknown.isEmpty()) "all cats found today (${done.size} this run)"
-                else "found ${done.size}; still open: ${left.joinToString { "${it.location} (${why(it)})" }}${if (unknown.isNotEmpty()) "; unread clues: ${unknown.size}" else ""}"
+                else "found ${done.size}" + missedText(missed) +
+                    (if (open.isNotEmpty()) "; still open: ${open.joinToString { "${it.location} (${why(it)})" }}" else "") +
+                    (if (unknown.isNotEmpty()) "; unread clues: ${unknown.size}" else "")
             }
             cat = "cat ${done.size + failed.size + 1} · ${next.location} (${next.era})"
             step("going there (clue: \"${next.text.take(60)}\")")
@@ -79,12 +87,18 @@ object CatDaily {
                 step("found! (${done.size} found this run)")
             } else {
                 failed += next.key; ctx.count("cats_missed")
+                missed[next.key] = "${next.location} (${next.era}): $miss"
                 step("missed: $miss")
+                MacroLog.i("MISSED cat: ${missed[next.key]}")
             }
         }
         cat = ""
-        return "stopped after 8 rounds; found ${done.size}"
+        return "stopped after 8 rounds; found ${done.size}" + missedText(missed)
     }
+
+    /** "; missed: Zarbo (Present): couldn't travel there, ..." or "" when none was missed. */
+    internal fun missedText(missed: Map<String, String>) =
+        if (missed.isEmpty()) "" else "; missed ${missed.size}: " + missed.values.joinToString(", ")
 
     /**
      * Travel to the clue's cat and find it: the fixed way (cat_spots.yaml, CatRoute) where the spot
@@ -330,7 +344,9 @@ object CatDaily {
         // look here first; then from the top-left corner, sweep the map row by row (snake order)
         val pans = ArrayList<Pair<Double, Double>>()
         pans += 0.0 to 0.0
-        repeat(3) { pans += 0.6 to 0.4 }          // to the top-left corner (the drags stop at the edges)
+        // to the top-left corner (the drags stop at the edges): five, as three left the view below
+        // Migleina's top edge after a trip elsewhere and the sweep missed Zarbo (top right, 2026-11-16)
+        repeat(5) { pans += 0.6 to 0.4 }
         // five rows: a continent's map is taller than three screens at the zoom a trip leaves it
         // at (an island's label sat below a three-row sweep, 2026-11-12); the drags stop at the edge
         for (row in 0 until 5) {
@@ -340,7 +356,7 @@ object CatDaily {
         }
         for ((i, pan) in pans.withIndex()) {
             val (dx, dy) = pan
-            val cornerDrag = i in 1..2              // no point reading while still on the way to the corner
+            val cornerDrag = i in 1..4              // no point reading while still on the way to the corner
             if (dx != 0.0 || dy != 0.0) {
                 val from = Point(0.5 - dx / 2, 0.55 - dy / 2)
                 ctx.drag(from, Point(from.x + dx, from.y + dy), 700); ctx.wait(1.0)
