@@ -1,0 +1,51 @@
+name: core-bump
+# Keeps core/ (the macro-forge submodule) on the newest macro-forge main: when it moved, push
+# the bump to the branch "core-bump" and open a pull request for it (its CI then tests this
+# app against the new core: this job starts it). Runs daily, or by hand.
+on:
+  schedule:
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+  pull-requests: write
+  actions: write
+jobs:
+  bump:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: true
+      - name: Move core/ to macro-forge main
+        id: bump
+        run: |
+          git -C core fetch --depth 1 origin main
+          OLD=$(git -C core rev-parse HEAD)
+          git -C core checkout -q FETCH_HEAD
+          NEW=$(git -C core rev-parse HEAD)
+          echo "old=$OLD" >> "$GITHUB_OUTPUT"
+          echo "new=$NEW" >> "$GITHUB_OUTPUT"
+          [ "$OLD" = "$NEW" ] && echo "core/ is up to date" || echo "changed=true" >> "$GITHUB_OUTPUT"
+      - name: Open the bump pull request
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          OLD: ${{ steps.bump.outputs.old }}
+          NEW: ${{ steps.bump.outputs.new }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898333+github-actions[bot]@users.noreply.github.com"
+          git checkout -B core-bump
+          git add core
+          git commit -m "Bump core/ to macro-forge ${NEW::7}"
+          git push -f origin core-bump
+          LOG=$(git -C core log --oneline "$OLD..$NEW" 2>/dev/null || echo "$NEW")
+          gh pr view core-bump >/dev/null 2>&1 || gh pr create --base main --head core-bump \
+            --title "Bump core/ to macro-forge ${NEW::7}" --body "macro-forge changes:
+
+          $LOG"
+          # a push or pull request made with this workflow's token starts no workflows: run the
+          # tests and the app build on the branch by hand (their checks show on the PR)
+          gh workflow run test.yml --ref core-bump
+          gh workflow run android.yml --ref core-bump
