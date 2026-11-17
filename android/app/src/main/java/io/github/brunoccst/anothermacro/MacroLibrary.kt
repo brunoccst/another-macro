@@ -27,7 +27,7 @@ import java.util.zip.ZipInputStream
  * and PNGs (templates/common: the shared ones), version.json.
  */
 object MacroLibrary {
-    private const val REPO = "brunoccst/another-macro"
+    private val REPO get() = GameProfile.current.repo
     private const val CHECK_EVERY_MS = 15 * 60_000L
 
     fun dir(c: Context) = File(c.filesDir, "library")

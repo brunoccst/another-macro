@@ -51,7 +51,7 @@ class Context(
         private set
     var screen: String? = null
     private val input: InputService
-        get() = InputService.instance ?: throw StopScenario("taps are off: enable Another Macro in Accessibility settings")
+        get() = InputService.instance ?: throw StopScenario("taps are off: enable ${GameProfile.current.appName} in Accessibility settings")
 
     fun int(name: String) = params.getValue(name).trim().toInt()
     fun double(name: String) = params.getValue(name).trim().toDouble()
@@ -168,8 +168,8 @@ class Context(
     }
 
     // --- safety: no purchase, ever --------------------------------------------------
-    /** Templates that may be tapped while the shop is open: the free commercial, its dialogs, the X. */
-    private val SHOP_SAFE = setOf("shop_watch_button", "shop_close_button", "dialog_close_button", "dialog_ok_button", "confirm_ok_button")
+    /** Templates that may be tapped while the shop is open: the free offers, their dialogs, the close button (game.yaml). */
+    private val SHOP_SAFE get() = GameProfile.current.shopSafe
 
     /**
      * Before every tap: if the Shop or a purchase popup is on screen, only [SHOP_SAFE] templates may
@@ -180,7 +180,8 @@ class Context(
     private fun guardPurchases(template: String?, blind: Boolean) {
         if (template != null && template in SHOP_SAFE) return
         val f = capture.grab() ?: return
-        val inShop = try { vision.find(f, "shop_title") != null } finally { f.gray.release() }
+        val game = GameProfile.current
+        val inShop = try { game.shopScreen.isNotEmpty() && vision.find(f, game.shopScreen) != null } finally { f.gray.release() }
         val lines = if (blind || inShop) readText() else emptyList()
         val norm = lines.map { Ocr.norm(it.text) }
         val purchase = norm.any { it == "purchase" || it.startsWith("purchase for") || it.contains("remaining purchases") }
@@ -189,7 +190,7 @@ class Context(
         lines.firstOrNull { Ocr.norm(it.text) == "cancel" }?.let { input.tap(px(it.center).first, px(it.center).second); Thread.sleep(1500) }
         val g = capture.grab()
         if (g != null) {
-            try { vision.find(g, "shop_close_button")?.let { m -> val (x, y) = px(m.region.center); input.tap(x, y) } } finally { g.gray.release() }
+            try { if (game.shopClose.isNotEmpty()) vision.find(g, game.shopClose)?.let { m -> val (x, y) = px(m.region.center); input.tap(x, y) } } finally { g.gray.release() }
         }
         throw StopScenario("safety stop: the shop or a purchase popup was on screen (no tap made there)")
     }

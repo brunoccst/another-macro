@@ -12,7 +12,8 @@ import kotlin.math.abs
  *    that mentions premium currency ask the user first.
  */
 object ClaudeSafety {
-    const val GAME = "games.wfs.anothereden"
+    /** The game's package (game.yaml). */
+    val GAME: String get() = GameProfile.current.packageName
 
     sealed class Verdict {
         object Ok : Verdict()
@@ -20,8 +21,8 @@ object ClaudeSafety {
         data class Confirm(val what: String) : Verdict()
     }
 
-    /** Anywhere on screen: an offer to pay. Never tapped. */
-    private val REFUSE_ANYWHERE = listOf("purchase", "insufficient", "not enough", "remaining purchases", "buy ")
+    /** Anywhere on screen: an offer to pay. Never tapped (game.yaml). */
+    private val REFUSE_ANYWHERE get() = GameProfile.current.purchaseWords
 
     /** Near the tap: actions that can't be undone. The user decides. */
     private val RISKY_NEAR = listOf(
@@ -29,8 +30,8 @@ object ClaudeSafety {
         "convert", "spend", "encounter", "skip story", "data link", "unlink", "log out", "logout", "uninstall",
     )
 
-    /** Anywhere on screen: premium currency. Taps there need the user's OK. */
-    private val PREMIUM_ANYWHERE = listOf("chronos stone", "tsubura", "paid stone")
+    /** Anywhere on screen: premium currency. Taps there need the user's OK (game.yaml). */
+    private val PREMIUM_ANYWHERE get() = GameProfile.current.premiumWords
 
     fun gameInFront(ctx: Context): Boolean {
         var fg = ctx.foreground
@@ -46,7 +47,7 @@ object ClaudeSafety {
         // a blind tap on a black frame could land on anything
         if (ctx.frame?.allBlack == true) return Verdict.Refuse("the screen capture is all black, so the tap can't be checked: " +
             "call wake_screen, then screenshot")
-        if (!gameInFront(ctx)) return Verdict.Refuse("Another Eden is not in front (${ctx.foreground ?: "unknown app"}); use launch_game first")
+        if (!gameInFront(ctx)) return Verdict.Refuse("${GameProfile.current.name} is not in front (${ctx.foreground ?: "unknown app"}); use launch_game first")
         return judge(ctx.readText(), p)
     }
 

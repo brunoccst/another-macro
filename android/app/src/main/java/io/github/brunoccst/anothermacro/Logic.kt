@@ -30,6 +30,8 @@ interface LogicEntry {
      * as set now ([MacroSteps]). Null: no description (the step's name is shown).
      */
     fun explain(action: String, arg: Any?, env: MacroSteps.Env): List<MacroSteps.Step>? = null
+    /** A logic step ([action] with its argument [arg]) in one line, for the screen rules (null: unknown). */
+    fun label(action: String, arg: Any?): String? = null
     fun engine(scenario: FlowScenario): FlowEngine
 }
 

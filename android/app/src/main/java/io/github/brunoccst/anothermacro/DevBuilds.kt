@@ -10,7 +10,7 @@ import java.net.URL
  * phone follows now (even without a pull request), so it can always be seen.
  */
 object DevBuilds {
-    private const val REPO = "brunoccst/another-macro"
+    private val REPO get() = GameProfile.current.repo
 
     /** One branch's newest CI build. [pr] and [title] come from its open pull request, if any. */
     data class Build(

@@ -97,14 +97,9 @@ object MacroDiagram {
             "count" in a -> Node.Step("Count one more ${words(a["count"].toString())}", Kind.WAIT)
             "stop" in a -> Node.Step("Stop: " + text(a["stop"]), Kind.STOP)
             "reset_view" in a -> Node.Step("Forget the last view (for \"the view moved\")", Kind.WAIT)
-            "fight" in a -> Node.Step("Fight the battle to its end with the skills from the options", Kind.BUILTIN)
-            "find_feather" in a -> Node.Step("Look for the feather bubble and tap it", Kind.BUILTIN)
-            "read_cat_clues" in a -> Node.Step("Read today's clues", Kind.BUILTIN)
-            "cat_daily" in a -> Node.Step("Read the clues, travel to each place and find what they describe, then stop", Kind.BUILTIN)
-            "another_dungeon" in a -> Node.Step("Play the Another Dungeon run \"${words(a["another_dungeon"].toString())}\" (its steps are listed above), then stop", Kind.BUILTIN)
-            "phantom_crystal" in a -> Node.Step("Play the Phantom Crystal Dimension world by world, then stop", Kind.BUILTIN)
-            "pick_party" in a -> Node.Step("Open Menu → Party and put party ${a["pick_party"]} (its number in the list) in front", Kind.BUILTIN)
-            else -> Node.Step(a.keys.joinToString())
+            // a step of the game's own (the logic pack's plugin): its one-line words
+            else -> a.keys.firstNotNullOfOrNull { k -> Logic.current().entry.label(k, a[k])?.let { Node.Step(it, Kind.BUILTIN) } }
+                ?: Node.Step(a.keys.joinToString())
         }
     }
 

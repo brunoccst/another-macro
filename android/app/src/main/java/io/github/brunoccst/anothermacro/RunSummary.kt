@@ -226,7 +226,7 @@ object RunSummary {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(18), dp(14), dp(18), dp(12))
                 background = Ui.rounded(Ui.OVERLAY_BG, dp(16).toFloat(), accent, dp(2))
-                addView(Ui.text(service, "Another Macro", 12f, Ui.ACCENT))
+                addView(Ui.text(service, "${GameProfile.current.appName}", 12f, Ui.ACCENT))
                 addView(Ui.text(service, o.title, 16f, accent, bold = true).apply { setPadding(0, dp(2), 0, dp(6)) })
                 addView(ScrollView(service).apply { addView(body) },
                     LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f))

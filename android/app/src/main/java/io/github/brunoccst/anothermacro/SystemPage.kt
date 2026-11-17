@@ -64,7 +64,7 @@ class SystemPage(private val a: MainActivity) {
         into.addView(Ui.card(a).apply {
             tapsStatus = Ui.text(a, "", 15f, bold = true)
             addView(tapsStatus)
-            addView(Ui.text(a, "In Accessibility open Another Macro (Samsung: \"Installed apps\") and switch it on. " +
+            addView(Ui.text(a, "In Accessibility open ${GameProfile.current.appName} (Samsung: \"Installed apps\") and switch it on. " +
                 "Greyed out (\"Restricted setting\")? App info → ⋮ → Allow restricted settings.", 12.5f, Ui.MUTED))
             tapsButton = Ui.button(a, "Turn on taps", primary = true) { a.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
             addView(tapsButton)
@@ -113,9 +113,9 @@ class SystemPage(private val a: MainActivity) {
         into.addView(Ui.section(a, "What Claude may do"))
         into.addView(Ui.card(a).apply {
             addView(Ui.text(a,
-                "• Claude can only tap inside Another Eden.\n" +
+                "• Claude can only tap inside ${GameProfile.current.name}.\n" +
                     "• It never buys anything: purchase screens are refused by the app, not just by Claude.\n" +
-                    "• Taps on things that can't be undone (sell, discard, release, exchange…) or that mention Chronos Stones ask you first, here on the phone.\n" +
+                    "• Taps on things that can't be undone (sell, discard, release, exchange…) or that mention premium currency (${GameProfile.current.claude.premiumExamples}) ask you first, here on the phone.\n" +
                     "• The connector is off until you turn it on, and turns itself off after 30 minutes without use unless you chose to keep it on. The floating ■ stops what Claude is doing.\n" +
                     "• Screenshots go through your relay to your Claude chat only while Claude uses the phone, and aren't saved on the phone.", 13f))
         })
@@ -386,7 +386,7 @@ class SystemPage(private val a: MainActivity) {
         if (BuildConfig.VERSION_NAME.contains("-dev")) return updateDevBuild()
         val r = available ?: return checkForUpdates(automatic = false)
         if (!Updater.canInstall(a)) {
-            updateInfo.text = "Allow Another Macro to install apps (\"Install unknown apps\"), come back and tap Update again."
+            updateInfo.text = "Allow ${GameProfile.current.appName} to install apps (\"Install unknown apps\"), come back and tap Update again."
             Updater.openInstallPermission(a)
             return
         }
@@ -409,7 +409,7 @@ class SystemPage(private val a: MainActivity) {
     /** A dev build: install the newest CI build of the branch it follows, if newer. */
     private fun updateDevBuild() {
         if (!Updater.canInstall(a)) {
-            updateInfo.text = "Allow Another Macro to install apps (\"Install unknown apps\"), come back and tap the button again."
+            updateInfo.text = "Allow ${GameProfile.current.appName} to install apps (\"Install unknown apps\"), come back and tap the button again."
             Updater.openInstallPermission(a)
             return
         }
@@ -487,7 +487,7 @@ class SystemPage(private val a: MainActivity) {
         val followed = Updater.channel(a)
         if (effect == DevBuilds.Effect.IN_USE && b.branch == followed) { a.toast("That build is already in use."); return }
         if (effect == DevBuilds.Effect.INSTALL && !Updater.canInstall(a)) {
-            updateInfo.text = "Allow Another Macro to install apps (\"Install unknown apps\"), come back and pick the build again."
+            updateInfo.text = "Allow ${GameProfile.current.appName} to install apps (\"Install unknown apps\"), come back and pick the build again."
             Updater.openInstallPermission(a)
             return
         }

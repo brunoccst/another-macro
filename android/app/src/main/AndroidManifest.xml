@@ -13,7 +13,7 @@
 
     <!-- Android 11+ package visibility: needed to launch the game -->
     <queries>
-        <package android:name="games.wfs.anothereden" />
+        <package android:name="${gamePackage}" />
     </queries>
 
     <application

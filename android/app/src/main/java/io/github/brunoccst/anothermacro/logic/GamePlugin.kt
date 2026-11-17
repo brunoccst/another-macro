@@ -25,6 +25,9 @@ interface GamePlugin {
     /** A step of this plugin in plain words for "How it works" (null: only its name is shown). */
     fun explain(action: String, arg: Any?, env: MacroSteps.Env): List<MacroSteps.Step>? = null
 
+    /** A step of this plugin in one line, for the screen rules (null: only its name is shown). */
+    fun label(action: String, arg: Any?): String? = null
+
     /** A new run of a macro: the plugin's state for that run (caches, last positions). */
     fun newRun(): Run
 

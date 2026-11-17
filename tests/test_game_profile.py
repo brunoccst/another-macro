@@ -32,29 +32,33 @@ def test_profile_is_in_the_pack():
     assert macro_pack.pack_files()["game.yaml"] == ROOT / "game.yaml"
 
 
-def test_app_constants_match_the_profile():
-    assert f'const val GAME = "{GAME["package"]}"' in _kt("ClaudeSafety.kt")
-    assert f'const val GAME_ACTIVITY = "{GAME["activity"]}"' in _kt("Flow.kt")
-    safety = _kt("ClaudeSafety.kt")
-    assert _list(safety, "REFUSE_ANYWHERE") == GAME["safety"]["purchase_words"]
-    assert _list(safety, "PREMIUM_ANYWHERE") == GAME["safety"]["premium_words"]
-    for f in ("DevBuilds.kt", "MacroLibrary.kt", "Updater.kt"):
-        assert f'REPO = "{GAME["repo"]}"' in _kt(f), f
+# the app's own files that still know the game's run reports (dungeon runs, keys, White Keys):
+# they move behind the plugin next; nothing else in the app may name the game
+REPORT_FILES = {"RunStats.kt", "RunSummary.kt", "StatsPage.kt"}
 
 
-def test_app_groups_match_the_profile():
-    groups = re.findall(r'Group\("([^"]+)", "([^"]+)", R\.drawable\.ic_(\w+)\)', _kt("Ui.kt"))
-    assert groups == [(g["id"], g["title"], g["icon"]) for g in GAME["groups"]]
+def _strings(name: str) -> str:
+    """The code of an app file without its comments."""
+    return "\n".join(l for l in _kt(name).splitlines() if not l.strip().startswith(("*", "/*", "//")))
 
 
-def test_logic_defaults_match_the_profile():
-    game = _kt("logic/Game.kt")
-    default = game[game.index("val DEFAULT"):]
-    assert f'name = "{GAME["name"]}"' in default
-    assert f'packageName = "{GAME["package"]}"' in default
-    assert f'activity = "{GAME["activity"]}"' in default
-    assert _list(default, "purchaseWords") == GAME["safety"]["purchase_words"]
-    assert _list(default, "premiumWords") == GAME["safety"]["premium_words"]
+def test_app_never_names_the_game():
+    names = [GAME["name"], GAME["app_name"], GAME["package"], GAME["activity"], GAME["repo"]]
+    for f in sorted(APP.glob("*.kt")):
+        if f.name in REPORT_FILES:
+            continue
+        code = _strings(f.name)
+        for w in names:
+            assert w not in code, f"{f.name} names {w!r}: read it from GameProfile.current"
+        for w in GAME["safety"]["premium_words"]:
+            assert w not in code.lower(), f"{f.name} names {w!r}: read it from GameProfile.current"
+
+
+def test_app_is_built_with_the_profile():
+    gradle = (ROOT / "android/app/build.gradle.kts").read_text(encoding="utf-8")
+    assert 'buildConfigField("String", "GAME_YAML"' in gradle and "gameYaml" in gradle
+    manifest = (ROOT / "android/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+    assert "${gamePackage}" in manifest and GAME["package"] not in manifest
 
 
 def test_logic_never_names_the_game():

@@ -217,7 +217,7 @@ class PhoneTools(
 
     fun walk(input: Map<String, Any?>): ToolResult {
         if (ctx.refresh().allBlack) return refused("the screen capture is all black: call wake_screen, then screenshot")
-        if (!ClaudeSafety.gameInFront(ctx)) return refused("Another Eden is not in front; use launch_game first")
+        if (!ClaudeSafety.gameInFront(ctx)) return refused("${GameProfile.current.name} is not in front; use launch_game first")
         val ms = (num(input["ms"]) ?: 1500.0).coerceIn(200.0, 6000.0).toLong()
         val (dx, dy) = when (input["direction"]) {
             "left" -> -0.06 to 0.0; "right" -> 0.06 to 0.0; "up" -> 0.0 to -0.08; "down" -> 0.0 to 0.08

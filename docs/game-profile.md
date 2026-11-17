@@ -16,27 +16,34 @@ code can serve another game with another profile.
 
 ## How it reaches the phone
 
-The macro pack carries `game.yaml` (`macro_pack.py`), so a change to it needs no app install.
-The logic pack reads it through `logic/Game.kt`. If the pack has no profile, or the file is
-broken, the logic uses `Game.DEFAULT`, which holds the same values.
+The build bakes `game.yaml` into the app (`BuildConfig.GAME_YAML`, read by `GameProfile.kt`)
+and puts its `package` in the manifest (`${gamePackage}`, so the app may see and open the game).
+The app's own code asks `GameProfile.current`. The file is part of the app's fingerprint
+(`SHELL_ID`), so changing it means a new app build.
 
-## Who reads it today
+The macro pack carries a copy too (`macro_pack.py`). The logic pack reads it through
+`logic/Game.kt` (`Game.of(ctx)`), so a fix to, say, the safety words reaches the logic with the
+next macro pack. Without a pack copy the logic uses the app's own.
 
-- **The logic pack** (`logic/Game.kt`): the game's package and activity (`ad_in_front()`,
-  `game_screen()`, `leave_ad`, `force_close`) and the purchase words the Another Dungeon run
-  stops on.
-- **The pack check**: every macro's `group:` must be one of `groups`, and every key must be there.
-- **Not yet the app itself.** Its own copies (`ClaudeSafety.GAME`, `FlowScenario.GAME_ACTIVITY`,
-  `ClaudeSafety`'s word lists, `Groups.ALL`, `REPO` in the updater, the build picker and the
-  macro library) move to the profile with the next app install. Until then,
-  `tests/test_game_profile.py` checks that they say the same as `game.yaml`. If you change one,
-  change both.
+## Other keys
+
+| Key | What it is |
+|---|---|
+| `app_name`, `tagline`, `about` | The app's name, the line under it and the Home page's text |
+| `safety.shop_screen`, `shop_close`, `shop_safe` | The purchase guard: while the shop template shows, macros may only tap `shop_safe` templates |
+| `claude` | What Claude is told about the game: extra how-to lines, premium-currency examples, the example macro, a reward text example, extra macro-format lines |
+
+## Still in the app
+
+The run reports of the dungeon macros (dungeon runs, keys, White Keys) are still read by name in
+`RunStats.kt`, `RunSummary.kt` and `StatsPage.kt`; they move behind the game plugin next.
+`tests/test_game_profile.py` fails if any other app file names the game.
 
 ## Rules for code
 
-- Logic code never names the game: use `Game.of(ctx)`. `tests/test_game_profile.py` fails on the
+- App code never names the game: use `GameProfile.current`. Logic code uses `Game.of(ctx)`. `tests/test_game_profile.py` fails on the
   package name, `ClaudeSafety.GAME` or `GAME_ACTIVITY` in the logic.
-- A new game-specific value goes in `game.yaml` and in `Game.Profile`, with a default equal to it.
+- A new game-specific value goes in `game.yaml` and in `GameProfile` (and in `GAME_KEYS` of `macro_pack.py` when it is required).
 
 ## The game plugin
 

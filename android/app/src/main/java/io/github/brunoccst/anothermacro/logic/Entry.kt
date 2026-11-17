@@ -23,6 +23,8 @@ class Entry : LogicEntry {
     /** The app's "How it works" words for the steps the game plugin runs in code. */
     override fun explain(action: String, arg: Any?, env: MacroSteps.Env): List<MacroSteps.Step>? = PLUGIN.explain(action, arg, env)
 
+    override fun label(action: String, arg: Any?): String? = PLUGIN.label(action, arg)
+
     override fun engine(scenario: FlowScenario): FlowEngine = FlowRun(scenario, PLUGIN)
 
     companion object {

@@ -27,7 +27,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  * with the same key, so the update keeps the app's settings and permissions.
  */
 object Updater {
-    private const val REPO = "brunoccst/another-macro"
+    private val REPO get() = GameProfile.current.repo
     private const val API = "https://api.github.com/repos/$REPO/releases/latest"
 
     /**
@@ -70,7 +70,7 @@ object Updater {
         val open = PendingIntent.getActivity(c, 7, Intent(c, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         val b = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(c, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(c)
         b.setSmallIcon(if (p.active) android.R.drawable.stat_sys_download else android.R.drawable.stat_sys_download_done)
-            .setContentTitle("Another Macro update")
+            .setContentTitle("${GameProfile.current.appName} update")
             .setContentText(if (p.percent >= 0 && p.active) "${p.text} ${p.percent}%" else p.text)
             .setContentIntent(open)
             .setOnlyAlertOnce(true)
@@ -210,7 +210,7 @@ object Updater {
         }
         if (!canInstall(c)) {
             openInstallPermission(c)
-            return "the phone doesn't let Another Macro install apps yet: the user must allow \"Install unknown apps\" for it once (the settings page is open on the phone)"
+            return "the phone doesn't let ${GameProfile.current.appName} install apps yet: the user must allow \"Install unknown apps\" for it once (the settings page is open on the phone)"
         }
         // the user started it: every dialog and screen capture afterwards is theirs to answer
         val until = if (userStarted) 0L else System.currentTimeMillis() + 4 * 60_000L

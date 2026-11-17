@@ -22,10 +22,7 @@ class HomePage(private val a: MainActivity) {
         }
 
         column.addView(Ui.brand(a, 26f, 44))
-        column.addView(Ui.text(a,
-            "Automation for the mobile game Another Eden that runs on this phone: no PC and no root. " +
-                "Macros read the game screen (screen capture) and tap for you (accessibility), " +
-                "for the daily routine, Another Dungeon runs, farming and more.", 13.5f, Ui.MUTED).apply { setPadding(0, dp(4), 0, dp(12)) })
+        column.addView(Ui.text(a, GameProfile.current.about, 13.5f, Ui.MUTED).apply { setPadding(0, dp(4), 0, dp(12)) })
         column.addView(a.statusChips())
 
         // --- what's still missing before a macro can run --------------------------------

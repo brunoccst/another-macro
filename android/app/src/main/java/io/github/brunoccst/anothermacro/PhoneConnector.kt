@@ -194,7 +194,7 @@ object PhoneConnector {
         if (cap == null) {
             return McpServer(TOOLS, "The phone's screen capture is off.") { name, args ->
                 if (name == "update_app") updateApp(app, args)
-                else ToolResult("screen capture is off on the phone: open Another Macro and allow screen capture", isError = true)
+                else ToolResult("screen capture is off on the phone: open ${GameProfile.current.appName} and allow screen capture", isError = true)
             }
         }
         val t = PhoneTools(app, cap, stop, shotMax = SHOT_MAX, jpegQuality = JPEG_QUALITY, confirmTimeoutMs = CONFIRM_TIMEOUT_MS)
@@ -275,7 +275,7 @@ object PhoneConnector {
         }
         if (!Updater.canInstall(app)) {
             main.post { Updater.openInstallPermission(app) }
-            return ToolResult("the user must allow \"Install unknown apps\" for Another Macro once (the settings page is now open on the phone), then call update_app again", isError = true)
+            return ToolResult("the user must allow \"Install unknown apps\" for ${GameProfile.current.appName} once (the settings page is now open on the phone), then call update_app again", isError = true)
         }
         // the download and install run after this answer: the app is replaced (and restarts) at the end
         Thread {
@@ -305,7 +305,7 @@ object PhoneConnector {
 
     /** The connector's tools (flat names: Claude chats have no computer use toolset). */
     val TOOLS: List<McpServer.McpTool> = listOf(
-        McpServer.McpTool("screenshot", "Take a screenshot of the phone (Another Eden, landscape). Coordinates for the other tools are pixels in this image.", emptyMap()),
+        McpServer.McpTool("screenshot", "Take a screenshot of the phone (${GameProfile.current.name}, landscape). Coordinates for the other tools are pixels in this image.", emptyMap()),
         McpServer.McpTool("wake_screen", "Turn the phone's screen on if it is off, and say whether the screen and the screen capture work (an all-black screenshot means the screen is off or capture stopped). The other tools also turn the screen on by themselves.", emptyMap()),
         McpServer.McpTool("zoom", "A closer screenshot of one part of the screen, for small text or icons.", mapOf("region" to box()), listOf("region")),
         McpServer.McpTool("tap", "Tap the screen at (x, y) in screenshot pixels. The app refuses taps on purchase screens and asks the user on the phone before risky taps.",
@@ -335,11 +335,11 @@ object PhoneConnector {
         McpServer.McpTool("save_macro", "Save a custom macro (YAML in the app's macro format), listed under Custom, replacing the custom macro with that name. Use it for drafts and exceptional one-offs: a macro that fits a library category (daily, dungeon, farm, game, basic) is published to the GitHub repo once it works, for every user. Library macros can't be replaced here: change them in the repo.",
             mapOf("yaml" to str("the whole macro file")), listOf("yaml")),
         McpServer.McpTool("delete_macro", "Delete a custom macro (e.g. after publishing it to the library).", mapOf("name" to str("macro name")), listOf("name")),
-        McpServer.McpTool("launch_game", "Open Another Eden (or bring it to the front).", emptyMap()),
+        McpServer.McpTool("launch_game", "Open ${GameProfile.current.name} (or bring it to the front).", emptyMap()),
         McpServer.McpTool("floating_controls", "Fold or unfold this app's floating buttons near the right edge (never tap them), or see whether they are folded and the area they cover. " +
             "Unfolded they block game taps under them; tap and swipe fold them by themselves when needed.",
             mapOf("action" to mapOf("type" to "string", "enum" to listOf("fold", "unfold", "status"), "description" to "default status")), listOf("action")),
-        McpServer.McpTool("update_app", "Update the Another Macro app itself to the newest CI build of a GitHub branch of brunoccst/another-macro, with no taps from the user. The app restarts; the connector is back in about 90 s.",
+        McpServer.McpTool("update_app", "Update the ${GameProfile.current.appName} app itself to the newest CI build of a GitHub branch of ${GameProfile.current.repo}, with no taps from the user. The app restarts; the connector is back in about 90 s.",
             mapOf("branch" to str("branch whose build to install, e.g. main (default: the branch the phone follows now)"))),
         McpServer.McpTool("update_macros", "Download the newest macro pack (macros, templates, dungeon data) published by CI for the branch the phone follows (falls back to main). No app restart.", emptyMap()),
     )

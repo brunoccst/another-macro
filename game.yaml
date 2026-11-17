@@ -1,8 +1,13 @@
 # The game this app plays: every game-specific value the generic parts of the app read.
-# It ships in the macro pack (src/another_macro/macro_pack.py), so a change here reaches phones
-# with no app install. The logic pack reads it today (logic/Game.kt); the rest of the app moves
-# to it next. See docs/game-profile.md.
+# The build bakes it into the app (GameProfile.kt), and it also ships in the macro pack, where
+# the logic pack reads it (logic/Game.kt). See docs/game-profile.md.
 name: Another Eden
+app_name: Another Macro
+tagline: Automation for Another Eden, on this phone
+about: >-
+  Automation for the mobile game Another Eden that runs on this phone: no PC and no root.
+  Macros read the game screen (screen capture) and tap for you (accessibility),
+  for the daily routine, Another Dungeon runs, farming and more.
 # the Android package of the game, and its own activity (anything else in front of it from the
 # same package is a commercial)
 package: games.wfs.anothereden
@@ -15,6 +20,10 @@ safety:
   purchase_words: [purchase, insufficient, not enough, remaining purchases, "buy "]
   # anywhere on screen: premium currency; taps there need the user's OK
   premium_words: [chronos stone, tsubura, paid stone]
+  # the purchase guard: while this template shows (the shop), macros may only tap shop_safe ones
+  shop_screen: shop_title
+  shop_close: shop_close_button
+  shop_safe: [shop_watch_button, shop_close_button, dialog_close_button, dialog_ok_button, confirm_ok_button]
 
 # how the app groups macros (a macro's group: and its folder in macros/), in tab order;
 # icon = one of the app's own drawn icons (res/drawable/ic_<icon>.xml)
@@ -26,3 +35,14 @@ groups:
   - {id: basic, title: Basic, icon: blocks}
   - {id: other, title: Other, icon: puzzle}
   - {id: custom, title: Custom, icon: wrench}
+
+# what Claude is told about the game through the phone connector (ClaudePrompt.kt)
+claude:
+  how_to_work:
+    - "walk moves the party on a field map. Battles start by themselves while walking."
+  premium_examples: Chronos Stones, paid stones, Tsubura
+  example_macro: grind-battles
+  reward_example: Chronos Stone x5
+  format:
+    - "  fight: skill_       (fight the battle on screen until the field is back, with params skill_1..skill_4 = auto|1-4; sets `outcome` to won/lost/none)"
+    - "Built-in screens include: title, field, battle, battle_command, skill_list, battle_result, defeat."
