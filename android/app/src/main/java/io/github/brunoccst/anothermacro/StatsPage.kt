@@ -259,29 +259,13 @@ class StatsPage(private val a: MainActivity) {
         r.routine?.let { bits += "a step of $it" }
         if (r.counts.isNotEmpty()) bits += r.counts.entries.joinToString(", ") { "${Ui.title(it.key).lowercase()} ${it.value}" }
         if (bits.isNotEmpty()) addView(Ui.text(a, bits.joinToString(" · "), 12.5f).apply { setPadding(0, dp(4), 0, 0) })
-        for (rep in r.reports) more.addView(Ui.text(a, reportLine(rep), 12.5f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
+        for (rep in r.reports) more.addView(Ui.text(a, RunSummary.reportLine(rep), 12.5f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
         addView(more)
         setOnClickListener {
             val open = more.visibility != View.VISIBLE
             more.visibility = if (open) View.VISIBLE else View.GONE
             reason.maxLines = if (open) 20 else 2
         }
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun reportLine(rep: Map<String, Any?>): String {
-        val parts = ArrayList<String>()
-        rep["dungeon"]?.let { parts += it.toString() }
-        (rep["seconds"] as? Number)?.let { parts += RunStats.duration(it.toLong() * 1000) }
-        rep["key"]?.let { parts += "${it} key" }
-        if (rep["skipped"] == true) parts += "skipped with a ticket"
-        (rep["chests"] as? Number)?.let { c -> parts += "chests $c" + ((rep["chests_total"] as? Number)?.let { "/$it" } ?: "") }
-        (rep["battles"] as? Number)?.let { parts += "battles $it" }
-        (rep["worlds"] as? Number)?.let { parts += "worlds $it" }
-        if (rep["white_key"] == true) parts += "White Key"
-        val got = listOf("items", "rewards").flatMap { k -> (rep[k] as? Map<String, Any?>).orEmpty().map { "${it.key} ×${it.value}" } }
-        if (got.isNotEmpty()) parts += got.joinToString(", ")
-        return "• " + parts.joinToString(" · ")
     }
 
     // --- helpers ----------------------------------------------------------------------------

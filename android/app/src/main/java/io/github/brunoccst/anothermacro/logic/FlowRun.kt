@@ -72,6 +72,11 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
             "status" in a -> MacroLog.status("$name: ${text(ctx, a["status"])}")
             "set" in a -> map(a["set"]).forEach { (k, v) -> vars[k.toString()] = value(ctx, v) }
             "count" in a -> ctx.count(a["count"].toString())
+            // what the macro got, for the outcome message: a reward text ("Chronos Stone x5"), or {item, n}
+            "got" in a -> when (val g = a["got"]) {
+                is Map<*, *> -> map(g).let { ctx.got(text(ctx, it["item"]), (it["n"] ?: 1).let { n -> num(ctx, n).toInt() }) }
+                else -> ctx.gotText(text(ctx, g))
+            }
             "stop" in a -> ctx.stop(text(ctx, a["stop"]))
             "repeat" in a -> {
                 val m = map(a["repeat"])

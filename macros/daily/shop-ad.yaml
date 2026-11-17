@@ -65,6 +65,7 @@ handlers:
   shop_ok_dialog:   # "Thank you for watching. You have been rewarded 10 Chronos Stones."
     - count: ad_rewards
     - status: "shop commercial watched: {screen_text(0.25, 0.8)}"
+    - got: "{screen_text(0.25, 0.8)}"   # "rewarded 10 Chronos Stones", for the outcome message
     - tap: dialog_ok_button
     - wait: 2
 

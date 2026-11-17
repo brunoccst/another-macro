@@ -40,6 +40,12 @@ object RunStats {
         val source: String = "app",
         /** The routine it was a step of, if any. */
         val routine: String? = null,
+        /** What the macro said it got (the `got:` step: chest and ad rewards, inbox items), added up. */
+        val items: Map<String, Int> = emptyMap(),
+        /** What it was doing when it ended (the live log's last words), for "where it got stuck". */
+        val step: String? = null,
+        /** The last screen it recognised ("macro: screen"). */
+        val screen: String? = null,
     ) {
         val ms get() = (end - start).coerceAtLeast(0)
         val outcome get() = classify(reason)
@@ -83,6 +89,9 @@ object RunStats {
         if (r.reports.isNotEmpty()) m["reports"] = r.reports
         m["source"] = r.source
         if (r.routine != null) m["routine"] = r.routine
+        if (r.items.isNotEmpty()) m["items"] = r.items
+        if (!r.step.isNullOrEmpty()) m["step"] = r.step
+        if (!r.screen.isNullOrEmpty()) m["screen"] = r.screen
         return json.writeValueAsString(m)
     }
 
@@ -98,6 +107,9 @@ object RunStats {
             reports = (m["reports"] as? List<Any?>).orEmpty().mapNotNull { it as? Map<String, Any?> },
             source = m["source"]?.toString() ?: "app",
             routine = m["routine"]?.toString(),
+            items = (m["items"] as? Map<String, Any?>).orEmpty().mapNotNull { (k, v) -> (v as? Number)?.let { k to it.toInt() } }.toMap(),
+            step = m["step"]?.toString(),
+            screen = m["screen"]?.toString(),
         )
     }.getOrNull()
 
@@ -197,6 +209,7 @@ object RunStats {
         var dungeonRuns = 0; var white = 0; var skipped = 0; var chests = 0; var chestsTotal = 0
         for (r in runs) {
             for ((k, v) in r.counts) counts[k] = (counts[k] ?: 0) + v
+            for ((k, v) in r.items) items[k] = (items[k] ?: 0) + v
             for (rep in r.reports) {
                 dungeonRuns++
                 rep["key"]?.toString()?.lowercase()?.takeIf { it.isNotBlank() }?.let { keys[it] = (keys[it] ?: 0) + 1 }
