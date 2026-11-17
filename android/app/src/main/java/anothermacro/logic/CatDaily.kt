@@ -367,15 +367,17 @@ object CatDaily {
             if (row > 0) pans += 0.0 to -0.35
             repeat(6) { pans += step to 0.0 }   // Migleina is wider than 4 pans (Zarbo, east end, 2026-11-15)
         }
+        var seen: List<Ocr.Line> = emptyList()
         for ((i, pan) in pans.withIndex()) {
             val (dx, dy) = pan
             val cornerDrag = i in 1..4              // no point reading while still on the way to the corner
             if (dx != 0.0 || dy != 0.0) {
-                val from = Point(0.5 - dx / 2, 0.55 - dy / 2)
+                val from = dragStart(dx, dy, seen)
                 ctx.drag(from, Point(from.x + dx, from.y + dy), 700); ctx.wait(1.0)
             }
             if (cornerDrag) continue
             var read = ctx.readText()
+            seen = read
             MacroLog.i("map labels: " + read.filter { it.center.y > 0.12 }.joinToString { it.text }.take(300))
             fun placeLabel() = read.firstOrNull {
                 it.center.y > 0.12 && (Ocr.norm(it.text) == Ocr.norm(place) || Ocr.similarity(it.text, place) >= 0.85)
@@ -405,6 +407,20 @@ object CatDaily {
             return goVia(ctx, label, place, sub)
         }
         return false
+    }
+
+    /**
+     * Where a world-map drag of ([dx], [dy]) starts: the middle, unless a place label from the last
+     * read ([labels]) is there. A drag that starts on a label doesn't move the map (a quest marker's
+     * "The Riftbreaker" sat there and a whole sweep row stood still, missing Zarbo, 2026-11-17).
+     */
+    internal fun dragStart(dx: Double, dy: Double, labels: List<Ocr.Line>): Point {
+        fun free(p: Point) = labels.none { l ->
+            val b = l.box
+            p.x in (b.x - 0.03)..(b.x + b.w + 0.03) && p.y in (b.y - 0.05)..(b.y + b.h + 0.05)
+        }
+        val tries = listOf(0.55, 0.42, 0.68, 0.35, 0.75).map { y -> Point(0.5 - dx / 2, y - dy / 2) }
+        return tries.firstOrNull { free(it) } ?: tries.first()
     }
 
     /** Tap a place's [label] on the world map, pick [sub] in its destinations panel if one opens, confirm the trip. */
