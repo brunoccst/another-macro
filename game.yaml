@@ -46,3 +46,21 @@ claude:
   format:
     - "  fight: skill_       (fight the battle on screen until the field is back, with params skill_1..skill_4 = auto|1-4; sets `outcome` to won/lost/none)"
     - "Built-in screens include: title, field, battle, battle_command, skill_list, battle_result, defeat."
+
+# the run reports macros write (one per dungeon run): how the outcome card and Statistics show
+# them (RunStats.kt). A field is a switch (true/false), a number or a text, shown in this order.
+#   show:  the field in a report's line ({value} = its value; a switch shows it when on)
+#   total: its line in the totals: a switch counts the reports with it on, a number adds up
+#          (with of: "x of y"), a text counts each value ({Value} = the value, capitalised)
+#   card:  also a line on the outcome card when its total isn't 0
+reports:
+  title: Dungeon runs
+  fields:
+    - {key: dungeon, show: "{value}"}
+    - {key: seconds, duration: true}
+    - {key: key, show: "{value} key", total: "{Value} keys used"}
+    - {key: skipped, show: skipped with a ticket, total: Skipped with a Cat Express Ticket}
+    - {key: chests, of: chests_total, show: "chests {value}", total: Chests opened}
+    - {key: battles, show: "battles {value}"}
+    - {key: worlds, show: "worlds {value}"}
+    - {key: white_key, show: White Key, total: White Keys dropped, card: White Key}

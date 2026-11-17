@@ -33,11 +33,14 @@ next macro pack. Without a pack copy the logic uses the app's own.
 | `safety.shop_screen`, `shop_close`, `shop_safe` | The purchase guard: while the shop template shows, macros may only tap `shop_safe` templates |
 | `claude` | What Claude is told about the game: extra how-to lines, premium-currency examples, the example macro, a reward text example, extra macro-format lines |
 
-## Still in the app
+## Run reports
 
-The run reports of the dungeon macros (dungeon runs, keys, White Keys) are still read by name in
-`RunStats.kt`, `RunSummary.kt` and `StatsPage.kt`; they move behind the game plugin next.
-`tests/test_game_profile.py` fails if any other app file names the game.
+Macros write one report per round to `files/runs.log` (the dungeon macros: one per run). The
+outcome card and the Statistics page show them by `reports:`: its `title` names the Statistics
+section, and each field says how a key shows. A switch (true/false) shows its `show` text when on
+and its `total` counts the reports with it on; a number shows `show` with `{value}` and its total
+adds up (`of:` gives "x of y"); a text's total counts each value (`{Value}`). `card:` also puts the
+total on the outcome card, and `duration: true` shows seconds as a time.
 
 ## Rules for code
 

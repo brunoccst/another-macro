@@ -40,10 +40,13 @@ class RunStatsTest {
         assertEquals(15, s.counts["battles"])
         assertEquals(1, s.outcomes[RunStats.Outcome.DONE])
         assertEquals(1, s.outcomes[RunStats.Outcome.STOPPED])
-        assertEquals(1, s.dungeonRuns)
-        assertEquals(1, s.keys["red"])
-        assertEquals(1, s.whiteKeys)
-        assertEquals(7, s.chests)
+        assertEquals(1, s.reports)
+        val totals = s.reportTotals.toMap()
+        assertEquals("1", totals["Red keys used"])
+        assertEquals("1", totals["White Keys dropped"])
+        assertEquals("7 of 7 (100%)", totals["Chests opened"])
+        assertEquals(null, totals["Skipped with a Cat Express Ticket"])
+        assertEquals(listOf("White Key" to 1), s.cardTotals)
         assertEquals("Git" to 500, s.items.first())
         assertEquals(5, s.items.toMap()["Pearl"])
 
@@ -83,5 +86,21 @@ class RunStatsTest {
         assertEquals("42s", RunStats.duration(42_000))
         assertEquals("13m 25s", RunStats.duration((13 * 60 + 25) * 1000L))
         assertEquals("1h 05m", RunStats.duration(65 * 60_000L))
+    }
+
+    @Test fun reportFieldsComeFromTheProfile() {
+        val fields = listOf(
+            GameProfile.ReportField("level", show = "level {value}"),
+            GameProfile.ReportField("seconds", duration = true),
+            GameProfile.ReportField("gems", show = "gems {value}", of = "gems_max", total = "Gems found"),
+            GameProfile.ReportField("mode", total = "{Value} mode"),
+            GameProfile.ReportField("rare", show = "rare drop", total = "Rare drops", card = "Rare drop"),
+        )
+        val reps = listOf(mapOf<String, Any?>("level" to "Cave", "seconds" to 65, "gems" to 2, "gems_max" to 3, "mode" to "hard", "rare" to true),
+            mapOf<String, Any?>("level" to "Hill", "gems" to 1, "gems_max" to 3, "mode" to "hard", "rare" to false))
+        assertEquals("• level Cave · 1m 05s · gems 2/3 · rare drop", RunSummary.reportLine(reps[0], fields))
+        val (rows, card) = RunStats.reportTotals(reps, fields)
+        assertEquals(listOf("Gems found" to "3 of 6 (50%)", "Hard mode" to "2", "Rare drops" to "1"), rows)
+        assertEquals(listOf("Rare drop" to 1), card)
     }
 }

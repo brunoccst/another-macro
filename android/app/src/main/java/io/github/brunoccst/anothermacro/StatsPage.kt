@@ -207,16 +207,11 @@ class StatsPage(private val a: MainActivity) {
             })
         }
 
-        if (s.dungeonRuns > 0) {
-            detail.addView(Ui.section(a, "Dungeon runs"))
+        if (s.reports > 0) {
+            val title = GameProfile.current.reports.title.ifEmpty { "Reports" }
+            detail.addView(Ui.section(a, title))
             detail.addView(Ui.card(a).apply {
-                addView(Charts.table(a, listOfNotNull(
-                    "Dungeon runs" to s.dungeonRuns.toString(),
-                    *s.keys.entries.map { (k, v) -> "${Ui.title(k)} keys used" to v.toString() }.toTypedArray(),
-                    if (s.chestsTotal > 0) "Chests opened" to "${s.chests} of ${s.chestsTotal} (${pct(s.chests, s.chestsTotal)})" else if (s.chests > 0) "Chests opened" to s.chests.toString() else null,
-                    "White Keys dropped" to s.whiteKeys.toString(),
-                    if (s.skipped > 0) "Skipped with a Cat Express Ticket" to s.skipped.toString() else null,
-                )))
+                addView(Charts.table(a, listOf(title to s.reports.toString()) + s.reportTotals))
             })
         }
 
