@@ -37,3 +37,14 @@ broken, the logic uses `Game.DEFAULT`, which holds the same values.
 - Logic code never names the game: use `Game.of(ctx)`. `tests/test_game_profile.py` fails on the
   package name, `ClaudeSafety.GAME` or `GAME_ACTIVITY` in the logic.
 - A new game-specific value goes in `game.yaml` and in `Game.Profile`, with a default equal to it.
+
+## The game plugin
+
+The profile holds values; the game's own *code* sits behind `logic/GamePlugin.kt`. The generic
+steps (`FlowRun.STEPS`: tap, walk, run, leave_ad, ...) know nothing about the game, and
+`FlowRun` hands every other step to the plugin that `Entry.PLUGIN` names. Another Eden's plugin is
+`logic/AnotherEdenPlugin.kt`: fights, parties, Another Dungeons, the Phantom Crystal Dimension and
+the cat scratchbook. A plugin gives its steps (`actions`), the basic macros they run in code
+(`stepUses`, so outer macros still take over those macros' options), their "How it works" words
+(`explain`) and a fresh `Run` per macro run for its state. A game with only YAML macros uses
+`GamePlugin.None`.

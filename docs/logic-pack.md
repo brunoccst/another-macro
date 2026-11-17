@@ -40,7 +40,11 @@ a comment, means a new install.
   `LogicPackTest` enforces this.
 - **Logic code may use anything in the shell.** The shell is its API, and changing a shell
   signature that the logic uses means a new app build anyway.
-- **A new macro step** goes in `FlowRun.runAction` and in `Entry.ACTIONS`. Macros that use it
-  stop being "unsupported" as soon as the pack loads.
+- **A new macro step:** a generic one (any game could use it) goes in `FlowRun.runAction` and
+  `FlowRun.STEPS`; one that knows the game goes in the game plugin (`AnotherEdenPlugin`: `actions`
+  and `run`, its basic macros in `stepUses`, its "How it works" words in `explain`). `Entry`
+  lists both. Macros that use it stop being "unsupported" as soon as the pack loads.
+- **Generic logic never names game code.** `FlowRun`, `GamePlugin`, `Game` and `AdEscape` work for
+  any game; `tests/test_game_plugin.py` fails if they use the game's own classes.
 - **Stored state:** the loaded pack lives in the app's files (`files/logic/current`). If it fails
   to load, the app logs why and runs the built-in logic.

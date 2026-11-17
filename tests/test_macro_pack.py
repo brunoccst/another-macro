@@ -123,8 +123,11 @@ def test_watch_ad_leaves_commercials_that_wont_close():
     # a playable commercial can have no close X and ignore Back: watch-ad leaves it with the
     # leave_ad step (Home, then the game's own screen) instead of tapping it; the step is known
     # to the logic pack, and callers never tap while a commercial is still in front
-    entry = (ROOT / "android/app/src/main/java/io/github/brunoccst/anothermacro/logic/Entry.kt").read_text()
-    assert '"leave_ad"' in entry and '"home"' in entry and '"force_close"' in entry
+    # (generic steps: FlowRun.STEPS, which Entry.ACTIONS includes)
+    flow = (ROOT / "android/app/src/main/java/io/github/brunoccst/anothermacro/logic/FlowRun.kt").read_text()
+    steps = flow[flow.index("val STEPS = setOf("):]
+    steps = steps[:steps.index(")")]
+    assert '"leave_ad"' in steps and '"home"' in steps and '"force_close"' in steps
     all_macros = macro_pack.macros()
     _, spec = all_macros["watch-ad"]
     acts = list(_flat(spec["unknown"]))

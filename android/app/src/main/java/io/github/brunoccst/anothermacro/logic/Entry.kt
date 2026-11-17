@@ -14,25 +14,21 @@ import io.github.brunoccst.anothermacro.MacroSteps
  * minutes, without an install (docs/logic-pack.md).
  */
 class Entry : LogicEntry {
-    /** Every step a macro may use (see the list at the top of Flow.kt). */
+    /** Every step a macro may use: the generic ones and the game plugin's (see the list at the top of Flow.kt). */
     override val actions: Set<String> = ACTIONS
 
     /** Steps that run basic macros in code: macros using them take over those macros' options. */
     override val stepUses: Map<String, List<String>> = STEP_USES
 
-    /** The app's "How it works" words for the steps this logic runs in code (HowItWorks.kt). */
-    override fun explain(action: String, arg: Any?, env: MacroSteps.Env): List<MacroSteps.Step>? = HowItWorks.explain(action, arg, env)
+    /** The app's "How it works" words for the steps the game plugin runs in code. */
+    override fun explain(action: String, arg: Any?, env: MacroSteps.Env): List<MacroSteps.Step>? = PLUGIN.explain(action, arg, env)
 
-    override fun engine(scenario: FlowScenario): FlowEngine = FlowRun(scenario)
+    override fun engine(scenario: FlowScenario): FlowEngine = FlowRun(scenario, PLUGIN)
 
     companion object {
-        /** Keep in step with the code: each step here runs these macros (ctx.runBasic / ctx.innerOptions). */
-        val STEP_USES = mapOf(
-            // every fight: the battle macro's step with its skills; the party option: the basic macro pick-party
-            "another_dungeon" to listOf("battle", "pick-party"),
-            "cat_daily" to listOf("battle"),         // encounters on the way to a cat
-        )
-        val ACTIONS = setOf("if", "tap", "tap_exact", "drag", "walk", "back", "home", "leave_ad", "force_close", "wait", "launch", "log", "status", "set", "count", "got",
-            "stop", "repeat", "reset_view", "find_feather", "read_cat_clues", "cat_daily", "fight", "run", "another_dungeon", "phantom_crystal", "pick_party")
+        /** The game this logic plays: its own steps beside the generic ones ([GamePlugin]). */
+        val PLUGIN: GamePlugin = AnotherEdenPlugin
+        val STEP_USES = PLUGIN.stepUses
+        val ACTIONS = FlowRun.STEPS + PLUGIN.actions
     }
 }
