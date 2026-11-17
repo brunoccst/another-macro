@@ -625,6 +625,15 @@ object AnotherDungeon {
         }
         if (!opened) return null.also { MacroLog.i("the world map didn't open") }
         ctx.tap(ERA_OTHER); ctx.wait(2.0)
+        // the "???" tab opens on the continent of its last trip (Underworld after an Underworld run):
+        // the Rift is on Illusion World, so Expand and pick that continent when it isn't in view
+        if (ctx.readText().none { Ocr.norm(it.text).contains("spacetime rift") }) {
+            MacroLog.i("no Spacetime Rift in view: Expand -> Illusion World")
+            if (tapText(r, "Expand", exact = true) != null) {
+                ctx.wait(2.0)
+                if (tapText(r, "Illusion World") != null) ctx.wait(2.0)
+            }
+        }
         if (tapText(r, "Spacetime Rift") == null) {
             MacroLog.i("no Spacetime Rift on the map: ${seen(ctx)}")
             ctx.tap(AD_CLOSE); ctx.wait(1.5)
