@@ -18,6 +18,16 @@ class AppProfileTest {
         assertTrue(ClaudeSafety.judge(listOf(line("Chronos Stone x50", 0.5, 0.3)), Point(0.5, 0.8)) is ClaudeSafety.Verdict.Confirm)
     }
 
+    @Test fun commercialRewardsInChronosStonesDontAsk() {
+        // the daily commercials chest and the login-bonus ad, as OCR read them on the phone
+        val chest = listOf(line("Receive rewards by watching the commercial!", 0.5, 0.31), line("Chronos Stone(Free) x5-20", 0.51, 0.54),
+            line("Watch Video", 0.6, 0.83))
+        assertEquals(ClaudeSafety.Verdict.Ok, ClaudeSafety.judge(chest, Point(0.6, 0.83)))
+        val login = listOf(line("watching a commercial!", 0.5, 0.35), line("Reward for Watching Video", 0.5, 0.44),
+            line("Chronos Stone×20", 0.5, 0.52), line("Watch Video", 0.6, 0.69))
+        assertEquals(ClaudeSafety.Verdict.Ok, ClaudeSafety.judge(login, Point(0.6, 0.69)))
+    }
+
     @Test fun dungeonReportsShowAsTheGamesTotals() {
         val report = mapOf<String, Any?>("dungeon" to "Sea of Ice", "key" to "red", "seconds" to 805, "chests" to 7, "chests_total" to 7,
             "white_key" to true, "skipped" to false)
