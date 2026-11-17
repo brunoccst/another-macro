@@ -1768,7 +1768,7 @@ object AnotherDungeon {
                 // Dark Lord's Tomb? ... *Uses 1 Mural Fragment." Yes). Without the item the game says "Not
                 // enough Mural Fragments" | Cancel: closed with Back (never a tap there) and the run stops
                 "GATE" -> {
-                    var b: Point? = null
+                    var b: Match? = null
                     val until = System.currentTimeMillis() + 6000
                     while (b == null && System.currentTimeMillis() < until) { ctx.refresh(); b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE); if (b == null) ctx.wait(0.4) }
                     if (b == null) { MacroLog.i("step gate: no \"!\" here"); continue }
