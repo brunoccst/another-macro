@@ -1039,7 +1039,18 @@ object AnotherDungeon {
                 if ("size" in all && "cm" in all) {
                     MacroLog.i("fish: caught ${read.joinToString(" ") { it.text }.take(80)}")
                     ctx.count("fish")
-                    ctx.tap(Point(0.5, 0.5)); ctx.wait(0.8); waitForField(ctx, 4)
+                    ctx.tap(Point(0.5, 0.5)); ctx.wait(0.8)
+                    // a "Double Get" shows a second card for the same throw (2026-11-17): close every card
+                    for (extra in 1..3) {
+                        var more = ctx.readText()
+                        val look = System.currentTimeMillis() + 1500
+                        while (!isFishCard(more) && System.currentTimeMillis() < look) { ctx.wait(0.3); more = ctx.readText() }
+                        if (!isFishCard(more)) break
+                        MacroLog.i("fish: another card ${more.joinToString(" ") { it.text }.take(80)}")
+                        ctx.count("fish")
+                        ctx.tap(Point(0.5, 0.5)); ctx.wait(0.8)
+                    }
+                    waitForField(ctx, 4)
                     return
                 }
                 ctx.wait(0.3)
@@ -1049,6 +1060,12 @@ object AnotherDungeon {
             return
         }
         MacroLog.i("no fish by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
+    }
+
+    /** A catch's card on screen: the fish's name over "Size ... cm". */
+    private fun isFishCard(read: List<Ocr.Line>): Boolean {
+        val all = read.joinToString(" ") { Ocr.norm(it.text) }
+        return "size" in all && "cm" in all
     }
 
     /**
