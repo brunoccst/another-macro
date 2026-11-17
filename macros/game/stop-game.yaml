@@ -3,6 +3,11 @@
 name: stop-game
 group: game
 description: "Turn the game off (back → 'Close the app?' → Yes)."
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - {run: back-to-field, text: "Back to the field (Back until it shows)"}
+  - "On the field press Back: the game asks \"Close the app?\""
+  - "Tap Yes and stop once the game is off"
 screens: [close_app, field]
 unknown_timeout_s: 60
 

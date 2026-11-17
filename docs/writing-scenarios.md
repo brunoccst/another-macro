@@ -91,7 +91,36 @@ example. A new step written in Kotlin goes in `logic/FlowRun.kt` and `logic/Entr
 [logic-pack.md](logic-pack.md)).
 
 `python -m pytest -q tests/test_macro_pack.py` checks every library macro: YAML, names,
-groups, template folders, and that every `run:` names a macro that exists.
+groups, template folders, that every `run:` names a macro that exists, and each macro's "How it works" steps.
+
+### "How it works": the steps in plain words
+
+The app's Macros page shows, under **How it works**, what a macro does step by step, with the
+options as set on that page (change an option and the steps change). Every library macro needs
+one of these (the pack check refuses a macro without):
+
+- a routine (`steps:`): nothing to write, its macros are listed and opened up;
+- a step written in Kotlin (`another_dungeon:`, `phantom_crystal:`, `cat_daily:`, `fight:` ...):
+  nothing to write, the app describes it from its own code and data (`logic/HowItWorks.kt`: a
+  dungeon's maps, chests, sparkles, fish, jars, its fixed route, the boss, and what keys, runs,
+  party, clear first, cat ticket, White Key and the collect switches change). Change what such a
+  step does, change its words there too;
+- anything else: a `how:` list in the macro file.
+
+```yaml
+how:
+  - "Tap the play button, at most {max_ads} times"            # {option} = its value as set
+  - {run: watch-ad, text: "Watch the commercial and close it"} # opened up into watch-ad's own steps
+  - {run: open-menu-page, params: {page: "'shop'"}, text: "Open Menu → Shop"}
+  - if: watch_ad                                               # on the options: one branch shows,
+    then: ["Watch the login-bonus ad"]                         # with the options that chose it
+    else: ["Skip the login-bonus ad"]
+  - {text: "For each cat:", sub: ["Travel there", "Find it"]}  # a step with steps under it
+  - {another_dungeon: dogma_tower}                             # a Kotlin step's own description
+```
+
+Write what the user would see the macro do, in order, not the screen rules (those stay folded
+below the steps as "Screen by screen").
 
 ### Inner macros' options come along by themselves
 

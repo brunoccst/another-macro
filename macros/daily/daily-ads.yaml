@@ -12,6 +12,15 @@ templates: [start_game, daily_ads]
 params:
   # how long a commercial plays etc.: the Watch Ad options (watch-ad.*), taken over from the basic macro
   max_ads: {default: 5, help: "stop after this many groups (Watch Video taps)"}
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - {run: open-menu-page, params: {page: "'ads'"}, text: "Open Menu → video icon (the daily commercials chest), starting the game if needed"}
+  - "If the button reads 0/5, or {max_ads} groups are done: tap Don't watch, close it and stop"
+  - "Tap Watch Video"
+  - {run: watch-ad, text: "Watch the commercials (1-3 in a row), close them and take the reward"}
+  - "Tap through the chest that opens, and note what it gave (for the outcome message)"
+  - "Back to the video icon for the next group"
+  - "A commercial that won't close: leave it once, then force-close the game and start it again"
 screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, ad_chest, menu_open, field]
 unknown_timeout_s: 120
 

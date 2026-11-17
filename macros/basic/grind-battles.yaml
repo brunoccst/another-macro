@@ -15,6 +15,19 @@ params:
   first_walk: {default: -1, choices: [-1, 1], help: "direction of the first walk: -1 = left, 1 = right"}
   stuck_walks: {default: 8, help: "stop if this many walks in a row leave the view unchanged (0 = never)"}
   # the skills: the Battle options the app adds from the basic macro battle (battle.skill_1..4)
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - if: first_walk == 1
+    then: ["On the field: walk right for {walk_ms} ms, then left, and again"]
+    else: ["On the field: walk left for {walk_ms} ms, then right, and again"]
+  - {run: battle, text: "Every battle: fight it to its end with the battle macro"}
+  - if: until_cleared
+    then: ["Stop when the game says \"The enemies have disappeared\", or after {quiet_walks} walks in a row without a battle"]
+  - if: battles > 0
+    then: ["Stop after {battles} battles"]
+  - if: stuck_walks > 0
+    then: ["Stop if {stuck_walks} walks in a row leave the view unchanged (the party is stuck)"]
+  - "A defeat stops the macro; the title screen (the game restarted) is tapped through"
 screens: [title, defeat, battle_result, skill_list, battle_command, battle, field]
 
 setup:

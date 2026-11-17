@@ -448,12 +448,51 @@ class MacrosPage(private val a: MainActivity) {
         if (show) drawDiagram()
     }
 
+    /** Redraw "How it works" when an option changes (its steps follow the options as set). */
+    private fun optionChanged() { if (diagramCard.visibility == View.VISIBLE) diagramCard.post { drawDiagram() } }
+
+    /** The open macro's options as set now on the page (else as saved, else their defaults). */
+    private fun currentOptions(s: Scenario): Map<String, String> {
+        val last = MacroParams.load(a, s.name)
+        return s.params.entries.associate { (k, p) ->
+            k to (paramFields[k]?.invoke() ?: last[k] ?: if (p.from != null) InnerParams.effective(k, p) { MacroParams.load(a, it) } else p.default)
+        }
+    }
+
+    /**
+     * "How it works": the macro's steps in order with the options as set ([MacroSteps]), then,
+     * folded, what its file does on each screen ([MacroDiagram]).
+     */
     private fun drawDiagram() {
         val s = scenario as? FlowScenario ?: return
+        val openMacro = { name: String -> if (macros.any { it.name == name }) open(name) else a.toast("No macro named $name.") }
         diagramBox.removeAllViews()
-        diagramBox.addView(MacroDiagram.render(a, MacroDiagram.build(s.spec)) { name ->
-            if (macros.any { it.name == name }) open(name) else a.toast("No macro named $name.")
+        val files = MacroLibrary.files(a)
+        val steps = runCatching {
+            MacroSteps.build(s, currentOptions(s), find = { n -> macros.firstOrNull { it.name == n } as? FlowScenario },
+                saved = { MacroParams.load(a, it) },
+                file = { path -> runCatching { files.open(path).bufferedReader().use { it.readText() } }.getOrNull() },
+                explain = { action, arg, env -> Logic.current().entry.explain(action, arg, env) })
+        }.getOrElse { MacroLog.e("how it works: ${it.message}"); emptyList() }
+        if (steps.isNotEmpty()) {
+            diagramBox.addView(Ui.text(a, "Step by step", 14.5f, Ui.TEXT, bold = true))
+            diagramBox.addView(Ui.text(a, "What it does, in order, with the options as set above. Tap a step that runs another macro to open it.", 12f, Ui.MUTED)
+                .apply { setPadding(0, 0, 0, dp(6)) })
+            diagramBox.addView(MacroDiagram.renderSteps(a, steps, openMacro))
+        }
+        val rules = MacroDiagram.render(a, MacroDiagram.build(s.spec), openMacro)
+        if (steps.isEmpty()) { diagramBox.addView(rules); return }
+        rules.visibility = View.GONE
+        diagramBox.addView(Ui.text(a, "▸ Screen by screen (the macro file's rules)", 13.5f, Ui.ACCENT, bold = true).apply {
+            setPadding(0, dp(16), 0, dp(8))
+            isClickable = true
+            setOnClickListener {
+                val show = rules.visibility != View.VISIBLE
+                rules.visibility = if (show) View.VISIBLE else View.GONE
+                text = (if (show) "▾" else "▸") + " Screen by screen (the macro file's rules)"
+            }
         })
+        diagramBox.addView(rules)
     }
 
     /** Open [s]: its description, what it runs, its options (as last chosen) and its diagram. */
@@ -495,7 +534,8 @@ class MacrosPage(private val a: MainActivity) {
         detailUse.setOnCheckedChangeListener { _, on -> MacroChoice.setUsed(a, s.name, on) }
         showSelected(s)
         drawStatsLink(s)
-        if (diagramCard.visibility == View.VISIBLE) drawDiagram()
+        // after the options below are drawn: the steps read them
+        if (diagramCard.visibility == View.VISIBLE) diagramCard.post { drawDiagram() }
         paramsBox.removeAllViews()
         paramFields.clear()
         if (s.params.isEmpty()) paramsBox.addView(Ui.text(a, "This macro has no options.", 13f, Ui.MUTED))
@@ -529,6 +569,7 @@ class MacrosPage(private val a: MainActivity) {
                 box.addView(switchRow(Ui.title(p.innerKey(key)), p.help, cur) { on ->
                     cur = on
                     dependents[key]?.forEach { it.visibility = if (on) View.VISIBLE else View.GONE }
+                    optionChanged()
                 })
                 paramFields[key] = { cur.toString() }
                 continue
@@ -553,7 +594,7 @@ class MacrosPage(private val a: MainActivity) {
                         minWidth = dp(44)
                         setPadding(dp(14), dp(8), dp(14), dp(8))
                         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(8) }
-                        setOnClickListener { cur = o; paint() }
+                        setOnClickListener { cur = o; paint(); optionChanged() }
                     }
                     pills += t; row.addView(t)
                 }
@@ -589,7 +630,7 @@ class MacrosPage(private val a: MainActivity) {
                 gravity = Gravity.CENTER_VERTICAL
                 addView(field, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
                 addView(Ui.text(a, Ui.title(sideKey), 14f).apply { setPadding(dp(14), 0, dp(6), 0) })
-                addView(switch(on) { v -> on = v; grey() })
+                addView(switch(on) { v -> on = v; grey(); optionChanged() })
             }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { topMargin = dp(6) })
         }
     }

@@ -139,3 +139,19 @@ def test_watch_ad_leaves_commercials_that_wont_close():
         assert guards, name
         assert any(a.get("leave_ad") for a in _flat(guards[0]["then"])), name
         assert not any("tap" in a for a in _flat(guards[0]["then"])), name
+
+
+def test_check_wants_how_steps(tmp_path):
+    (tmp_path / "macros" / "daily").mkdir(parents=True)
+    f = tmp_path / "macros" / "daily" / "x.yaml"
+    f.write_text(yaml.safe_dump({"name": "x", "group": "daily", "screens": [], "handlers": {"field": [{"tap": [0.5, 0.5]}]}}))
+    assert any("no how:" in p for p in macro_pack.check(tmp_path))
+    f.write_text(yaml.safe_dump({"name": "x", "group": "daily", "params": {"n": 3}, "screens": [], "handlers": {},
+                                 "how": ["Tap {n} times", "Then {m}", {"run": "nope"}, {"if": "n > 1", "then": ["{n}"]}]}))
+    problems = macro_pack.check(tmp_path)
+    assert any("{m} is not an option" in p for p in problems)
+    assert any("how: runs unknown macro 'nope'" in p for p in problems)
+    assert not any("{n}" in p for p in problems)
+    # a step the app describes itself needs no how:
+    f.write_text(yaml.safe_dump({"name": "x", "group": "daily", "screens": [], "handlers": {"field": [{"another_dungeon": "dogma_tower"}]}}))
+    assert not any("how" in p for p in macro_pack.check(tmp_path))

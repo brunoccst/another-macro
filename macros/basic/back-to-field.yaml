@@ -6,6 +6,10 @@ icon: power
 description: "Basic: press Back until the field shows (closes menus and dialogs). Other macros run it to start from the field."
 params:
   max_backs: {default: 12, help: "give up after this many Backs"}
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - "Press Back every 1.5 s until the field shows (this closes menus and dialogs)"
+  - "Give up after {max_backs} Backs, or when the game isn't in front"
 screens: [field]
 unknown_timeout_s: 60
 
