@@ -1005,8 +1005,10 @@ object AnotherDungeon {
                 }
                 ctx.wait(0.2); continue
             }
-            r.unsure = true
+            // the throw itself doesn't move the party (the map showed it within ~0.009 of the leg's end after
+            // throws, 2026-11-17): only a step toward the fish makes its spot unsure (saves a ~4 s map look)
             if (abs(p.x - 0.5) > FISH_REACH && steps < 4) {
+                r.unsure = true
                 val dir = if (p.x < 0.5) -1.0 else 1.0
                 MacroLog.i("fish at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)}): a step toward it")
                 ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), FISH_STEP_MS); ctx.wait(0.4)
