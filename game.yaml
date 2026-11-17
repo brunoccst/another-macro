@@ -32,6 +32,9 @@ safety:
   purchase_words: [purchase, insufficient, not enough, remaining purchases, "buy "]
   # anywhere on screen: premium currency; taps there need the user's OK
   premium_words: [chronos stone, tsubura, paid stone]
+  # anywhere on screen: the premium currency is a reward being received (a commercial's
+  # Chronos Stones, the login-bonus ad), not spent, so taps there don't ask
+  reward_words: [reward for watching, just for watching]
   # the purchase guard: while this template shows (the shop), macros may only tap shop_safe ones
   shop_screen: shop_title
   shop_close: shop_close_button
