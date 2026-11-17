@@ -107,8 +107,24 @@ def test_party_is_picked_by_number_only():
             continue
         choices = [str(c) for c in party["choices"]]
         assert choices == ["current"] + [str(i) for i in range(1, 11)], name
-        assert str(party["default"]) in choices, name
+        # it follows the Global parameters' party: "global" unless the macro gives its own default
+        assert party.get("global") == "party", name
+        assert str(party.get("default", "global")) in choices + ["global"], name
         assert "with " not in party["help"].lower(), name
+
+
+def test_party_and_skills_are_global_parameters():
+    import yaml
+    profile = yaml.safe_load(Path("game.yaml").read_text(encoding="utf-8"))
+    g = profile["globals"]
+    assert [str(c) for c in g["party"]["choices"]] == ["current"] + [str(i) for i in range(1, 11)]
+    assert g["party"]["default"] == "current"
+    _, battle = macro_pack.macros()["battle"]
+    for i in range(1, 5):
+        # generic defaults: auto, and the battle macro's skills follow them
+        assert g[f"skill_{i}"]["default"] == "auto"
+        assert battle["params"][f"skill_{i}"]["global"] == f"skill_{i}"
+        assert "default" not in battle["params"][f"skill_{i}"]
 
 
 def test_check_catches_empty_set_expression(tmp_path):
