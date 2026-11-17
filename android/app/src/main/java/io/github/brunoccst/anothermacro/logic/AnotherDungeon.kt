@@ -80,8 +80,11 @@ object AnotherDungeon {
     /** How far the party walks each way while clearing a map's enemies (area-map units). */
     private const val GRIND_SPAN = 0.09
 
-    /** Words that mean the game wants something bought: never tap on, cancel and stop. */
-    private val PURCHASE_WORDS = listOf("purchase", "chronos stone", "tsubura", "insufficient", "not enough")
+    /**
+     * Words that mean the game wants something bought (game.yaml's safety words): never tap on,
+     * cancel and stop. Not "buy " (dungeon people talk about buying things without selling anything).
+     */
+    private fun buyWords(ctx: Context) = Game.of(ctx).buyWords.filter { it.trim() != "buy" }
 
     fun spec(ctx: Context, id: String): Spec = spec(ctx.assets.open(DATA).bufferedReader().use { it.readText() }, id)
 
@@ -1069,7 +1072,7 @@ object AnotherDungeon {
         var read = ctx.readText()
         var all = read.joinToString(" ") { Ocr.norm(it.text) }
         MacroLog.i("${leg.target}: ${read.joinToString(" | ") { it.text }.take(160)}")
-        if (PURCHASE_WORDS.any { it in all } || "bait" in all) {
+        if (buyWords(r.ctx).any { it in all } || "bait" in all) {
             closeMenu(r)
             MacroLog.i("${leg.target}: not full (the game offered bait or a purchase): closed, nothing set or bought")
             return
@@ -1525,7 +1528,7 @@ object AnotherDungeon {
             val all = lines.joinToString(" ") { Ocr.norm(it.text) }
             val yes = lines.firstOrNull { Ocr.norm(it.text) == "yes" }
             if (yes != null && lines.any { Ocr.norm(it.text) == "no" }) {
-                if (PURCHASE_WORDS.any { it in all }) {
+                if (buyWords(r.ctx).any { it in all }) {
                     tapText(r, "No", exact = true, tries = 1)
                     ctx.stop("the way on asks for something bought: '${lines.joinToString(" ") { it.text }.take(120)}'")
                 }
@@ -1550,7 +1553,7 @@ object AnotherDungeon {
             if (Battle.inBattle(ctx)) return tapped > 0
             val lines = ctx.readText()
             if (lines.isEmpty() || lines.any { val t = Ocr.norm(it.text); t == "yes" || t == "no" }) return tapped > 0
-            if (PURCHASE_WORDS.any { w -> lines.any { w in Ocr.norm(it.text) } }) return tapped > 0
+            if (buyWords(r.ctx).any { w -> lines.any { w in Ocr.norm(it.text) } }) return tapped > 0
             if (tapped == 0) MacroLog.i("talk: ${lines.joinToString(" ") { it.text }.take(100)}")
             ctx.tap(Point(0.5, 0.85)); ctx.wait(0.8)
             tapped++
@@ -1927,7 +1930,7 @@ object AnotherDungeon {
         repeat(tries) {
             val lines = ctx.readText()
             val all = lines.joinToString(" ") { Ocr.norm(it.text) }
-            PURCHASE_WORDS.firstOrNull { it in all }?.let { w ->
+            buyWords(ctx).firstOrNull { it in all }?.let { w ->
                 lines.firstOrNull { Ocr.norm(it.text) in setOf("cancel", "no", "close", "back") }?.let { ctx.tapExact(it.center) }
                 ctx.stop("safety stop: the game offered a purchase ('$w'); nothing bought")
             }

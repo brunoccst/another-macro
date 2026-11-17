@@ -6,6 +6,8 @@ of the branch it follows (MacroLibrary.kt).
 
 Layout of the zip (the same paths the app reads):
 
+    game.yaml                         the game profile (the repo's game.yaml): the game's package,
+                                      safety words, macro groups (logic/Game.kt)
     macros/<group>/<name>.yaml        the repo's macros/ folder as it is
     templates/common/...              src/another_macro/assets/templates
     templates/<folder>/...            src/another_macro/scenarios/<folder>/templates and its
@@ -13,7 +15,7 @@ Layout of the zip (the same paths the app reads):
 
 ``check`` finds what would break a macro on the phone: bad YAML, a duplicate name, a missing
 template folder, a ``run:``, routine step or ``uses:`` naming a macro that isn't there, a macro
-filed under the wrong group folder, an option name with a dot (reserved for the options a macro
+filed under the wrong group folder or a group game.yaml doesn't list, a game.yaml missing a key, an option name with a dot (reserved for the options a macro
 takes over from the macros it runs), a macro with no steps for the app's "How it works" (``how:``).
 
     python -m another_macro.macro_pack -o macros.zip [--commit SHA --branch NAME]
@@ -32,6 +34,10 @@ ROOT = Path(__file__).resolve().parents[2]
 SCENARIOS = Path(__file__).resolve().parent / "scenarios"
 COMMON = Path(__file__).resolve().parent / "assets" / "templates"
 
+# the game profile at the repo's top, packed as it is
+GAME = "game.yaml"
+GAME_KEYS = ("name", "package", "activity", "repo", "safety", "groups")
+
 # data files a scenario keeps next to its templates folder (not .py code)
 DATA_SUFFIXES = {".yaml", ".yml"}
 
@@ -39,6 +45,8 @@ DATA_SUFFIXES = {".yaml", ".yml"}
 def pack_files(root: Path = ROOT) -> dict[str, Path]:
     """Every file of the pack: its path inside the zip -> the file in the repo."""
     files: dict[str, Path] = {}
+    if (root / GAME).is_file():
+        files[GAME] = root / GAME
     for f in sorted((root / "macros").rglob("*.yaml")):
         files[f"macros/{f.relative_to(root / 'macros').as_posix()}"] = f
     for f in sorted(COMMON.rglob("*")):
@@ -152,9 +160,32 @@ def _check_how(rel, spec: dict, all_macros: dict) -> list[str]:
     return problems
 
 
+def game(root: Path = ROOT) -> dict:
+    """The game profile (game.yaml), parsed; empty when there is none."""
+    f = root / GAME
+    return (yaml.safe_load(f.read_text(encoding="utf-8")) or {}) if f.is_file() else {}
+
+
+def _check_game(profile: dict) -> list[str]:
+    """game.yaml has every key, safety words and groups."""
+    if not profile:
+        return [f"{GAME}: missing (the game profile)"]
+    problems = [f"{GAME}: no {k}" for k in GAME_KEYS if not profile.get(k)]
+    safety = profile.get("safety") or {}
+    for k in ("purchase_words", "premium_words"):
+        if not isinstance(safety.get(k), list) or not safety.get(k):
+            problems.append(f"{GAME}: safety.{k} must be a list of words")
+    for g in profile.get("groups") or []:
+        if not isinstance(g, dict) or not g.get("id") or not g.get("title"):
+            problems.append(f"{GAME}: group {g!r} needs an id and a title")
+    return problems
+
+
 def check(root: Path = ROOT) -> list[str]:
     """Problems that would break a macro on the phone (empty = fine)."""
-    problems: list[str] = []
+    profile = game(root)
+    problems: list[str] = _check_game(profile)
+    groups = {g.get("id") for g in profile.get("groups") or [] if isinstance(g, dict)}
     all_macros = macros(root)
     folders = {p.split("/")[1] for p in pack_files(root) if p.startswith("templates/")}
     for name, (f, spec) in all_macros.items():
@@ -162,6 +193,8 @@ def check(root: Path = ROOT) -> list[str]:
         group = spec.get("group", "other")
         if len(rel.parts) != 2 or rel.parts[0] != group:
             problems.append(f"{rel}: group {group!r} belongs in macros/{group}/")
+        if groups and group not in groups:
+            problems.append(f"{rel}: group {group!r} is not one of game.yaml's groups")
         for t in spec.get("templates") or []:
             if t not in folders:
                 problems.append(f"{rel}: template folder {t!r} not in the pack")

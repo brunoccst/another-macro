@@ -1,0 +1,28 @@
+# The game this app plays: every game-specific value the generic parts of the app read.
+# It ships in the macro pack (src/another_macro/macro_pack.py), so a change here reaches phones
+# with no app install. The logic pack reads it today (logic/Game.kt); the rest of the app moves
+# to it next. See docs/game-profile.md.
+name: Another Eden
+# the Android package of the game, and its own activity (anything else in front of it from the
+# same package is a commercial)
+package: games.wfs.anothereden
+activity: net.wrightflyer.toybox.AppActivity
+# the GitHub repo that hosts this app's builds and packs
+repo: brunoccst/another-macro
+
+safety:
+  # anywhere on screen: an offer to pay; never tapped
+  purchase_words: [purchase, insufficient, not enough, remaining purchases, "buy "]
+  # anywhere on screen: premium currency; taps there need the user's OK
+  premium_words: [chronos stone, tsubura, paid stone]
+
+# how the app groups macros (a macro's group: and its folder in macros/), in tab order;
+# icon = one of the app's own drawn icons (res/drawable/ic_<icon>.xml)
+groups:
+  - {id: daily, title: Daily, icon: sun}
+  - {id: dungeon, title: Another Dungeon, icon: keycard}
+  - {id: farm, title: Farming, icon: swords}
+  - {id: game, title: Game, icon: power}
+  - {id: basic, title: Basic, icon: blocks}
+  - {id: other, title: Other, icon: puzzle}
+  - {id: custom, title: Custom, icon: wrench}

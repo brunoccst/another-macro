@@ -6,6 +6,7 @@ on:
   push:
     paths:
       - "macros/**"
+      - "game.yaml"
       - "src/another_macro/assets/templates/**"
       - "src/another_macro/scenarios/*/templates/**"
       - "src/another_macro/scenarios/*/*.yaml"

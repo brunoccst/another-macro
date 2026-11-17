@@ -181,10 +181,11 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
             "game_in_front" -> ctx.frame?.portraitAppInFront != true
             // a commercial in front: the game's package, but an activity other than the game's own
             "ad_in_front" -> InputService.instance?.let { s ->
-                s.foreground == ClaudeSafety.GAME && s.foregroundActivity.let { a -> a != null && a != GAME_ACTIVITY }
+                val game = Game.of(ctx)
+                s.foreground == game.packageName && s.foregroundActivity.let { a -> a != null && a != game.activity }
             } ?: false
             // the game's own activity in front (no commercial, no other app), as last reported by Android
-            "game_screen" -> InputService.instance?.let { s -> s.foreground == ClaudeSafety.GAME && s.foregroundActivity == GAME_ACTIVITY } ?: false
+            "game_screen" -> InputService.instance?.let { s -> Game.of(ctx).let { g -> s.foreground == g.packageName && s.foregroundActivity == g.activity } } ?: false
             "view_moved" -> viewMoved(ctx)
             "now" -> System.currentTimeMillis() / 1000.0
             // on-screen text (OCR) contains this, loosely (case and punctuation ignored)
@@ -239,9 +240,6 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
 
 
     companion object {
-        /** The game's own activity; a commercial plays in another activity of the game's package. */
-        const val GAME_ACTIVITY = FlowScenario.GAME_ACTIVITY
-
         const val FEATHER_MIN = 0.78
         const val TAP_LATENCY_S = 0.4
     }

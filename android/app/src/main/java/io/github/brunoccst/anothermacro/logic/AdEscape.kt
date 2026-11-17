@@ -4,9 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.content.Intent
 import android.graphics.Rect
 import android.view.accessibility.AccessibilityNodeInfo
-import io.github.brunoccst.anothermacro.ClaudeSafety
 import io.github.brunoccst.anothermacro.Context
-import io.github.brunoccst.anothermacro.FlowScenario
 import io.github.brunoccst.anothermacro.InputService
 import io.github.brunoccst.anothermacro.MacroLog
 
@@ -35,19 +33,20 @@ object AdEscape {
         MacroLog.i("leaving a commercial that won't close: Home, then back to the game's own screen (closes the commercial)")
         home()
         ctx.wait(2.0)
+        val game = Game.of(ctx)
         val flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-        val direct = Intent(Intent.ACTION_MAIN).setClassName(ClaudeSafety.GAME, FlowScenario.GAME_ACTIVITY).addFlags(flags)
+        val direct = Intent(Intent.ACTION_MAIN).setClassName(game.packageName, game.activity).addFlags(flags)
         val started = runCatching { s.startActivity(direct) }.onFailure { MacroLog.e("could not open the game's own screen", it) }.isSuccess ||
             // the game's launch screen with the same flags (the game's activity may not be reachable by name)
             runCatching {
-                s.startActivity(s.packageManager.getLaunchIntentForPackage(ClaudeSafety.GAME)!!.addFlags(flags))
+                s.startActivity(s.packageManager.getLaunchIntentForPackage(game.packageName)!!.addFlags(flags))
             }.onFailure { MacroLog.e("could not open the game", it) }.isSuccess
-        if (!started) ctx.launchApp(ClaudeSafety.GAME)
+        if (!started) ctx.launchApp(game.packageName)
         ctx.wait(4.0)
     }
 
     /** The game's card in recent apps: the largest node named after the game, or null. */
-    private fun gameCard(s: InputService, label: String): Rect? {
+    private fun gameCard(s: InputService, label: String, game: String): Rect? {
         val screen = s.resources.displayMetrics.let { it.widthPixels.toLong() * it.heightPixels }
         val roots = listOfNotNull(s.rootInActiveWindow) + runCatching { s.windows.mapNotNull { it.root } }.getOrDefault(emptyList())
         var best: Rect? = null
@@ -64,22 +63,23 @@ object AdEscape {
             }
             for (i in 0 until n.childCount) visit(n.getChild(i), depth + 1)
         }
-        roots.filter { it.packageName?.toString().let { p -> p != s.packageName && p != ClaudeSafety.GAME } }.forEach { visit(it, 0) }
+        roots.filter { it.packageName?.toString().let { p -> p != s.packageName && p != game } }.forEach { visit(it, 0) }
         return best
     }
 
     /** Force-close the game from recent apps (see above; not the stop-game macro, which quits it from the game). True when its card was found and swiped away. */
     fun forceClose(ctx: Context): Boolean {
         val s = InputService.instance ?: throw IllegalStateException("taps are off: turn the accessibility service on")
+        val game = Game.of(ctx)
         val label = runCatching {
-            s.packageManager.getApplicationLabel(s.packageManager.getApplicationInfo(ClaudeSafety.GAME, 0)).toString()
-        }.getOrDefault("Another Eden").lowercase()
+            s.packageManager.getApplicationLabel(s.packageManager.getApplicationInfo(game.packageName, 0)).toString()
+        }.getOrDefault(game.name).lowercase()
         MacroLog.i("force-closing the game from recent apps (a commercial won't close)")
         var closed = false
         for (attempt in 1..3) {
             // once only: Recents again while it is open would close it again
             if (attempt == 1) { s.performGlobalAction(AccessibilityService.GLOBAL_ACTION_RECENTS); ctx.wait(2.0) }
-            val card = gameCard(s, label)
+            val card = gameCard(s, label, game.packageName)
             if (card == null) {
                 MacroLog.i(if (closed) "the game's card is gone from recent apps" else "the game's card wasn't found in recent apps")
                 break

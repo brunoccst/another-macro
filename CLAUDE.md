@@ -6,6 +6,7 @@ Claude drives the phone through the app's phone connector (an MCP server reached
 Cloudflare Worker relay, `relay/`), from an ordinary chat.
 
 - Macro format and game notes: `docs/writing-scenarios.md`; macro library: `macros/README.md`
+- Game-specific values (package, safety words, groups, repo): `game.yaml`, see `docs/game-profile.md`. Logic code reads them with `Game.of(ctx)` and never names the game.
 - Phone setup: `docs/setup-android.md`
 - New automation requests ("automate X"): use the `new-scenario` skill
 - Missing templates: use the `capture-templates` skill (needs the live phone)
