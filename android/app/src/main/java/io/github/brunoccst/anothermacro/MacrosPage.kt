@@ -361,7 +361,7 @@ class MacrosPage(private val a: MainActivity) {
         val f = customFile() ?: return a.toast("This macro has no file on the phone.")
         val text = f.readText()
         val saved = runCatching { exportToDownloads(f.name, text) }
-        saved.onSuccess { a.toast("Saved to Downloads/Another Macro/${f.name}.") }
+        saved.onSuccess { a.toast("Saved to Downloads/${GameProfile.current.appName}/${f.name}.") }
             .onFailure { MacroLog.e("export of ${f.name} failed: ${it.message}") }
         a.startActivity(android.content.Intent.createChooser(android.content.Intent(android.content.Intent.ACTION_SEND).apply {
             type = "text/plain"
@@ -375,7 +375,7 @@ class MacrosPage(private val a: MainActivity) {
         val values = android.content.ContentValues().apply {
             put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
             put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "application/x-yaml")
-            put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/Another Macro")
+            put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH, android.os.Environment.DIRECTORY_DOWNLOADS + "/${GameProfile.current.appName}")
         }
         val resolver = a.contentResolver
         val uri = resolver.insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values)

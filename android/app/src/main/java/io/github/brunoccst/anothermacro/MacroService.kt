@@ -208,7 +208,7 @@ class MacroService : Service() {
         val builder = if (Build.VERSION.SDK_INT >= 26) Notification.Builder(this, CHANNEL) else @Suppress("DEPRECATION") Notification.Builder(this)
         return builder
             .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle("Another Macro")
+            .setContentTitle("${GameProfile.current.appName}")
             .setContentText(text)
             .setContentIntent(open)
             .setOngoing(true)

@@ -142,7 +142,7 @@ class MainActivity : Activity() {
         orientation = LinearLayout.VERTICAL
         setPadding(dp(12), dp(if (land) 12 else 24), dp(12), dp(if (land) 10 else 16))
         addView(Ui.brand(this@MainActivity, if (land) 18f else 21f, if (land) 30 else 38).apply { setPadding(dp(4), 0, 0, if (land) dp(6) else dp(2)) })
-        if (!land) addView(Ui.text(this@MainActivity, "Automation for Another Eden, on this phone", 12.5f, Ui.MUTED).apply { setPadding(dp(8), dp(2), 0, dp(10)) })
+        if (!land) addView(Ui.text(this@MainActivity, GameProfile.current.tagline, 12.5f, Ui.MUTED).apply { setPadding(dp(8), dp(2), 0, dp(10)) })
         addView(statusChips().apply { setPadding(dp(8), 0, 0, dp(if (land) 8 else 14)) })
         addView(View(this@MainActivity).apply { setBackgroundColor(Ui.LINE) }, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, 1).apply { bottomMargin = dp(if (land) 6 else 10) })
         for (p in Page.values()) {
@@ -339,7 +339,7 @@ class MainActivity : Activity() {
         /** With page stats: open this macro's statistics. */
         const val EXTRA_MACRO = "macro"
         private const val STATE_PAGE = "page"
-        const val REPO = "https://github.com/brunoccst/another-macro"
+        val REPO: String get() = GameProfile.current.repoUrl
         /** This app's screen is the one in front (resumed): the floating ⌂ then goes back to the game. */
         @Volatile
         var inFront = false

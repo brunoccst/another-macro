@@ -82,7 +82,7 @@ object DailySchedule {
             Alerts.schedule(c, title, text)
         }
         if (MacroService.capture == null) {
-            problem("Scheduled $name didn't run", "Screen capture was off. Open Another Macro and allow screen capture to let it run tomorrow.")
+            problem("Scheduled $name didn't run", "Screen capture was off. Open ${GameProfile.current.appName} and allow screen capture to let it run tomorrow.")
             return
         }
         if (Runner.isRunning) {

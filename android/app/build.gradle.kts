@@ -9,9 +9,11 @@ plugins {
 // reaches the phone without an install. It only loads into an app with the same "shell": every other
 // file of the app. SHELL_ID fingerprints them; change any of them and the phone needs the new app.
 val logicDir = "src/main/java/io/github/brunoccst/anothermacro/logic"
+// the game profile at the repo's top (docs/game-profile.md)
+val gameYaml = rootProject.file("../game.yaml")
 val shellId: String = MessageDigest.getInstance("SHA-256").let { md ->
     val files = fileTree("src/main") { exclude("java/io/github/brunoccst/anothermacro/logic/**") }.files +
-        listOf(file("build.gradle.kts"), rootProject.file("build.gradle.kts"))
+        listOf(file("build.gradle.kts"), rootProject.file("build.gradle.kts"), gameYaml)
     for (f in files.sortedBy { it.relativeTo(rootDir).invariantSeparatorsPath }) {
         md.update(f.relativeTo(rootDir).invariantSeparatorsPath.toByteArray())
         md.update(f.readBytes())
@@ -42,6 +44,11 @@ android {
         // the commit CI built this from, and the shell fingerprint a logic pack must match (Logic.kt)
         buildConfigField("String", "COMMIT", "\"" + (System.getenv("GITHUB_SHA") ?: "") + "\"")
         buildConfigField("String", "SHELL_ID", "\"$shellId\"")
+        // the game this app plays (repo's game.yaml, GameProfile.kt): baked in whole, and its
+        // package for the manifest's <queries> (to see and open the game)
+        buildConfigField("String", "GAME_YAML", "\"" + gameYaml.readText().replace("\\", "\\\\").replace("\"", "\\\"").replace("\n", "\\n") + "\"")
+        manifestPlaceholders["gamePackage"] = Regex("""(?m)^package:\s*(\S+)""").find(gameYaml.readText())?.groupValues?.get(1)
+            ?: throw GradleException("game.yaml has no package:")
         // OpenCV ships native code for every ABI (~135 MB); phones that run the game are arm64
         ndk { abiFilters += listOf("arm64-v8a") }
     }

@@ -171,7 +171,7 @@ object Ui {
         gravity = Gravity.CENTER_VERTICAL
         addView(android.widget.ImageView(c).apply { setImageResource(R.drawable.overlay_bubble) },
             LinearLayout.LayoutParams(dp(c, badgeDp), dp(c, badgeDp)).apply { rightMargin = dp(c, 10) })
-        addView(text(c, "Another Macro", sizeSp).apply {
+        addView(text(c, "${GameProfile.current.appName}", sizeSp).apply {
             typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
             letterSpacing = 0.03f
         })
@@ -186,18 +186,23 @@ object Groups {
     /** [iconRes]: an original vector icon (res/drawable), drawn for this app: no game art. */
     data class Group(val id: String, val title: String, val iconRes: Int)
 
-    val ALL = listOf(
-        Group("daily", "Daily", R.drawable.ic_sun),
-        Group("dungeon", "Another Dungeon", R.drawable.ic_keycard),
-        Group("farm", "Farming", R.drawable.ic_swords),
-        Group("game", "Game", R.drawable.ic_power),
-        // building blocks other macros run (watch-ad, battle, grind-battles, ...)
-        Group("basic", "Basic", R.drawable.ic_blocks),
-        Group("other", "Other", R.drawable.ic_puzzle),
-        // saved by Claude through the phone connector, not from the macro library
-        Group("custom", "Custom", R.drawable.ic_wrench),
-    )
-    private val OTHER = ALL.first { it.id == "other" }
+    /** The groups in tab order (game.yaml `groups:`). */
+    val ALL: List<Group> by lazy { GameProfile.current.groups.map { Group(it.id, it.title, iconRes(it.icon)) } }
+
+    /** One of the app's own drawn icons by name (res/drawable/ic_<name>.xml). */
+    fun iconRes(name: String): Int = when (name) {
+        "sun" -> R.drawable.ic_sun
+        "keycard", "key" -> R.drawable.ic_keycard
+        "swords" -> R.drawable.ic_swords
+        "power" -> R.drawable.ic_power
+        "blocks" -> R.drawable.ic_blocks
+        "wrench" -> R.drawable.ic_wrench
+        "chest" -> R.drawable.ic_chest
+        "paw" -> R.drawable.ic_paw
+        "crystal" -> R.drawable.ic_crystal
+        else -> R.drawable.ic_puzzle
+    }
+    private val OTHER by lazy { ALL.firstOrNull { it.id == "other" } ?: Group("other", "Other", R.drawable.ic_puzzle) }
 
     /** A macro's own icon (`icon:` in its yaml), else its group's. */
     fun icon(m: Scenario): Int = when (m.icon) {

@@ -89,7 +89,7 @@ object TemplateCapture {
         change(templates)
         val dump = Dump(DumpSettings.builder().setDefaultFlowStyle(FlowStyle.BLOCK).build())
         File(dir, "library.yaml").writeText(
-            "# Templates captured in the Another Macro app.\n" + dump.dumpToString(mapOf("templates" to templates))
+            "# Templates captured in the ${GameProfile.current.appName} app.\n" + dump.dumpToString(mapOf("templates" to templates))
         )
     }
 }

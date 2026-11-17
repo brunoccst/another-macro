@@ -44,7 +44,7 @@ class ControlsOverlay(private val service: InputService) {
     private val buttons = LinearLayout(service).apply { orientation = LinearLayout.VERTICAL; gravity = Gravity.END }
     /** The state ring drawn around the handle's badge (spins while a macro runs). */
     private val ring = SpinnerRing(dp(RING).toFloat())
-    private val handle = round(R.drawable.overlay_bubble, "Another Macro controls").apply {
+    private val handle = round(R.drawable.overlay_bubble, "${GameProfile.current.appName} controls").apply {
         background = android.graphics.drawable.LayerDrawable(arrayOf(ring, service.getDrawable(R.drawable.overlay_bubble)))
             .apply { setLayerInset(1, dp(RING), dp(RING), dp(RING), dp(RING)) }
     }
@@ -236,7 +236,7 @@ class ControlsOverlay(private val service: InputService) {
     /** Back to the game from this app's screen (the macro, if any, keeps running). */
     private fun openGame() {
         if (picker.visibility == View.VISIBLE) { picker.visibility = View.GONE; relayout() }
-        if (!service.launchApp(ClaudeSafety.GAME)) MacroLog.i("Another Eden isn't installed")
+        if (!service.launchApp(ClaudeSafety.GAME)) MacroLog.i("${GameProfile.current.name} isn't installed")
     }
 
     /** The overlay window keeps the size it was first laid out with: re-measure after the content changes. */

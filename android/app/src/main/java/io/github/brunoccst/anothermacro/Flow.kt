@@ -147,7 +147,7 @@ class FlowScenario(val spec: Map<String, Any?>, val source: String,
 
     companion object {
         /** The game's own activity; a commercial plays in another activity of the game's package. */
-        const val GAME_ACTIVITY = "net.wrightflyer.toybox.AppActivity"
+        val GAME_ACTIVITY: String get() = GameProfile.current.activity
 
 
         /** `run: name` or `run: {macro: name, ...}` -> name. */

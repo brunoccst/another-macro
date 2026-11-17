@@ -101,10 +101,10 @@ object ScreenWake {
      * [frameAgeMs] how long ago the capture sent its last frame (null: capture off).
      */
     fun blackReason(screenOn: Boolean?, frameAgeMs: Long?): String = when {
-        frameAgeMs == null -> "the screen capture is off: open Another Macro and allow screen capture"
+        frameAgeMs == null -> "the screen capture is off: open ${GameProfile.current.appName} and allow screen capture"
         screenOn == false -> "the phone's screen is off and could not be turned on (a screen lock? the user has to unlock the phone)"
         else -> "the screen capture shows only black although the screen is on (last frame ${frameAgeMs / 1000} s ago): " +
-            "the capture may have stopped; turn screen capture off and on in Another Macro"
+            "the capture may have stopped; turn screen capture off and on in ${GameProfile.current.appName}"
     }
 
     /** One line on the screen and capture, for macro_status and wake_screen. */
