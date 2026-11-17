@@ -14,3 +14,6 @@ dependencyResolutionManagement {
 }
 rootProject.name = "another-macro"
 include(":app")
+// the macro core (generic; see core/)
+include(":core")
+project(":core").projectDir = file("../core/android/core")

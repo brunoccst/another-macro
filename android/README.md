@@ -39,7 +39,7 @@ A sidebar (≡ at the top left) switches between four pages, all in `MainActivit
 - **System** (`SystemPage.kt`), in tabs: Setup (taps, screen capture), Claude (the phone
   connector and what Claude may do), Settings (live log), Updates and Log.
 
-From adb: `am start -n io.github.brunoccst.anothermacro/.MainActivity --es page macros`.
+From adb: `am start -n anothermacro.app/macroforge.MainActivity --es page macros`.
 
 ## Claude in the app: the phone connector
 The **System** page's **Claude phone connector** section turns the app into a remote MCP
@@ -90,8 +90,8 @@ over an existing copy. Keep a backup of that key: without it installed apps can'
 - `uiautomator dump` suspends accessibility services while it runs; don't use it while testing.
 
 ## Testing from a computer
-`adb shell am start -n io.github.brunoccst.anothermacro/.MainActivity --es run grind-battles --es params "battles=3"`
-and `adb logcat -s AnotherMacro` for the log.
+`adb shell am start -n anothermacro.app/macroforge.MainActivity --es run grind-battles --es params "battles=3"`
+and `adb logcat -s MacroForge` for the log.
 
 ## Releases and auto-update
 - **Dev builds** (`0.0.N-dev`): CI (`android.yml`) publishes every pushed branch's APK and

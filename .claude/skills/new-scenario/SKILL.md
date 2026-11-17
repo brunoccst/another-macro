@@ -65,5 +65,5 @@ templates or handlers.
 ## 6. Ship
 
 - document the start state and params in the README's macro table
-- open a PR to brunoccst/another-macro; once merged, a push publishes the macro pack to
+- open a PR to this repository; once merged, a push publishes the macro pack to
   phones (no app update needed)

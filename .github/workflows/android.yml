@@ -3,10 +3,14 @@ on:
   push:
     paths:
       - "android/**"
+      - "core/**"
+      - "game.yaml"
       - ".github/workflows/android.yml"
   pull_request:
     paths:
       - "android/**"
+      - "core/**"
+      - "game.yaml"
       - ".github/workflows/android.yml"
   workflow_dispatch:
 jobs:
@@ -48,7 +52,7 @@ jobs:
           echo "VERSION_CODE=$VERSION_CODE" >> "$GITHUB_ENV"
           # the logic pack (Logic.kt) comes from the same compile as the APK
           gradle -p android assembleDebug logicPack --stacktrace
-          echo "SHELL_ID=$(unzip -p android/app/build/outputs/logic/logic.zip logic.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["shell"])')" >> "$GITHUB_ENV"
+          echo "SHELL_ID=$(unzip -p android/build/outputs/logic/logic.zip logic.json | python3 -c 'import json,sys; print(json.load(sys.stdin)["shell"])')" >> "$GITHUB_ENV"
       - uses: actions/upload-artifact@v4
         with:
           name: another-macro-apk
@@ -56,7 +60,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: logic-pack
-          path: android/app/build/outputs/logic/logic.zip
+          path: android/build/outputs/logic/logic.zip
       # The app's update_app tool (phone connector) installs these: one pre-release per branch,
       # "dev-<branch>", replaced on every push. Only signed builds (a throwaway key can't update).
       # logic.zip rides along: a phone whose app has the same shell loads it instead of installing.
@@ -74,5 +78,5 @@ jobs:
           shell: $SHELL_ID
           commit: $GITHUB_SHA"
           gh release delete "$TAG" --cleanup-tag -y 2>/dev/null || true
-          gh release create "$TAG" another-macro.apk android/app/build/outputs/logic/logic.zip --prerelease --target "$GITHUB_SHA" \
+          gh release create "$TAG" another-macro.apk android/build/outputs/logic/logic.zip --prerelease --target "$GITHUB_SHA" \
             --title "Dev build: $BRANCH" --notes "$NOTES"

@@ -11,7 +11,8 @@ import yaml
 from another_macro import macro_pack
 
 ROOT = Path(__file__).resolve().parents[1]
-APP = ROOT / "android/app/src/main/java/io/github/brunoccst/anothermacro"
+CORE = ROOT / "core/android/core"
+APP = CORE / "src/main/java/macroforge"  # the shell, generic for any game
 GAME = yaml.safe_load((ROOT / "game.yaml").read_text(encoding="utf-8"))
 
 
@@ -50,9 +51,10 @@ def test_app_never_names_the_game():
 
 
 def test_app_is_built_with_the_profile():
-    gradle = (ROOT / "android/app/build.gradle.kts").read_text(encoding="utf-8")
+    gradle = (CORE / "build.gradle.kts").read_text(encoding="utf-8")
     assert 'buildConfigField("String", "GAME_YAML"' in gradle and "gameYaml" in gradle
-    manifest = (ROOT / "android/app/src/main/AndroidManifest.xml").read_text(encoding="utf-8")
+    assert "application_id" in (ROOT / "android/app/build.gradle.kts").read_text(encoding="utf-8")
+    manifest = (CORE / "src/main/AndroidManifest.xml").read_text(encoding="utf-8")
     assert "${gamePackage}" in manifest and GAME["package"] not in manifest
 
 
@@ -62,6 +64,25 @@ def test_logic_never_names_the_game():
             continue
         code = "\n".join(l for l in f.read_text(encoding="utf-8").splitlines() if not l.strip().startswith(("*", "/*", "//")))
         assert GAME["package"] not in code and "ClaudeSafety.GAME" not in code and "GAME_ACTIVITY" not in code, f.name
+
+
+def test_core_never_names_this_app():
+    # the core is its own project: nothing in it may name the app or the game that use it
+    names = [GAME["name"], GAME["app_name"]]  # case matters: "another macro" is plain English
+    words = [GAME["repo"].split("/")[0], "anothermacro", "another_dungeon", "white key", "phantom crystal",
+             "scratchbook", *GAME["safety"]["premium_words"]]
+    for f in sorted(p for p in CORE.joinpath("src").rglob("*") if p.is_file() and p.suffix in {".kt", ".xml", ".kts"}):
+        text = f.read_text(encoding="utf-8")
+        for w in names:
+            assert w not in text, f"{f.relative_to(ROOT)} names {w!r}"
+        for w in words:
+            assert w.lower() not in text.lower(), f"{f.relative_to(ROOT)} names {w!r}"
+
+
+def test_plugin_is_the_apps_own():
+    plugin = GAME["plugin"]
+    pkg, cls = plugin.rsplit(".", 1)
+    assert (ROOT / "android/app/src/main/java" / pkg.replace(".", "/") / f"{cls}.kt").is_file()
 
 
 def test_check_catches_unknown_group(tmp_path):

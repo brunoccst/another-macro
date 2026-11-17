@@ -124,7 +124,7 @@ def test_watch_ad_leaves_commercials_that_wont_close():
     # leave_ad step (Home, then the game's own screen) instead of tapping it; the step is known
     # to the logic pack, and callers never tap while a commercial is still in front
     # (generic steps: FlowRun.STEPS, which Entry.ACTIONS includes)
-    flow = (ROOT / "android/app/src/main/java/io/github/brunoccst/anothermacro/logic/FlowRun.kt").read_text()
+    flow = (ROOT / "core/android/core/src/main/java/macroforge/logic/FlowRun.kt").read_text()
     steps = flow[flow.index("val STEPS = setOf("):]
     steps = steps[:steps.index(")")]
     assert '"leave_ad"' in steps and '"home"' in steps and '"force_close"' in steps
@@ -163,7 +163,7 @@ def test_check_wants_how_steps(tmp_path):
 def test_watch_ad_stops_when_no_commercial_played():
     # no commercial (the game shows its chest straight away): watch-ad stops so the caller opens
     # the chest, instead of pressing Back on it after ad_wait_s
-    flow = (ROOT / "android/app/src/main/java/io/github/brunoccst/anothermacro/logic/FlowRun.kt").read_text()
+    flow = (ROOT / "core/android/core/src/main/java/macroforge/logic/FlowRun.kt").read_text()
     assert '"game_screen"' in flow
     _, spec = macro_pack.macros()["watch-ad"]
     acts = list(_flat(spec["unknown"]))

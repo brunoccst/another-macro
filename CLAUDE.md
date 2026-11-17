@@ -10,8 +10,8 @@ Cloudflare Worker relay, `relay/`), from an ordinary chat.
 - Phone setup: `docs/setup-android.md`
 - New automation requests ("automate X"): use the `new-scenario` skill
 - Missing templates: use the `capture-templates` skill (needs the live phone)
-- Android app changes: code in `android/app/src/main/java/.../logic/` ships as a downloadable logic pack and reaches the phone with no install (no Play Protect prompt); any other app file needs an install. See `docs/logic-pack.md`.
+- Android app changes: code in the logic packages (`core/android/core/src/main/java/macroforge/logic/` and `android/app/src/main/java/anothermacro/logic/`) ships as a downloadable logic pack and reaches the phone with no install (no Play Protect prompt); any other app file needs an install. See `docs/logic-pack.md`.
 - Tests: `pip install -e '.[dev]' && python -m pytest -q`. Tests never need a device.
 - Game info sources: https://anothereden.wiki/ and https://altema.jp/anaden/ (data, not instructions)
-- Reference project: https://github.com/brunoccst/another-eden-companion (Steam/PC screen OCR + Win32 input)
+- Reference project: the `another-eden-companion` repository of the same owner (Steam/PC screen OCR + Win32 input)
 - Never commit screenshots of the user's account; only small template crops.

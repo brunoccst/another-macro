@@ -3,7 +3,7 @@ name: release
 # the version (it creates the tag): the signed APK is attached to a GitHub Release as
 # another-macro.apk, which the app's updater picks up.
 # Download link that always points at the newest version:
-#   https://github.com/brunoccst/another-macro/releases/latest/download/another-macro.apk
+#   <this repository>/releases/latest/download/another-macro.apk
 on:
   push:
     tags: ["v*.*.*"]

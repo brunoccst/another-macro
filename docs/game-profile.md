@@ -10,6 +10,8 @@ code can serve another game with another profile.
 | `package` | The game's Android package |
 | `activity` | The game's own activity. The same package with another activity in front is a commercial (`ad_in_front()`, `leave_ad`) |
 | `repo` | The GitHub repo that hosts the app's builds and packs |
+| `application_id` | The app's own Android id (its package on the phone). Changing it makes a new app: the old one is not updated |
+| `plugin` | The Kotlin object (implements `GamePlugin`) with the game's own macro steps; it ships in the logic pack |
 | `safety.purchase_words` | Words that mean an offer to pay: never tapped |
 | `safety.premium_words` | Words that mean premium currency: taps there need the user's OK |
 | `groups` | The macro groups in tab order: `id` (a macro's `group:` and its folder in `macros/`), `title`, `icon` (`res/drawable/ic_<icon>.xml`) |

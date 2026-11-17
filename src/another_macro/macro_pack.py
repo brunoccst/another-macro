@@ -36,7 +36,7 @@ COMMON = Path(__file__).resolve().parent / "assets" / "templates"
 
 # the game profile at the repo's top, packed as it is
 GAME = "game.yaml"
-GAME_KEYS = ("name", "app_name", "tagline", "about", "package", "activity", "repo", "safety", "groups", "claude", "reports")
+GAME_KEYS = ("name", "app_name", "tagline", "about", "package", "activity", "application_id", "repo", "safety", "groups", "claude", "reports")
 
 # data files a scenario keeps next to its templates folder (not .py code)
 DATA_SUFFIXES = {".yaml", ".yml"}
