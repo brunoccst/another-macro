@@ -29,7 +29,8 @@
 #
 # A spot without a full `area` has no path: the app then finds its cat the old way (search the
 # world map by OCR, steer by the feather icon on the area map). `another-macro cat-routes --todo`
-# lists what each spot still needs.
+# lists what each spot still needs. The app measures such a spot the first time its cat shows up
+# (CatSurvey.kt): `another-macro cat-routes --import <saved log>` adds what it measured.
 Last Island:
   era: Future
   continent: null

@@ -53,6 +53,15 @@ object AreaNav {
             return groups.filter { it.last() - it.first() in 6..80 }.map { (it.first() + it.last()) / 2.0 / w }
         }
 
+        /** The streets and stairs this look's street mask shows (see [streetsOf]); null if the map didn't open. */
+        fun streets(): Layout? {
+            val m = paths ?: return null
+            if (w == 0 || h == 0) return null
+            val bytes = ByteArray(w * h)
+            m.clone().also { c -> c.get(0, 0, bytes); c.release() }
+            return streetsOf(bytes, w, h)
+        }
+
         fun release() { paths?.release() }
     }
 
@@ -324,6 +333,74 @@ object AreaNav {
     }
 
     private val icons = HashMap<String, Mat>()
+
+    /**
+     * The streets ([Seg]) and the stairs between them ([Link]) on a street mask ([w] x [h], row
+     * by row, non-zero = street): a street is a band of rows a few % of the screen thick that
+     * holds a long horizontal run; a link is a narrow vertical run joining two bands. Map icons
+     * cover parts of a street, so short gaps are bridged. Approximate (a stone floor is noisy):
+     * it is what the cat survey starts from, checked by a person before it becomes a route.
+     */
+    fun streetsOf(mask: ByteArray, w: Int, h: Int): Layout {
+        fun on(x: Int, y: Int) = mask[y * w + x].toInt() != 0
+        val gap = (w * 0.03).toInt()
+        val xMax = (w * 0.93).toInt()
+        val yTop = (h * 0.12).toInt()
+        val yBot = (h * 0.90).toInt()
+        /** Runs of true in [cols] (gaps up to [gap] bridged) at least [min] long, as (from, to). */
+        fun runs(cols: BooleanArray, min: Int): List<IntArray> {
+            val out = ArrayList<IntArray>()
+            var start = -1; var end = -1
+            for (x in cols.indices) if (cols[x]) {
+                if (start < 0) start = x else if (x - end > gap) { if (end - start + 1 >= min) out += intArrayOf(start, end); start = x }
+                end = x
+            }
+            if (start >= 0 && end - start + 1 >= min) out += intArrayOf(start, end)
+            return out
+        }
+        // 1. rows holding a long run
+        val streetRow = BooleanArray(h)
+        for (y in yTop until yBot) streetRow[y] = runs(BooleanArray(xMax) { on(it, y) }, (w * 0.05).toInt()).isNotEmpty()
+        // 2. bands of such rows (a one-row break bridged), a street's thickness
+        class Band(val top: Int, val bottom: Int, val segs: List<IntArray>) { val y get() = (top + bottom) / 2.0 / h }
+        val bands = ArrayList<Band>()
+        var y = yTop
+        while (y < yBot) {
+            if (!streetRow[y]) { y++; continue }
+            val top = y
+            var bottom = y
+            while (y < yBot && (streetRow[y] || (y + 1 < yBot && streetRow[y + 1]))) { if (streetRow[y]) bottom = y; y++ }
+            val thick = bottom - top + 1
+            if (thick < h * 0.008 || thick > h * 0.07) continue  // a speck, or a plaza / big grey area
+            val cols = BooleanArray(xMax) { x -> (top..bottom).count { on(x, it) } * 2 >= thick }
+            val segs = runs(cols, (w * 0.03).toInt())
+            if (segs.isNotEmpty()) bands += Band(top, bottom, segs)
+        }
+        val segs = bands.flatMap { b -> b.segs.map { Seg(b.y, it[0].toDouble() / w, it[1].toDouble() / w) } }
+        // 3. links: a narrow column of street pixels filling the gap between two bands, the street
+        // above and the one below both reaching it (bands in between must have no street there)
+        val links = ArrayList<Link>()
+        fun covers(b: Band, x: Int, slack: Int) = b.segs.any { x >= it[0] - slack && x <= it[1] + slack }
+        for (i in bands.indices) for (j in i + 1 until bands.size) {
+            val a = bands[i]; val b = bands[j]
+            val rows = (a.bottom + 1 until b.top).filter { r -> (i + 1 until j).none { r in bands[it].top..bands[it].bottom } }
+            if (rows.size < 3) continue
+            val cols = BooleanArray(xMax) { x ->
+                covers(a, x, gap) && covers(b, x, gap) && (i + 1 until j).none { covers(bands[it], x, 0) } &&
+                    rows.count { on(x, it) } >= rows.size * 0.7
+            }
+            val groups = ArrayList<IntArray>()
+            for (x in 0 until xMax) if (cols[x]) {
+                if (groups.isNotEmpty() && x - groups.last()[1] <= 3) groups.last()[1] = x else groups += intArrayOf(x, x)
+            }
+            for (g in groups) {
+                val width = g[1] - g[0] + 1
+                if (width < w * 0.003 || width > w * 0.05) continue
+                links += Link((g[0] + g[1]) / 2.0 / w, a.y, b.y)
+            }
+        }
+        return Layout(segs, links)
+    }
 
     // --- walking a known layout (maps whose unexplored parts are hidden) ---------------
     /** A street: a row at height [y] from [x1] to [x2] (area-map coordinates, 0..1 of the screen). */

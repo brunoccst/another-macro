@@ -65,5 +65,13 @@ take over `battle`'s options (`stepUses`).
   needed, and the label by OCR. `another-macro cat-routes --write` turns the area data into each
   spot's fixed `path`; `--todo` lists what each spot still needs measured. The app
   (`CatRoute.kt`) falls back to the feather steering for any spot or step that doesn't match.
+  A spot with no route yet is measured by the app itself the first time its cat shows up
+  (`CatSurvey.kt`, before the hunt): streets and stairs read from the area map, the arrival,
+  the feather, a 3000 ms hold for `walk_scale` and a few feather reads for the drift. It logs one
+  `MEASURED cat spot: {...}` line (`macro_status` with `find: "MEASURED cat spot"`, `lines: 600`)
+  and the run's outcome names the spot. Save those lines to a file and run
+  `another-macro cat-routes --import <file>`: it adds the areas (hand-measured ones are kept
+  unless `--force`) and writes their paths. Check the imported streets against a look at the
+  area map; the street reading is approximate.
 - **Lists:** the inbox macro opens `text_row_without('utc', 'opened', 0.15, 0.86)`, the first
   item not opened yet.
