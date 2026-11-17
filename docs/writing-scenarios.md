@@ -77,6 +77,7 @@ Actions (one key each):
 | `force_close: true` | the last resort for such a commercial (not the stop-game macro): force-close the game, i.e. swipe the game's own card away in recent apps (found by its name; nothing else there is touched), then Home; sets `closed` |
 | `log: "text {expr}"`, `status: "text {expr}"` | write to the log; `status` also shows on the live log line |
 | `set: {var: expr}`, `count: stat`, `stop: "reason"` | variables, counters, end the run |
+| `got: "reward text {expr}"` or `got: {item: "Name", n: expr}` | what the macro got (the items a reward text names, "Chronos Stone x5"): shown in the outcome message at the end and kept on the Statistics page |
 | `if: expr` + `then:` / `else:`, `repeat: {times: expr, do: [...]}` | control flow |
 | `run: macro` / `run: {macro, params, until}` | run another macro (the basic macros are made for this), sets `result` |
 | `fight: skill_` | fight the battle on screen with `skill_1`..`skill_4` |

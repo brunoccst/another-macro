@@ -45,6 +45,8 @@ class Context(
     val depth: Int = 0,
 ) {
     val stats = LinkedHashMap<String, Int>()
+    /** What the macro got (rewards, items), for the outcome message and the Statistics page. */
+    val items = LinkedHashMap<String, Int>()
     var frame: Frame? = null
         private set
     var screen: String? = null
@@ -56,6 +58,20 @@ class Context(
     fun str(name: String) = params.getValue(name).trim()
 
     fun count(stat: String, by: Int = 1) { stats[stat] = (stats[stat] ?: 0) + by }
+
+    /** The macro got [n] of [item]. */
+    fun got(item: String, n: Int = 1) {
+        val name = item.trim().ifEmpty { return }
+        val key = items.keys.firstOrNull { it.equals(name, ignoreCase = true) } ?: name
+        items[key] = (items[key] ?: 0) + n
+    }
+
+    /** The items named in a reward text ("Rewards received: Chronos Stone x5"); how many were read. */
+    fun gotText(text: String): Int {
+        val found = RunSummary.parseItems(text)
+        for ((k, v) in found) got(k, v)
+        return found.size
+    }
 
     fun refresh(): Frame {
         frame?.gray?.release()
@@ -378,6 +394,9 @@ object Runner {
     val isPaused get() = paused.get()
     var current: String? = null
         private set
+    /** The last screen the running macro (or one it runs) recognised, as "macro: screen". */
+    @Volatile var lastScreen: String? = null
+        private set
 
     /** Notified (on any thread) whenever running/paused changes. */
     val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
@@ -456,6 +475,8 @@ object Runner {
         stopRequested.set(false)
         paused.set(false)
         current = scenario.name
+        lastScreen = null
+        if (routine == null) RunSummary.hide()
         changed()
         val files = MacroLibrary.files(app)
         val userTemplates = Scenarios.userTemplates(app)
@@ -487,10 +508,13 @@ object Runner {
             changed()
         }
         MacroLog.i("stopped: $reason — ${scenario.summary(ctx.stats)}")
-        runCatching {
-            RunStats.record(RunStats.Record(scenario.name, startedAt, System.currentTimeMillis(), reason, HashMap(ctx.stats),
-                RunStats.reportsSince(app.filesDir, reportsMark), source, routine))
-        }.onFailure { MacroLog.e("could not save the run's statistics", it) }
+        val record = RunStats.Record(scenario.name, startedAt, System.currentTimeMillis(), reason, HashMap(ctx.stats),
+            runCatching { RunStats.reportsSince(app.filesDir, reportsMark) }.getOrDefault(emptyList()), source, routine,
+            LinkedHashMap(ctx.items), MacroLog.status.ifEmpty { null }, lastScreen)
+        runCatching { RunStats.record(record) }.onFailure { MacroLog.e("could not save the run's statistics", it) }
+        // the outcome message: once at the end (a routine shows one for all its steps when it ends)
+        // (runs Claude started: the text goes to macro_status, and the card would cover its screenshots)
+        if (routine == null) runCatching { RunSummary.finished(app, RunSummary.of(record), show = source != "connector") }.onFailure { MacroLog.e("could not show the outcome", it) }
         return reason
     }
 
@@ -519,6 +543,7 @@ object Runner {
         } finally {
             ctx.frame?.gray?.release()
             for ((k, v) in ctx.stats) parent.count(k, v)
+            for ((k, v) in ctx.items) parent.got(k, v)
         }
         MacroLog.i("${sub.name} ended: $reason")
         if (reason == "stop requested" || reason.startsWith("safety stop")) throw StopScenario(reason)
@@ -551,6 +576,7 @@ object Runner {
             if (ctx.screen != last) {
                 MacroLog.i("screen: ${ctx.screen ?: "unknown"}")
                 last = ctx.screen
+                ctx.screen?.let { lastScreen = "${scenario.name}: $it" }
             }
             val screen = ctx.screen
             if (screen == null) {

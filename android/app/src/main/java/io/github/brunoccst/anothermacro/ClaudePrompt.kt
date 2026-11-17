@@ -61,6 +61,7 @@ Actions (one key each):
   back: true        wait: seconds        launch: package        log: "text {expr}"
   status: "text {expr}"       (shown on the live log: what the macro is doing now)
   set: {var: expr, ...}       count: stat_name        stop: "text {expr}"
+  got: "reward text {expr}"   (the items it names, e.g. "Chronos Stone x5", go in the outcome message)
   if: expr  then: [actions]  else: [actions]          repeat: {times: expr, do: [actions]}
   reset_view: true            (forget the last view for view_moved())
   fight: skill_       (fight the battle on screen until the field is back, with params skill_1..skill_4 = auto|1-4; sets `outcome` to won/lost/none)

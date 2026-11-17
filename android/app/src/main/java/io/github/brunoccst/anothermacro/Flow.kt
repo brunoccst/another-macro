@@ -23,6 +23,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   back: true        wait: seconds        launch: package        log: "text {expr}"
  *   status: "text {expr}"       (log it and show it on the live log: what the macro is doing now)
  *   set: {var: expr, ...}       count: stat_name        stop: "text {expr}"
+ *   got: "reward text {expr}"   (items it names, "Chronos Stone x5", go in the outcome message) | got: {item: "text", n: expr}
  *   if: expr  then: [actions]  else: [actions]          repeat: {times: expr, do: [actions]}
  *   reset_view: true            (forget the last view for view_moved())
  *   fight: skill_       (fight the battle on screen until the field is back, with skills from params

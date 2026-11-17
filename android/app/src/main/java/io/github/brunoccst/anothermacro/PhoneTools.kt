@@ -267,7 +267,8 @@ class PhoneTools(
         val log = (if (find.isEmpty()) all else all.filter { it.contains(find, ignoreCase = true) }).takeLast(n).joinToString("\n")
         val head = when {
             running -> "running: ${Runner.current} — now: ${MacroLog.shown.ifEmpty { "-" }}"
-            Background.name != null -> "not running; ${Background.name} stopped: ${Background.result ?: "?"}"
+            Background.name != null -> "not running; ${Background.name} stopped: ${Background.result ?: "?"}" +
+                (RunSummary.last?.let { "\noutcome (tell the user): ${it.text.replace("\n", "\n  ")}" } ?: "")
             else -> "no macro running"
         }
         // a black frame is the usual reason for "the game isn't in front" loops: say it plainly

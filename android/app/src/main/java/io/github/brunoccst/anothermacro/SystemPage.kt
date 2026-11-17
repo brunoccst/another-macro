@@ -127,6 +127,9 @@ class SystemPage(private val a: MainActivity) {
             addView(switchRow("Live log", "A line at the bottom right saying what the macro is doing, while it runs.",
                 LiveLog.enabled(a)) { on -> LiveLog.setEnabled(a, on) })
             addView(Ui.divider(a))
+            addView(switchRow("Outcome message", "When a macro ends (after its last loop, or a routine's last step), a card over the game says how it went: what it got, or where it got stuck and why.",
+                RunSummary.enabled(a)) { on -> RunSummary.setEnabled(a, on) })
+            addView(Ui.divider(a))
             addView(Ui.text(a, "Floating buttons", 15f, bold = true))
             addView(Ui.text(a, "While screen capture is on: the selected macro (tap it to pick another), ▶ start, ❚❚ pause, ■ stop, ↻ restart. Drag the round AM badge on top to move them, tap it to fold them.", 12.5f, Ui.MUTED))
         })
