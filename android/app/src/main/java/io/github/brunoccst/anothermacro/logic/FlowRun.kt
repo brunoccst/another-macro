@@ -183,6 +183,8 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
             "ad_in_front" -> InputService.instance?.let { s ->
                 s.foreground == ClaudeSafety.GAME && s.foregroundActivity.let { a -> a != null && a != GAME_ACTIVITY }
             } ?: false
+            // the game's own activity in front (no commercial, no other app), as last reported by Android
+            "game_screen" -> InputService.instance?.let { s -> s.foreground == ClaudeSafety.GAME && s.foregroundActivity == GAME_ACTIVITY } ?: false
             "view_moved" -> viewMoved(ctx)
             "now" -> System.currentTimeMillis() / 1000.0
             // on-screen text (OCR) contains this, loosely (case and punctuation ignored)

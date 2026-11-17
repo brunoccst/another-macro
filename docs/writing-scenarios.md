@@ -84,7 +84,7 @@ Actions (one key each):
 | `another_dungeon: <id>`, `phantom_crystal: true`, `cat_daily: true`, ... | the big steps written in Kotlin |
 
 Expressions can use the params, variables and `found('t')`, `captured('t')`, `text_has('s')`,
-`screen_text(y0, y1)`, `game_in_front()`, `ad_in_front()`, `view_moved()`, `now()`,
+`screen_text(y0, y1)`, `game_in_front()`, `ad_in_front()`, `game_screen()` (the game's own activity in front: no commercial), `view_moved()`, `now()`,
 `pick(i, a, b, ...)`. The full, current list is the comment at the top of
 `android/app/src/main/java/.../Flow.kt`; `macros/basic/grind-battles.yaml` is a complete
 example. A new step written in Kotlin goes in `logic/FlowRun.kt` and `logic/Entry.kt` (see

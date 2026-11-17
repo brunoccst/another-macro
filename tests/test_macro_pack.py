@@ -155,3 +155,14 @@ def test_check_wants_how_steps(tmp_path):
     # a step the app describes itself needs no how:
     f.write_text(yaml.safe_dump({"name": "x", "group": "daily", "screens": [], "handlers": {"field": [{"another_dungeon": "dogma_tower"}]}}))
     assert not any("how" in p for p in macro_pack.check(tmp_path))
+
+
+def test_watch_ad_stops_when_no_commercial_played():
+    # no commercial (the game shows its chest straight away): watch-ad stops so the caller opens
+    # the chest, instead of pressing Back on it after ad_wait_s
+    flow = (ROOT / "android/app/src/main/java/io/github/brunoccst/anothermacro/logic/FlowRun.kt").read_text()
+    assert '"game_screen"' in flow
+    _, spec = macro_pack.macros()["watch-ad"]
+    acts = list(_flat(spec["unknown"]))
+    no_ad = [a for a in acts if "not ad_seen and game_screen()" in str(a.get("if", ""))]
+    assert no_ad and any("no commercial" in str(a.get("stop", "")) for a in no_ad[0]["then"])
