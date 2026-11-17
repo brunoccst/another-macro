@@ -10,25 +10,33 @@ import org.opencv.core.Mat
 import org.opencv.core.Rect
 import org.opencv.core.Size
 import org.opencv.imgproc.Imgproc
-import org.snakeyaml.engine.v2.api.Load
-import org.snakeyaml.engine.v2.api.LoadSettings
 
 /**
  * Runs a YAML macro's steps (see the format at the top of FlowScenario in Flow.kt). Part of the
- * logic pack: a new step or expression function goes here and in [Entry.ACTIONS], and reaches the
- * phone without an app install.
+ * logic pack: a new generic step or expression function goes here and in [STEPS], and reaches the
+ * phone without an app install. Every other step belongs to the game's [plugin] ([GamePlugin]).
  */
-class FlowRun(private val scenario: FlowScenario) : FlowEngine {
+class FlowRun(private val scenario: FlowScenario, private val plugin: GamePlugin = Entry.PLUGIN) : FlowEngine {
     private val name = scenario.name
     private val spec = scenario.spec
     private val handlers = map(spec["handlers"]).entries.associate { (k, v) -> k.toString() to list(v) }
     private val vars = HashMap<String, Any?>()
     private var lastView: Mat? = null
-    private var feather: FeatherFinder? = null
+    private var game = plugin.newRun()
+
+    /** What the plugin's steps see of this macro run. */
+    private fun macro(c: Context) = object : GamePlugin.Macro {
+        override val ctx: Context = c
+        override val name: String = this@FlowRun.name
+        override val vars: MutableMap<String, Any?> = this@FlowRun.vars
+        override fun value(v: Any?): Any? = this@FlowRun.value(c, v)
+        override fun text(v: Any?): String = this@FlowRun.text(c, v)
+    }
 
     override fun setup(ctx: Context) {
         vars.clear()
         lastView?.release(); lastView = null
+        game = plugin.newRun()
         for ((k, v) in ctx.params) vars[k] = FlowScenario.typed(v)
         runActions(ctx, list(spec["setup"]))
     }
@@ -83,15 +91,6 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
                 repeat(num(ctx, m["times"]).toInt()) { runActions(ctx, list(m["do"])) }
             }
             "reset_view" in a -> { lastView?.release(); lastView = null }
-            "find_feather" in a -> findFeather(ctx)
-            "read_cat_clues" in a -> vars["report"] = readCatClues(ctx)
-            "cat_daily" in a -> ctx.stop(CatDaily.run(ctx))
-            "fight" in a -> {
-                val prefix = a["fight"]?.toString()?.takeIf { it != "true" } ?: "skill_"
-                val outcome = Battle.fight(ctx) { Battle.Setup.from(ctx.params, prefix) }
-                vars["outcome"] = outcome.name.lowercase()
-                if (outcome == Battle.Outcome.LOST) ctx.stop("party was defeated")
-            }
             "run" in a -> {
                 val target = runTarget(a["run"])
                 val m = mapOrNull(a["run"])
@@ -100,55 +99,13 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
                 val until = list(m?.get("until")).map { it.toString() }
                 vars["result"] = Runner.runInside(sub, given, ctx, until)
             }
-            "another_dungeon" in a -> ctx.stop(AnotherDungeon.run(ctx, a["another_dungeon"].toString()))
-            "phantom_crystal" in a -> ctx.stop(PhantomCrystal.run(ctx))
-            "pick_party" in a -> {
-                val v = Expr.str(value(ctx, a["pick_party"]))
-                val n = Party.number(v) ?: throw IllegalArgumentException("$name: pick_party: '$v' is not a party number")
-                vars["result"] = Party.choose(ctx, n)
-            }
-            else -> throw IllegalArgumentException("$name: unknown action ${a.keys}")
+            // a step of the game's own (fights, dungeons, ...)
+            else -> plugin.actions.firstOrNull { it in a }?.let { game.run(macro(ctx), it, a) }
+                ?: throw IllegalArgumentException("$name: unknown action ${a.keys}")
         }
     }
 
     // --- builtins ----------------------------------------------------------------
-    private fun findFeather(ctx: Context) {
-        val ff = feather ?: FeatherFinder.load(ctx).also { feather = it }
-        vars["tapped"] = false
-        val f1 = ctx.frame ?: return
-        val (score, p1) = ff.find(f1)
-        if (score < FEATHER_MIN) return
-        // the bubble rides on the cat, which keeps walking: lead its motion
-        val t1 = System.currentTimeMillis()
-        val (score2, p2) = ff.find(ctx.refresh())
-        val target = if (score2 >= FEATHER_MIN) {
-            val vx = (p2.x - p1.x) / ((System.currentTimeMillis() - t1).coerceAtLeast(50) / 1000.0)
-            Point((p2.x + vx * TAP_LATENCY_S).coerceIn(0.02, 0.98), p2.y)
-        } else p1
-        ctx.tapExact(target)
-        vars["tapped"] = true
-    }
-
-    @Suppress("UNCHECKED_CAST")
-    private fun readCatClues(ctx: Context): String {
-        val riddles = try {
-            val text = ctx.assets.open("templates/cat_scratchbook/riddles.yaml").bufferedReader().use { it.readText() }
-            Load(LoadSettings.builder().build()).loadFromString(text) as? Map<String, Map<String, Any?>> ?: emptyMap()
-        } catch (e: java.io.IOException) { emptyMap() }
-        val lib = ctx.vision.library.templates
-        val known = riddles.keys.filter { lib[it]?.available == true && ctx.find(it) != null }
-        ctx.stats["known_riddles"] = known.size
-        val lines = known.map { n ->
-            val r = riddles.getValue(n)
-            val where = (r["location"] as? String ?: "location unknown") + ((r["era"] as? String)?.let { " ($it)" } ?: "")
-            "$where: ${r["text"] ?: n}"
-        }.toMutableList()
-        val unknown = (3 - known.size).coerceAtLeast(0)
-        ctx.stats["unknown_riddles"] = unknown
-        if (unknown > 0) lines += "$unknown clue(s) not recognised yet"
-        return lines.joinToString("; ")
-    }
-
     private fun viewMoved(ctx: Context): Boolean {
         val g = ctx.frame?.gray ?: return true
         val roi = g.submat(Rect(0, (g.rows() * 0.25).toInt(), (g.cols() * 0.8).toInt(), (g.rows() * 0.55).toInt()))
@@ -240,7 +197,8 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
 
 
     companion object {
-        const val FEATHER_MIN = 0.78
-        const val TAP_LATENCY_S = 0.4
+        /** The generic steps: any game's macros can use them. Keep in step with [runAction]. */
+        val STEPS = setOf("if", "tap", "tap_exact", "drag", "walk", "back", "home", "leave_ad", "force_close", "wait", "launch", "log",
+            "status", "set", "count", "got", "stop", "repeat", "reset_view", "run")
     }
 }
