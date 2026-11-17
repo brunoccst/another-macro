@@ -698,7 +698,7 @@ object AnotherDungeon {
     private fun whereAmI(r: Run): Int? {
         val ctx = r.ctx
         if (!waitForField(ctx, 10) && !(talkThrough(r) && waitForField(ctx, 6))) return null
-        ctx.tap(AreaNav.MINIMAP); ctx.wait(1.5)
+        ctx.tap(AreaNav.minimap(ctx)); ctx.wait(1.5)
         ctx.refresh()
         if (Battle.inBattle(ctx)) return null // a battle started: no close tap (it would hit a portrait)
         val text = ctx.readText()
