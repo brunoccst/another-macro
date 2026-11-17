@@ -61,6 +61,9 @@ class MapData:
     exit: tuple[float, float] | None
     # items to pick up from the ground (green/blue sparks): stops planned together with the chests
     sparkles: list[tuple[float, float]] = field(default_factory=list)
+    # fish to harpoon (fish icons on the area map) and bait jars to empty (jar icons): stops like the sparkles
+    fish: list[tuple[float, float]] = field(default_factory=list)
+    jars: list[tuple[float, float]] = field(default_factory=list)
 
 
 class WalkTable:
@@ -117,6 +120,8 @@ def load_maps(path: Path = DUNGEONS) -> list[tuple[str, int, MapData | None, dic
                     arrival=tuple(m["arrival"]),
                     exit=tuple(m["exit"]) if m.get("exit") else None,
                     sparkles=[tuple(c) for c in m.get("sparkles", [])],
+                    fish=[tuple(c) for c in m.get("fish", [])],
+                    jars=[tuple(c) for c in m.get("jars", [])],
                 )
             out.append((did, i, layout, m))
     return out
@@ -251,8 +256,9 @@ def _leg_steps(m: MapData, t: WalkTable, pos, target, moves) -> tuple[list[str],
 
 
 def plan(m: MapData, t: WalkTable) -> list[list[str]]:
-    """The fastest order through every chest (and sparkle) to the exit, as legs [target, step, step...]."""
+    """The fastest order through every chest (and sparkle, fish, jar) to the exit, as legs [target, step, step...]."""
     stops = [(f"chest {i + 1}", c) for i, c in enumerate(m.chests)] + [(f"sparkle {i + 1}", p) for i, p in enumerate(m.sparkles)]
+    stops += [(f"fish {i + 1}", p) for i, p in enumerate(m.fish)] + [(f"jar {i + 1}", p) for i, p in enumerate(m.jars)]
     best = None
     for order in itertools.permutations(range(len(stops))):
         at, cost = m.arrival, 0.0

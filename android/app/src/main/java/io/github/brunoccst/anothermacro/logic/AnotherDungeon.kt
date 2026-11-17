@@ -38,6 +38,9 @@ object AnotherDungeon {
                        val sparkles: List<Point> = emptyList(),
                        /** The sparkles change place every run (Underworld's Zero Point): read off the area map's bag icons on arrival. */
                        val sparkleIcons: Boolean = false,
+                       /** Fish to harpoon (the area map's fish icons) and bait jars to empty (its jar icons): stops on the path. */
+                       val fish: List<Point> = emptyList(),
+                       val jars: List<Point> = emptyList(),
                        /** The way on is walking off the screen's edge at [exit] (no sign): Nazrik into Zero Point. */
                        val exitWalk: Boolean = false,
                        /** This map's area map scrolls up and down with the party (see [Spec.areaMapScrolls]). */
@@ -47,6 +50,7 @@ object AnotherDungeon {
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
             chests = chests.map { Point(it.x + dx, it.y) }, exit = exit?.let { Point(it.x + dx, it.y) },
             sparkles = sparkles.map { Point(it.x + dx, it.y) },
+            fish = fish.map { Point(it.x + dx, it.y) }, jars = jars.map { Point(it.x + dx, it.y) },
         )
     }
     data class Spec(
@@ -102,6 +106,8 @@ object AnotherDungeon {
                 (m["steps"] as? List<*>)?.map { it.toString() },
                 lists(m["sparkles"]).map { Point(it[0], it[1]) },
                 m["sparkle_icons"] == true,
+                lists(m["fish"]).map { Point(it[0], it[1]) },
+                lists(m["jars"]).map { Point(it[0], it[1]) },
                 m["exit_walk"] == true,
                 m["area_map_scrolls"] == true,
             )
@@ -122,6 +128,8 @@ object AnotherDungeon {
         var chestsDone = 0
         /** Following a path: how many of its legs (chests, sparkles) are done. */
         var legsDone = 0
+        /** A stop just before was left out (its collect option is off): the next leg is walked by the area map, not its fixed steps. */
+        var offPlan = false
         var cleared = false
         var onBossMap = false
         var bossNext = false
@@ -198,7 +206,11 @@ object AnotherDungeon {
         // the party first, from the field (the menu's Party page)
         // (by its number in the game's list, through the basic macro pick-party)
         Party.number(ctx.params["party"])?.let { n ->
-            if (waitForField(ctx, 5)) {
+            // inside a dungeon the menu has no party list to switch (Party / Food / Quit / Other):
+            // a run started there keeps the party in front
+            if (waitForField(ctx, 5) && PhantomCrystal.inside(ctx)) {
+                MacroLog.i("party $n: started inside a dungeon, keeping the party in front")
+            } else if (waitForField(ctx, 5)) {
                 val got = ctx.runBasic("pick-party", mapOf("party" to "$n"))
                 if (got != "party $n picked") ctx.stop("party $n: $got")
             } else MacroLog.i("party $n: not on the field (a battle?), keeping the party in front")
@@ -340,14 +352,20 @@ object AnotherDungeon {
                     if (r.pos != null) { r.unsure = true; r.lastDir = 0.0 }
                 }
                 // sparkles that move every run: read where they are once the map is cleared, then each in turn
+                ms.sparkleIcons && ms.layout != null && r.live == null && !collects(ctx, "sparkles") -> r.live = mutableListOf()
                 ms.sparkleIcons && ms.layout != null && r.live == null -> readSparkles(r, ms)
                 ms.sparkleIcons && ms.layout != null && r.live!!.isNotEmpty() -> takeSparkleAt(r, ms, r.live!!.removeAt(0))
                 // on a path: its legs in order (chests, sparkles), then the exit
                 ms.path != null && r.pos != null && r.legsDone < ms.path.size && ms.path[r.legsDone].target != "exit" -> {
                     val leg = ms.path[r.legsDone]
+                    val off = (leg.sparkle != null && !collects(ctx, "sparkles")) || (leg.fish != null && !collects(ctx, "fish")) ||
+                        (leg.jar != null && !collects(ctx, "jars"))
                     when {
+                        off -> { MacroLog.i("${leg.target}: left out (its option is off)"); r.offPlan = true }
                         leg.chest != null && leg.chest < ms.chests.size -> takeChest(r, ms, ms.chests[leg.chest])
                         leg.sparkle != null && leg.sparkle < ms.sparkles.size -> takeSparkle(r, ms, leg, ms.sparkles[leg.sparkle])
+                        leg.fish != null && leg.fish < ms.fish.size -> takeFish(r, ms, leg, ms.fish[leg.fish])
+                        leg.jar != null && leg.jar < ms.jars.size -> takeJar(r, ms, leg, ms.jars[leg.jar])
                         else -> MacroLog.i("path leg ${leg.target}: nothing to do")
                     }
                     r.legsDone++
@@ -625,6 +643,15 @@ object AnotherDungeon {
         }
         if (!opened) return null.also { MacroLog.i("the world map didn't open") }
         ctx.tap(ERA_OTHER); ctx.wait(2.0)
+        // the "???" tab opens on the continent of its last trip (Underworld after an Underworld run):
+        // the Rift is on Illusion World, so Expand and pick that continent when it isn't in view
+        if (ctx.readText().none { Ocr.norm(it.text).contains("spacetime rift") }) {
+            MacroLog.i("no Spacetime Rift in view: Expand -> Illusion World")
+            if (tapText(r, "Expand", exact = true) != null) {
+                ctx.wait(2.0)
+                if (tapText(r, "Illusion World") != null) ctx.wait(2.0)
+            }
+        }
         if (tapText(r, "Spacetime Rift") == null) {
             MacroLog.i("no Spacetime Rift on the map: ${seen(ctx)}")
             ctx.tap(AD_CLOSE); ctx.wait(1.5)
@@ -950,6 +977,180 @@ object AnotherDungeon {
     }
 
     /**
+     * A fish stop (Sea of Ice): walk the path's leg there, find the fish floating in its glow and tap it once
+     * (a harpoon throw: "It nimbly dodged the harpoon!" on a miss, a card with the fish's size on a catch;
+     * either way that fish is gone for the run, so a stop without one is fine). A tap from far off threw
+     * nothing (2026-11-17): a fish more than [FISH_REACH] from the party is walked toward first.
+     */
+    private fun takeFish(r: Run, ms: MapSpec, leg: Route.Leg, at: Point) {
+        val ctx = r.ctx
+        task(r, "Map ${r.map + 1}: ${leg.target}")
+        walkLeg(r, ms, leg, at)
+        fight(r)
+        var steps = 0
+        var walked = false
+        var end = System.currentTimeMillis() + 2500
+        while (System.currentTimeMillis() < end) {
+            val p = fishShadow(ctx)
+            if (p == null) {
+                // not in view: a dark-scene walk can stop short of the spot (a false "stood still", 2026-11-17):
+                // walk there by the area map once and look again
+                if (System.currentTimeMillis() + 200 >= end && !walked && ms.layout != null) {
+                    walked = true
+                    MacroLog.i("no fish in view: walking to (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}) by the area map")
+                    AreaNav.walkLayout(ctx, ms.layout, at, onStep(r))
+                    fight(r)
+                    r.unsure = true
+                    end = System.currentTimeMillis() + 3000
+                }
+                ctx.wait(0.2); continue
+            }
+            // the throw itself doesn't move the party (the map showed it within ~0.009 of the leg's end after
+            // throws, 2026-11-17): only a step toward the fish makes its spot unsure (saves a ~4 s map look)
+            if (abs(p.x - 0.5) > FISH_REACH && steps < 4) {
+                r.unsure = true
+                val dir = if (p.x < 0.5) -1.0 else 1.0
+                MacroLog.i("fish at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)}): a step toward it")
+                ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), FISH_STEP_MS); ctx.wait(0.4)
+                fight(r)
+                steps++
+                continue
+            }
+            MacroLog.i("fish at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)}): throwing")
+            ctx.tapExact(p); ctx.wait(0.8)
+            val until = System.currentTimeMillis() + 4000
+            while (System.currentTimeMillis() < until) {
+                val read = ctx.readText()
+                val all = read.joinToString(" ") { Ocr.norm(it.text) }
+                if ("dodged" in all || "harpoon" in all) {
+                    MacroLog.i("fish: missed (${read.joinToString(" ") { it.text }.take(80)})")
+                    ctx.count("fish_missed")
+                    ctx.tap(Point(0.5, 0.65)); ctx.wait(0.5); waitForField(ctx, 4)
+                    return
+                }
+                // the catch's card: the fish's name over "Size ... cm"
+                if ("size" in all && "cm" in all) {
+                    MacroLog.i("fish: caught ${read.joinToString(" ") { it.text }.take(80)}")
+                    ctx.count("fish")
+                    ctx.tap(Point(0.5, 0.5)); ctx.wait(0.8); waitForField(ctx, 4)
+                    return
+                }
+                ctx.wait(0.3)
+            }
+            MacroLog.i("tapped the fish, nothing came: ${ctx.readText().joinToString(" | ") { it.text }.take(120)}")
+            waitForField(ctx, 3)
+            return
+        }
+        MacroLog.i("no fish by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
+    }
+
+    /**
+     * A bait jar stop (Sea of Ice): the user sets bait at a shrimp icon and the jar fills in about a day. A
+     * full jar has a "!" by it: tap it and take what it gives. The macro never sets or buys bait: anything
+     * that is not a plain collect (a bait list, a purchase) is closed untouched.
+     */
+    private fun takeJar(r: Run, ms: MapSpec, leg: Route.Leg, at: Point) {
+        val ctx = r.ctx
+        task(r, "Map ${r.map + 1}: ${leg.target}")
+        walkLeg(r, ms, leg, at)
+        fight(r)
+        var b: Point? = null
+        val end = System.currentTimeMillis() + 2000
+        while (b == null && System.currentTimeMillis() < end) {
+            ctx.refresh()
+            b = ctx.find(BUBBLE)?.center?.takeIf { abs(it.x - 0.5) < 0.3 }
+            if (b == null) ctx.wait(0.2)
+        }
+        if (b == null) { MacroLog.i("${leg.target}: no \"!\" (no bait set, or not full yet)"); return }
+        r.unsure = true
+        ctx.tapExact(b); ctx.wait(1.5)
+        var read = ctx.readText()
+        var all = read.joinToString(" ") { Ocr.norm(it.text) }
+        MacroLog.i("${leg.target}: ${read.joinToString(" | ") { it.text }.take(160)}")
+        if (PURCHASE_WORDS.any { it in all } || "bait" in all) {
+            closeMenu(r)
+            MacroLog.i("${leg.target}: not full (the game offered bait or a purchase): closed, nothing set or bought")
+            return
+        }
+        // a question to collect first ("Collect ...?" Yes)
+        if (listOf("collect", "gather", "retrieve").any { it in all }) {
+            read.firstOrNull { Ocr.norm(it.text) in setOf("yes", "ok") }?.let { ctx.tapExact(it.center); ctx.wait(1.5) }
+            read = ctx.readText(); all = read.joinToString(" ") { Ocr.norm(it.text) }
+        }
+        if ("obtain" in all || "obtalned" in all || ("size" in all && "cm" in all)) {
+            noteItems(r, read)
+            ctx.count("jars")
+            repeat(4) { if (waitForField(ctx, 1)) return; ctx.tap(Point(0.5, 0.75)); ctx.wait(0.8) }
+            waitForField(ctx, 4)
+            return
+        }
+        closeMenu(r)
+    }
+
+    /** A collect option of the macro (sparkles, fish, jars): on unless the macro switches it off. */
+    private fun collects(ctx: Context, name: String): Boolean =
+        ctx.params[name]?.trim()?.lowercase()?.let { it in setOf("1", "true", "yes", "on", "y") } ?: true
+
+    /** Close what a tap opened without choosing anything in it: its Close / Cancel / No / Back, else Android Back. */
+    private fun closeMenu(r: Run) {
+        val ctx = r.ctx
+        repeat(3) {
+            if (waitForField(ctx, 1)) return
+            val lines = ctx.readText()
+            val close = lines.firstOrNull { Ocr.norm(it.text) in setOf("close", "cancel", "no", "back") }
+            if (close != null) ctx.tapExact(close.center) else ctx.back()
+            ctx.wait(1.0)
+            // Back on the field asks "Close the app?": No
+            ctx.readText().takeIf { l -> l.any { "close the app" in Ocr.norm(it.text) } }
+                ?.firstOrNull { Ocr.norm(it.text) == "no" }?.let { ctx.tapExact(it.center); ctx.wait(1.0) }
+        }
+    }
+
+    /**
+     * A fish floating over the water (Sea of Ice): an all-black fish-shaped blob (V <= 24; wider than tall,
+     * filling over half its box) in the upper middle of the screen, with a coloured glow around it (mean
+     * saturation 140+). Measured on 6 screenshots with a fish and 16 without (2026-11-17): fish blobs had
+     * area 900-1530 (1024-wide units), fill 0.53-0.57, ring saturation 157-197; dark scenery filled
+     * under 0.4 of its box. The best by area, or null.
+     */
+    private fun fishShadow(ctx: Context): Point? {
+        val bgr = ctx.colorMat() ?: return null
+        val hsv = org.opencv.core.Mat(); org.opencv.imgproc.Imgproc.cvtColor(bgr, hsv, org.opencv.imgproc.Imgproc.COLOR_BGR2HSV)
+        val dark = org.opencv.core.Mat()
+        org.opencv.core.Core.inRange(hsv, org.opencv.core.Scalar(0.0, 0.0, 0.0), org.opencv.core.Scalar(180.0, 255.0, 24.0), dark)
+        val w = bgr.cols(); val h = bgr.rows(); val s = w / 1024.0
+        val keep = org.opencv.core.Mat.zeros(h, w, org.opencv.core.CvType.CV_8U)
+        keep.submat((h * 0.1).toInt(), (h * 0.6).toInt(), (w * 0.03).toInt(), (w * 0.86).toInt()).setTo(org.opencv.core.Scalar(255.0))
+        org.opencv.core.Core.bitwise_and(dark, keep, dark)
+        val sat = org.opencv.core.Mat(); org.opencv.core.Core.extractChannel(hsv, sat, 1)
+        val labels = org.opencv.core.Mat(); val stats = org.opencv.core.Mat(); val cents = org.opencv.core.Mat()
+        val n = org.opencv.imgproc.Imgproc.connectedComponentsWithStats(dark, labels, stats, cents)
+        var best: Point? = null; var bestArea = 0.0
+        for (k in 1 until n) {
+            val area = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_AREA)[0] / (s * s)
+            val bw = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_WIDTH)[0] / s
+            val bh = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_HEIGHT)[0] / s
+            if (area < 600 || area > 3000 || bw < 45 || bw > 160 || bh < 15 || bh > 70 || bw / bh < 1.5) continue
+            if (area / (bw * bh) < 0.48) continue
+            val cx = cents.get(k, 0)[0]; val cy = cents.get(k, 1)[0]
+            if (cy < h * 0.2 || cy > h * 0.55) continue
+            val m = (14 * s).toInt()
+            val bx = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_LEFT)[0].toInt(); val by = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_TOP)[0].toInt()
+            val x0 = (bx - m).coerceAtLeast(0); val y0 = (by - m).coerceAtLeast(0)
+            val x1 = (bx + (bw * s).toInt() + m).coerceAtMost(w); val y1 = (by + (bh * s).toInt() + m).coerceAtMost(h)
+            val ring = org.opencv.core.Mat()
+            val labSub = labels.submat(y0, y1, x0, x1); val satSub = sat.submat(y0, y1, x0, x1)
+            org.opencv.core.Core.compare(labSub, org.opencv.core.Scalar(k.toDouble()), ring, org.opencv.core.Core.CMP_NE)
+            val glow = org.opencv.core.Core.mean(satSub, ring).`val`[0]
+            listOf(ring, labSub, satSub).forEach { it.release() }
+            if (glow < 140 || area <= bestArea) continue
+            bestArea = area; best = Point(cx / w, cy / h)
+        }
+        listOf(bgr, hsv, dark, keep, sat, labels, stats, cents).forEach { it.release() }
+        return best
+    }
+
+    /**
      * A sparkle's star: a small near-white green core (H 45-82, S 10-75, V 215+) inside a teal glow (H 74-102,
      * S 85+), on the ground band (every one seen sat at y 0.53-0.58). The best core by size x glow, or null.
      * Measured on 15 screenshots of Sea of Ice and Zero Point (2026-11-15): plants, the party and the
@@ -1037,6 +1238,8 @@ object AnotherDungeon {
             r.pos = Point(goal.x, Route.segOf(l, goal)?.y ?: goal.y)
             r.planPos = r.pos
         }
+        // the fixed steps start at the stop before, which was left out: walk there by the area map
+        if (r.offPlan) { r.offPlan = false; offPath("the stop before is switched off"); return }
         /**
          * Read where the party is on the area map (once, after a battle or a chest search) and
          * follow from there. False if it isn't on the street the plan has it on.
@@ -1300,6 +1503,9 @@ object AnotherDungeon {
         MacroLog.i("the exit didn't take us anywhere yet")
     }
 
+    /** A fish further than this from the screen's middle (where the party stands) is walked toward before the throw. */
+    private const val FISH_REACH = 0.3
+    private const val FISH_STEP_MS = 400L
     /** A sparkle this close to the screen's middle (where the party stands) is stepped away from before a retap. */
     private const val SPARKLE_NEAR = 0.06
     /** That step: a short walk. */
