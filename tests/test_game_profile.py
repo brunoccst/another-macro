@@ -69,7 +69,7 @@ def test_logic_never_names_the_game():
 def test_core_never_names_this_app():
     # the core is its own project: nothing in it may name the app or the game that use it
     names = [GAME["name"], GAME["app_name"]]  # case matters: "another macro" is plain English
-    words = [GAME["repo"].split("/")[0], "anothermacro", "another_dungeon", "white key", "phantom crystal",
+    words = [GAME["repo"].split("/")[0], "anothermacro", "another-macro", "another_dungeon", "white key", "phantom crystal",
              "scratchbook", *GAME["safety"]["premium_words"]]
     for f in sorted(p for p in CORE.joinpath("src").rglob("*") if p.is_file() and p.suffix in {".kt", ".xml", ".kts"}):
         text = f.read_text(encoding="utf-8")

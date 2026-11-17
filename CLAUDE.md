@@ -6,6 +6,7 @@ Claude drives the phone through the app's phone connector (an MCP server reached
 Cloudflare Worker relay, `relay/`), from an ordinary chat.
 
 - Macro format and game notes: `docs/writing-scenarios.md`; macro library: `macros/README.md`
+- The generic core (Android shell, macro runner, connector) is the `macro-forge` repository, a git submodule at `core/`: run `git submodule update --init` after cloning. Change core code in macro-forge (it never names this app or the game), then bump the submodule here.
 - Game-specific values (package, safety words, groups, repo): `game.yaml`, see `docs/game-profile.md`. Logic code reads them with `Game.of(ctx)` and never names the game.
 - Phone setup: `docs/setup-android.md`
 - New automation requests ("automate X"): use the `new-scenario` skill

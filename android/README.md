@@ -84,6 +84,10 @@ CI (`.github/workflows/android.yml`) builds the APK. It is signed with the perma
 from the `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` secrets, so updates install
 over an existing copy. Keep a backup of that key: without it installed apps can't be updated.
 
+The app module (`android/app`) holds this game's code (`anothermacro.logic`), name and art. The
+generic core is the `core/` submodule (the macro-forge repository, Gradle module `:core`), so
+fetch it first: `git submodule update --init`, then `gradle -p android assembleDebug logicPack`.
+
 ## Notes
 - Whether the game is in front is read from the capture: a portrait app (e.g. the home screen)
   shows pillar-boxed in the landscape capture.
