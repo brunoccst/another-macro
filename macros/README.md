@@ -50,7 +50,7 @@ A macro runs another one with `run:` and goes on when it ends:
 options among its own, as `<macro>.<option>` (`battle.skill_1`), without declaring them: every
 dungeon macro has its own battle skills, set in its own options under "Battle options". Unset,
 they are the basic macro's own setting. Options the caller always passes in `params:`, or has
-itself under the same name, are left out. Details: [writing-scenarios.md](../docs/writing-scenarios.md#inner-macros-options-come-along-by-themselves).
+itself under the same name, are left out. Details: [writing macros](../../../../macro-forge/blob/main/docs/writing-macros.md#inner-macros-options-come-along-by-themselves).
 So a basic macro runs with its own options as the user set them, then the caller's settings for
 it, then the caller's `params:`.
 

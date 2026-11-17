@@ -6,7 +6,7 @@ description: Create a new Another Eden automation scenario for another-macro (e.
 # New scenario
 
 Turns a request like "automate the Dogma Tower runs" into a working YAML macro that the
-Another Macro app runs on the phone. Read `docs/writing-scenarios.md` first: it explains the
+Another Macro app runs on the phone. Read `core/docs/writing-macros.md` and `docs/writing-scenarios.md` first: they explain the
 run loop, the macro format and templates.
 
 ## 1. Research the game flow
@@ -44,7 +44,7 @@ rough `region:`, but no `ref`/`file` yet.
 ## 3. Write the macro
 
 The macro is a YAML file in `macros/<group>/<name>.yaml` (format in
-`docs/writing-scenarios.md`, see `macros/README.md`). Build it from the basic macros instead
+`core/docs/writing-macros.md`, see `macros/README.md`). Build it from the basic macros instead
 of copying their steps: `run: {macro: watch-ad, until: [<your screen>]}` right after tapping
 any "watch" button, `run: {macro: grind-battles, params: {battles: N}}` or `fight: skill_` for
 battles. Keep it generic: party slots and skill numbers, never character names.

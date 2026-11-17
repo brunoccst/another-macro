@@ -1,6 +1,6 @@
 # The game this app plays: every game-specific value the generic parts of the app read.
 # The build bakes it into the app (GameProfile.kt), and it also ships in the macro pack, where
-# the logic pack reads it (logic/Game.kt). See docs/game-profile.md.
+# the logic pack reads it (logic/Game.kt). See core/docs/game-profile.md.
 name: Another Eden
 app_name: Another Macro
 tagline: Automation for Another Eden, on this phone
@@ -14,6 +14,8 @@ package: games.wfs.anothereden
 activity: net.wrightflyer.toybox.AppActivity
 # the GitHub repo that hosts this app's builds and packs
 repo: brunoccst/another-macro
+# the relay setup guide the app links to (the relay is macro-forge's)
+relay_guide: https://github.com/brunoccst/macro-forge/blob/main/relay/README.md
 # the Android app's id (its package on the phone)
 application_id: anothermacro.app
 # the game's own macro steps (logic pack): the Kotlin object implementing GamePlugin

@@ -75,7 +75,7 @@ The app can act as a **phone connector** for your own Claude chat (claude.ai or 
 apps, any plan, no API key). Claude can then look at the game, tap, walk, start and stop
 macros, capture templates and write new macros.
 
-Set it up once with the steps in **[relay/README.md](../relay/README.md)**: make tokens on
+Set it up once with the steps in **[the relay guide](../../../../macro-forge/blob/main/relay/README.md)**: make tokens on
 **System → Claude**, deploy the small relay Worker to your free Cloudflare account, paste the
 relay address into the app and add the connector address in claude.ai under **Settings →
 Connectors → Add custom connector**.
@@ -118,7 +118,7 @@ On **System → Settings**:
   the connector is on and idle, or on demand on **System → Updates → Install the newest
   build**.
   - Most changes only touch the app's logic and load as a **logic pack**, with no install and
-    no prompt ([logic-pack.md](logic-pack.md)).
+    no prompt ([the logic pack](../../../../macro-forge/blob/main/docs/logic-pack.md)).
   - Other changes need a real install. If Play Protect blocks it, the app does not retry that
     version: install it from System → Updates and choose **Install anyway**.
   - After any install or restart, allow screen capture again (step 2.2) and turn the
