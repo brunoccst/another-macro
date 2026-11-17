@@ -1,0 +1,27 @@
+name: release-cleanup
+# Keeps the releases page to the official release, main's builds and open pull requests' builds
+# (macro-forge's workflow). A pull request that closes takes its branch's dev-/macros-
+# pre-releases and tags with it. Run by hand for a sweep of every branch without an open pull
+# request; old_releases also deletes official releases older than the latest (tags kept).
+on:
+  pull_request:
+    types: [closed]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Only list what would be deleted"
+        type: boolean
+        default: true
+      old_releases:
+        description: "Also delete official releases older than the latest"
+        type: boolean
+        default: false
+jobs:
+  cleanup:
+    uses: brunoccst/macro-forge/.github/workflows/release-cleanup.yml@main
+    permissions:
+      contents: write
+      pull-requests: read
+    with:
+      dry_run: ${{ inputs.dry_run || false }}
+      old_releases: ${{ inputs.old_releases || false }}
