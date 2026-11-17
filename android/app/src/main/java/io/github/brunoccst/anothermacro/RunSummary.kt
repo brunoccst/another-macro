@@ -186,7 +186,8 @@ object RunSummary {
 
     // --- the card -------------------------------------------------------------------------------
 
-    private val main = Handler(Looper.getMainLooper())
+    // lazy: the text above is also used where there is no Android main thread (unit tests)
+    private val main by lazy { Handler(Looper.getMainLooper()) }
     private var shown: View? = null
 
     /** A run (or routine) ended: keep its outcome, log it, and show the card if it is switched on. */
