@@ -12,6 +12,8 @@ about: >-
 # same package is a commercial)
 package: games.wfs.anothereden
 activity: net.wrightflyer.toybox.AppActivity
+# when the game's day starts, in UTC: the Daily schedule runs a few minutes after it
+daily_reset: "15:00"
 # the GitHub repo that hosts this app's builds and packs
 repo: brunoccst/another-macro
 # the relay setup guide the app links to (the relay is macro-forge's)
