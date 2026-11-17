@@ -2,7 +2,7 @@
 
 These are the macros of the Another Macro app. They are **not built into the app**: on every
 push, CI (`.github/workflows/macros.yml`) packs this folder with the templates and data
-(`src/another_macro/macro_pack.py`) and publishes it as the pre-release `macros-<branch>`. The
+(macro-forge's pack tool, `core/tools/macroforge_pack.py`) and publishes it as the pre-release `macros-<branch>`. The
 app downloads the pack of the branch it follows (`main` for releases) and updates it by itself,
 so a change here reaches phones without an app update.
 
