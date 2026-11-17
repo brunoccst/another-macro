@@ -79,6 +79,8 @@ object AnotherDungeon {
     private const val BUBBLE_CORE = "field_interact_bubble_core"
     /** The bubble drawn small, on a map the camera shows zoomed out (Sea of Ice's The Abyss). */
     private const val BUBBLE_SMALL = "field_interact_bubble_small"
+    /** The round bubble with a jar icon over a bait jar when the party stands by it (Sea of Ice, 2026-11-18). */
+    private const val JAR_BUBBLE = "field_jar_bubble"
     /** How far the party walks each way while clearing a map's enemies (area-map units). */
     private const val GRIND_SPAN = 0.09
 
@@ -1069,9 +1071,11 @@ object AnotherDungeon {
     }
 
     /**
-     * A bait jar stop (Sea of Ice): the user sets bait at a shrimp icon and the jar fills in about a day. A
-     * full jar has a "!" by it: tap it and take what it gives. The macro never sets or buys bait: anything
-     * that is not a plain collect (a bait list, a purchase) is closed untouched.
+     * A bait jar stop (Sea of Ice): the user sets bait at a shrimp icon and the jar fills in about a day. Standing
+     * by the jar shows a round bubble with a jar icon (2026-11-18; a "!" is also taken): tap it, and a full jar
+     * gives its catch ("You've caught a total of N fish.", maybe a catch card first), tapped through to the field.
+     * The macro never sets or buys bait: anything that is not a plain collect (a bait list, a purchase) is closed
+     * untouched.
      */
     private fun takeJar(r: Run, ms: MapSpec, leg: Route.Leg, at: Point) {
         val ctx = r.ctx
@@ -1079,35 +1083,43 @@ object AnotherDungeon {
         walkLeg(r, ms, leg, at)
         fight(r)
         var b: Point? = null
-        val end = System.currentTimeMillis() + 2000
+        val end = System.currentTimeMillis() + 3000
         while (b == null && System.currentTimeMillis() < end) {
             ctx.refresh()
-            b = ctx.find(BUBBLE)?.center?.takeIf { abs(it.x - 0.5) < 0.3 }
+            b = (ctx.find(JAR_BUBBLE) ?: ctx.find(BUBBLE))?.center?.takeIf { abs(it.x - 0.5) < 0.3 }
             if (b == null) ctx.wait(0.2)
         }
-        if (b == null) { MacroLog.i("${leg.target}: no \"!\" (no bait set, or not full yet)"); return }
+        if (b == null) { MacroLog.i("${leg.target}: no jar bubble (no bait set, or not full yet)"); return }
         r.unsure = true
-        ctx.tapExact(b); ctx.wait(1.5)
-        var read = ctx.readText()
-        var all = read.joinToString(" ") { Ocr.norm(it.text) }
-        MacroLog.i("${leg.target}: ${read.joinToString(" | ") { it.text }.take(160)}")
-        if (buyWords(r.ctx).any { it in all } || "bait" in all) {
-            closeMenu(r)
-            MacroLog.i("${leg.target}: not full (the game offered bait or a purchase): closed, nothing set or bought")
-            return
+        ctx.tapExact(b)
+        // the party walks to the jar and pulls it up (about 2 s), then the catch shows
+        var caught = false
+        val until = System.currentTimeMillis() + 12000
+        while (System.currentTimeMillis() < until) {
+            ctx.wait(1.0)
+            val read = ctx.readText()
+            val all = read.joinToString(" ") { Ocr.norm(it.text) }
+            if (all.isNotBlank()) MacroLog.i("${leg.target}: ${read.joinToString(" | ") { it.text }.take(160)}")
+            if (buyWords(r.ctx).any { it in all } || "bait" in all) {
+                closeMenu(r)
+                MacroLog.i("${leg.target}: not full (the game offered bait or a purchase): closed, nothing set or bought")
+                return
+            }
+            // a question to collect first ("Collect ...?" Yes)
+            if (listOf("collect", "gather", "retrieve").any { it in all }) {
+                val yes = read.firstOrNull { Ocr.norm(it.text) in setOf("yes", "ok") }
+                if (yes != null) { ctx.tapExact(yes.center); continue }
+            }
+            if ("obtain" in all || "obtalned" in all || "caught" in all || ("size" in all && "cm" in all)) {
+                if (!caught) { caught = true; ctx.count("jars") }
+                noteItems(r, read)
+                ctx.tap(Point(0.5, 0.75))
+                continue
+            }
+            if (caught && waitForField(ctx, 1)) break
         }
-        // a question to collect first ("Collect ...?" Yes)
-        if (listOf("collect", "gather", "retrieve").any { it in all }) {
-            read.firstOrNull { Ocr.norm(it.text) in setOf("yes", "ok") }?.let { ctx.tapExact(it.center); ctx.wait(1.5) }
-            read = ctx.readText(); all = read.joinToString(" ") { Ocr.norm(it.text) }
-        }
-        if ("obtain" in all || "obtalned" in all || ("size" in all && "cm" in all)) {
-            noteItems(r, read)
-            ctx.count("jars")
-            repeat(4) { if (waitForField(ctx, 1)) return; ctx.tap(Point(0.5, 0.75)); ctx.wait(0.8) }
-            waitForField(ctx, 4)
-            return
-        }
+        if (caught) { MacroLog.i("${leg.target}: emptied"); waitForField(ctx, 4); return }
+        MacroLog.i("${leg.target}: nothing to take")
         closeMenu(r)
     }
 
