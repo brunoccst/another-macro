@@ -107,7 +107,7 @@ On **System → Settings**:
   notification says so.
 - **Daily schedule:** runs one macro (picked from the list of installed macros and routines;
   by default `daily-routine`) every day a few minutes
-  after the game's daily reset (15:00 UTC), with that macro's own saved options. Screen
+  after the game's daily reset (15:00 UTC by default, set in `game.yaml` `daily_reset:`; the reset time can be changed under Daily schedule), with that macro's own saved options. Screen
   capture must be on at that time; if it is off, the run is skipped and a notification says
   so. If another macro is running, it tries again every 15 minutes, up to an hour.
 
