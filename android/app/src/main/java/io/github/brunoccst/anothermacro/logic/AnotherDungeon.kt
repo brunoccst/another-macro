@@ -198,7 +198,11 @@ object AnotherDungeon {
         // the party first, from the field (the menu's Party page)
         // (by its number in the game's list, through the basic macro pick-party)
         Party.number(ctx.params["party"])?.let { n ->
-            if (waitForField(ctx, 5)) {
+            // inside a dungeon the menu has no party list to switch (Party / Food / Quit / Other):
+            // a run started there keeps the party in front
+            if (waitForField(ctx, 5) && PhantomCrystal.inside(ctx)) {
+                MacroLog.i("party $n: started inside a dungeon, keeping the party in front")
+            } else if (waitForField(ctx, 5)) {
                 val got = ctx.runBasic("pick-party", mapOf("party" to "$n"))
                 if (got != "party $n picked") ctx.stop("party $n: $got")
             } else MacroLog.i("party $n: not on the field (a battle?), keeping the party in front")
