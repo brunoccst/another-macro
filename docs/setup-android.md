@@ -105,7 +105,8 @@ On **System → Settings**:
 
 - **Notifications:** when a macro ends (how it went) or a scheduled run can't start, a
   notification says so.
-- **Daily schedule:** runs one macro (by default `daily-routine`) every day a few minutes
+- **Daily schedule:** runs one macro (picked from the list of installed macros and routines;
+  by default `daily-routine`) every day a few minutes
   after the game's daily reset (15:00 UTC), with that macro's own saved options. Screen
   capture must be on at that time; if it is off, the run is skipped and a notification says
   so. If another macro is running, it tries again every 15 minutes, up to an hour.
