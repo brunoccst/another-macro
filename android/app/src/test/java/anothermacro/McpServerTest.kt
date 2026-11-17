@@ -35,7 +35,7 @@ class McpServerTest {
         assertEquals(1, r["id"].asInt())
         assertEquals("2025-06-18", r["result"]["protocolVersion"].asText())
         assertTrue(r["result"]["capabilities"].has("tools"))
-        assertEquals("another-macro-phone", r["result"]["serverInfo"]["name"].asText())
+        assertEquals("macroforge-phone", r["result"]["serverInfo"]["name"].asText())
         assertEquals("rules", r["result"]["instructions"].asText())
         val other = ask("""{"jsonrpc":"2.0","id":"a","method":"initialize","params":{"protocolVersion":"2099-01-01"}}""")
         assertEquals("a", other["id"].asText())
