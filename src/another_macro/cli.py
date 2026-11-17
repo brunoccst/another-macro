@@ -12,7 +12,7 @@ import sys
 def cmd_cat_routes(args) -> int:
     from . import cat_routes
 
-    return cat_routes.main(write=args.write, check=args.check, todo=args.todo)
+    return cat_routes.main(write=args.write, check=args.check, todo=args.todo, import_from=args.import_from, force=args.force)
 
 
 def cmd_dungeon_routes(args) -> int:
@@ -34,6 +34,9 @@ def build_parser() -> argparse.ArgumentParser:
     s.add_argument("--write", action="store_true", help="write them into cat_spots.yaml as each spot's path")
     s.add_argument("--check", action="store_true", help="fail if the paths in cat_spots.yaml are out of date")
     s.add_argument("--todo", action="store_true", help="list what each spot still needs measured on the phone")
+    s.add_argument("--import", dest="import_from", metavar="LOG",
+                   help="add the spots the app measured ('MEASURED cat spot:' lines in a saved log) and write their paths")
+    s.add_argument("--force", action="store_true", help="with --import: replace areas that are already in cat_spots.yaml")
     s.set_defaults(fn=cmd_cat_routes)
     return p
 

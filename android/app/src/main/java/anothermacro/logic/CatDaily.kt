@@ -18,6 +18,7 @@ import kotlin.math.abs
  *  3. walk the spot's fixed path to the cat's start (CatRoute), else steer toward the
  *     feather on the area map (party marker vs feather icon); a quest "!" marker can
  *     hide the feather, so the markers stand in for it when it isn't seen;
+ *     a spot with no fixed route is measured first (CatSurvey), so a later import routes it;
  *  4. hunt: walk in short steps and tap the cat's feather bubble (wider on each retry);
  *  5. back to the book (a cat that ran away leaves a new clue) until all are found.
  */
@@ -40,6 +41,9 @@ object CatDaily {
     /** The cat being looked for now ("cat 2 · Baruoki (Present)"), in front of each live log line. */
     private var cat = ""
 
+    /** Spots measured this run for a fixed route (CatSurvey): the outcome names them. */
+    private val surveyed = ArrayList<String>()
+
     /** Log a step and show it on the live log. */
     private fun step(text: String) = MacroLog.status("cat-scratchbook: " + (if (cat.isEmpty()) "" else "$cat: ") + text)
 
@@ -48,6 +52,7 @@ object CatDaily {
 
     fun run(ctx: Context): String {
         cat = ""
+        surveyed.clear()
         val riddles = loadRiddles(ctx)
         val failed = HashSet<String>()
         // why each missed cat was missed, in the order missed: the stop reason lists them, so a
@@ -76,10 +81,10 @@ object CatDaily {
                     else -> "open"
                 }
                 val open = left.filter { it.key !in missed }
-                return if (left.isEmpty() && unknown.isEmpty()) "all cats found today (${done.size} this run)"
+                return (if (left.isEmpty() && unknown.isEmpty()) "all cats found today (${done.size} this run)"
                 else "found ${done.size}" + missedText(missed) +
                     (if (open.isNotEmpty()) "; still open: ${open.joinToString { "${it.location} (${why(it)})" }}" else "") +
-                    (if (unknown.isNotEmpty()) "; unread clues: ${unknown.size}" else "")
+                    (if (unknown.isNotEmpty()) "; unread clues: ${unknown.size}" else "")) + surveyText(surveyed)
             }
             cat = "cat ${done.size + failed.size + 1} · ${next.location} (${next.era})"
             step("going there (clue: \"${next.text.take(60)}\")")
@@ -95,8 +100,12 @@ object CatDaily {
             }
         }
         cat = ""
-        return "stopped after 8 rounds; found ${done.size}" + missedText(missed)
+        return "stopped after 8 rounds; found ${done.size}" + missedText(missed) + surveyText(surveyed)
     }
+
+    /** "; measured for a fixed route: Konium" or "" (the log has each spot's MEASURED line to import). */
+    internal fun surveyText(spots: List<String>) =
+        if (spots.isEmpty()) "" else "; measured for a fixed route: " + spots.joinToString()
 
     /** "; missed: Zarbo (Present): couldn't travel there, ..." or "" when none was missed. */
     internal fun missedText(missed: Map<String, String>) =
@@ -136,6 +145,8 @@ object CatDaily {
             ctx.count("fixed_route_fallbacks")
         } else {
             MacroLog.i("${clue.location}: no fixed route yet (`another-macro cat-routes --todo`)")
+            // measure it now, before the hunt moves the party: the next import makes it a fixed route
+            if (spot?.fixedWalk != true && CatSurvey.measure(ctx, clue.location, fight) != null) surveyed += clue.location
         }
         return search(ctx)
     }
