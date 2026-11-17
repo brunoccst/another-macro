@@ -2,7 +2,12 @@
 # Other macros run it right after tapping a "watch" button (`run: watch-ad`), then go on:
 #   - while the commercial plays (nothing of the game on screen): wait until it shows
 #     "Reward granted" (the ad's own sign that it counted) and press Back then; without that
-#     sign, after ad_wait_s press Back, again every retry_s if it doesn't close
+#     sign, press Back once its own signs say it is over: its progress bar full, its countdown
+#     ("Reward in 12 seconds") done, or its picture still (the end card) for still_s after at
+#     least min_watch_s; else after ad_wait_s press Back, again every retry_s if it doesn't close.
+#     Such an early Back is never counted toward leaving it: commercials ignore Back until they
+#     count, and if one warns "Close video? You will lose your reward", Back answers it (keep
+#     watching) and only the timer closes that commercial
 #   - one watch can be a group of 1 to 3 commercials in a row: each one is closed the same way
 #     (backs and the timer start again for the next), until the game's reward shows
 #   - the game's own screen back after the commercials (the app sees the ad's activity go):
@@ -36,10 +41,15 @@ params:
   max_play: {default: 6, help: "give up after closing this many Google Play sheets"}
   no_ad_s: {default: 10, help: "no commercial seen and the game's own screen on this long: there was no commercial, stop (the caller opens the chest)"}
   leave_after: {default: 4, help: "a commercial still on after this many Backs (no close button): leave it with Home and go back to the game"}
+  early_close: {default: true, help: "close a commercial as soon as it shows it is over (its progress bar full, its countdown done, its end card up), instead of waiting ad_wait_s"}
+  still_s: {default: 5, show_if: early_close, help: "a picture that hasn't moved for this long is the end card (0: don't use this sign)"}
+  min_watch_s: {default: 15, show_if: early_close, help: "never take a still picture for the end card before this long into a commercial"}
 # what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
 how:
   - "No commercial starts and the game's own screen stays {no_ad_s} s: stop (the caller opens the chest)"
   - "Let the commercial play; after {ad_wait_s} s, or once it says \"Reward granted\", press Back to close it"
+  - if: early_close
+    then: ["Close it sooner once it shows it is over: its progress bar full, its countdown done, or its end card still for {still_s} s (after {min_watch_s} s)"]
   - "Still on: press Back again every {retry_s} s (at most {max_backs} Backs). One button can play 1-3 commercials in a row: each is watched"
   - "A commercial that opens Google Play: press Back to close it, nothing in Play is tapped (at most {max_play} times)"
   - "A commercial with no close button after {leave_after} Backs: leave it with Home and go back to the game; still there, force-close the game"
@@ -50,6 +60,7 @@ unknown_timeout_s: 300
 
 setup:
   - set: {since: now(), backs: 0, tries: 0, last_back: 0, granted: false, ads: 1, field_since: 0, ad_seen: false, gone_since: 0, plays: 0, play_back: 0, leaves: 0, started: now()}
+  - set: {left: -1, still: 0, early_on: true, early_backs: 0, warned: false, bar_told: false}
   - status: "watching the commercial (closing it after {ad_wait_s}s)"
 
 handlers:
@@ -138,6 +149,35 @@ unknown:
             then:
               - set: {since: now(), tries: 0, granted: false, ads: ads + 1}
               - status: "watching commercial {ads} of this group"
+          # the commercial's own signs that it is over: Back now instead of after ad_wait_s
+          - if: early_close and ad_in_front() and not warned
+            then:
+              - set: {left: ad_left(), still: screen_still()}
+              # "Close video? You will lose your reward": too early. Back answers it (keep watching);
+              # from now on only the timer closes commercials here
+              - if: ad_warning()
+                then:
+                  - set: {warned: true, last_back: now()}
+                  - count: ad_early_warnings
+                  - log: "commercial {ads} warned it would lose the reward: pressing Back to keep watching (no more early closing)"
+                  - back: true
+                  - wait: 2
+              - if: left > 0 and not bar_told
+                then:
+                  - set: {bar_told: true}
+                  - log: "commercial {ads} shows how long it has left: closing it once it is over"
+              # over, then moving again (the next commercial of a group): it may be closed early too
+              - if: not early_on and left != 0 and still < 1
+                then: [{set: {early_on: true, bar_told: false}}]
+              - if: not warned and early_on and early_backs < 6 and now() - last_back > 4 and (left == 0 or (still_s > 0 and now() - since >= min_watch_s and still >= still_s))
+                then:
+                  - set: {early_on: false, early_backs: early_backs + 1, last_back: now()}
+                  - count: ad_early_backs
+                  - if: left == 0
+                    then: [{log: "commercial {ads} is over (its progress bar or countdown says so): pressing Back"}]
+                    else: [{log: "commercial {ads} looks over (its picture has been still {still_s}s): pressing Back"}]
+                  - back: true
+                  - wait: 2
           # Backs don't close it (a playable commercial with no X): leave it, Home then the game's own
           # screen; the branch above ends the group once the game is back
           # (once left, a commercial still on 20 s later came back by itself: no more Backs for it)

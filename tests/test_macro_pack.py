@@ -170,3 +170,23 @@ def test_watch_ad_stops_when_no_commercial_played():
     acts = list(_flat(spec["unknown"]))
     no_ad = [a for a in acts if "not ad_seen and game_screen()" in str(a.get("if", ""))]
     assert no_ad and any("no commercial" in str(a.get("stop", "")) for a in no_ad[0]["then"])
+
+
+def test_watch_ad_closes_commercials_once_they_are_over():
+    # a commercial without "Reward granted" is closed once its own signs say it is over (its
+    # progress bar, its countdown, its still end card), not after the fixed ad_wait_s; such an
+    # early Back never counts toward leaving it (tries), and a "lose your reward" warning stops it
+    flow = (ROOT / "core/android/core/src/main/java/macroforge/logic/FlowRun.kt").read_text()
+    for fn in ('"ad_left"', '"screen_still"', '"ad_warning"'):
+        assert fn in flow, fn
+    _, spec = macro_pack.macros()["watch-ad"]
+    assert spec["params"]["early_close"]["default"] is True
+    acts = list(_flat(spec["unknown"]))
+    early = [a for a in acts if "left == 0 or" in str(a.get("if", ""))]
+    assert early and "not warned" in early[0]["if"]
+    then = list(_flat(early[0]["then"]))
+    assert any(a.get("back") for a in then)
+    assert not any("tries" in a.get("set", {}) for a in then)
+    assert not any("tap" in a or "tap_exact" in a for a in then)
+    warn = [a for a in acts if a.get("if") == "ad_warning()"]
+    assert warn and any("warned" in a.get("set", {}) for a in warn[0]["then"])
