@@ -112,7 +112,7 @@ object RunSummary {
         lines += if (s.items.isEmpty()) "Got: nothing read" else "Got: " + s.items.joinToString(", ") { "${it.first} ×${it.second}" }
         if (s.whiteKeys > 0) lines += "White Key: ${s.whiteKeys}"
         val did = s.counts.filterValues { it > 0 }
-        if (did.isNotEmpty()) lines += "Counted: " + did.entries.joinToString(", ") { "${Ui.title(it.key).lowercase()} ${it.value}" }
+        if (did.isNotEmpty()) lines += "Counted: " + did.entries.joinToString(", ") { "${it.key.replace('_', ' ')} ${it.value}" }
         return lines
     }
 
