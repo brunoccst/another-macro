@@ -1107,7 +1107,8 @@ object AnotherDungeon {
             }
             // a question to collect first ("Collect ...?" Yes)
             if (listOf("collect", "gather", "retrieve").any { it in all }) {
-                read.firstOrNull { Ocr.norm(it.text) in setOf("yes", "ok") }?.let { ctx.tapExact(it.center); continue }
+                val yes = read.firstOrNull { Ocr.norm(it.text) in setOf("yes", "ok") }
+                if (yes != null) { ctx.tapExact(yes.center); continue }
             }
             if ("obtain" in all || "obtalned" in all || "caught" in all || ("size" in all && "cm" in all)) {
                 if (!caught) { caught = true; ctx.count("jars") }
