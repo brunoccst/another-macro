@@ -19,6 +19,9 @@
 #     the game carries on, the reward is usually lost). Still there after that (some come straight
 #     back and play again): force-close the game from recent apps (force_close) and stop with
 #     "force-closed the game, a commercial did not close"; the caller starts the game again
+#   - no commercial at all (none to show, so the game goes straight to its reward): once the
+#     game's own screen has been in front for no_ad_s with no commercial seen, stop, so the
+#     caller opens the chest (pressing Back there would throw the chest away)
 # Never taps inside a commercial (never its "Play Now", never a store page): only Back closes it.
 name: watch-ad
 group: basic
@@ -31,12 +34,13 @@ params:
   max_backs: {default: 10, help: "give up after this many Backs (a group of up to 3 commercials takes a few each)"}
   field_s: {default: 5, help: "stop once the field has shown this long (a short field between two commercials of a group doesn't count)"}
   max_play: {default: 6, help: "give up after closing this many Google Play sheets"}
+  no_ad_s: {default: 10, help: "no commercial seen and the game's own screen on this long: there was no commercial, stop (the caller opens the chest)"}
   leave_after: {default: 4, help: "a commercial still on after this many Backs (no close button): leave it with Home and go back to the game"}
 screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, close_app, field]
 unknown_timeout_s: 300
 
 setup:
-  - set: {since: now(), backs: 0, tries: 0, last_back: 0, granted: false, ads: 1, field_since: 0, ad_seen: false, gone_since: 0, plays: 0, play_back: 0, leaves: 0}
+  - set: {since: now(), backs: 0, tries: 0, last_back: 0, granted: false, ads: 1, field_since: 0, ad_seen: false, gone_since: 0, plays: 0, play_back: 0, leaves: 0, started: now()}
   - status: "watching the commercial (closing it after {ad_wait_s}s)"
 
 handlers:
@@ -115,6 +119,10 @@ unknown:
             then: [{stop: "the commercials are over ({ads} in this group)"}]
           - wait: 1
         else:
+          # no commercial ever came up and the game's own screen is on (e.g. the chest straight
+          # away): there was none; never press Back here, that would throw the chest away
+          - if: not ad_seen and game_screen() and now() - started >= no_ad_s
+            then: [{stop: "no commercial played: the game's screen is on"}]
           # a Back on "Reward granted" that left a commercial on screen: the next one of the group,
           # with its own timer
           - if: granted and now() - last_back > 4 and not text_has('reward granted')
