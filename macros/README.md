@@ -49,7 +49,9 @@ A macro runs another one with `run:` and goes on when it ends:
 `run:`, as a routine step, or through a Kotlin step such as the dungeon fights) gets that macro's
 options among its own, as `<macro>.<option>` (`battle.skill_1`), without declaring them: every
 dungeon macro has its own battle skills, set in its own options under "Battle options". Unset,
-they are the basic macro's own setting. Options the caller always passes in `params:`, or has
+they are the basic macro's own setting, and that starts as "Global": the Global parameters'
+skill (System → Settings, game.yaml `globals:`). The dungeons' `party` follows the Global
+parameters' party the same way (`global: party`) when set to "Global". Options the caller always passes in `params:`, or has
 itself under the same name, are left out. Details: [writing macros](../../../../macro-forge/blob/main/docs/writing-macros.md#inner-macros-options-come-along-by-themselves).
 So a basic macro runs with its own options as the user set them, then the caller's settings for
 it, then the caller's `params:`.

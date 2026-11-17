@@ -63,8 +63,10 @@ Claude chat ──(custom connector)──> relay (your Cloudflare Worker) <─�
 | Game | `stop-game` | Closes the game the clean way (Back → "Close the app?" → Yes). |
 | Basic | `battle`, `grind-battles`, `watch-ad`, `open-menu`, `open-menu-page`, `back-to-field`, `pick-party` | Building blocks the other macros run. `grind-battles` also works on its own: walk a map and fight every encounter. |
 
-Battles use one skill choice per party slot (`skill_1`..`skill_4` = auto or skill 1-4), set
-once on the `battle` macro and used by every macro that fights.
+Battles use one skill choice per party slot (`skill_1`..`skill_4` = auto or skill 1-4), and the
+dungeons a party by its number. Both are **Global parameters** (System → Settings), set once and
+used by every macro that fights; each macro's own option starts as "Global" and can be set to its
+own value instead. Macro options save as soon as you change them.
 
 ### Safety
 
