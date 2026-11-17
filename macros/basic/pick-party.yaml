@@ -11,6 +11,12 @@ description: "Basic: open Menu → Party and put party N (its number in the game
 templates: [daily_ads]
 params:
   party: {default: 1, choices: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the party to put in front, by its number in the game's party list (1 = the first)"}
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - {run: open-menu, text: "From the field: open the menu"}
+  - {pick_party: party}
+  - {run: back-to-field, text: "Back to the field"}
+  - "Stop with the party picked"
 screens: [menu_open, field]
 unknown_timeout_s: 30
 

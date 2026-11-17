@@ -3,6 +3,7 @@ package io.github.brunoccst.anothermacro.logic
 import io.github.brunoccst.anothermacro.FlowEngine
 import io.github.brunoccst.anothermacro.FlowScenario
 import io.github.brunoccst.anothermacro.LogicEntry
+import io.github.brunoccst.anothermacro.MacroSteps
 
 /**
  * The way into the logic pack: the app creates this class by name (Logic.kt), from the downloaded
@@ -18,6 +19,9 @@ class Entry : LogicEntry {
 
     /** Steps that run basic macros in code: macros using them take over those macros' options. */
     override val stepUses: Map<String, List<String>> = STEP_USES
+
+    /** The app's "How it works" words for the steps this logic runs in code (HowItWorks.kt). */
+    override fun explain(action: String, arg: Any?, env: MacroSteps.Env): List<MacroSteps.Step>? = HowItWorks.explain(action, arg, env)
 
     override fun engine(scenario: FlowScenario): FlowEngine = FlowRun(scenario)
 

@@ -14,7 +14,7 @@ Layout of the zip (the same paths the app reads):
 ``check`` finds what would break a macro on the phone: bad YAML, a duplicate name, a missing
 template folder, a ``run:``, routine step or ``uses:`` naming a macro that isn't there, a macro
 filed under the wrong group folder, an option name with a dot (reserved for the options a macro
-takes over from the macros it runs).
+takes over from the macros it runs), a macro with no steps for the app's "How it works" (``how:``).
 
     python -m another_macro.macro_pack -o macros.zip [--commit SHA --branch NAME]
 """
@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import zipfile
 from pathlib import Path
 
@@ -97,6 +98,60 @@ def _sets(actions) -> list[tuple[str, object]]:
     return out
 
 
+# steps the app's code runs and describes itself in "How it works" (logic/HowItWorks.kt)
+EXPLAINED_STEPS = {"another_dungeon", "phantom_crystal", "cat_daily", "fight", "pick_party", "find_feather", "read_cat_clues"}
+
+
+def _logic_steps(actions) -> set[str]:
+    """The EXPLAINED_STEPS a list of actions uses (also inside if / repeat)."""
+    out: set[str] = set()
+    for a in actions or []:
+        if not isinstance(a, dict):
+            continue
+        out |= EXPLAINED_STEPS & set(a)
+        out |= _logic_steps(a.get("then")) | _logic_steps(a.get("else"))
+        if isinstance(a.get("repeat"), dict):
+            out |= _logic_steps(a["repeat"].get("do"))
+    return out
+
+
+def _check_how(rel, spec: dict, all_macros: dict) -> list[str]:
+    """
+    Every macro tells the app's "How it works" its steps: a routine's steps, a `how:` list, or a
+    step the app's code describes itself (e.g. another_dungeon). In `how:`, a run: names a macro
+    of the library and {name} an option of the macro.
+    """
+    if spec.get("steps"):
+        return []
+    how = spec.get("how")
+    if how is None:
+        used = _logic_steps(spec.get("setup")) | _logic_steps(spec.get("unknown"))
+        for acts in (spec.get("handlers") or {}).values():
+            used |= _logic_steps(acts)
+        return [] if used else [f"{rel}: no how: list (the steps the app shows under How it works)"]
+    problems: list[str] = []
+    params = set(spec.get("params") or {})
+
+    def walk(items):
+        for e in items if isinstance(items, list) else [items]:
+            if isinstance(e, str):
+                for name in re.findall(r"\{([a-z0-9_]+)\}", e):
+                    if name not in params:
+                        problems.append(f"{rel}: how: {{{name}}} is not an option")
+            elif isinstance(e, dict):
+                if "run" in e:
+                    target = e["run"]["macro"] if isinstance(e["run"], dict) else str(e["run"])
+                    if target not in all_macros:
+                        problems.append(f"{rel}: how: runs unknown macro {target!r}")
+                for k in ("then", "else", "sub"):
+                    if k in e:
+                        walk(e[k])
+                if "text" in e:
+                    walk(e["text"])
+    walk(how)
+    return problems
+
+
 def check(root: Path = ROOT) -> list[str]:
     """Problems that would break a macro on the phone (empty = fine)."""
     problems: list[str] = []
@@ -140,6 +195,7 @@ def check(root: Path = ROOT) -> list[str]:
                 problems.append(f"{rel}: runs unknown macro {u!r}")
             elif u == name:
                 problems.append(f"{rel}: runs itself")
+        problems += _check_how(rel, spec, all_macros)
     return problems
 
 

@@ -13,6 +13,21 @@ params:
   pulse_ms: {default: 300, help: "hunt: length of each short walk"}
   max_walks: {default: 120, help: "hunt: give up after this many walks"}
   span: {default: 8, help: "hunt: walks to either side of the start before turning"}
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - if: mode == 'daily'
+    then: [{cat_daily: true}]
+  - if: mode == 'read'
+    then:
+      - "Open Diary → Cat Scratchbook"
+      - {read_cat_clues: true}
+      - "Close the book and stop with today's clues"
+  - if: mode == 'hunt'
+    then:
+      - "Walk in short steps ({pulse_ms} ms), turning after {span} steps either way or when the view stops moving"
+      - {find_feather: true}
+      - "Tap through the cat's scratchbook page and stop (gives up after {max_walks} walks)"
+      - {run: battle, text: "Battles met on the way: fight them with the battle macro"}
 screens: [scratchbook, battle_result, skill_list, battle_command, battle, field]
 unknown_timeout_s: 20
 

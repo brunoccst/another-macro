@@ -7,6 +7,10 @@ description: "Basic: from the field, open the game's menu; stops once it is open
 templates: [daily_ads]
 params:
   max_taps: {default: 4, help: "give up after this many taps on Menu"}
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - "On the field: tap the Menu button until the menu opens (at most {max_taps} taps)"
+  - "Stop once the menu is open"
 screens: [menu_open, field]
 unknown_timeout_s: 30
 

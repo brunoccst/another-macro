@@ -24,6 +24,12 @@ interface LogicEntry {
      * a macro using that step takes over their options like those it runs with `run:` (see [InnerParams]).
      */
     val stepUses: Map<String, List<String>> get() = emptyMap()
+    /**
+     * A logic step ([action] with its argument [arg], e.g. another_dungeon: dogma_tower) in plain
+     * words for the app's "How it works": the steps the code takes, from its data and the options
+     * as set now ([MacroSteps]). Null: no description (the step's name is shown).
+     */
+    fun explain(action: String, arg: Any?, env: MacroSteps.Env): List<MacroSteps.Step>? = null
     fun engine(scenario: FlowScenario): FlowEngine
 }
 

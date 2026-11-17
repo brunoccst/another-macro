@@ -45,11 +45,17 @@ object MacroDiagram {
         val handlers = (spec["handlers"] as? Map<String, Any?>).orEmpty()
         val screens = list(spec["screens"]).map { it.toString() }
         val order = screens + handlers.keys.filter { it !in screens }
-        for ((i, screen) in order.withIndex()) {
-            val nodes = actions(handlers[screen])
-            out += Section("Screen ${i + 1}: ${words(screen)}",
+        // screens doing the very same thing are one section ("Screens 1-4: field, battle, ...")
+        var i = 0
+        while (i < order.size) {
+            var j = i + 1
+            while (j < order.size && handlers[order[j]] == handlers[order[i]]) j++
+            val nodes = actions(handlers[order[i]])
+            val names = order.subList(i, j).joinToString(", ") { words(it) }
+            out += Section(if (j - i == 1) "Screen ${i + 1}: $names" else "Screens ${i + 1}-$j: $names",
                 if (i == 0) "Checked first: the screens are checked in this order, the first one seen wins." else "",
                 nodes.ifEmpty { listOf(Node.Step("nothing (just looks again)", Kind.WAIT)) })
+            i = j
         }
         val unknown = actions(spec["unknown"])
         val timeout = (spec["unknown_timeout_s"] as? Number)?.toInt() ?: 45
@@ -95,7 +101,7 @@ object MacroDiagram {
             "find_feather" in a -> Node.Step("Look for the feather bubble and tap it", Kind.BUILTIN)
             "read_cat_clues" in a -> Node.Step("Read today's clues", Kind.BUILTIN)
             "cat_daily" in a -> Node.Step("Read the clues, travel to each place and find what they describe, then stop", Kind.BUILTIN)
-            "another_dungeon" in a -> Node.Step("Play the Another Dungeon run \"${words(a["another_dungeon"].toString())}\" (enemies, chests, boss), then stop", Kind.BUILTIN)
+            "another_dungeon" in a -> Node.Step("Play the Another Dungeon run \"${words(a["another_dungeon"].toString())}\" (its steps are listed above), then stop", Kind.BUILTIN)
             "phantom_crystal" in a -> Node.Step("Play the Phantom Crystal Dimension world by world, then stop", Kind.BUILTIN)
             "pick_party" in a -> Node.Step("Open Menu → Party and put party ${a["pick_party"]} (its number in the list) in front", Kind.BUILTIN)
             else -> Node.Step(a.keys.joinToString())
@@ -138,6 +144,63 @@ object MacroDiagram {
     private fun list(v: Any?): List<Any?> = when (v) { null -> emptyList(); is List<*> -> v; else -> listOf(v) }
 
     // --- drawing --------------------------------------------------------------------------
+
+    /**
+     * The macro's steps ([MacroSteps]) as a numbered list: sub-steps under their step on a rail
+     * (1, 1.1, 1.2 ...), the options that decided a step under it, a step an option leaves out
+     * greyed. A step that runs another macro opens it when tapped; its own steps are folded under
+     * it ("show its steps").
+     */
+    fun renderSteps(a: android.content.Context, steps: List<MacroSteps.Step>, open: (String) -> Unit, prefix: String = ""): View = LinearLayout(a).apply {
+        orientation = LinearLayout.VERTICAL
+        for ((i, s) in steps.withIndex()) {
+            val num = "$prefix${i + 1}"
+            addView(stepView(a, num, s, open))
+            if (s.sub.isEmpty()) continue
+            val rail = LinearLayout(a).apply {
+                orientation = LinearLayout.HORIZONTAL
+                setPadding(Ui.dp(a, 10), Ui.dp(a, 2), 0, Ui.dp(a, 2))
+                addView(View(a).apply { setBackgroundColor(if (s.macro != null) CALL else Ui.MUTED) },
+                    LinearLayout.LayoutParams(Ui.dp(a, 2), LinearLayout.LayoutParams.MATCH_PARENT))
+                addView(renderSteps(a, s.sub, open, "$num.").apply { setPadding(Ui.dp(a, 8), 0, 0, 0) },
+                    LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+            }
+            if (s.macro == null) { addView(rail); continue }
+            // a macro's own steps: folded until asked for
+            rail.visibility = View.GONE
+            val toggle = Ui.text(a, "▸ show its ${s.sub.size} steps", 12f, Ui.ACCENT, bold = true).apply {
+                setPadding(Ui.dp(a, 12), Ui.dp(a, 2), Ui.dp(a, 8), Ui.dp(a, 6))
+                isClickable = true
+                setOnClickListener {
+                    val show = rail.visibility != View.VISIBLE
+                    rail.visibility = if (show) View.VISIBLE else View.GONE
+                    text = if (show) "▾ hide its steps" else "▸ show its ${s.sub.size} steps"
+                }
+            }
+            addView(toggle); addView(rail)
+        }
+    }
+
+    private fun stepView(a: android.content.Context, num: String, s: MacroSteps.Step, open: (String) -> Unit): View = LinearLayout(a).apply {
+        orientation = LinearLayout.HORIZONTAL
+        setPadding(0, Ui.dp(a, 3), 0, Ui.dp(a, 3))
+        addView(Ui.text(a, num, 12.5f, Ui.MUTED, bold = true).apply { setPadding(0, Ui.dp(a, 7), Ui.dp(a, 6), 0) },
+            LinearLayout.LayoutParams(Ui.dp(a, if ('.' in num) 34 else 22), LinearLayout.LayoutParams.WRAP_CONTENT))
+        val body = LinearLayout(a).apply {
+            orientation = LinearLayout.VERTICAL
+            background = GradientDrawable().apply {
+                cornerRadius = Ui.dp(a, 10).toFloat()
+                setColor(Ui.CARD_ALT)
+                setStroke(Ui.dp(a, 1), when { s.skipped -> Ui.MUTED; s.macro != null -> CALL; else -> Ui.ACCENT })
+            }
+            setPadding(Ui.dp(a, 10), Ui.dp(a, 7), Ui.dp(a, 10), Ui.dp(a, 7))
+            if (s.label.isNotBlank()) addView(Ui.text(a, "▶ ${s.label}", 11.5f, CALL, bold = true).apply { setPadding(0, 0, 0, Ui.dp(a, 2)) })
+            addView(Ui.text(a, s.text + if (s.macro != null) "   ›" else "", 13f, if (s.skipped) Ui.MUTED else Ui.TEXT))
+            if (s.note.isNotBlank()) addView(Ui.text(a, (if (s.note.startsWith("with ")) "" else "Option: ") + s.note, 11.5f, Ui.MUTED).apply { setPadding(0, Ui.dp(a, 2), 0, 0) })
+            s.macro?.let { m -> isClickable = true; setOnClickListener { open(m) } }
+        }
+        addView(body, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+    }
 
     private val COND get() = Ui.WARN
     private val CALL get() = Ui.GOOD

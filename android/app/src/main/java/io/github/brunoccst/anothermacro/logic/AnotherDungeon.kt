@@ -67,7 +67,7 @@ object AnotherDungeon {
         val keyCost: Int = 1,
     )
 
-    private const val DATA = "templates/another_dungeon/dungeons.yaml"
+    const val DATA = "templates/another_dungeon/dungeons.yaml"
     private const val BUBBLE = "field_interact_bubble"
     /** A sparkle's bag icon on the area map (Underworld's Zero Point). */
     private const val BAG_ICON = "templates/another_dungeon/area_map_bag.png"
@@ -83,9 +83,11 @@ object AnotherDungeon {
     /** Words that mean the game wants something bought: never tap on, cancel and stop. */
     private val PURCHASE_WORDS = listOf("purchase", "chronos stone", "tsubura", "insufficient", "not enough")
 
+    fun spec(ctx: Context, id: String): Spec = spec(ctx.assets.open(DATA).bufferedReader().use { it.readText() }, id)
+
+    /** The dungeon [id] from the text of dungeons.yaml (also read by the app's "How it works": HowItWorks.kt). */
     @Suppress("UNCHECKED_CAST")
-    fun spec(ctx: Context, id: String): Spec {
-        val text = ctx.assets.open(DATA).bufferedReader().use { it.readText() }
+    fun spec(text: String, id: String): Spec {
         val all = Load(LoadSettings.builder().build()).loadFromString(text) as Map<String, Map<String, Any?>>
         val d = all[id] ?: throw IllegalArgumentException("unknown Another Dungeon '$id' (known: ${all.keys.joinToString()})")
         fun nums(v: Any?) = (v as? List<*>)?.map { (it as Number).toDouble() }
