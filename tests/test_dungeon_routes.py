@@ -26,13 +26,15 @@ def test_path_takes_every_chest_then_the_exit(did, idx, m, raw, table):
     legs = raw["path"]
     targets = [leg[0] for leg in legs]
     want = [f"chest {i + 1}" for i in range(len(m.chests))] + [f"sparkle {i + 1}" for i in range(len(m.sparkles))]
+    want += [f"fish {i + 1}" for i in range(len(m.fish))] + [f"jar {i + 1}" for i in range(len(m.jars))]
     assert sorted(targets[:-1]) == sorted(want)
     assert targets[-1] == "exit"
     pos = m.arrival
     for leg in legs:
         pos = dr.run_steps(m, table, pos, leg[1:])  # raises if a flick isn't at stairs
         kind, _, n = leg[0].partition(" ")
-        goal = m.exit if kind == "exit" else (m.chests if kind == "chest" else m.sparkles)[int(n) - 1]
+        stops = {"chest": m.chests, "sparkle": m.sparkles, "fish": m.fish, "jar": m.jars}
+        goal = m.exit if kind == "exit" else stops[kind][int(n) - 1]
         assert dr.seg_of(m, pos) == dr.seg_of(m, goal), f"{leg[0]}: ended on the wrong street at {pos}"
         assert abs(pos[0] - goal[0]) <= table.wall_snap, f"{leg[0]}: ended at x={pos[0]:.3f}, goal {goal[0]:.3f}"
 
