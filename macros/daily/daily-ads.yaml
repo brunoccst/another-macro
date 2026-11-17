@@ -2,7 +2,7 @@
 # The counter counts groups: one Watch Video can play 1 to 3 commercials in a row (watch-ad
 # watches the whole group).
 # Each commercial is the basic macro watch-ad (watch it, close it, take the reward); this one
-# opens the ad chest, taps Watch Video and taps through the chest that follows.
+# reaches the ad chest (the basic macro open-menu-page), taps Watch Video and taps through the chest that follows.
 # Premium subscribers get a thank-you instead of the commercial; the chest opens either way.
 name: daily-ads
 group: daily
@@ -10,13 +10,13 @@ icon: chest
 description: "Watch the 5 daily commercial groups (Menu → video icon, 1-3 ads each) for the random chest."
 templates: [start_game, daily_ads]
 params:
-  ad_wait_s: {default: 45, help: "how long to let a commercial play before pressing back to close it"}
+  # how long a commercial plays etc.: the Watch Ad options (watch-ad.*), taken over from the basic macro
   max_ads: {default: 5, help: "stop after this many groups (Watch Video taps)"}
 screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, ad_chest, menu_open, field]
 unknown_timeout_s: 120
 
 setup:
-  - set: {game_starts: 0, menu_taps: 0}
+  - set: {game_starts: 0}
 
 handlers:
   ad_chest:
@@ -32,8 +32,11 @@ handlers:
     - tap: ad_watch_button
     - wait: 3
     # the commercial and its reward dialog: the basic macro; then the chest opens here
-    - run: {macro: watch-ad, params: {ad_wait_s: ad_wait_s}, until: [ad_chest, menu_open]}
+    - run: {macro: watch-ad, until: [ad_chest, menu_open]}
     - log: "commercial {stats.ads_started}: {result}"
+    # watch-ad closed the game to get out of a commercial: starting it again is expected
+    - if: result == 'force-closed the game, a commercial did not close'
+      then: [{set: {game_starts: 0}}]
 
   # left over from a commercial watch-ad didn't see end
   premium_thanks:   # subscribers: no commercial, the chest still opens
@@ -50,42 +53,61 @@ handlers:
   ok_dialog:        # what the chest gave (or "could not receive ... reached the limit")
     - count: rewards
     - status: "chest {stats.rewards}: {screen_text(0.25, 0.8)}"
+    - got: "{screen_text(0.25, 0.8)}"   # the items it names, for the outcome message
     - tap: dialog_ok_button
     - wait: 1.5
 
   reward_confirm:   # "Rewards received: 1 / Chronos Stone x5"
     - count: rewards
     - status: "chest {stats.rewards}: {screen_text(0.25, 0.8)}"
+    - got: "{screen_text(0.25, 0.8)}"
     - tap: confirm_ok_button
     - wait: 1.5
 
+  # Menu → video icon: the basic macro open-menu-page (it opens the menu from the field, and the
+  # game first if it isn't open); it says so when the video icon's red "!" is gone (all done today)
   menu_open:
-    # the red "!" on the video icon is gone once all of today's commercials are used
-    - if: not found('menu_ad_badge')
-      then:
-        - back: true
-        - stop: "all of today's commercials are done ({stats.ads_started} watched this run, {stats.rewards} rewards)"
-    - set: {menu_taps: menu_taps + 1}
-    - status: "menu: opening the commercials (video icon)"
-    - if: menu_taps > 4
-      then: [{stop: "the video icon didn't open the ad chest (maybe no commercials today)"}]
-    - tap: menu_ad_icon
-    - wait: 2.5
+    - run: {macro: open-menu-page, params: {page: "'ads'"}}
+    - if: result == 'no commercials left today'
+      then: [{stop: "all of today's commercials are done ({stats.ads_started} watched this run, {stats.rewards} rewards)"}]
+    - if: result != 'ads open'
+      then: [{stop: "{result}"}]
 
   field:
-    - run: open-menu
-    - if: result != 'menu open'
+    - run: {macro: open-menu-page, params: {page: "'ads'"}}
+    - if: result == 'no commercials left today'
+      then: [{stop: "all of today's commercials are done ({stats.ads_started} watched this run, {stats.rewards} rewards)"}]
+    - if: result != 'ads open'
       then: [{stop: "{result}"}]
 
 unknown:
-  # the game isn't open: the basic macro start-game opens it (once)
-  - if: not game_in_front()
+  # a commercial still in front (watch-ad gave up on it, or it came back; portrait ones too): never
+  # tap it (that plays it). Leave it once (Home, then the game); still there the next time: close
+  # the game from recent apps (the game is then started again)
+  - if: ad_in_front()
     then:
-      - if: game_starts > 0
-        then: [{stop: "the game is not in front"}]
-      - set: {game_starts: game_starts + 1}
-      - run: start-game
-  # the chest opening: tap through it
-  - status: "opening the chest"
-  - tap: [0.5, 0.65]
-  - wait: 1.5
+      - if: stats.ads_left_here >= 2
+        then: [{stop: "a commercial did not close, even after force-closing the game"}]
+      - count: ads_left_here
+      - if: stats.ads_left_here == 1
+        then:
+          - status: "leaving a commercial that won't close"
+          - leave_ad: true
+        else:
+          - status: "force-closing the game: a commercial won't close"
+          - force_close: true
+    else:
+      # the game isn't open: open-menu-page starts it (once) and goes back to the commercials
+      - if: not game_in_front()
+        then:
+          - if: game_starts > 0
+            then: [{stop: "the game is not in front"}]
+          - set: {game_starts: game_starts + 1}
+          - run: {macro: open-menu-page, params: {page: "'ads'"}}
+          - if: result != 'ads open'
+            then: [{stop: "{result}"}]
+        else:
+          # the chest opening: tap through it
+          - status: "opening the chest"
+          - tap: [0.5, 0.65]
+          - wait: 1.5

@@ -13,17 +13,35 @@ import android.widget.TextView
 
 /** The app's look: a dark theme with rounded cards, built in code (no XML layouts). */
 object Ui {
-    val BG = Color.parseColor("#0F1216")
-    val CARD = Color.parseColor("#1A1F26")
-    val CARD_ALT = Color.parseColor("#232A33")
-    val LINE = Color.parseColor("#2C3440")
-    val TEXT = Color.parseColor("#E9EDF2")
-    val MUTED = Color.parseColor("#94A0AE")
-    val ACCENT = Color.parseColor("#4FC3F7")
-    val ACCENT_DIM = Color.parseColor("#1D3A4A")
-    val GOOD = Color.parseColor("#66BB6A")
-    val WARN = Color.parseColor("#FFB74D")
-    val BAD = Color.parseColor("#EF5350")
+    // Colours from the app's logo: near-black ink, deep navy, chrome steel and misty off-white.
+    val BG = Color.parseColor("#0A0E18")
+    val CARD = Color.parseColor("#121A2B")
+    val CARD_ALT = Color.parseColor("#1A2440")
+    val LINE = Color.parseColor("#28344F")
+    val TEXT = Color.parseColor("#EEF0F4")
+    val MUTED = Color.parseColor("#97A3BC")
+    /** Chrome steel blue: links, selections, the main highlight. */
+    val ACCENT = Color.parseColor("#B4C8F0")
+    /** The logo's navy: selected rows, tonal fills. */
+    val ACCENT_DIM = Color.parseColor("#1E2D5C")
+    /** Text and glyphs on an [ACCENT] fill or a [bezel] face: the logo's navy ink. */
+    val ON_ACCENT = Color.parseColor("#0A1230")
+    /** Background of a folded section of options taken over from an inner macro (Macros page). */
+    val INNER_SECTION = Color.parseColor("#0F1626")
+    val GOOD = Color.parseColor("#6FCF97")
+    val WARN = Color.parseColor("#E6B85C")
+    val BAD = Color.parseColor("#E5707A")
+    /** Extra chart/diagram hues, picked to sit with the steel blues. */
+    val VIOLET = Color.parseColor("#A99BE0")
+    val SLATE = Color.parseColor("#8A94A8")
+    /** Floating windows over the game (overlay picker, prompts, live log): navy, slightly see-through. */
+    val OVERLAY_BG = Color.parseColor("#EE0D1426")
+    val OVERLAY_ITEM = Color.parseColor("#E61A2440")
+    /** The logo's chrome: light at the top, a darker steel band, light again at the bottom. */
+    private val CHROME = intArrayOf(Color.parseColor("#F2F5FA"), Color.parseColor("#B9C7E2"), Color.parseColor("#7E93BE"), Color.parseColor("#D5DDEC"))
+    /** The overlay buttons' faces: misty off-white. */
+    val FACE = Color.parseColor("#F7F6F2")
+    val NAVY = Color.parseColor("#182656")
 
     fun dp(c: Context, v: Int) = (v * c.resources.displayMetrics.density).toInt()
 
@@ -32,6 +50,42 @@ object Ui {
         setColor(color)
         if (stroke != null) setStroke(strokeW, stroke)
     }
+
+    /** A rounded fill in the logo's chrome (top-to-bottom steel gradient), optionally with a navy rim. */
+    fun chrome(radius: Float, rim: Int? = null, rimW: Int = 0) =
+        GradientDrawable(GradientDrawable.Orientation.TOP_BOTTOM, CHROME).apply {
+            cornerRadius = radius
+            if (rim != null) setStroke(rimW, rim)
+        }
+
+    /**
+     * Styled like the overlay buttons: a chrome bezel, a thin navy ring, a misty off-white face.
+     * Pad the view by about [ringW] * 2 more than usual so text clears the bezel.
+     */
+    fun bezel(c: Context, radiusDp: Int, ringW: Int = dp(c, 2)): android.graphics.drawable.Drawable {
+        val r = dp(c, radiusDp).toFloat()
+        val ring = rounded(NAVY, r - ringW)
+        val face = rounded(FACE, r - ringW * 1.6f)
+        return android.graphics.drawable.LayerDrawable(arrayOf(chrome(r), ring, face)).apply {
+            setLayerInset(1, ringW, ringW, ringW, ringW)
+            val f = (ringW * 1.6f).toInt()
+            setLayerInset(2, f, f, f, f)
+        }
+    }
+
+    /**
+     * Centres a label in its pill both ways: no extra line spacing or font padding, which
+     * would push the text above the middle of the face.
+     */
+    fun centered(v: TextView) = v.apply {
+        gravity = Gravity.CENTER
+        includeFontPadding = false
+        setLineSpacing(0f, 1f)
+    }
+
+    /** A [bezel] (like the overlay buttons) that ripples when tapped: selected tabs, primary buttons. */
+    fun pressableBezel(c: Context, radiusDp: Int = 14) =
+        RippleDrawable(ColorStateList.valueOf(Color.parseColor("#33182656")), bezel(c, radiusDp), null)
 
     /** A rounded background that ripples when tapped. */
     fun pressable(c: Context, color: Int, radiusDp: Int = 14, stroke: Int? = null) =
@@ -66,9 +120,11 @@ object Ui {
         textSize = 15f
         gravity = Gravity.CENTER
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        setTextColor(if (primary) Color.parseColor("#0B1A22") else color)
-        background = pressable(c, if (primary) color else CARD_ALT, 24)
+        setTextColor(if (primary) ON_ACCENT else color)
+        // a primary button in the accent looks like the overlay buttons; other colours stay flat
+        background = if (primary && color == ACCENT) pressableBezel(c, 24) else pressable(c, if (primary) color else CARD_ALT, 24)
         setPadding(dp(c, 18), dp(c, 12), dp(c, 18), dp(c, 12))
+        centered(this)
         isClickable = true
         setOnClickListener { onClick() }
         layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, LinearLayout.LayoutParams.WRAP_CONTENT)
@@ -107,6 +163,18 @@ object Ui {
         gravity = Gravity.CENTER_VERTICAL
         addView(icon(c, res, sizeDp))
         addView(content, LinearLayout.LayoutParams(0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f))
+    }
+
+    /** The app's name as a small logo: the round "AM" badge, then the name in a serif face. */
+    fun brand(c: Context, sizeSp: Float, badgeDp: Int) = LinearLayout(c).apply {
+        orientation = LinearLayout.HORIZONTAL
+        gravity = Gravity.CENTER_VERTICAL
+        addView(android.widget.ImageView(c).apply { setImageResource(R.drawable.overlay_bubble) },
+            LinearLayout.LayoutParams(dp(c, badgeDp), dp(c, badgeDp)).apply { rightMargin = dp(c, 10) })
+        addView(text(c, "Another Macro", sizeSp).apply {
+            typeface = Typeface.create(Typeface.SERIF, Typeface.BOLD)
+            letterSpacing = 0.03f
+        })
     }
 
     /** "fight_all" → "Fight all". */

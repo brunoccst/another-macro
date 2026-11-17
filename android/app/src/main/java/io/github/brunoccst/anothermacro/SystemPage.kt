@@ -127,6 +127,9 @@ class SystemPage(private val a: MainActivity) {
             addView(switchRow("Live log", "A line at the bottom right saying what the macro is doing, while it runs.",
                 LiveLog.enabled(a)) { on -> LiveLog.setEnabled(a, on) })
             addView(Ui.divider(a))
+            addView(switchRow("Outcome message", "When a macro ends (after its last loop, or a routine's last step), a card over the game says how it went: what it got, or where it got stuck and why.",
+                RunSummary.enabled(a)) { on -> RunSummary.setEnabled(a, on) })
+            addView(Ui.divider(a))
             addView(Ui.text(a, "Floating buttons", 15f, bold = true))
             addView(Ui.text(a, "While screen capture is on: the selected macro (tap it to pick another), ▶ start, ❚❚ pause, ■ stop, ↻ restart. Drag the round AM badge on top to move them, tap it to fold them.", 12.5f, Ui.MUTED))
         })
@@ -188,11 +191,11 @@ class SystemPage(private val a: MainActivity) {
                 setOnClickListener { copy("log", MacroLog.text(), sensitive = false) }
             })
         })
-        into.addView(Ui.card(a, Color.parseColor("#0B0E12")).apply {
+        into.addView(Ui.card(a, Color.parseColor("#070A12")).apply {
             log = TextView(a).apply {
                 typeface = Typeface.MONOSPACE
                 textSize = 11f
-                setTextColor(Color.parseColor("#B8C2CC"))
+                setTextColor(Color.parseColor("#BAC6DC"))
                 setTextIsSelectable(true)
             }
             addView(log)
@@ -227,10 +230,10 @@ class SystemPage(private val a: MainActivity) {
         tabsRow.removeAllViews()
         for ((id, title) in tabTitles) {
             val sel = id == tab
-            tabsRow.addView(Ui.text(a, title, 14f, if (sel) Color.parseColor("#0B1A22") else Ui.TEXT, bold = true).apply {
-                gravity = Gravity.CENTER
-                setPadding(dp(16), dp(9), dp(16), dp(9))
-                background = Ui.pressable(a, if (sel) Ui.ACCENT else Ui.CARD_ALT, 18)
+            tabsRow.addView(Ui.text(a, title, 14f, if (sel) Ui.ON_ACCENT else Ui.TEXT, bold = true).apply {
+                Ui.centered(this)
+                setPadding(dp(16), dp(10), dp(16), dp(10))
+                background = if (sel) Ui.pressableBezel(a, 18) else Ui.pressable(a, Ui.CARD_ALT, 18)
                 isClickable = true
                 setOnClickListener { showTab(id) }
                 layoutParams = LinearLayout.LayoutParams(LinearLayout.LayoutParams.WRAP_CONTENT, LinearLayout.LayoutParams.WRAP_CONTENT).apply { rightMargin = dp(8) }

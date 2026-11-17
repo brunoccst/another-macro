@@ -61,12 +61,22 @@ class FlowRun(private val scenario: FlowScenario) : FlowEngine {
                 ctx.drag(Point(0.5, 0.55), Point(0.5 + dx, 0.55 + dy), num(ctx, m["ms"] ?: 1500).toLong())
             }
             "back" in a -> ctx.back()
+            "home" in a -> AdEscape.home()
+            // a commercial that won't close (no X, Back ignored): Home, then the game's own screen
+            "leave_ad" in a -> AdEscape.leave(ctx)
+            // the last resort: swipe the game away in recent apps; sets `closed`
+            "force_close" in a -> vars["closed"] = AdEscape.forceClose(ctx)
             "wait" in a -> ctx.wait(num(ctx, a["wait"]))
             "launch" in a -> ctx.launchApp(Expr.str(value(ctx, a["launch"])))
             "log" in a -> MacroLog.i(text(ctx, a["log"]))
             "status" in a -> MacroLog.status("$name: ${text(ctx, a["status"])}")
             "set" in a -> map(a["set"]).forEach { (k, v) -> vars[k.toString()] = value(ctx, v) }
             "count" in a -> ctx.count(a["count"].toString())
+            // what the macro got, for the outcome message: a reward text ("Chronos Stone x5"), or {item, n}
+            "got" in a -> when (val g = a["got"]) {
+                is Map<*, *> -> map(g).let { ctx.got(text(ctx, it["item"]), (it["n"] ?: 1).let { n -> num(ctx, n).toInt() }) }
+                else -> ctx.gotText(text(ctx, g))
+            }
             "stop" in a -> ctx.stop(text(ctx, a["stop"]))
             "repeat" in a -> {
                 val m = map(a["repeat"])

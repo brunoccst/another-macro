@@ -59,7 +59,7 @@ class InputService : AccessibilityService() {
             else -> return
         }
         fun attempt(left: Int) {
-            if (clickButton(words)) {
+            if (clickButton(pkg, words)) {
                 // dismissing Play Protect ends the update: press nothing more until the next one
                 if (pkg == "com.android.vending") Updater.blocked(this, null)
                 return
@@ -69,8 +69,14 @@ class InputService : AccessibilityService() {
         main.postDelayed({ attempt(5) }, 500)
     }
 
-    private fun clickButton(words: List<String>): Boolean {
+    /**
+     * Press the first button labelled one of [words] in a window of [pkg] only: never in another
+     * app's window, above all not this app's own floating buttons (their ▶ "Start" once started
+     * the selected macro right after the screen-capture "Start now").
+     */
+    private fun clickButton(pkg: String, words: List<String>): Boolean {
         val roots = (listOfNotNull(rootInActiveWindow) + runCatching { windows.mapNotNull { it.root } }.getOrDefault(emptyList()))
+            .filter { it.packageName?.toString() == pkg }
         for (root in roots) {
             val queue = ArrayDeque(listOf(root))
             while (queue.isNotEmpty()) {

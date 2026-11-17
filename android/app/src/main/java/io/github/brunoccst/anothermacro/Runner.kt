@@ -10,12 +10,28 @@ const val BLACK_STOP_MS = 120_000L
 
 /**
  * A user-tunable option, given as text (from the app's form or an intent extra).
- * [choices] makes the form show a dropdown; [type] "bool" a checkbox; otherwise a text box.
+ * [choices] makes the form show a dropdown; [type] "bool" a checkbox, "number" a number box;
+ * otherwise a text box.
  */
 data class Param(val default: String, val help: String, val choices: List<String> = emptyList(), val type: String = "text",
                  /** Shown in the app only while this switch param is on (e.g. the boss skills under boss_setup). */
-                 val showIf: String? = null) {
+                 val showIf: String? = null,
+                 /**
+                  * Set on an option this macro takes over from a macro it runs (see [InnerParams]): that
+                  * macro's name. The option's key is then "<from>.<its key there>", e.g. battle.skill_1.
+                  */
+                 val from: String? = null,
+                 /** The macros between this one and [from], [from] last (e.g. [cat-scratchbook, battle]). */
+                 val via: List<String> = emptyList(),
+                 /**
+                  * A switch drawn on the side of another option's box instead of on its own row
+                  * (e.g. all_keys next to runs); while it is on, that box is greyed out.
+                  */
+                 val beside: String? = null) {
     val isBool get() = type == "bool"
+    val isNumber get() = type == "number"
+    /** Its key in the macro it comes from (skill_1 for battle.skill_1). */
+    fun innerKey(key: String) = if (from == null) key else key.removePrefix("$from.")
 }
 
 /** What a handler gets: the current frame, vision, input and helpers. Mirrors the Python tool's Context. */
@@ -29,6 +45,8 @@ class Context(
     val depth: Int = 0,
 ) {
     val stats = LinkedHashMap<String, Int>()
+    /** What the macro got (rewards, items), for the outcome message and the Statistics page. */
+    val items = LinkedHashMap<String, Int>()
     var frame: Frame? = null
         private set
     var screen: String? = null
@@ -40,6 +58,20 @@ class Context(
     fun str(name: String) = params.getValue(name).trim()
 
     fun count(stat: String, by: Int = 1) { stats[stat] = (stats[stat] ?: 0) + by }
+
+    /** The macro got [n] of [item]. */
+    fun got(item: String, n: Int = 1) {
+        val name = item.trim().ifEmpty { return }
+        val key = items.keys.firstOrNull { it.equals(name, ignoreCase = true) } ?: name
+        items[key] = (items[key] ?: 0) + n
+    }
+
+    /** The items named in a reward text ("Rewards received: Chronos Stone x5"); how many were read. */
+    fun gotText(text: String): Int {
+        val found = RunSummary.parseItems(text)
+        for ((k, v) in found) got(k, v)
+        return found.size
+    }
 
     fun refresh(): Frame {
         frame?.gray?.release()
@@ -238,6 +270,15 @@ class Context(
         return Runner.runInside(sub, given, this, until)
     }
 
+    /**
+     * The options the basic macro [name] runs with inside this macro (without running it): its own
+     * as the user chose them, then this macro's own settings for it (e.g. a dungeon's battle.skill_1).
+     */
+    fun innerOptions(name: String): Map<String, String> {
+        val sub = findMacro(name) ?: return emptyMap()
+        return Runner.resolve(sub, optionsOf(name) + InnerParams.scoped(params, name))
+    }
+
     /** A context for a macro run inside this one: same screen, input, stop and pause. */
     fun child(vision: Vision, params: Map<String, String>) =
         Context(capture, files, vision, params, stopRequested, depth + 1).also {
@@ -301,6 +342,8 @@ object Scenarios {
             // a library macro keeps its name: a custom one can't replace it
             load({ f.readText() }, f.name, custom = true)?.let { if (it.name !in found) found[it.name] = it }
         }
+        // each macro takes over the options of the macros it runs (custom ones too)
+        InnerParams.link(found.values)
         return found.values.toList()
     }
 
@@ -315,6 +358,7 @@ object Scenarios {
             }
         }
         walk("macros")
+        InnerParams.link(out)
         return out
     }
 
@@ -349,6 +393,9 @@ object Runner {
     val isRunning get() = running.get()
     val isPaused get() = paused.get()
     var current: String? = null
+        private set
+    /** The last screen the running macro (or one it runs) recognised, as "macro: screen". */
+    @Volatile var lastScreen: String? = null
         private set
 
     /** Notified (on any thread) whenever running/paused changes. */
@@ -397,9 +444,13 @@ object Runner {
         return true
     }
 
-    /** The params a run uses: the macro's defaults, then [given] (only names it has). */
+    /**
+     * The params a run uses: the macro's defaults, then [given] (only names it has). Options taken
+     * over from the macros it runs (battle.skill_1, see [InnerParams]) get no default here: unset,
+     * the inner macro runs with its own.
+     */
     fun resolve(scenario: Scenario, given: Map<String, String>) =
-        scenario.params.mapValues { it.value.default } + given.filterKeys { it in scenario.params }
+        scenario.params.filterValues { it.from == null }.mapValues { it.value.default } + given.filterKeys { it in scenario.params }
 
     private fun library(scenario: Scenario, files: LibraryFiles, userTemplates: java.io.File?): Library {
         val library = Library.load(files, "templates/common", *scenario.templateFolders.map { "templates/$it" }.toTypedArray())
@@ -424,6 +475,8 @@ object Runner {
         stopRequested.set(false)
         paused.set(false)
         current = scenario.name
+        lastScreen = null
+        if (routine == null) RunSummary.hide()
         changed()
         val files = MacroLibrary.files(app)
         val userTemplates = Scenarios.userTemplates(app)
@@ -455,17 +508,21 @@ object Runner {
             changed()
         }
         MacroLog.i("stopped: $reason — ${scenario.summary(ctx.stats)}")
-        runCatching {
-            RunStats.record(RunStats.Record(scenario.name, startedAt, System.currentTimeMillis(), reason, HashMap(ctx.stats),
-                RunStats.reportsSince(app.filesDir, reportsMark), source, routine))
-        }.onFailure { MacroLog.e("could not save the run's statistics", it) }
+        val record = RunStats.Record(scenario.name, startedAt, System.currentTimeMillis(), reason, HashMap(ctx.stats),
+            runCatching { RunStats.reportsSince(app.filesDir, reportsMark) }.getOrDefault(emptyList()), source, routine,
+            LinkedHashMap(ctx.items), MacroLog.status.ifEmpty { null }, lastScreen)
+        runCatching { RunStats.record(record) }.onFailure { MacroLog.e("could not save the run's statistics", it) }
+        // the outcome message: once at the end (a routine shows one for all its steps when it ends)
+        // (runs Claude started: the text goes to macro_status, and the card would cover its screenshots)
+        if (routine == null) runCatching { RunSummary.finished(app, RunSummary.of(record), show = source != "connector") }.onFailure { MacroLog.e("could not show the outcome", it) }
         return reason
     }
 
     /**
      * Run [sub] inside the running macro (Flow's `run:` step) and return its stop reason, for the
-     * caller to go on. It starts from its own options as the user chose them in the app (so a
-     * basic macro's settings, e.g. the battle macro's skills, apply wherever it is run), then [given]. It ends like any macro (its own stop), or as soon as one of [until] (the
+     * caller to go on. It starts from its own options as the user chose them in the app, then the
+     * caller's own settings for it (the options the caller took over from it, e.g. a dungeon's
+     * battle.skill_1, see [InnerParams]), then [given]. It ends like any macro (its own stop), or as soon as one of [until] (the
      * caller's screens) shows: "back to <screen>". A stop request or a safety stop ends the caller
      * too. Its counters are added to the caller's.
      */
@@ -474,7 +531,8 @@ object Runner {
         val lib = library(sub, parent.assets, parent.userTemplates)
         // the caller's templates and screens too: [until] is made of them
         lib.addMissing(parent.vision.library)
-        val params = resolve(sub, parent.optionsOf(sub.name) + given)
+        // its own options, then the caller's own settings for it (battle.skill_1 -> skill_1), then the step's params
+        val params = resolve(sub, parent.optionsOf(sub.name) + InnerParams.scoped(parent.params, sub.name) + given)
         val ctx = parent.child(Vision(lib), params)
         MacroLog.i("running ${sub.name} inside it with $params")
         val reason = try {
@@ -485,6 +543,7 @@ object Runner {
         } finally {
             ctx.frame?.gray?.release()
             for ((k, v) in ctx.stats) parent.count(k, v)
+            for ((k, v) in ctx.items) parent.got(k, v)
         }
         MacroLog.i("${sub.name} ended: $reason")
         if (reason == "stop requested" || reason.startsWith("safety stop")) throw StopScenario(reason)
@@ -517,6 +576,7 @@ object Runner {
             if (ctx.screen != last) {
                 MacroLog.i("screen: ${ctx.screen ?: "unknown"}")
                 last = ctx.screen
+                ctx.screen?.let { lastScreen = "${scenario.name}: $it" }
             }
             val screen = ctx.screen
             if (screen == null) {

@@ -4,6 +4,9 @@ import zipfile
 import yaml
 
 from another_macro import macro_pack
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def test_macros_have_no_problems():
@@ -73,6 +76,25 @@ def test_watch_ad_closes_google_play_sheet():
     assert any("commercials are over" in str(a.get("stop", "")) for a in after)
 
 
+def test_check_catches_dotted_option_and_unknown_uses(tmp_path):
+    (tmp_path / "macros" / "daily").mkdir(parents=True)
+    (tmp_path / "macros" / "daily" / "x.yaml").write_text(yaml.safe_dump({
+        "name": "x", "group": "daily", "screens": [], "uses": ["nope"],
+        "params": {"battle.skill_1": {"default": "auto"}},
+    }))
+    problems = macro_pack.check(tmp_path)
+    assert any("unknown macro 'nope'" in p for p in problems)
+    assert any("'battle.skill_1'" in p for p in problems)
+
+
+def test_dungeons_take_battle_options_from_the_battle_macro():
+    # the dungeon macros don't declare the battle skills: the app adds battle.skill_1..4 to their
+    # options from the basic macro battle (InnerParams); only the boss has its own
+    for name, (_, spec) in macro_pack.macros().items():
+        if spec.get("group") == "dungeon":
+            assert not any(str(k).startswith("skill_") for k in spec.get("params") or {}), name
+
+
 def test_party_is_picked_by_number_only():
     # every user names and fills their parties differently: the party option is a number
     all_macros = macro_pack.macros()
@@ -87,3 +109,33 @@ def test_party_is_picked_by_number_only():
         assert choices == ["current"] + [str(i) for i in range(1, 11)], name
         assert str(party["default"]) in choices, name
         assert "with " not in party["help"].lower(), name
+
+
+def test_check_catches_empty_set_expression(tmp_path):
+    (tmp_path / "macros" / "daily").mkdir(parents=True)
+    (tmp_path / "macros" / "daily" / "x.yaml").write_text(yaml.safe_dump({
+        "name": "x", "group": "daily", "screens": [], "setup": [{"set": {"picked": ""}}],
+    }))
+    assert any("empty expression" in p for p in macro_pack.check(tmp_path))
+
+
+def test_watch_ad_leaves_commercials_that_wont_close():
+    # a playable commercial can have no close X and ignore Back: watch-ad leaves it with the
+    # leave_ad step (Home, then the game's own screen) instead of tapping it; the step is known
+    # to the logic pack, and callers never tap while a commercial is still in front
+    entry = (ROOT / "android/app/src/main/java/io/github/brunoccst/anothermacro/logic/Entry.kt").read_text()
+    assert '"leave_ad"' in entry and '"home"' in entry and '"force_close"' in entry
+    all_macros = macro_pack.macros()
+    _, spec = all_macros["watch-ad"]
+    acts = list(_flat(spec["unknown"]))
+    leave = [a for a in acts if "tries >= leave_after" in str(a.get("if", ""))]
+    assert leave and any(a.get("leave_ad") for a in _flat(leave[0]["then"]))
+    # left once and still on: the game is closed from recent apps
+    assert any(a.get("force_close") for a in _flat(leave[0]["then"]))
+    assert not any("tap" in a or "tap_exact" in a for a in _flat(leave[0]["then"]))
+    for name in ("daily-ads", "start-game"):
+        _, caller = all_macros[name]
+        guards = [a for a in _flat(caller["unknown"]) if a.get("if") == "ad_in_front()"]
+        assert guards, name
+        assert any(a.get("leave_ad") for a in _flat(guards[0]["then"])), name
+        assert not any("tap" in a for a in _flat(guards[0]["then"])), name

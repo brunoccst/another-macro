@@ -44,8 +44,11 @@ name: my-macro
 description: One line shown in the app.
 group: daily
 templates: [shop_ad]                  # template folders besides "common" (the user's own are always there)
-params:
-  ad_wait_s: {default: 45, help: "how long to wait for the commercial"}
+params:                               # its own options (the inner macros' come along by themselves)
+  max_ads: {default: 3, help: "commercials to watch at most"}
+  # option kinds: choices: [...] = pills; type: bool = switch (show_if: <switch> hides an option
+  # while that switch is off; beside: <option> draws the switch on the side of that option's box);
+  # type: number = number box; anything else = text box
 screens: [shop, field]                # priority order: specific screens first
 define_screens:
   my_screen: {require: [my_template], reject: [other_template]}
@@ -57,7 +60,7 @@ handlers:
   shop:
     - tap: shop_watch_button
     - wait: 3
-    - run: {macro: watch-ad, params: {ad_wait_s: ad_wait_s}, until: [shop]}
+    - run: {macro: watch-ad, until: [shop]}   # its options (watch-ad.*) come along by themselves
     - stop: "the commercial: {result}"
 unknown: [{wait: 1}]
 ```
@@ -70,8 +73,11 @@ Actions (one key each):
 | `drag: {from: [x, y], to: [x, y], ms: expr}` | press, slide, hold |
 | `walk: {dir: expr, ms: expr}` | walk on the field (-1 left, 1 right, `up`, `down`) |
 | `back: true`, `wait: s`, `launch: package` | |
+| `home: true`, `leave_ad: true` | Android Home; leave a commercial that won't close (no X, Back ignored): Home, then the game's own screen, which closes the commercial's activity (never tap inside a commercial) |
+| `force_close: true` | the last resort for such a commercial (not the stop-game macro): force-close the game, i.e. swipe the game's own card away in recent apps (found by its name; nothing else there is touched), then Home; sets `closed` |
 | `log: "text {expr}"`, `status: "text {expr}"` | write to the log; `status` also shows on the live log line |
 | `set: {var: expr}`, `count: stat`, `stop: "reason"` | variables, counters, end the run |
+| `got: "reward text {expr}"` or `got: {item: "Name", n: expr}` | what the macro got (the items a reward text names, "Chronos Stone x5"): shown in the outcome message at the end and kept on the Statistics page |
 | `if: expr` + `then:` / `else:`, `repeat: {times: expr, do: [...]}` | control flow |
 | `run: macro` / `run: {macro, params, until}` | run another macro (the basic macros are made for this), sets `result` |
 | `fight: skill_` | fight the battle on screen with `skill_1`..`skill_4` |
@@ -86,6 +92,28 @@ example. A new step written in Kotlin goes in `logic/FlowRun.kt` and `logic/Entr
 
 `python -m pytest -q tests/test_macro_pack.py` checks every library macro: YAML, names,
 groups, template folders, and that every `run:` names a macro that exists.
+
+### Inner macros' options come along by themselves
+
+A macro takes over the options of every macro it runs, and keeps its own settings for them: never
+declare them again. They show in the app under a folded section per inner macro ("Battle
+options") and are keyed `<macro>.<option>` (`battle.skill_1`). So every dungeon macro has its own
+battle skills, and one routine can run the daily ads differently from another.
+
+- **Which macros:** its `run:` steps, a routine's `steps:`, the basic macros a Kotlin step runs
+  (listed in `logic/Entry.kt` `STEP_USES`: `another_dungeon` and `cat_daily` fight with `battle`),
+  anything under a top-level `uses: [...]`, and the macros those run in turn. Each inner macro
+  once: one set of battle options per outer macro, wherever its battles happen.
+- **Left out:** options every `run:` of it passes in `params:` (the caller decides them), and
+  options the caller has itself under the same name (it hands its own down, e.g. `party`).
+- **Unset**, an inner option is the inner macro's own setting; once the outer macro's options are
+  saved, it keeps its own copy.
+- A Kotlin step that runs a basic macro uses `ctx.runBasic(name)` (options handed down by
+  itself) or reads them with `ctx.innerOptions(name)`, and gets a line in `STEP_USES`.
+- Own option names never have a dot (the pack check refuses them).
+
+**Reuse first.** Before writing steps into a macro, ask whether that part could be a basic macro
+other macros run (`macros/basic/`): its options then reach every macro using it for free.
 
 ## Templates and screens
 

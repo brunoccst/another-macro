@@ -23,6 +23,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   back: true        wait: seconds        launch: package        log: "text {expr}"
  *   status: "text {expr}"       (log it and show it on the live log: what the macro is doing now)
  *   set: {var: expr, ...}       count: stat_name        stop: "text {expr}"
+ *   got: "reward text {expr}"   (items it names, "Chronos Stone x5", go in the outcome message) | got: {item: "text", n: expr}
  *   if: expr  then: [actions]  else: [actions]          repeat: {times: expr, do: [actions]}
  *   reset_view: true            (forget the last view for view_moved())
  *   fight: skill_       (fight the battle on screen until the field is back, with skills from params
@@ -30,7 +31,10 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  *   run: watch-ad | {macro: watch-ad, params: {ad_wait_s: expr}, until: [shop]}
  *                       (run another macro here, then go on: the basic macros are made for this. It ends
  *                        with its own stop, or when one of [until] (this macro's screens) shows; sets
- *                        `result` to how it ended. A stop request or a safety stop ends this macro too)
+ *                        `result` to how it ended. A stop request or a safety stop ends this macro too.
+ *                        This macro takes over the options of every macro it runs, as "<macro>.<option>"
+ *                        (battle.skill_1), with no need to declare them: see [InnerParams])
+ *   uses: [battle]      (top level, optional: macros it runs some other way, to take over their options too)
  *   another_dungeon: dogma_tower   (run that Another Dungeon; see AnotherDungeon.kt)
  *   phantom_crystal: true          (the Phantom Crystal Dimension with a White Key; see PhantomCrystal.kt)
  *   find_feather: true          (cat scratchbook: tap the feather bubble if visible; sets `tapped`)
@@ -51,13 +55,22 @@ class FlowScenario(val spec: Map<String, Any?>, val source: String,
     override val group = if (custom) "custom" else declaredGroup
     override val icon = spec["icon"] as? String ?: ""
     override val templateFolders: List<String> = list(spec["templates"]).map { it.toString() }
-    override val params: Map<String, Param> = map(spec["params"]).entries.associate { (k, v) ->
+    /** The options this macro declares itself. */
+    val ownParams: Map<String, Param> = map(spec["params"]).entries.associate { (k, v) ->
         val m = mapOrNull(v)
         val choices = list(m?.get("choices")).map { Expr.str(it) }
         val default = m?.get("default") ?: v
         val type = m?.get("type")?.toString() ?: if (default is Boolean) "bool" else "text"
-        k.toString() to Param(Expr.str(default), m?.get("help")?.toString() ?: "", choices, type, m?.get("show_if")?.toString())
+        k.toString() to Param(Expr.str(default), m?.get("help")?.toString() ?: "", choices, type, m?.get("show_if")?.toString(),
+            beside = m?.get("beside")?.toString())
     }
+    /**
+     * The options taken over from the macros it runs (battle.skill_1, ...): set by [InnerParams.link]
+     * once every macro is loaded, so this macro keeps its own settings for them.
+     */
+    var innerParams: Map<String, Param> = emptyMap()
+        internal set
+    override val params: Map<String, Param> get() = ownParams + innerParams
     override val screens: List<String> = list(spec["screens"]).map { it.toString() }
     /** A routine: other macros run one after another (steps: [start-game, daily-ads, ...]). */
     val steps: List<String> = list(spec["steps"]).map { it.toString() }
@@ -85,21 +98,42 @@ class FlowScenario(val spec: Map<String, Any?>, val source: String,
         walk(spec["setup"]); walk(spec["unknown"]); handlers.values.forEach { walk(it) }
     }.distinct() }
 
-    /** The macros this one runs with `run:` (for the app: what it's built from). */
-    val uses: List<String> = buildList {
+    /**
+     * The macros this one runs (for the app: what it's built from, and whose options it takes over):
+     * its `run:` steps, a routine's steps, the basic macros its own steps run in code (e.g. the
+     * Another Dungeon run fights with the battle macro: [LogicEntry.stepUses]) and any it names
+     * under `uses:`.
+     */
+    val uses: List<String>
+    /** By macro it runs: the params every one of its `run:` steps gives it (the caller sets them, not the user). */
+    val givenTo: Map<String, Set<String>>
+
+    init {
+        val stepUses = Logic.current().entry.stepUses
+        val found = ArrayList<String>()
+        val given = LinkedHashMap<String, Set<String>>()
         fun walk(actions: Any?) {
             for (a in list(actions)) {
                 val m = mapOrNull(a) ?: continue
                 when {
                     "if" in m -> { walk(m["then"]); walk(m["else"]) }
                     "repeat" in m -> walk(map(m["repeat"])["do"])
-                    "run" in m -> add(runTarget(m["run"]))
+                    "run" in m -> {
+                        val target = runTarget(m["run"])
+                        found += target
+                        val keys = map(mapOrNull(m["run"])?.get("params")).keys
+                        given[target] = given[target]?.intersect(keys) ?: keys
+                    }
+                    else -> m.keys.forEach { k -> stepUses[k]?.let { found += it; it.forEach { u -> given[u] = emptySet() } } }
                 }
             }
         }
         walk(spec["setup"]); walk(spec["unknown"]); handlers.values.forEach { walk(it) }
-        addAll(steps)
-    }.distinct()
+        found += steps
+        found += list(spec["uses"]).map { it.toString() }
+        uses = found.distinct()
+        givenTo = given
+    }
 
     /** Runs the steps: made by the loaded logic pack each time the macro starts (see Logic.kt). */
     private var engine: FlowEngine? = null

@@ -118,15 +118,18 @@ class MacroService : Service() {
             }
             // a routine: each macro in turn; a step that fails doesn't stop the rest (the last one turns the game off)
             val results = ArrayList<String>()
+            val missing = ArrayList<String>()
+            RunSummary.hide()
             val routineStart = System.currentTimeMillis()
             var routineEnd = "finished"
             try {
                 for ((i, step) in steps.withIndex()) {
-                    val sub = try { Scenarios.get(this, step) } catch (e: Exception) { results += "$step: unknown macro"; continue }
+                    val sub = try { Scenarios.get(this, step) } catch (e: Exception) { results += "$step: unknown macro"; missing += step; continue }
                     updateNotification("${scenario.name}: $step (${i + 1}/${steps.size})")
                     MacroLog.prefix = "${scenario.name} ${i + 1}/${steps.size}"
                     MacroLog.i("${scenario.name}: step ${i + 1}/${steps.size} $step")
-                    val reason = Runner.run(sub, MacroParams.load(this, step), cap, this, routine = scenario.name)
+                    // the step's own options, then the routine's own settings for it (see InnerParams)
+                    val reason = Runner.run(sub, MacroParams.load(this, step) + InnerParams.scoped(params, step), cap, this, routine = scenario.name)
                     results += "$step: $reason"
                     if (reason == "stop requested") { routineEnd = reason; break }
                     if (reason.startsWith("safety stop")) { routineEnd = reason; MacroLog.i("${scenario.name}: safety stop, skipping the remaining steps"); break }
@@ -138,10 +141,15 @@ class MacroService : Service() {
                     val steps = RunStats.all().filter { it.routine == scenario.name && it.start >= routineStart }
                     val counts = HashMap<String, Int>()
                     steps.forEach { st -> st.counts.forEach { (k, v) -> counts[k] = (counts[k] ?: 0) + v } }
-                    RunStats.record(RunStats.Record(scenario.name, routineStart, System.currentTimeMillis(),
+                    val items = LinkedHashMap<String, Int>()
+                    steps.forEach { st -> st.items.forEach { (k, v) -> items[k] = (items[k] ?: 0) + v } }
+                    val end = System.currentTimeMillis()
+                    RunStats.record(RunStats.Record(scenario.name, routineStart, end,
                         if (routineEnd == "finished") "finished ${results.size} step(s)" else routineEnd,
-                        counts, steps.flatMap { it.reports }))
-                }
+                        counts, steps.flatMap { it.reports }, items = items))
+                    // one outcome message for the whole routine, after its last step
+                    RunSummary.finished(this, RunSummary.ofRoutine(scenario.name, steps, missing, routineEnd, end - routineStart))
+                }.onFailure { MacroLog.e("could not save the routine's statistics", it) }
             }
             MacroLog.i("${scenario.name} done — " + results.joinToString(" | "))
             updateNotification("${scenario.name} done")

@@ -92,7 +92,7 @@ object PhantomCrystal {
 
     // --- 1. entering ------------------------------------------------------------------
     /** Inside already: a field whose bottom bar has only Menu and Rewards (outside it has Quests, Tomes, Diary, Map). */
-    private fun inside(ctx: Context): Boolean {
+    internal fun inside(ctx: Context): Boolean {
         ctx.refresh()
         if (ctx.find("field_menu_button") == null) return false
         // OCR may read the bar as one line ("Menu Rewards")

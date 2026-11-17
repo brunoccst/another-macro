@@ -22,16 +22,17 @@ the parts every dungeon shares:
 - **Small maps by steps** (`steps:`), maps without enemies (`enemies: false`), and the
   **boss map** (sweep, "!" taps, "A major trial awaits... Proceed?" → Yes, `boss_setup` skills).
 - **End of run**: rewards, light/shadow animation, "Continue to skip?" → End, White Key
-  (`white_key: phantom/stop/keep_going`), `runs` 1-10/all, never buying keys.
+  (`white_key: phantom/stop/keep_going`), never buying keys.
 - **Before the first run**: `party` picks one of the game's saved parties by its number in the
   game's party list (1 = the first; read from the dots on Menu → Party), through the basic macro
   `pick-party` (`logic/Party.kt`); `current` keeps the party in front. Never by a party's name or
   members, and the log only says "party N": every user names and fills their parties differently.
-- **Both key colours** (Hard + Very Hard dungeons): `both_keys` with `red_runs` and
-  `green_runs` (0-10/all each) and `key_order` (red first by default). A colour that runs out
-  ends its runs and the loop goes on with the other colour; keys are never bought. A dungeon
-  whose run takes more than one key sets `key_cost` (Underworld: 2) in dungeons.yaml. A
-  Very Hard-only dungeon (Sea of Ice) leaves these out.
+- **Keys and runs**: one switch per key colour the dungeon takes (`green_key` Hard, `red_key`
+  Very Hard; a dungeon with one colour only has just that switch), `runs` (any number, a
+  `type: number` box) and beside it the switch `all_keys` (`beside: runs`: until the keys run
+  out). With both colours on, `runs` runs are done with each colour: red keys first, then
+  green (a colour that runs out ends its runs). No colour on = only the party is picked (a safe test). Keys are never bought. A
+  dungeon whose run takes more than one key sets `key_cost` (Underworld: 2) in dungeons.yaml.
 
 So a new dungeon needs **data, not code**: one `dungeons.yaml` entry (era, area/label, map
 names, each map's layout, chests, arrival, exit, boss map) and a 40-line macro YAML copied

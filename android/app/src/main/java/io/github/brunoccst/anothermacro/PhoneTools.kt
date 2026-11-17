@@ -222,7 +222,13 @@ class PhoneTools(
     fun listTemplates() = ToolResult(library.templates.values.filter { it.available }.joinToString(", ") { it.name })
 
     fun listMacros() = ToolResult(Scenarios.all(app).joinToString("\n") { s ->
-        "${s.name}: ${s.description}" + if (s.params.isEmpty()) "" else "\n  params: " + s.params.entries.joinToString("; ") { (k, p) -> "$k=${p.default} (${p.help})" }
+        val own = s.params.filterValues { it.from == null }
+        val inner = s.params.filterValues { it.from != null }.keys.groupBy { it.substringBefore('.') }
+        "${s.name}: ${s.description}" +
+            (if (own.isEmpty()) "" else "\n  params: " + own.entries.joinToString("; ") { (k, p) -> "$k=${p.default} (${p.help})" }) +
+            // taken over from the macros it runs: its own settings for them (unset = that macro's own)
+            (if (inner.isEmpty()) "" else "\n  its own settings for the macros it runs: " +
+                inner.entries.joinToString("; ") { (m, keys) -> "$m.{${keys.joinToString(",") { it.substringAfter('.') }}}" })
     })
 
     fun launchGame(): ToolResult { ctx.launchApp(ClaudeSafety.GAME); ctx.wait(4.0); return ToolResult("OK (the game may still be loading)") }
@@ -261,7 +267,8 @@ class PhoneTools(
         val log = (if (find.isEmpty()) all else all.filter { it.contains(find, ignoreCase = true) }).takeLast(n).joinToString("\n")
         val head = when {
             running -> "running: ${Runner.current} — now: ${MacroLog.shown.ifEmpty { "-" }}"
-            Background.name != null -> "not running; ${Background.name} stopped: ${Background.result ?: "?"}"
+            Background.name != null -> "not running; ${Background.name} stopped: ${Background.result ?: "?"}" +
+                (RunSummary.last?.let { "\noutcome (tell the user): ${it.text.replace("\n", "\n  ")}" } ?: "")
             else -> "no macro running"
         }
         // a black frame is the usual reason for "the game isn't in front" loops: say it plainly

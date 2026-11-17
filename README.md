@@ -61,7 +61,7 @@ Claude chat ──(custom connector)──> relay (your Cloudflare Worker) <─�
 | Another Dungeon | `phantom-crystal` | The Phantom Crystal Dimension after a White Key: every chest and paw stamp, world by world. Stops so you pick a free Treatise/Codex/Opus yourself. |
 | Game | `start-game` | Opens the game, takes the daily login-bonus ad, stops on the field. |
 | Game | `stop-game` | Closes the game the clean way (Back → "Close the app?" → Yes). |
-| Basic | `battle`, `grind-battles`, `watch-ad`, `open-menu`, `back-to-field` | Building blocks the other macros run. `grind-battles` also works on its own: walk a map and fight every encounter. |
+| Basic | `battle`, `grind-battles`, `watch-ad`, `open-menu`, `open-menu-page`, `back-to-field`, `pick-party` | Building blocks the other macros run. `grind-battles` also works on its own: walk a map and fight every encounter. |
 
 Battles use one skill choice per party slot (`skill_1`..`skill_4` = auto or skill 1-4), set
 once on the `battle` macro and used by every macro that fights.
