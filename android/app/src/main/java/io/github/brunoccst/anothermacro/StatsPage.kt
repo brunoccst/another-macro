@@ -256,6 +256,7 @@ class StatsPage(private val a: MainActivity) {
         val more = LinearLayout(a).apply { orientation = LinearLayout.VERTICAL; visibility = View.GONE }
         val bits = ArrayList<String>()
         if (r.source == "connector") bits += "started by Claude"
+        if (r.source == "schedule") bits += "started by the daily schedule"
         r.routine?.let { bits += "a step of $it" }
         if (r.counts.isNotEmpty()) bits += r.counts.entries.joinToString(", ") { "${Ui.title(it.key).lowercase()} ${it.value}" }
         if (bits.isNotEmpty()) addView(Ui.text(a, bits.joinToString(" · "), 12.5f).apply { setPadding(0, dp(4), 0, 0) })

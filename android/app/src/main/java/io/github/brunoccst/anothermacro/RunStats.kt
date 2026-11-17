@@ -36,7 +36,7 @@ object RunStats {
         val counts: Map<String, Int> = emptyMap(),
         /** The run reports written meanwhile (dungeon runs), as read from runs.log. */
         val reports: List<Map<String, Any?>> = emptyList(),
-        /** Who started it: "app" (the floating buttons) or "connector" (Claude). */
+        /** Who started it: "app" (the floating buttons), "connector" (Claude) or "schedule" (the daily schedule). */
         val source: String = "app",
         /** The routine it was a step of, if any. */
         val routine: String? = null,

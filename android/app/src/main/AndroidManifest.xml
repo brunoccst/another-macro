@@ -47,6 +47,14 @@
             android:name=".Updater$InstallResult"
             android:exported="false" />
 
+        <!-- the daily schedule's alarm (DailySchedule) and the Allow/Deny buttons of Claude's questions (Alerts) -->
+        <receiver
+            android:name=".ScheduleReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".ApprovalReceiver"
+            android:exported="false" />
+
         <!-- screen capture runs in a foreground service (required for MediaProjection) -->
         <service
             android:name=".MacroService"
