@@ -128,6 +128,8 @@ object AnotherDungeon {
         var chestsDone = 0
         /** Following a path: how many of its legs (chests, sparkles) are done. */
         var legsDone = 0
+        /** A stop just before was left out (its collect option is off): the next leg is walked by the area map, not its fixed steps. */
+        var offPlan = false
         var cleared = false
         var onBossMap = false
         var bossNext = false
@@ -350,12 +352,16 @@ object AnotherDungeon {
                     if (r.pos != null) { r.unsure = true; r.lastDir = 0.0 }
                 }
                 // sparkles that move every run: read where they are once the map is cleared, then each in turn
+                ms.sparkleIcons && ms.layout != null && r.live == null && !collects(ctx, "sparkles") -> r.live = mutableListOf()
                 ms.sparkleIcons && ms.layout != null && r.live == null -> readSparkles(r, ms)
                 ms.sparkleIcons && ms.layout != null && r.live!!.isNotEmpty() -> takeSparkleAt(r, ms, r.live!!.removeAt(0))
                 // on a path: its legs in order (chests, sparkles), then the exit
                 ms.path != null && r.pos != null && r.legsDone < ms.path.size && ms.path[r.legsDone].target != "exit" -> {
                     val leg = ms.path[r.legsDone]
+                    val off = (leg.sparkle != null && !collects(ctx, "sparkles")) || (leg.fish != null && !collects(ctx, "fish")) ||
+                        (leg.jar != null && !collects(ctx, "jars"))
                     when {
+                        off -> { MacroLog.i("${leg.target}: left out (its option is off)"); r.offPlan = true }
                         leg.chest != null && leg.chest < ms.chests.size -> takeChest(r, ms, ms.chests[leg.chest])
                         leg.sparkle != null && leg.sparkle < ms.sparkles.size -> takeSparkle(r, ms, leg, ms.sparkles[leg.sparkle])
                         leg.fish != null && leg.fish < ms.fish.size -> takeFish(r, ms, leg, ms.fish[leg.fish])
@@ -1079,6 +1085,10 @@ object AnotherDungeon {
         closeMenu(r)
     }
 
+    /** A collect option of the macro (sparkles, fish, jars): on unless the macro switches it off. */
+    private fun collects(ctx: Context, name: String): Boolean =
+        ctx.params[name]?.trim()?.lowercase()?.let { it in setOf("1", "true", "yes", "on", "y") } ?: true
+
     /** Close what a tap opened without choosing anything in it: its Close / Cancel / No / Back, else Android Back. */
     private fun closeMenu(r: Run) {
         val ctx = r.ctx
@@ -1226,6 +1236,8 @@ object AnotherDungeon {
             r.pos = Point(goal.x, Route.segOf(l, goal)?.y ?: goal.y)
             r.planPos = r.pos
         }
+        // the fixed steps start at the stop before, which was left out: walk there by the area map
+        if (r.offPlan) { r.offPlan = false; offPath("the stop before is switched off"); return }
         /**
          * Read where the party is on the area map (once, after a battle or a chest search) and
          * follow from there. False if it isn't on the street the plan has it on.
