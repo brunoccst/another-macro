@@ -37,7 +37,20 @@ data class GameProfile(
     val groups: List<Group>,
     /** What Claude is told about this game (the connector's instructions). */
     val claude: Claude,
+    /** How run reports are shown (the outcome card, Statistics). */
+    val reports: Reports = Reports("", emptyList()),
 ) {
+    /** The run reports macros write: [title] of the Statistics section, [fields] in line order. */
+    data class Reports(val title: String, val fields: List<ReportField>)
+
+    /**
+     * One field of a run report: [show] in a report's line ({value}; a switch shows it when on),
+     * [total] in the totals (a switch counts, a number adds up, with [of] "x of y", a text counts
+     * each value as {Value}), [card] also on the outcome card; [duration]: seconds shown as a time.
+     */
+    data class ReportField(val key: String, val show: String = "", val total: String = "", val of: String = "",
+                           val card: String = "", val duration: Boolean = false)
+
     data class Group(val id: String, val title: String, val icon: String)
 
     data class Claude(
@@ -93,6 +106,11 @@ data class GameProfile(
                     rewardExample = str(claude["reward_example"]),
                     format = list(claude["format"]),
                 ),
+                reports = map(y["reports"]).let { r ->
+                    Reports(str(r["title"]), (r["fields"] as? List<*>).orEmpty().map { f -> map(f).let {
+                        ReportField(str(it["key"]), str(it["show"]), str(it["total"]), str(it["of"]), str(it["card"]), it["duration"] == true)
+                    } })
+                },
             )
         }
     }

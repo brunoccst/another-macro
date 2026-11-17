@@ -98,7 +98,7 @@ object RunSummary {
         return "Where: " + bits.joinToString("; ").ifEmpty { "it hadn't recognised any screen yet" }
     }
 
-    /** What the runs got and did: dungeon runs one per line, the items added up, the counters. */
+    /** What the runs got and did: the run reports one per line, the items added up, the counters. */
     private fun body(runs: List<RunStats.Record>): List<String> {
         val lines = ArrayList<String>()
         val reports = runs.flatMap { it.reports }
@@ -107,24 +107,28 @@ object RunSummary {
         if (reports.size > 12) lines += "• … and ${reports.size - 12} more (see Statistics)"
         val s = RunStats.summarize(runs)
         lines += if (s.items.isEmpty()) "Got: nothing read" else "Got: " + s.items.joinToString(", ") { "${it.first} ×${it.second}" }
-        if (s.whiteKeys > 0) lines += "White Key: ${s.whiteKeys}"
+        for ((label, n) in s.cardTotals) lines += "$label: $n"
         val did = s.counts.filterValues { it > 0 }
         if (did.isNotEmpty()) lines += "Counted: " + did.entries.joinToString(", ") { "${it.key.replace('_', ' ')} ${it.value}" }
         return lines
     }
 
-    /** One dungeon run report as a line (also the Statistics page's). */
+    /** One run report as a line (also the Statistics page's), by the profile's report fields (game.yaml). */
     @Suppress("UNCHECKED_CAST")
-    fun reportLine(rep: Map<String, Any?>): String {
+    fun reportLine(rep: Map<String, Any?>, fields: List<GameProfile.ReportField> = GameProfile.current.reports.fields): String {
         val parts = ArrayList<String>()
-        rep["dungeon"]?.let { parts += it.toString() }
-        (rep["seconds"] as? Number)?.let { parts += RunStats.duration(it.toLong() * 1000) }
-        rep["key"]?.let { parts += "${it} key" }
-        if (rep["skipped"] == true) parts += "skipped with a ticket"
-        (rep["chests"] as? Number)?.let { c -> parts += "chests $c" + ((rep["chests_total"] as? Number)?.let { "/$it" } ?: "") }
-        (rep["battles"] as? Number)?.let { parts += "battles $it" }
-        (rep["worlds"] as? Number)?.let { parts += "worlds $it" }
-        if (rep["white_key"] == true) parts += "White Key"
+        for (f in fields) {
+            val v = rep[f.key] ?: continue
+            when {
+                f.duration -> (v as? Number)?.let { parts += RunStats.duration(it.toLong() * 1000) }
+                v == true -> if (f.show.isNotEmpty()) parts += f.show
+                v == false -> {}
+                f.show.isNotEmpty() -> {
+                    val shown = if (v is Number && v.toDouble() == Math.floor(v.toDouble())) v.toLong().toString() else v.toString()
+                    parts += f.show.replace("{value}", shown) + ((rep[f.of] as? Number)?.takeIf { f.of.isNotEmpty() }?.let { "/${it.toLong()}" } ?: "")
+                }
+            }
+        }
         val got = listOf("items", "rewards").flatMap { k -> (rep[k] as? Map<String, Any?>).orEmpty().map { "${it.key} ×${it.value}" } }
         if (got.isNotEmpty()) parts += got.joinToString(", ")
         return "• " + parts.joinToString(" · ")

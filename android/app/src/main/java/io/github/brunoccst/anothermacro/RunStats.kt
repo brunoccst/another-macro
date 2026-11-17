@@ -34,7 +34,7 @@ object RunStats {
         val reason: String,
         /** The macro's counters (battles, chests, ...), the ones of macros it ran included. */
         val counts: Map<String, Int> = emptyMap(),
-        /** The run reports written meanwhile (dungeon runs), as read from runs.log. */
+        /** The run reports written meanwhile (one per round of a macro, e.g. a dungeon run), as read from runs.log. */
         val reports: List<Map<String, Any?>> = emptyList(),
         /** Who started it: "app" (the floating buttons), "connector" (Claude) or "schedule" (the daily schedule). */
         val source: String = "app",
@@ -154,7 +154,7 @@ object RunStats {
     /** Notified (on any thread) when runs are saved or cleared. */
     val listeners = java.util.concurrent.CopyOnWriteArrayList<() -> Unit>()
 
-    // --- run reports (dungeon macros append them to files/runs.log) -----------------------
+    // --- run reports (macros append them to files/runs.log; game.yaml `reports:` says how they show) ---
 
     /** Where runs.log ends now: the reports after it belong to the run starting. */
     fun reportsMark(filesDir: File): Long = File(filesDir, "runs.log").let { if (it.exists()) it.length() else 0L }
@@ -192,31 +192,50 @@ object RunStats {
         val counts: Map<String, Int>,
         /** Chest items and rewards from the run reports, added up (most first). */
         val items: List<Pair<String, Int>>,
-        /** Dungeon runs in the reports, and of them: by key colour, with a White Key, skipped with a ticket. */
-        val dungeonRuns: Int,
-        val keys: Map<String, Int>,
-        val whiteKeys: Int,
-        val skipped: Int,
-        val chests: Int,
-        val chestsTotal: Int,
+        /** The run reports (game.yaml `reports:`), and their totals as (label, value), in field order. */
+        val reports: Int,
+        val reportTotals: List<Pair<String, String>>,
+        /** The outcome card's lines of the report totals (fields with `card:`), as (label, total). */
+        val cardTotals: List<Pair<String, Int>>,
         val byConnector: Int,
     )
+
+    /** The totals of [reports] by the profile's fields: (label, value) for the Statistics page, and the card's (label, total). */
+    fun reportTotals(reports: List<Map<String, Any?>>, fields: List<GameProfile.ReportField> = GameProfile.current.reports.fields):
+        Pair<List<Pair<String, String>>, List<Pair<String, Int>>> {
+        val rows = ArrayList<Pair<String, String>>()
+        val card = ArrayList<Pair<String, Int>>()
+        for (f in fields) {
+            val values = reports.mapNotNull { it[f.key] }
+            when {
+                values.isEmpty() -> {}
+                values.all { it is Boolean } -> {
+                    val n = values.count { it == true }
+                    if (f.total.isNotEmpty() && (n > 0 || f.card.isNotEmpty())) rows += f.total to n.toString()
+                    if (f.card.isNotEmpty() && n > 0) card += f.card to n
+                }
+                values.all { it is Number } -> {
+                    val n = values.sumOf { (it as Number).toInt() }
+                    if (f.total.isNotEmpty()) {
+                        val of = if (f.of.isEmpty()) 0 else reports.sumOf { (it[f.of] as? Number)?.toInt() ?: 0 }
+                        rows += f.total to (if (of > 0) "$n of $of (${n * 100 / of}%)" else n.toString())
+                    }
+                    if (f.card.isNotEmpty() && n > 0) card += f.card to n
+                }
+                else -> if (f.total.isNotEmpty()) values.map { it.toString().lowercase() }.filter { it.isNotBlank() }
+                    .groupingBy { it }.eachCount().forEach { (v, n) -> rows += f.total.replace("{Value}", v.replace('_', ' ').replaceFirstChar { it.uppercase() }).replace("{value}", v) to n.toString() }
+            }
+        }
+        return rows to card
+    }
 
     fun summarize(runs: List<Record>): Summary {
         val counts = LinkedHashMap<String, Int>()
         val items = LinkedHashMap<String, Int>()
-        val keys = LinkedHashMap<String, Int>()
-        var dungeonRuns = 0; var white = 0; var skipped = 0; var chests = 0; var chestsTotal = 0
         for (r in runs) {
             for ((k, v) in r.counts) counts[k] = (counts[k] ?: 0) + v
             for ((k, v) in r.items) items[k] = (items[k] ?: 0) + v
             for (rep in r.reports) {
-                dungeonRuns++
-                rep["key"]?.toString()?.lowercase()?.takeIf { it.isNotBlank() }?.let { keys[it] = (keys[it] ?: 0) + 1 }
-                if (rep["white_key"] == true) white++
-                if (rep["skipped"] == true) skipped++
-                chests += (rep["chests"] as? Number)?.toInt() ?: 0
-                chestsTotal += (rep["chests_total"] as? Number)?.toInt() ?: 0
                 for (part in listOf("items", "rewards")) {
                     @Suppress("UNCHECKED_CAST")
                     (rep[part] as? Map<String, Any?>)?.forEach { (k, v) -> (v as? Number)?.let { items[k] = (items[k] ?: 0) + it.toInt() } }
@@ -224,6 +243,8 @@ object RunStats {
             }
         }
         val ms = runs.map { it.ms }
+        val reports = runs.flatMap { it.reports }
+        val (totals, card) = reportTotals(reports)
         return Summary(
             runs = runs.size,
             totalMs = ms.sum(),
@@ -236,8 +257,7 @@ object RunStats {
             reasons = runs.groupingBy { reasonGroup(it.reason) }.eachCount().entries.sortedByDescending { it.value }.map { it.key to it.value },
             counts = counts,
             items = items.entries.sortedByDescending { it.value }.map { it.key to it.value },
-            dungeonRuns = dungeonRuns, keys = keys, whiteKeys = white, skipped = skipped,
-            chests = chests, chestsTotal = chestsTotal,
+            reports = reports.size, reportTotals = totals, cardTotals = card,
             byConnector = runs.count { it.source == "connector" },
         )
     }
