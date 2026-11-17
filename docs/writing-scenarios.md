@@ -9,7 +9,8 @@ The list of macros and the basic macros to reuse are in [macros/README.md](../ma
 
 - Library macros: `macros/<group>/<name>.yaml`, groups `daily`, `dungeon`, `farm`, `game`,
   `basic`, `other` (game.yaml `groups:`). `.github/workflows/macros.yml` packs them
-  (`src/another_macro/macro_pack.py`) as `macros-<branch>`.
+  (macro-forge's `core/tools/macroforge_pack.py`, with game.yaml `pack:` and `plugin_steps:`) as
+  `macros-<branch>`.
 - Templates: `src/another_macro/assets/templates/library.yaml` (the `common` folder) and
   `src/another_macro/scenarios/<folder>/templates/library.yaml` (a folder a macro lists in
   `templates:`).

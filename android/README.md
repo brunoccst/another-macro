@@ -21,12 +21,12 @@ updates, the macro library, templates) is documented in macro-forge:
 ## Build
 
 `git submodule update --init`, then `gradle -p android assembleDebug logicPack`. CI
-(`.github/workflows/android.yml`) builds the APK and the logic pack and publishes each pushed
+(`.github/workflows/android.yml`, which calls macro-forge's `app-build.yml`) builds the APK and the logic pack and publishes each pushed
 branch as the pre-release `dev-<branch>`. It is signed with the permanent key from the
 `ANDROID_KEYSTORE_B64` / `ANDROID_KEYSTORE_PASSWORD` secrets, so updates install over an
 existing copy. Keep a backup of that key: without it installed apps can't be updated.
 
-Releases: run `.github/workflows/release.yml` by hand on main with the version (it creates the
+Releases: run `.github/workflows/release.yml` (macro-forge's `app-release.yml`) by hand on main with the version (it creates the
 tag). It publishes the signed APK as `another-macro.apk`, with `docs/releases/<tag>.md` above
 the generated notes.
 

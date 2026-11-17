@@ -155,7 +155,8 @@ def test_check_wants_how_steps(tmp_path):
     assert any("{m} is not an option" in p for p in problems)
     assert any("how: runs unknown macro 'nope'" in p for p in problems)
     assert not any("{n}" in p for p in problems)
-    # a step the app describes itself needs no how:
+    # a step the app describes itself (game.yaml plugin_steps) needs no how:
+    (tmp_path / "game.yaml").write_text((macro_pack.ROOT / "game.yaml").read_text(encoding="utf-8"))
     f.write_text(yaml.safe_dump({"name": "x", "group": "daily", "screens": [], "handlers": {"field": [{"another_dungeon": "dogma_tower"}]}}))
     assert not any("how" in p for p in macro_pack.check(tmp_path))
 

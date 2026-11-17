@@ -20,6 +20,12 @@ relay_guide: https://github.com/brunoccst/macro-forge/blob/main/relay/README.md
 application_id: anothermacro.app
 # the game's own macro steps (logic pack): the Kotlin object implementing GamePlugin
 plugin: anothermacro.logic.AnotherEdenPlugin
+# the plugin's steps that describe themselves in the app's "How it works" (no how: list needed)
+plugin_steps: [another_dungeon, phantom_crystal, cat_daily, fight, pick_party, find_feather, read_cat_clues]
+# where the macro pack takes templates from (core/tools/macroforge_pack.py)
+pack:
+  common: src/another_macro/assets/templates
+  folders: src/another_macro/scenarios
 
 safety:
   # anywhere on screen: an offer to pay; never tapped
