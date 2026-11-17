@@ -982,10 +982,23 @@ object AnotherDungeon {
         walkLeg(r, ms, leg, at)
         fight(r)
         var steps = 0
-        val end = System.currentTimeMillis() + 4000
+        var walked = false
+        var end = System.currentTimeMillis() + 2500
         while (System.currentTimeMillis() < end) {
             val p = fishShadow(ctx)
-            if (p == null) { ctx.wait(0.2); continue }
+            if (p == null) {
+                // not in view: a dark-scene walk can stop short of the spot (a false "stood still", 2026-11-17):
+                // walk there by the area map once and look again
+                if (System.currentTimeMillis() + 200 >= end && !walked && ms.layout != null) {
+                    walked = true
+                    MacroLog.i("no fish in view: walking to (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}) by the area map")
+                    AreaNav.walkLayout(ctx, ms.layout, at, onStep(r))
+                    fight(r)
+                    r.unsure = true
+                    end = System.currentTimeMillis() + 3000
+                }
+                ctx.wait(0.2); continue
+            }
             r.unsure = true
             if (abs(p.x - 0.5) > FISH_REACH && steps < 4) {
                 val dir = if (p.x < 0.5) -1.0 else 1.0
