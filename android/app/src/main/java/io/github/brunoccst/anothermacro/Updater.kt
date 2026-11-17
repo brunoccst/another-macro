@@ -28,7 +28,7 @@ import java.util.concurrent.CopyOnWriteArrayList
  */
 object Updater {
     private val REPO get() = GameProfile.current.repo
-    private const val API = "https://api.github.com/repos/$REPO/releases/latest"
+    private val API get() = "https://api.github.com/repos/$REPO/releases/latest"
 
     /**
      * A build: [shell] and [logicUrl] only for CI dev builds, whose logic pack can be loaded instead
