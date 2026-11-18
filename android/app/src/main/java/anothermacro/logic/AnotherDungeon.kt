@@ -949,7 +949,19 @@ object AnotherDungeon {
         // (2026-11-15), and the camera doesn't keep the party in the middle near a street's end
         val star = ms.sparkleIcons
         var steps = 0
-        while (System.currentTimeMillis() < end && taps < 3) {
+        // none seen by the spot: the party (or the camera) can hide it, so a short step each way and a look again
+        // (Zero Point 2026-11-18: a bag icon stayed on the area map after "no sparkle by" its spot)
+        val looks = mutableListOf(-1.0, 1.0, 1.0)
+        while (taps < 3) {
+            if (System.currentTimeMillis() >= end) {
+                if (taps > 0 || looks.isEmpty()) break
+                val dir = looks.removeAt(0)
+                MacroLog.i("no sparkle in sight: a step ${if (dir < 0) "left" else "right"} and a look again")
+                ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), SPARKLE_STEP_MS); ctx.wait(0.6)
+                fight(r)
+                end = System.currentTimeMillis() + 1500
+                continue
+            }
             val p = if (star) sparkleStar(ctx) else sparkle(ctx)
             if (p == null) { ctx.wait(0.2); continue }
             if (taps > 0 && steps < 2 && abs(p.x - 0.5) < SPARKLE_NEAR) {
