@@ -1,7 +1,7 @@
-# Another Macro relay (relay/README.md), for Cloudflare builds that run from the repo root
-# (the Deploy button does). Keep in step with relay/wrangler.toml.
+# Another Macro relay: macro-forge's relay (core/relay, see its README.md), for Cloudflare builds
+# that run from this repo's root. The Worker keeps its name, so the relay address stays the same.
 name = "another-macro"
-main = "relay/src/index.js"
+main = "core/relay/src/index.js"
 compatibility_date = "2025-09-01"
 workers_dev = true
 

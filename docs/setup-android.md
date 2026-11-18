@@ -11,7 +11,7 @@ You do steps 1–3 once. Step 4 (Claude) is optional.
 There is no official release yet, so install the development build that follows `main`:
 
 1. On the phone, open the
-   [`dev-main` pre-release](https://github.com/brunoccst/another-macro/releases/tag/dev-main)
+   [`dev-main` pre-release](../../../releases/tag/dev-main)
    and download `another-macro.apk`.
 2. Open it. Android asks once to allow your browser (or file manager) to **install unknown
    apps**: allow it, then **Install**.
@@ -19,8 +19,8 @@ There is no official release yet, so install the development build that follows 
    anyway**. The app is signed with the same key on every build, so updates install over it
    and keep your settings.
 
-Once there is an official release, its APK will be at
-`https://github.com/brunoccst/another-macro/releases/latest/download/another-macro.apk`.
+Once there is an official release, its APK will be on the repository's
+[latest release](../../../releases/latest) as `another-macro.apk`.
 
 ## 2. Turn on taps and screen capture
 
@@ -75,7 +75,7 @@ The app can act as a **phone connector** for your own Claude chat (claude.ai or 
 apps, any plan, no API key). Claude can then look at the game, tap, walk, start and stop
 macros, capture templates and write new macros.
 
-Set it up once with the steps in **[relay/README.md](../relay/README.md)**: make tokens on
+Set it up once with the steps in **[the relay guide](../../../../macro-forge/blob/main/relay/README.md)**: make tokens on
 **System → Claude**, deploy the small relay Worker to your free Cloudflare account, paste the
 relay address into the app and add the connector address in claude.ai under **Settings →
 Connectors → Add custom connector**.
@@ -92,6 +92,25 @@ Then, whenever Claude should use the phone:
 Claude can't tap the app's own floating buttons; it folds and unfolds them with its own
 tool. The floating ■ stops whatever Claude is doing.
 
+When Claude asks to tap something risky (sell, discard, exchange...), the app asks you on the
+screen first. If nobody answers within 2 minutes, the question moves to a notification with
+**Allow** and **Deny** for 15 minutes; Claude asks you in the chat and tries the same tap again
+after you answer. Claude's `macro_status` also lists what happened on the phone since a chat
+last looked (macro outcomes, scheduled runs, your answers), once each, so a new chat picks up
+where things stand.
+
+## 5. Optional: runs with nobody watching
+
+On **System → Settings**:
+
+- **Notifications:** when a macro ends (how it went) or a scheduled run can't start, a
+  notification says so.
+- **Daily schedule:** runs one macro (picked from the list of installed macros and routines;
+  by default `daily-routine`) every day a few minutes
+  after the game's daily reset (15:00 UTC by default, set in `game.yaml` `daily_reset:`; the reset time can be changed under Daily schedule), with that macro's own saved options. Screen
+  capture must be on at that time; if it is off, the run is skipped and a notification says
+  so. If another macro is running, it tries again every 15 minutes, up to an hour.
+
 ## Updates
 
 - **Macros** update by themselves between runs (Macros → Macro library card shows the
@@ -100,7 +119,7 @@ tool. The floating ■ stops whatever Claude is doing.
   the connector is on and idle, or on demand on **System → Updates → Install the newest
   build**.
   - Most changes only touch the app's logic and load as a **logic pack**, with no install and
-    no prompt ([logic-pack.md](logic-pack.md)).
+    no prompt ([the logic pack](../../../../macro-forge/blob/main/docs/logic-pack.md)).
   - Other changes need a real install. If Play Protect blocks it, the app does not retry that
     version: install it from System → Updates and choose **Install anyway**.
   - After any install or restart, allow screen capture again (step 2.2) and turn the

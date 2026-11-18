@@ -22,7 +22,7 @@ write new macros, through the app's phone connector.
    **Select this macro**. The macros download by themselves.
 3. **Play it** from the floating buttons over the game: ▶ start, ❚❚ pause, ■ stop, ↻ restart.
 4. **Optional: Claude.** Set up the phone connector (System → Claude) to let Claude play or
-   build macros from your chat: [relay/README.md](relay/README.md).
+   build macros from your chat: [the relay guide](../../../macro-forge/blob/main/relay/README.md) (in macro-forge).
 
 ## How it works
 
@@ -44,9 +44,9 @@ Claude chat ──(custom connector)──> relay (your Cloudflare Worker) <─�
   phone without an app update. See [macros/README.md](macros/README.md).
 - **The logic** (battles, Another Dungeons, routes, cat scratchbook, Phantom Crystal) ships as a
   downloadable logic pack, so most app changes also arrive without an install. See
-  [docs/logic-pack.md](docs/logic-pack.md).
+  [the logic pack](../../../macro-forge/blob/main/docs/logic-pack.md) (macro-forge).
 - **The phone connector** turns the app into an MCP server that you add in claude.ai as a
-  custom connector. A small Cloudflare Worker on your own account relays it (`relay/`).
+  custom connector. A small Cloudflare Worker on your own account relays it (macro-forge's `relay/`, at `core/relay/` here).
 
 ## Macros
 
@@ -63,8 +63,10 @@ Claude chat ──(custom connector)──> relay (your Cloudflare Worker) <─�
 | Game | `stop-game` | Closes the game the clean way (Back → "Close the app?" → Yes). |
 | Basic | `battle`, `grind-battles`, `watch-ad`, `open-menu`, `open-menu-page`, `back-to-field`, `pick-party` | Building blocks the other macros run. `grind-battles` also works on its own: walk a map and fight every encounter. |
 
-Battles use one skill choice per party slot (`skill_1`..`skill_4` = auto or skill 1-4), set
-once on the `battle` macro and used by every macro that fights.
+Battles use one skill choice per party slot (`skill_1`..`skill_4` = auto or skill 1-4), and the
+dungeons a party by its number. Both are **Global parameters** (System → Settings), set once and
+used by every macro that fights; each macro's own option starts as "Global" and can be set to its
+own value instead. Macro options save as soon as you change them.
 
 ### Safety
 
@@ -79,17 +81,17 @@ once on the `battle` macro and used by every macro that fights.
 Ask Claude in a chat with the phone connector ("make a macro that ..."): it captures the
 templates it needs, saves the macro as a **Custom** draft and tries it. Macros that work are
 then added to `macros/<group>/` here, for everyone. The format is in
-[docs/writing-scenarios.md](docs/writing-scenarios.md) and at the top of `Flow.kt`.
+[writing macros](../../../macro-forge/blob/main/docs/writing-macros.md) (macro-forge) and this game's notes in [docs/writing-scenarios.md](docs/writing-scenarios.md).
 
 ## Docs
 
 - [docs/setup-android.md](docs/setup-android.md): install and set up the app
-- [relay/README.md](relay/README.md): the Claude phone connector and its relay
+- [Relay guide](../../../macro-forge/blob/main/relay/README.md): the Claude phone connector and its relay (macro-forge)
 - [macros/README.md](macros/README.md): the macro library and basic macros
-- [docs/writing-scenarios.md](docs/writing-scenarios.md): the macro format, templates, game notes
-- [docs/logic-pack.md](docs/logic-pack.md): how app logic updates reach the phone without an install
+- [docs/writing-scenarios.md](docs/writing-scenarios.md): this game's macros, its Kotlin steps and input notes
+- macro-forge: [writing macros](../../../macro-forge/blob/main/docs/writing-macros.md), [the Android app](../../../macro-forge/blob/main/docs/android-app.md), [the logic pack](../../../macro-forge/blob/main/docs/logic-pack.md), [the game profile](../../../macro-forge/blob/main/docs/game-profile.md)
 - [docs/dungeon-macros-plan.md](docs/dungeon-macros-plan.md): every Another Dungeon and the plan for their macros
-- [android/README.md](android/README.md): the app's code, build and releases
+- [android/README.md](android/README.md): what this app adds to the core, build and releases
 
 ## Development
 
@@ -97,7 +99,7 @@ then added to `macros/<group>/` here, for everyone. The format is in
 pip install -e '.[dev]'
 python -m pytest -q                      # macro pack and routes (no phone)
 gradle -p android testDebugUnitTest      # app unit tests
-cd relay && npm test                     # relay
+cd core/relay && npm test                # relay (macro-forge)
 ```
 
 CI builds every pushed branch: the APK and logic pack go to the pre-release `dev-<branch>`,

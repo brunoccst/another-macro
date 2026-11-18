@@ -1,0 +1,93 @@
+# The game this app plays: every game-specific value the generic parts of the app read.
+# The build bakes it into the app (GameProfile.kt), and it also ships in the macro pack, where
+# the logic pack reads it (logic/Game.kt). See core/docs/game-profile.md.
+name: Another Eden
+app_name: Another Macro
+tagline: Automation for Another Eden, on this phone
+about: >-
+  Automation for the mobile game Another Eden that runs on this phone: no PC and no root.
+  Macros read the game screen (screen capture) and tap for you (accessibility),
+  for the daily routine, Another Dungeon runs, farming and more.
+# the Android package of the game, and its own activity (anything else in front of it from the
+# same package is a commercial)
+package: games.wfs.anothereden
+activity: net.wrightflyer.toybox.AppActivity
+# when the game's day starts, in UTC: the Daily schedule runs a few minutes after it
+daily_reset: "15:00"
+# the GitHub repo that hosts this app's builds and packs
+repo: brunoccst/another-macro
+# the relay setup guide the app links to (the relay is macro-forge's)
+relay_guide: https://github.com/brunoccst/macro-forge/blob/main/relay/README.md
+# the Android app's id (its package on the phone)
+application_id: anothermacro.app
+# the game's own macro steps (logic pack): the Kotlin object implementing GamePlugin
+plugin: anothermacro.logic.AnotherEdenPlugin
+# the plugin's steps that describe themselves in the app's "How it works" (no how: list needed)
+plugin_steps: [another_dungeon, phantom_crystal, cat_daily, fight, pick_party, find_feather, read_cat_clues]
+# where the macro pack takes templates from (core/tools/macroforge_pack.py)
+pack:
+  common: src/another_macro/assets/templates
+  folders: src/another_macro/scenarios
+
+safety:
+  # anywhere on screen: an offer to pay; never tapped
+  purchase_words: [purchase, insufficient, not enough, remaining purchases, "buy "]
+  # anywhere on screen: premium currency; taps there need the user's OK
+  premium_words: [chronos stone, tsubura, paid stone]
+  # anywhere on screen: the premium currency is a reward being received (a commercial's
+  # Chronos Stones, the login-bonus ad, the daily commercials chest and its "Rewards received" box), not spent, so taps there don't ask
+  reward_words: [reward for watching, just for watching, rewards by watching, rewards received]
+  # the purchase guard: while this template shows (the shop), macros may only tap shop_safe ones
+  shop_screen: shop_title
+  shop_close: shop_close_button
+  shop_safe: [shop_watch_button, shop_close_button, dialog_close_button, dialog_ok_button, confirm_ok_button]
+
+# how the app groups macros (a macro's group: and its folder in macros/), in tab order;
+# icon = one of the app's own drawn icons (res/drawable/ic_<icon>.xml)
+groups:
+  - {id: daily, title: Daily, icon: sun}
+  - {id: dungeon, title: Another Dungeon, icon: keycard}
+  - {id: farm, title: Farming, icon: swords}
+  - {id: game, title: Game, icon: power}
+  - {id: basic, title: Basic, icon: blocks}
+  - {id: other, title: Other, icon: puzzle}
+  - {id: custom, title: Custom, icon: wrench}
+
+# what Claude is told about the game through the phone connector (ClaudePrompt.kt)
+claude:
+  how_to_work:
+    - "walk moves the party on a field map. Battles start by themselves while walking."
+  premium_examples: Chronos Stones, paid stones, Tsubura
+  example_macro: grind-battles
+  reward_example: Chronos Stone x5
+  format:
+    - "  fight: skill_       (fight the battle on screen until the field is back, with params skill_1..skill_4 = auto|1-4 (or global: the Global parameters); sets `outcome` to won/lost/none)"
+    - "Built-in screens include: title, field, battle, battle_command, skill_list, battle_result, defeat."
+
+# global parameters (System → Settings → Global parameters): options many macros share, set once
+# there. A macro option follows one with `global: <key>` and starts as "Global" (its value); set
+# on a macro itself, the macro keeps its own (core/docs/game-profile.md)
+globals:
+  party: {default: current, choices: [current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the game's party to use, by its number in the game's party list (1 = the first; Menu → Party, the dots under it); current = the party in front now"}
+  skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], help: "battles, party slot 1 (front row, left): auto or skill 1-4 (4 = the last skill)"}
+  skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], help: "battles, party slot 2: auto or skill 1-4"}
+  skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], help: "battles, party slot 3: auto or skill 1-4"}
+  skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], help: "battles, party slot 4: auto or skill 1-4"}
+
+# the run reports macros write (one per dungeon run): how the outcome card and Statistics show
+# them (RunStats.kt). A field is a switch (true/false), a number or a text, shown in this order.
+#   show:  the field in a report's line ({value} = its value; a switch shows it when on)
+#   total: its line in the totals: a switch counts the reports with it on, a number adds up
+#          (with of: "x of y"), a text counts each value ({Value} = the value, capitalised)
+#   card:  also a line on the outcome card when its total isn't 0
+reports:
+  title: Dungeon runs
+  fields:
+    - {key: dungeon, show: "{value}"}
+    - {key: seconds, duration: true}
+    - {key: key, show: "{value} key", total: "{Value} keys used"}
+    - {key: skipped, show: skipped with a ticket, total: Skipped with a Cat Express Ticket}
+    - {key: chests, of: chests_total, show: "chests {value}", total: Chests opened}
+    - {key: battles, show: "battles {value}"}
+    - {key: worlds, show: "worlds {value}"}
+    - {key: white_key, show: White Key, total: White Keys dropped, card: White Key}

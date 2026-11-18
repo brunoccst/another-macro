@@ -11,6 +11,19 @@ templates: [start_game, daily_ads, shop_ad, inbox]
 params:
   page: {default: shop, choices: [ads, shop, inbox], help: "the menu page to open: ads = the daily commercials chest (video icon), shop, inbox"}
   max_page_taps: {default: 4, help: "give up after this many taps on the page's button"}
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - {run: start-game, text: "If the game isn't open: start it first (once)"}
+  - {run: open-menu, text: "From the field: open the menu"}
+  - if: page == 'ads'
+    then:
+      - "If the video icon has no red \"!\": no commercials left today, close the menu and stop"
+      - "Tap the video icon (the daily commercials chest)"
+  - if: page == 'shop'
+    then: ["Tap Shop"]
+  - if: page == 'inbox'
+    then: ["Tap Inbox"]
+  - "Stop once the {page} page is open (another page open on the way is closed first; gives up after {max_page_taps} taps)"
 screens: [ad_chest, shop, inbox, menu_open, field]
 unknown_timeout_s: 60
 

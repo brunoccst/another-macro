@@ -7,6 +7,19 @@ templates: [start_game, daily_ads]
 params:
   watch_ad: {default: true, help: "take the daily login-bonus ad; false = just open the game"}
   # how long a commercial plays etc.: the Watch Ad options (watch-ad.*), taken over from the basic macro
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - "Open the game"
+  - "Title screen: wait for Continue (the game's server) and tap it"
+  - "Tap through the loading screens and the login bonus"
+  - if: watch_ad
+    then:
+      - "The daily login-bonus ad: tap Watch Video"
+      - {run: watch-ad, text: "Watch the commercial, close it and take the reward"}
+      - "A commercial that won't close: leave it once, then force-close the game and start it again without the ad"
+    else:
+      - "Don't watch the login-bonus ad: stop as soon as the game is open"
+  - "Stop on the field"
 screens: [ad_reward, premium_thanks, ad_offer, field, title]
 unknown_timeout_s: 180
 

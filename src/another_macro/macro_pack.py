@@ -1,174 +1,55 @@
-"""The macro pack: what the Android app downloads instead of having macros built in.
+"""The macro pack the Android app downloads: macro-forge's pack tool, run on this repo.
 
-CI (.github/workflows/macros.yml) runs this on every push that touches macros or templates
-and publishes the zip as the pre-release ``macros-<branch>``; the app installs the newest pack
-of the branch it follows (MacroLibrary.kt).
+The tool lives in the core (core/tools/macroforge_pack.py, docs in core/docs/writing-macros.md);
+game.yaml says where this game's templates are (``pack:``) and which plugin steps describe
+themselves in "How it works" (``plugin_steps:``). CI (.github/workflows/macros.yml) runs it on
+every push that touches macros or templates and publishes ``macros-<branch>``.
 
-Layout of the zip (the same paths the app reads):
+This module gives the tool this repo as its default root, for the tests:
 
-    macros/<group>/<name>.yaml        the repo's macros/ folder as it is
-    templates/common/...              src/another_macro/assets/templates
-    templates/<folder>/...            src/another_macro/scenarios/<folder>/templates and its
-                                      riddles.yaml / other data files next to them
-
-``check`` finds what would break a macro on the phone: bad YAML, a duplicate name, a missing
-template folder, a ``run:``, routine step or ``uses:`` naming a macro that isn't there, a macro
-filed under the wrong group folder, an option name with a dot (reserved for the options a macro
-takes over from the macros it runs).
-
-    python -m another_macro.macro_pack -o macros.zip [--commit SHA --branch NAME]
+    python -m another_macro.macro_pack -o macros.zip [--commit SHA --branch NAME] [--check]
 """
 from __future__ import annotations
 
-import argparse
-import json
-import zipfile
+import importlib.util
+import sys
 from pathlib import Path
 
-import yaml
-
 ROOT = Path(__file__).resolve().parents[2]
-SCENARIOS = Path(__file__).resolve().parent / "scenarios"
-COMMON = Path(__file__).resolve().parent / "assets" / "templates"
+_TOOL = ROOT / "core" / "tools" / "macroforge_pack.py"
+if not _TOOL.is_file():
+    raise ImportError(f"{_TOOL} is missing: run `git submodule update --init`")
+_spec = importlib.util.spec_from_file_location("macroforge_pack", _TOOL)
+tool = importlib.util.module_from_spec(_spec)
+sys.modules.setdefault("macroforge_pack", tool)
+_spec.loader.exec_module(tool)
 
-# data files a scenario keeps next to its templates folder (not .py code)
-DATA_SUFFIXES = {".yaml", ".yml"}
+_runs = tool._runs
+_check_game = tool._check_game
 
 
 def pack_files(root: Path = ROOT) -> dict[str, Path]:
-    """Every file of the pack: its path inside the zip -> the file in the repo."""
-    files: dict[str, Path] = {}
-    for f in sorted((root / "macros").rglob("*.yaml")):
-        files[f"macros/{f.relative_to(root / 'macros').as_posix()}"] = f
-    for f in sorted(COMMON.rglob("*")):
-        if f.is_file():
-            files[f"templates/common/{f.relative_to(COMMON).as_posix()}"] = f
-    for scen in sorted(p for p in SCENARIOS.iterdir() if p.is_dir()):
-        tpl = scen / "templates"
-        if tpl.is_dir():
-            for f in sorted(tpl.rglob("*")):
-                if f.is_file():
-                    files[f"templates/{scen.name}/{f.relative_to(tpl).as_posix()}"] = f
-        for f in sorted(scen.iterdir()):
-            if f.is_file() and f.suffix in DATA_SUFFIXES:
-                files[f"templates/{scen.name}/{f.name}"] = f
-    return files
+    return tool.pack_files(root)
 
 
 def macros(root: Path = ROOT) -> dict[str, tuple[Path, dict]]:
-    """Every macro by name: its file and its parsed YAML."""
-    out: dict[str, tuple[Path, dict]] = {}
-    for f in sorted((root / "macros").rglob("*.yaml")):
-        spec = yaml.safe_load(f.read_text(encoding="utf-8"))
-        if not isinstance(spec, dict) or "name" not in spec:
-            raise ValueError(f"{f}: not a macro (no name)")
-        if spec["name"] in out:
-            raise ValueError(f"{f}: macro name {spec['name']!r} used twice")
-        out[spec["name"]] = (f, spec)
-    return out
+    return tool.macros(root)
 
 
-def _runs(actions) -> list[str]:
-    """Macro names a list of actions runs with `run:` (also inside if / repeat)."""
-    names: list[str] = []
-    for a in actions or []:
-        if not isinstance(a, dict):
-            continue
-        if "run" in a:
-            r = a["run"]
-            names.append(str(r.get("macro") if isinstance(r, dict) else r))
-        names += _runs(a.get("then")) + _runs(a.get("else"))
-        if isinstance(a.get("repeat"), dict):
-            names += _runs(a["repeat"].get("do"))
-    return names
-
-
-def _sets(actions) -> list[tuple[str, object]]:
-    """(variable, expression) of every `set:` in a list of actions (also inside if / repeat)."""
-    out: list[tuple[str, object]] = []
-    for a in actions or []:
-        if not isinstance(a, dict):
-            continue
-        if isinstance(a.get("set"), dict):
-            out += list(a["set"].items())
-        out += _sets(a.get("then")) + _sets(a.get("else"))
-        if isinstance(a.get("repeat"), dict):
-            out += _sets(a["repeat"].get("do"))
-    return out
+def game(root: Path = ROOT) -> dict:
+    return tool.game(root)
 
 
 def check(root: Path = ROOT) -> list[str]:
-    """Problems that would break a macro on the phone (empty = fine)."""
-    problems: list[str] = []
-    all_macros = macros(root)
-    folders = {p.split("/")[1] for p in pack_files(root) if p.startswith("templates/")}
-    for name, (f, spec) in all_macros.items():
-        rel = f.relative_to(root / "macros")
-        group = spec.get("group", "other")
-        if len(rel.parts) != 2 or rel.parts[0] != group:
-            problems.append(f"{rel}: group {group!r} belongs in macros/{group}/")
-        for t in spec.get("templates") or []:
-            if t not in folders:
-                problems.append(f"{rel}: template folder {t!r} not in the pack")
-        used = _runs(spec.get("setup")) + _runs(spec.get("unknown"))
-        for acts in (spec.get("handlers") or {}).values():
-            used += _runs(acts)
-        used += [str(s) for s in spec.get("steps") or []]
-        used += [str(s) for s in spec.get("uses") or []]
-        # a set: value is an expression: an empty one crashes the macro on the phone ('' is the empty text)
-        for acts in [spec.get("setup"), spec.get("unknown"), *(spec.get("handlers") or {}).values()]:
-            for k, v in _sets(acts):
-                if v is None or (isinstance(v, str) and not v.strip()):
-                    problems.append(f"{rel}: set {k}: an empty expression (write '' for empty text)")
-        # "<macro>.<option>" keys are the options a macro takes over from the macros it runs
-        # (the app's InnerParams): a macro's own option names never have a dot
-        for k in spec.get("params") or {}:
-            if "." in str(k):
-                problems.append(f"{rel}: option {k!r}: a dot is for the options taken over from inner macros")
-        # show_if / beside must name another option; beside goes on a switch (type: bool)
-        params = spec.get("params") or {}
-        for k, p in params.items():
-            if not isinstance(p, dict):
-                continue
-            for ref in ("show_if", "beside"):
-                if ref in p and p[ref] not in params:
-                    problems.append(f"{rel}: option {k!r} {ref} unknown option {p[ref]!r}")
-            if "beside" in p and p.get("type") != "bool" and not isinstance(p.get("default"), bool):
-                problems.append(f"{rel}: option {k!r} has beside but is not a switch")
-        for u in used:
-            if u not in all_macros:
-                problems.append(f"{rel}: runs unknown macro {u!r}")
-            elif u == name:
-                problems.append(f"{rel}: runs itself")
-    return problems
+    return tool.check(root)
 
 
 def build(out: Path, commit: str = "", branch: str = "", root: Path = ROOT) -> int:
-    """Write the pack to [out]; the number of files in it."""
-    problems = check(root)
-    if problems:
-        raise SystemExit("macro pack problems:\n  " + "\n  ".join(problems))
-    files = pack_files(root)
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as z:
-        for arc, f in files.items():
-            z.write(f, arc)
-        z.writestr("pack.json", json.dumps({"commit": commit, "branch": branch, "macros": sorted(macros(root))}, indent=1))
-    return len(files)
+    return tool.build(out, root, commit, branch)
 
 
 def main(argv: list[str] | None = None) -> None:
-    ap = argparse.ArgumentParser(description="Build the macro pack the Android app downloads.")
-    ap.add_argument("-o", "--out", type=Path, default=Path("macros.zip"))
-    ap.add_argument("--commit", default="")
-    ap.add_argument("--branch", default="")
-    ap.add_argument("--check", action="store_true", help="only check the macros, write nothing")
-    a = ap.parse_args(argv)
-    if a.check:
-        problems = check()
-        print("\n".join(problems) or "ok")
-        raise SystemExit(1 if problems else 0)
-    n = build(a.out, a.commit, a.branch)
-    print(f"{a.out}: {n} files, {len(macros())} macros")
+    tool.main(["--root", str(ROOT), *(sys.argv[1:] if argv is None else argv)])
 
 
 if __name__ == "__main__":

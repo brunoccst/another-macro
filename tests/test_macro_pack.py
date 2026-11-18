@@ -107,8 +107,24 @@ def test_party_is_picked_by_number_only():
             continue
         choices = [str(c) for c in party["choices"]]
         assert choices == ["current"] + [str(i) for i in range(1, 11)], name
-        assert str(party["default"]) in choices, name
+        # it follows the Global parameters' party: "global" unless the macro gives its own default
+        assert party.get("global") == "party", name
+        assert str(party.get("default", "global")) in choices + ["global"], name
         assert "with " not in party["help"].lower(), name
+
+
+def test_party_and_skills_are_global_parameters():
+    import yaml
+    profile = yaml.safe_load(Path("game.yaml").read_text(encoding="utf-8"))
+    g = profile["globals"]
+    assert [str(c) for c in g["party"]["choices"]] == ["current"] + [str(i) for i in range(1, 11)]
+    assert g["party"]["default"] == "current"
+    _, battle = macro_pack.macros()["battle"]
+    for i in range(1, 5):
+        # generic defaults: auto, and the battle macro's skills follow them
+        assert g[f"skill_{i}"]["default"] == "auto"
+        assert battle["params"][f"skill_{i}"]["global"] == f"skill_{i}"
+        assert "default" not in battle["params"][f"skill_{i}"]
 
 
 def test_check_catches_empty_set_expression(tmp_path):
@@ -123,8 +139,11 @@ def test_watch_ad_leaves_commercials_that_wont_close():
     # a playable commercial can have no close X and ignore Back: watch-ad leaves it with the
     # leave_ad step (Home, then the game's own screen) instead of tapping it; the step is known
     # to the logic pack, and callers never tap while a commercial is still in front
-    entry = (ROOT / "android/app/src/main/java/io/github/brunoccst/anothermacro/logic/Entry.kt").read_text()
-    assert '"leave_ad"' in entry and '"home"' in entry and '"force_close"' in entry
+    # (generic steps: FlowRun.STEPS, which Entry.ACTIONS includes)
+    flow = (ROOT / "core/android/core/src/main/java/macroforge/logic/FlowRun.kt").read_text()
+    steps = flow[flow.index("val STEPS = setOf("):]
+    steps = steps[:steps.index(")")]
+    assert '"leave_ad"' in steps and '"home"' in steps and '"force_close"' in steps
     all_macros = macro_pack.macros()
     _, spec = all_macros["watch-ad"]
     acts = list(_flat(spec["unknown"]))
@@ -139,3 +158,51 @@ def test_watch_ad_leaves_commercials_that_wont_close():
         assert guards, name
         assert any(a.get("leave_ad") for a in _flat(guards[0]["then"])), name
         assert not any("tap" in a for a in _flat(guards[0]["then"])), name
+
+
+def test_check_wants_how_steps(tmp_path):
+    (tmp_path / "macros" / "daily").mkdir(parents=True)
+    f = tmp_path / "macros" / "daily" / "x.yaml"
+    f.write_text(yaml.safe_dump({"name": "x", "group": "daily", "screens": [], "handlers": {"field": [{"tap": [0.5, 0.5]}]}}))
+    assert any("no how:" in p for p in macro_pack.check(tmp_path))
+    f.write_text(yaml.safe_dump({"name": "x", "group": "daily", "params": {"n": 3}, "screens": [], "handlers": {},
+                                 "how": ["Tap {n} times", "Then {m}", {"run": "nope"}, {"if": "n > 1", "then": ["{n}"]}]}))
+    problems = macro_pack.check(tmp_path)
+    assert any("{m} is not an option" in p for p in problems)
+    assert any("how: runs unknown macro 'nope'" in p for p in problems)
+    assert not any("{n}" in p for p in problems)
+    # a step the app describes itself (game.yaml plugin_steps) needs no how:
+    (tmp_path / "game.yaml").write_text((macro_pack.ROOT / "game.yaml").read_text(encoding="utf-8"))
+    f.write_text(yaml.safe_dump({"name": "x", "group": "daily", "screens": [], "handlers": {"field": [{"another_dungeon": "dogma_tower"}]}}))
+    assert not any("how" in p for p in macro_pack.check(tmp_path))
+
+
+def test_watch_ad_stops_when_no_commercial_played():
+    # no commercial (the game shows its chest straight away): watch-ad stops so the caller opens
+    # the chest, instead of pressing Back on it after ad_wait_s
+    flow = (ROOT / "core/android/core/src/main/java/macroforge/logic/FlowRun.kt").read_text()
+    assert '"game_screen"' in flow
+    _, spec = macro_pack.macros()["watch-ad"]
+    acts = list(_flat(spec["unknown"]))
+    no_ad = [a for a in acts if "not ad_seen and game_screen()" in str(a.get("if", ""))]
+    assert no_ad and any("no commercial" in str(a.get("stop", "")) for a in no_ad[0]["then"])
+
+
+def test_watch_ad_closes_commercials_once_they_are_over():
+    # a commercial without "Reward granted" is closed once its own signs say it is over (its
+    # progress bar, its countdown, its still end card), not after the fixed ad_wait_s; such an
+    # early Back never counts toward leaving it (tries), and a "lose your reward" warning stops it
+    flow = (ROOT / "core/android/core/src/main/java/macroforge/logic/FlowRun.kt").read_text()
+    for fn in ('"ad_left"', '"screen_still"', '"ad_warning"'):
+        assert fn in flow, fn
+    _, spec = macro_pack.macros()["watch-ad"]
+    assert spec["params"]["early_close"]["default"] is True
+    acts = list(_flat(spec["unknown"]))
+    early = [a for a in acts if "left == 0 or" in str(a.get("if", ""))]
+    assert early and "not warned" in early[0]["if"]
+    then = list(_flat(early[0]["then"]))
+    assert any(a.get("back") for a in then)
+    assert not any("tries" in a.get("set", {}) for a in then)
+    assert not any("tap" in a or "tap_exact" in a for a in then)
+    warn = [a for a in acts if a.get("if") == "ad_warning()"]
+    assert warn and any("warned" in a.get("set", {}) for a in warn[0]["then"])

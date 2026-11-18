@@ -12,6 +12,16 @@ params:
   # how long a commercial plays etc.: the Watch Ad options (watch-ad.*), taken over from the basic macro
   max_ads: {default: 3, help: "commercials to watch at most (the play button stays while there are more today)"}
   connecting_wait_s: {default: 30, help: "how long to wait out the shop's \"Connecting\" overlay before deciding there is no commercial button"}
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - {run: open-menu-page, params: {page: "'shop'"}, text: "Open Menu → Shop, starting the game if needed"}
+  - "Look for the play button (top left), waiting out the shop's \"Connecting\" overlay for up to {connecting_wait_s} s"
+  - "No play button: already watched today, close the shop and the menu and stop"
+  - "Tap the play button"
+  - {run: watch-ad, text: "Watch the commercial, close it and take the reward"}
+  - "Tap OK on \"You have been rewarded 10 Chronos Stones\" (noted for the outcome message)"
+  - "Again while the play button stays (at most {max_ads} commercials), then close the shop and the menu and stop"
+  - "Nothing in the shop itself is ever tapped, so nothing can be bought"
 screens: [premium_thanks, shop_ok_dialog, shop, menu_open, field]
 unknown_timeout_s: 120
 

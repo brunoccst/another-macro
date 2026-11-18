@@ -31,6 +31,15 @@ templates:
     region: [0.05, 0.1, 0.9, 0.6]
     threshold: 0.82
     scales: [0.5, 0.55, 0.6, 0.65]   # grey: 0.87-0.89 at 0.5-0.55 (2026-11-15)
+  field_jar_bubble:
+    notes: >-
+      The round bubble with a jar icon over a bait jar (Sea of Ice) when the party stands by it; tap it to
+      take what the jar caught. Cut from a 1024x461 connector screenshot (2026-11-18), upscaled.
+    file: field_jar_bubble.png
+    ref: [2400, 1080]
+    region: [0.05, 0.1, 0.9, 0.6]
+    threshold: 0.75
+    scales: [0.9, 1.0, 1.1]
   ground_arrow_bars:
     notes: Round sign (bars icon) on the ground at a staircase to another map; tap it to take it.
     file: ground_arrow_bars.png

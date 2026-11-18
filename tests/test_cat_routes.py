@@ -95,3 +95,52 @@ def test_measured_spots_reach_their_cat(table):
         assert end[1] == pytest.approx(cat[1]), name
         # a cat by a street's end is reached by holding into the wall (within wall_snap of it)
         assert abs(end[0] - cat[0]) <= table.wall_snap, f"{name}: path ends at x={end[0]:.3f}, cat {cat[0]:.3f}"
+
+
+# --- importing the app's survey ("MEASURED cat spot:" log lines, CatSurvey.kt) ---------------
+LOG = (
+    "12:00:01 cat-scratchbook: Testplace: no fixed route yet\n"
+    '12:00:40 MEASURED cat spot: {"location":"Testplace","map":"Testplace","segs":[[0.4,0.3,0.7],[0.6,0.3,0.7]],'
+    '"links":[[0.5,0.4,0.6]],"arrival":[0.35,0.6],"cat":[0.65,0.4],"drift":[0.02,0.03],'
+    '"feather_reads":[0.65,0.64,0.68],"walk_scale":0.9,"notes":["a note"],"date":"2026-11-17"}\n'
+)
+
+
+def _spots_file(tmp_path, area="null"):
+    p = tmp_path / "cat_spots.yaml"
+    p.write_text(
+        "# header\n"
+        f"Testplace:\n  era: Present\n  continent: null\n  place: Testplace\n  sub: null\n  area: {area}\n"
+        "Other:\n  era: Future\n  continent: null\n  place: Other\n  sub: null\n  area: null\n",
+        encoding="utf-8",
+    )
+    return p
+
+
+def test_import_measured_spot(tmp_path, table):
+    p = _spots_file(tmp_path)
+    text, imported, skipped = cr.import_measured(LOG + LOG.replace("Testplace", "Nowhere"), p)
+    assert imported == ["Testplace"] and skipped == ["Nowhere (no such spot in cat_spots.yaml)"]
+    p.write_text(text, encoding="utf-8")
+    spots = cr.load_spots(p)
+    a = spots["Testplace"]["area"]
+    assert a["walk_scale"] == 0.9 and a["cat"] == [0.65, 0.4] and a["links"] == [[0.5, 0.4, 0.6]]
+    assert spots["Other"]["area"] is None and "# survey note: a note" in text
+    steps = cr.plan("Testplace", spots["Testplace"], table)
+    assert steps and "U" in steps
+    # and the paths get written like any measured spot's
+    out = cr.render(p, table)
+    assert "  path: [" in out and cr.load_spots(p)["Testplace"]["era"] == "Present"
+
+
+def test_import_keeps_hand_measured_areas(tmp_path):
+    p = _spots_file(tmp_path, area="\n    segs: [[0.5, 0.1, 0.9]]\n    arrival: [0.2, 0.5]\n    cat: [0.8, 0.5]")
+    _, imported, skipped = cr.import_measured(LOG, p)
+    assert imported == [] and skipped[0].startswith("Testplace (already has an area")
+    text, imported, _ = cr.import_measured(LOG, p, force=True)
+    assert imported == ["Testplace"] and "0.1, 0.9" not in text
+
+
+def test_a_layout_that_does_not_connect_has_no_route(table):
+    bad = {**SPOT, "area": {**SPOT["area"], "links": []}}
+    assert cr.safe_plan("T", bad, table) is None

@@ -11,6 +11,13 @@ description: "Claim every reward in the inbox (Menu → Inbox, open each item no
 templates: [daily_ads, inbox]
 params:
   max_items: {default: 100, help: "open at most this many items in one run"}
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - {run: open-menu-page, params: {page: "'inbox'"}, text: "Open Menu → Inbox, starting the game if needed"}
+  - "Wait for the list (and out the \"Connecting...\" overlay)"
+  - "Tap the top-most item not marked \"Opened\", then OK on its rewards (noted for the outcome message)"
+  - "Again until the page has none left; if any were opened, close and reopen the inbox to bring the rest to the top"
+  - "Done when a freshly opened inbox starts with an opened item, or after {max_items} items: close the inbox and the menu and stop"
 screens: [inbox_item, inbox, menu_open, field]
 unknown_timeout_s: 45
 
