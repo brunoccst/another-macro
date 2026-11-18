@@ -597,7 +597,8 @@ object AnotherDungeon {
         // map; the dungeon's label can sit right of the middle there)
         val area = r.spec.area
         if (area != null) {
-            mapLabel(r, arrayOf(area), 0.62) ?: ctx.stop("$area not on the ${r.spec.era} map: ${seen(ctx)}")
+            // (0.8: the Present map can't pan the Parallel Time Layer label further left than x 0.78, seen 2026-11-18)
+            mapLabel(r, arrayOf(area), 0.8) ?: ctx.stop("$area not on the ${r.spec.era} map: ${seen(ctx)}")
             ctx.wait(1.5)
         }
         mapLabel(r, listOfNotNull(r.spec.name, r.spec.label).toTypedArray(), if (area != null) 0.85 else 0.62)
