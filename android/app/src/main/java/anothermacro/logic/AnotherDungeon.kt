@@ -616,6 +616,13 @@ object AnotherDungeon {
         if (keys != null && keys < r.spec.keyCost) {
             // the game would offer to buy keys: never; the loop ends here
             ctx.tap(AD_CLOSE); ctx.wait(1.5)
+            // a dungeon's box (Sea of Ice's "Glacial Place" map) can still be open over the panel, so the
+            // close above missed (seen 2026-11-18: left on the Another Dungeon screen): Back until it's gone
+            repeat(3) {
+                if (ctx.readText(Region(0.3, 0.0, 0.4, 0.08)).none { Ocr.norm(it.text).contains("another dungeon") }) return@repeat
+                MacroLog.i("still on the Another Dungeon screen: Back")
+                ctx.back(); ctx.wait(1.2)
+            }
             r.outOfKeys = true
             return "out of ${if (red) "red" else "green"} keys" + (if (r.spec.keyCost > 1) " ($keys left, a run takes ${r.spec.keyCost})" else "")
         }
