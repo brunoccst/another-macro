@@ -320,6 +320,9 @@ underworld_cathedral:
       links: [[0.462, 0.445, 0.553]]
       exit: [0.497, 0.445]
     - names: [Dimensional Cathedral]
+      # like Zero Point and Demon's Den, its enemies didn't run out (15 fights, ~11.5 min, no banner,
+      # 2026-11-18): no clearing first
+      enemies: false
       # four streets in a brick pattern; no chest icons on the area map (chests show up close). Left out: the
       # hidden room above row 2's left end (link ~0.332) and the stub at the top street's right end, each with
       # a one-time chest (exclusive equipment). A Horror (red star) walks row 3's right part
@@ -422,6 +425,8 @@ underworld_ark:
       segs: [[0.556, 0.417, 0.629]]
       exit: [0.606, 0.556]
     - names: [The Ark of the Underworld]
+      # the same endless enemies as the rest of the Underworld: no clearing first
+      enemies: false
       # five streets in a brick pattern (top, row 2-5); the area map shows no chest icons. A Horror (red
       # star) at row 2's left end (beaten in 1 turn). Chests only show when close
       segs: [[0.275, 0.506, 0.558], [0.386, 0.331, 0.590], [0.499, 0.300, 0.430], [0.499, 0.459, 0.701],
