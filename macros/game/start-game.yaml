@@ -12,6 +12,7 @@ how:
   - "Open the game"
   - "Title screen: wait for Continue (the game's server) and tap it"
   - "Tap through the loading screens and the login bonus"
+  - "A popup the taps don't close (e.g. a notice when the game stayed open over the daily reset): press Back; if that asks \"Close the app?\", tap No"
   - if: watch_ad
     then:
       - "The daily login-bonus ad: tap Watch Video"
@@ -20,11 +21,11 @@ how:
     else:
       - "Don't watch the login-bonus ad: stop as soon as the game is open"
   - "Stop on the field"
-screens: [ad_reward, premium_thanks, ad_offer, field, title]
+screens: [ad_reward, premium_thanks, ad_offer, close_app, field, title]
 unknown_timeout_s: 180
 
 setup:
-  - set: {continued: false, skip_ad: false}
+  - set: {continued: false, skip_ad: false, taps: 0}
   - status: opening the game
   - launch: "'games.wfs.anothereden'"
   - count: launches
@@ -37,7 +38,7 @@ handlers:
       then:
         - status: "title screen: tapping Continue"
         - count: continue_taps
-        - set: {continued: true}
+        - set: {continued: true, taps: 0}
         - tap: [0.5, 0.75]
         - wait: 8
       else:
@@ -76,6 +77,11 @@ handlers:
     - tap: dialog_ok_button
     - wait: 2
 
+  close_app:         # a Back below reached the field: keep the game open (No)
+    - count: close_app_no
+    - tap: [0.412, 0.568]
+    - wait: 1.5
+
   field:
     - stop: "the game is on and on the field ({pick(1 + stats.ad_rewards + 2 * stats.premium_skips, 'no login-bonus ad seen', 'login-bonus ad watched', 'premium: no ad')})"
 
@@ -86,7 +92,7 @@ unknown:
   - if: ad_in_front()
     then:
       - if: stats.ads_left_here >= 2
-        then: [{stop: "a commercial did not close, even after force-closing the game"}]
+        then: [{stop: "failed: a commercial did not close, even after force-closing the game"}]
       - count: ads_left_here
       - if: stats.ads_left_here == 1
         then:
@@ -108,7 +114,19 @@ unknown:
               - launch: "'games.wfs.anothereden'"
               - wait: 3
             else:
-              # loading screens and the cat delivering the login bonus
-              - status: "loading (tapping through the login bonus)"
-              - tap: [0.5, 0.3]
-              - wait: 1.5
+              # loading screens and the cat delivering the login bonus. Some popups ignore taps (seen
+              # after the login-bonus ad when the game stayed open over the daily reset) and only
+              # Back closes them: after 8 taps that changed nothing once the ad was taken, Back
+              # (25 before it: a cold start's loading screens can take ~40 s of taps)
+              - set: {taps: taps + 1}
+              - if: taps >= 25 or (stats.ads_accepted > 0 and taps >= 8)
+                then:
+                  - count: popup_backs
+                  - status: "a popup the taps don't close: pressing Back"
+                  - set: {taps: 0}
+                  - back: true
+                  - wait: 1.5
+                else:
+                  - status: "loading (tapping through the login bonus)"
+                  - tap: [0.5, 0.3]
+                  - wait: 1.5

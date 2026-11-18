@@ -36,7 +36,8 @@ answers:
    Time Layer" for the castle), and the label exactly as the game shows it (does it wrap
    onto two lines?). Hard and Very Hard both, and which key(s) each costs (1 or 2).
 3. **Party and unlocks**: a character the game requires in the party (Dogma Tower needs
-   Poporo), a character who earns Light/Shadow there, and whether both difficulties are
+   Poporo; the wiki pages don't list these, only the game's "please include" box does; record
+   it as `requires` in dungeons.yaml), a character who earns Light/Shadow there, and whether both difficulties are
    unlocked on their account.
 4. **How it works**, anything the wiki may not say or they have seen: the number of maps, rare
    maps, a dungeon currency or "Continue to skip?" box at the end, a different fight limit
@@ -140,8 +141,11 @@ Copy `macros/dungeon/dogma-tower.yaml` to `macros/dungeon/<dungeon>.yaml`, chang
 `description` and the `another_dungeon:` id. Keep `group: dungeon` and the standard
 dungeon params every dungeon macro has: `key`, `runs` (1-10 or all: until the key counter on
 the dungeon panel reads 0), `white_key` (phantom / stop / keep_going), `cat_ticket`,
-the skill setups (every map's enemies are always fought first, so the fixed path
-isn't interrupted by battles).
+the skill setups, and `defeat_all` + `clear_max_battles` only when one of the dungeon's maps
+has enemies that run out ("The enemies have disappeared" can show; maps whose enemies never run
+out get `enemies: false` in dungeons.yaml). Every map walks its stops first, fighting the
+battles on the way (the walk reads its spot again after each one); with `defeat_all` on, the
+enemies left are fought after the stops, before the exit. A test checks the option matches the data.
 
 ## What we know about Another Dungeons (keep in mind for every dungeon)
 

@@ -56,8 +56,8 @@ itself under the same name, are left out. Details: [writing macros](../../../../
 So a basic macro runs with its own options as the user set them, then the caller's settings for
 it, then the caller's `params:`.
 
-The Another Dungeon map clearing (fights until "The enemies have disappeared", like grind-battles
-with `until_cleared`) stays inside `AnotherDungeon.kt`: it walks
+The Another Dungeon map clearing (after a map's stops, the enemies left until "The enemies have
+disappeared", like grind-battles with `until_cleared`; the `defeat_all` option) stays inside `AnotherDungeon.kt`: it walks
 by the map's layout to keep the party's position for the fixed chest paths, which plain
 grind-battles walking would lose. Its fights are the battle macro's step with the dungeon macro's Battle options, the boss with the
 dungeon's boss skills when set; the dungeon runs that step itself (not the macro) because it

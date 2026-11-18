@@ -144,3 +144,16 @@ def test_import_keeps_hand_measured_areas(tmp_path):
 def test_a_layout_that_does_not_connect_has_no_route(table):
     bad = {**SPOT, "area": {**SPOT["area"], "links": []}}
     assert cr.safe_plan("T", bad, table) is None
+
+
+def test_import_bridges_the_icon_gaps(tmp_path, table):
+    # the party marker and the feather sit on their streets and split the survey's read
+    log = LOG.replace('"segs":[[0.4,0.3,0.7],[0.6,0.3,0.7]]', '"segs":[[0.4,0.3,0.62],[0.4,0.68,0.7],[0.6,0.38,0.7]]')
+    p = _spots_file(tmp_path)
+    text, imported, _ = cr.import_measured(log, p)
+    p.write_text(text, encoding="utf-8")
+    a = cr.load_spots(p)["Testplace"]["area"]
+    assert [0.4, 0.3, 0.7] in a["segs"]          # joined across the feather at x 0.65
+    assert [0.6, 0.34, 0.7] in a["segs"]         # stretched to the arrival at x 0.35
+    assert "import: cat: joined" in text
+    assert cr.plan("Testplace", cr.load_spots(p)["Testplace"], table)

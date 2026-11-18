@@ -1,13 +1,13 @@
 # One run of the Sea of Ice Another Dungeon (Antiquity era, Glacial Place; Very Hard only, red key):
-# every map's enemies first (until "The enemies have disappeared"), then every chest and T. Black Pearl
-# sparkle by the map's fixed path, then the chest of The Abyss and the boss (Abyssal Queen).
+# every chest and T. Black Pearl sparkle by the map's fixed path, fighting the battles on the way, then the
+# enemies left (until "The enemies have disappeared"; defeat_all), then the chest of The Abyss and the boss (Abyssal Queen).
 # Stops when the run ends, and says so when a White Key opened the Phantom Crystal Dimension.
 # Never buys keys: a purchase offer stops it. Start it anywhere on the field: away from the Another
 # Dungeon door it travels to the Spacetime Rift and walks to the door (or start inside the dungeon).
 name: sea-of-ice
 group: dungeon
 icon: chest
-description: "Another Dungeon: Sea of Ice (Celestial Soul, Very Hard). All enemies, all chests and sparkles, then the boss."
+description: "Another Dungeon: Sea of Ice (Celestial Soul, Very Hard). All chests and sparkles, then all enemies, then the boss."
 templates: [another_dungeon, daily_ads]
 params:
   red_key: {default: true, type: bool, help: "use red keys: Sea of Ice is Very Hard only (off = only pick the party)"}
@@ -17,12 +17,12 @@ params:
   white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
   party: {default: 10, global: party, choices: [current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the game's party to use, by its number in the game's party list (1 = the first; Menu → Party, the dots under it); current = the party in front now; global = the Global parameters' party. Picked once on the field before the first run (basic macro pick-party)"}
   cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
-  clear_first: {default: true, type: bool, help: "fight every map until \"The enemies have disappeared\" before going for its chests; off = walk straight to the chests and fight only the battles on the way (faster)"}
+  defeat_all: {default: true, type: bool, help: "after every chest and pickup of a map, fight the enemies still left until \"The enemies have disappeared\", then go to the exit (the battles met on the way count); off = straight to the exit once the stops are done (faster)"}
   # what to collect on the way besides the chests (each its own stop on the route)
   sparkles: {default: true, type: bool, help: "pick up the T. Black Pearls (green sparkles) on the way"}
   fish: {default: true, type: bool, help: "throw the harpoon at each fish floating over the water (one try per fish, it can miss)"}
   jars: {default: true, type: bool, help: "empty full bait jars (bait you set yourself; the macro never sets or buys bait)"}
-  clear_max_battles: {default: 15, show_if: clear_first, help: "every map's enemies are fought until the game says \"The enemies have disappeared\"; this is a safety cap on fights per map in case the banner is missed (0 = no cap)"}
+  clear_max_battles: {default: 15, show_if: defeat_all, help: "a safety cap on the fights for the enemies left on one map, in case the banner is missed (0 = no cap)"}
   # the mobs: this macro's own Battle options (battle.skill_1..4), taken over from the basic macro
   # battle by the app (not declared here; they start as the battle macro's own skills)
   boss_setup: {default: false, type: bool, help: "fight the boss with its own skills (below) instead of this macro's Battle options"}

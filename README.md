@@ -57,7 +57,7 @@ Claude chat ──(custom connector)──> relay (your Cloudflare Worker) <─�
 | Daily | `shop-ad` | The shop's daily commercial for Chronos Stones. |
 | Daily | `cat-scratchbook` | Reads today's cat clues, travels to each cat by a fixed route and finds it (`mode`: daily / read / hunt). |
 | Daily | `inbox` | Claims every inbox item not opened yet. |
-| Another Dungeon | `dogma-tower`, `burning-beast-kings-castle` | One or more runs: enters with the chosen key (or skips with a Cat Express Ticket), fights each map until "The enemies have disappeared", walks fixed routes to every chest and the exit, then the boss. Stops at 0 keys (never buys), reports a White Key. |
+| Another Dungeon | `dogma-tower`, `burning-beast-kings-castle` | One or more runs: enters with the chosen key (or skips with a Cat Express Ticket), walks fixed routes to every chest (fighting on the way), optionally the enemies left until "The enemies have disappeared", then the exit, then the boss. Stops at 0 keys (never buys), reports a White Key. |
 | Another Dungeon | `phantom-crystal` | The Phantom Crystal Dimension after a White Key: every chest and paw stamp, world by world. Stops so you pick a free Treatise/Codex/Opus yourself. |
 | Game | `start-game` | Opens the game, takes the daily login-bonus ad, stops on the field. |
 | Game | `stop-game` | Closes the game the clean way (Back → "Close the app?" → Yes). |

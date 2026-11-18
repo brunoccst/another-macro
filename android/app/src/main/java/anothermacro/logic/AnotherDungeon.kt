@@ -14,13 +14,15 @@ import kotlin.math.abs
  *  1. enter: the "!" over the Another Dungeon door (Spacetime Rift) → era tab → the
  *     dungeon's label → Hard (green key) or Very Hard (red key) → Move, or Skip when a
  *     Cat Express Ticket should be used (skips the whole dungeon);
- *  2. every map: first fight its enemies, walking back and forth by where the party arrived,
- *     until the game says they have disappeared (then no battle can interrupt the walk);
- *  3. follow the map's fixed path (dungeons.yaml `path:`, planned from the map's
- *     layout by `another-macro dungeon-routes`) to each chest and open it with the "!"
- *     bubble, fighting the encounters on the way, without opening the area map (see
- *     Route.kt); a map without a path walks its layout looking at the area map;
- *  4. walk to the map's exit and take it;
+ *  2. every map: follow its fixed path (dungeons.yaml `path:`, planned from the map's
+ *     layout by `another-macro dungeon-routes`) to each chest and sparkle and open it with the "!"
+ *     bubble, fighting the encounters on the way (each battle can leave the party off its
+ *     route: the walk reads its spot again and goes on from there, see Route.kt); a map
+ *     without a path walks its layout looking at the area map;
+ *  3. a chest not found on the way gets a second try, walked to by the area map;
+ *  4. a map whose enemies run out ("The enemies have disappeared" can show, `enemies:` not
+ *     false) and haven't yet, with the `defeat_all` option on: walk back and forth fighting until
+ *     the banner shows; then walk to the map's exit and take it;
  *  5. the last map (no layout yet): sweep it, tapping every "!" (its chest, the boss);
  *     the boss battle gets the boss skill setup when one is chosen;
  *  6. stop when the run ends, and say so when a White Key opened the Phantom Crystal Dimension.
@@ -32,7 +34,7 @@ object AnotherDungeon {
     data class MapSpec(val names: List<String>, val layout: AreaNav.Layout?, val chests: List<Point>, val exit: Point?, val boss: Boolean, val arrival: Point? = null, val chestsCount: Int = 0,
                        /** The fixed walk: one leg per chest (in order), then the exit. */
                        val path: List<Route.Leg>? = null,
-                       /** False for a map without enemies (no fights first). */
+                       /** False for a map whose enemies never run out ("The enemies have disappeared" never shows) or that has none: never cleared. */
                        val enemies: Boolean = true,
                        /** A small map done by fixed steps instead of a layout: "bubble", "gate" (a "!" that travels on, Yes), "yes" (Yes to the travel question a flick opened), "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
                        val steps: List<String>? = null,
@@ -69,6 +71,8 @@ object AnotherDungeon {
         val cameraLags: Boolean = false,
         /** Keys one run takes (dungeons.yaml `key_cost`; the Underworld takes 2 green keys). */
         val keyCost: Int = 1,
+        /** Characters the game wants in the party to enter (dungeons.yaml `requires`; Dogma Tower: Poporo). */
+        val requires: List<String> = emptyList(),
     )
 
     const val DATA = "templates/another_dungeon/dungeons.yaml"
@@ -138,7 +142,8 @@ object AnotherDungeon {
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
-            d["area_map_scrolls"] == true, d["camera_lags"] == true, (d["key_cost"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1)
+            d["area_map_scrolls"] == true, d["camera_lags"] == true, (d["key_cost"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1,
+            (d["requires"] as? List<*>)?.map { it.toString() } ?: emptyList())
     }
 
     private class Run(val ctx: Context, val spec: Spec, /** The key this run enters with: "green" (Hard) or "red" (Very Hard). */ val key: String) {
@@ -156,6 +161,10 @@ object AnotherDungeon {
         /** A stop just before was left out (its collect option is off): the next leg is walked by the area map, not its fixed steps. */
         var offPlan = false
         var cleared = false
+        /** Chests on this map not found on the way: tried once more (by the area map) before the exit. */
+        val retryLater = ArrayList<Point>()
+        /** This map's chests already tried a second time (each gets one retry only). */
+        val retried = HashSet<Point>()
         var onBossMap = false
         var bossNext = false
         var bossBeaten = false
@@ -362,9 +371,10 @@ object AnotherDungeon {
                     r.pos = null; r.planPos = null
                     r.order = chestOrder(spec.maps[idx].shifted(r.shift), party)
                 }
-                // clear_first off: no grinding; the path is walked at once and the battles on the way are
-                // fought where they come (the walk reads its spot on the area map after each one)
-                r.map = idx; r.chestsDone = 0; r.legsDone = 0; r.cleared = !spec.maps[idx].enemies || !clearFirst(ctx)
+                // the path is walked at once and the battles on the way are fought where they come (the
+                // walk reads its spot on the area map after each one); the enemies left, if any, after it
+                r.map = idx; r.chestsDone = 0; r.legsDone = 0; r.cleared = !spec.maps[idx].enemies
+                r.retryLater.clear(); r.retried.clear()
                 r.onBossMap = spec.maps[idx].boss
                 r.chestsTotal += spec.maps[idx].chests.size.takeIf { it > 0 } ?: spec.maps[idx].chestsCount
                 task(r, "Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
@@ -374,14 +384,7 @@ object AnotherDungeon {
             when {
                 ms.steps != null -> runSteps(r, ms)
                 ms.layout == null -> sweep(r)
-                // every map's enemies first: once "the enemies have disappeared", no battle can cut
-                // the fixed path short, so it is walked exactly as planned
-                !r.cleared && !r.onBossMap -> {
-                    grind(r, ms)
-                    // the fights moved the party a little: read its spot once before the path
-                    if (r.pos != null) { r.unsure = true; r.lastDir = 0.0 }
-                }
-                // sparkles that move every run: read where they are once the map is cleared, then each in turn
+                // sparkles that move every run: read where they are on arrival, then each in turn
                 ms.sparkleIcons && ms.layout != null && r.live == null && !collects(ctx, "sparkles") -> r.live = mutableListOf()
                 ms.sparkleIcons && ms.layout != null && r.live == null -> readSparkles(r, ms)
                 ms.sparkleIcons && ms.layout != null && r.live!!.isNotEmpty() -> takeSparkleAt(r, ms, r.live!!.removeAt(0))
@@ -401,6 +404,17 @@ object AnotherDungeon {
                     r.legsDone++
                 }
                 r.chestsDone < ms.chests.size -> takeChest(r, ms, ms.chests[r.order.getOrElse(r.chestsDone) { r.chestsDone }])
+                // the rewards first: a chest missed on the way gets a second, slower try by the area map
+                r.retryLater.isNotEmpty() && ms.layout != null -> retryChest(r, ms, r.retryLater.removeAt(0))
+                // every stop done: the enemies still left, when the map's can run out and the user wants them all
+                !r.cleared && !r.onBossMap && ms.exit != null && defeatAll(ctx) -> {
+                    // a chest search or a battle can have moved the party: its spot first (the back and forth stays on its street)
+                    val l = ms.layout
+                    if (r.unsure && l != null) r.pos?.let { p -> readSpot(r, l, p)?.let { r.pos = it; r.planPos = it } }
+                    grind(r, ms)
+                    // the fights moved the party a little: read its spot once before the exit
+                    if (r.pos != null) { r.unsure = true; r.lastDir = 0.0 }
+                }
                 ms.exit != null -> leave(r, ms, idx)
                 else -> sweep(r)
             }
@@ -429,6 +443,44 @@ object AnotherDungeon {
      * The dungeon panel's counters, left to right. One OCR line can hold two of them
      * ("5/5 En 16/50"): lines go by x, then the counters in a line by their order in it.
      */
+    /**
+     * The character the "please include" box names ("In order to move to Dogma Tower (Hard) please
+     * include: Poporo"). A name from the dungeon's `requires` list that the screen shows wins (OCR can
+     * mangle a name); else what follows "include:" on the same line, when it reads like a name; else
+     * the `requires` list itself; null when there's nothing to go by.
+     */
+    internal fun missingMember(lines: List<Ocr.Line>, requires: List<String>): String? {
+        val ordered = lines.sortedWith(compareBy({ (it.center.y * 25).toInt() }, { it.center.x }))
+        val all = Ocr.norm(ordered.joinToString(" ") { it.text })
+        requires.filter { Ocr.norm(it).isNotEmpty() && Ocr.norm(it) in all }.takeIf { it.isNotEmpty() }?.let { return it.joinToString(" and ") }
+        val i = ordered.indexOfFirst { Ocr.norm(it.text).contains("please include") }
+        if (i >= 0) {
+            // only a name on the same line: the box sits over the party list, so the "next" OCR line is a
+            // party member or the screen's title ("Dungeon", seen 2026-11-18), not the name asked for
+            val raw = ordered[i].text.substringAfter(":", "").trim()
+            val name = raw.replace(Regex("""[^\p{L}'\-. ]"""), " ").trim().replace(Regex("\\s+"), " ")
+            val n = Ocr.norm(name)
+            // the box's buttons and the key line aren't names
+            if (name.count { it.isLetter() } >= 2 && n !in setOf("back", "move", "skip", "ok", "cancel") &&
+                !n.startsWith("using") && "key" !in n.split(" ") && name.split(" ").size <= 4) return name
+        }
+        return requires.takeIf { it.isNotEmpty() }?.joinToString(" and ")
+    }
+
+    /**
+     * Close the Another Dungeon panel and map back to the field. A place's box ("Parallel Time Layer",
+     * Sea of Ice's "Glacial Place") can still be open over the panel, so the close misses it (seen
+     * 2026-11-18: left on the Another Dungeon screen): Back until the screen's title is gone.
+     */
+    private fun closePanel(ctx: Context) {
+        ctx.tap(AD_CLOSE); ctx.wait(1.5)
+        repeat(3) {
+            if (ctx.readText(Region(0.3, 0.0, 0.4, 0.08)).none { Ocr.norm(it.text).contains("another dungeon") }) return
+            MacroLog.i("still on the Another Dungeon screen: Back")
+            ctx.back(); ctx.wait(1.2)
+        }
+    }
+
     /** The chosen key's count and the Cat Express Tickets' count from [panelCounters]; null when not read. */
     internal fun keysAndTickets(counters: List<List<Int>>, red: Boolean): Pair<Int?, Int?> {
         val tickets = counters.firstOrNull { it[1] == 50 }?.get(0)
@@ -586,7 +638,8 @@ object AnotherDungeon {
         // map; the dungeon's label can sit right of the middle there)
         val area = r.spec.area
         if (area != null) {
-            mapLabel(r, arrayOf(area), 0.62) ?: ctx.stop("$area not on the ${r.spec.era} map: ${seen(ctx)}")
+            // (0.8: the Present map can't pan the Parallel Time Layer label further left than x 0.78, seen 2026-11-18)
+            mapLabel(r, arrayOf(area), 0.8) ?: ctx.stop("$area not on the ${r.spec.era} map: ${seen(ctx)}")
             ctx.wait(1.5)
         }
         mapLabel(r, listOfNotNull(r.spec.name, r.spec.label).toTypedArray(), if (area != null) 0.85 else 0.62)
@@ -604,7 +657,7 @@ object AnotherDungeon {
         MacroLog.i("keys (${if (red) "red" else "green"}): ${keys ?: "not read"}; Cat Express Tickets: ${tickets ?: "not read"}")
         if (keys != null && keys < r.spec.keyCost) {
             // the game would offer to buy keys: never; the loop ends here
-            ctx.tap(AD_CLOSE); ctx.wait(1.5)
+            closePanel(ctx)
             r.outOfKeys = true
             return "out of ${if (red) "red" else "green"} keys" + (if (r.spec.keyCost > 1) " ($keys left, a run takes ${r.spec.keyCost})" else "")
         }
@@ -615,12 +668,18 @@ object AnotherDungeon {
         // "Using Green Key×1 to move to Dogma Tower (Hard)."
         val lines = ctx.readText()
         // "In order to move to Dogma Tower (Hard) please include: <a character>": Move stays greyed out
-        val include = lines.indexOfFirst { Ocr.norm(it.text).contains("please include") }
-        if (include >= 0) {
-            val who = lines.getOrNull(include + 1)?.text?.takeIf { lines[include].text.trimEnd().endsWith(":") }
-                ?: lines[include].text.substringAfter(":", "").trim()
+        if (lines.any { Ocr.norm(it.text).contains("please include") }) {
+            val who = missingMember(lines, r.spec.requires)
+            MacroLog.i("the game asks for a character: ${lines.joinToString(" | ") { it.text }} → ${who ?: "not read"}")
+            // the box's Back, then the dungeon panel and the era map: the run leaves the field as it found it
             tapText(r, "Back", exact = true)
-            ctx.stop("the party must include ${who.ifEmpty { "a character the game names" }}: add them to the party in front, then start again")
+            ctx.wait(1.0)
+            closePanel(ctx)
+            val party = Party.number(ctx.params["party"])?.let { "party $it" } ?: "the party in front"
+            ctx.stop(if (who != null) "${r.spec.name} needs $who in the party, and $party doesn't have $who: " +
+                    "add $who to it (or pick a party with $who), then start again"
+                else "${r.spec.name} needs a character $party doesn't have (the game's box named them, OCR couldn't read it): " +
+                    "add them to the party, then start again")
         }
         val using = lines.firstOrNull { Ocr.norm(it.text).startsWith("using") }?.text ?: ""
         val keyWord = if (red) "red" else "green"
@@ -886,12 +945,47 @@ object AnotherDungeon {
                 MacroLog.i("saved ${f.name} in the app's debug folder")
             }
         }
+        if (ms.layout != null && chest !in r.retried) {
+            MacroLog.i("no chest found by (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}) yet: trying again before the exit")
+            r.retryLater += chest
+            r.unsure = r.pos != null
+            r.chestsDone++
+            return
+        }
         r.missed += "map ${r.map + 1} chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)})" +
             (at?.let { ", party at (${"%.3f".format(it.x)}, ${"%.3f".format(it.y)})" } ?: "")
         MacroLog.i("no chest found by (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}); skipping it" +
             (at?.let { " (the map shows the party at (${"%.3f".format(it.x)}, ${"%.3f".format(it.y)}))" } ?: ""))
         r.unsure = r.pos != null
         r.chestsDone++
+    }
+
+    /**
+     * The second try at a chest missed on the way: walked to by the area map from wherever the
+     * party is (looking at it, slower but sure of the spot), then the same look around as the first
+     * try. Counted already as tried ([Run.chestsDone]), so only a found one adds to the count.
+     */
+    private fun retryChest(r: Run, ms: MapSpec, chest: Point) {
+        val ctx = r.ctx
+        r.retried += chest
+        task(r, "Map ${r.map + 1}: second try at a missed chest")
+        MacroLog.i("second try at the chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}): by the area map")
+        val l = ms.layout!!
+        AreaNav.walkLayout(ctx, l, chest, onStep(r))
+        val seg = Route.segOf(l, chest)
+        if (r.pos != null) { r.pos = Point(chest.x, seg?.y ?: chest.y); r.planPos = r.pos; r.lastDir = 0.0 }
+        // the path's fixed steps start at the stop before them, not here: the next leg (the exit) goes by the area map
+        r.offPlan = true
+        if (waitBubble(r, 3.0)) { ctx.count("chests"); ctx.count("chests_second_try"); r.unsure = r.pos != null; return }
+        // the same careful look as the first try (reads the spot, walks the rest, looks either side;
+        // its walk there is by the area map too, as the party already stands by the spot)
+        val before = r.chestsDone
+        val found = ctx.stats["chests"] ?: 0
+        takeChest(r, ms, chest)
+        if ((ctx.stats["chests"] ?: 0) > found) ctx.count("chests_second_try")
+        // takeChest counts every chest it was given; this one was counted on the first try
+        r.chestsDone = before
+        r.offPlan = true
     }
 
     /**
@@ -1344,7 +1438,7 @@ object AnotherDungeon {
                 MacroLog.i("minimap after the hold: ${m?.let { "x ${"%.3f".format(it.at.x)} (followed ${"%.3f".format(p.x)}, off by ${"%.3f".format(it.at.x - p.x)})" } ?: "no clear read"}")
             } catch (e: Exception) { MacroLog.i("minimap: ${e.message}") }
             // a battle the hold didn't see (it came anyway): where the party stopped is unknown, read it and walk the rest.
-            // Walking straight to the chests (clear_first off) a long hold can be cut by 3-4 battles in a row
+            // Walking straight to the stops a long hold can be cut by 3-4 battles in a row
             repeat(6) {
                 if (!Route.unseen) return
                 Route.unseen = false
@@ -1636,13 +1730,14 @@ object AnotherDungeon {
 
     /**
      * Walk back and forth fighting (like grind-battles with until_cleared) until the game says
-     * "The enemies have disappeared" (the user's rule: every enemy first). Safety caps for a missed
+     * "The enemies have disappeared": the enemies the walk to every stop didn't meet, with the
+     * `defeat_all` option on, on a map whose enemies run out. Safety caps for a missed
      * banner: [clear_max_battles] fights won on this map (15 by default, 0 = no cap), or no
      * encounter in 12 walks.
      */
     private fun grind(r: Run, ms: MapSpec) {
         val ctx = r.ctx
-        task(r, "${ms.names.first()}: fighting the enemies first (back and forth)")
+        task(r, "${ms.names.first()}: fighting the enemies left (back and forth)")
         val cap = ctx.params["clear_max_battles"]?.trim()?.toIntOrNull() ?: CLEAR_MAX_BATTLES
         var won = 0
         var dir = 1.0
@@ -1704,8 +1799,13 @@ object AnotherDungeon {
     }
 
     /** "The enemies have disappeared" in normalized OCR text (also when OCR splits or clips the line). */
-    /** Fight every map until "The enemies have disappeared" before its chests (the default), or not. */
-    private fun clearFirst(ctx: Context) = ctx.params["clear_first"]?.trim()?.lowercase()?.let { it in setOf("1", "true", "yes", "on", "y") } ?: true
+    /**
+     * After every stop of a map whose enemies run out, fight the ones left until "The enemies have
+     * disappeared" (`defeat_all`; options saved before it was renamed still say `clear_first`).
+     * Off, or a dungeon without the option: straight to the exit.
+     */
+    internal fun defeatAll(params: Map<String, String>) = (params["defeat_all"] ?: params["clear_first"])?.trim()?.lowercase()?.let { it in setOf("1", "true", "yes", "on", "y") } ?: false
+    private fun defeatAll(ctx: Context) = defeatAll(ctx.params)
 
     internal fun noEnemiesLeft(text: String) = "disappear" in text
 
@@ -1734,7 +1834,7 @@ object AnotherDungeon {
      */
     private fun sweep(r: Run) {
         val ctx = r.ctx
-        if (!r.cleared && !r.onBossMap) { grind(r, r.spec.maps[r.map]); return }
+        if (!r.cleared && !r.onBossMap && defeatAll(ctx)) { grind(r, r.spec.maps[r.map]); return }
         task(r, "Map ${r.map + 1}: looking around (chest, boss)")
         val ms = r.spec.maps[r.map]
         val hasChests = ms.chests.isNotEmpty() || ms.chestsCount > 0

@@ -14,11 +14,15 @@ the parts every dungeon shares:
 - **Entry**: Spacetime Rift door "!" → era tab → (optional `area:` sub-map such as
   "Parallel Time Layer") → the dungeon's label (`label:` when it wraps) → Hard/Very Hard
   (`key: green/red`) → Move, or Skip with a Cat Express Ticket.
-- **Every map, until cleared**: fight with the basic `battle` macro's skills until
-  "The enemies have disappeared" (`clear_max_battles` is only a safety cap), so the fixed
-  path is never cut by a battle.
-- **Chests and exit**: the map's fixed `path:` (from `another-macro dungeon-routes --write`),
-  then the exit (ground bars sign, or `door_sign` for grand staircases).
+- **Stops first**: the map's fixed `path:` (from `another-macro dungeon-routes --write`) to
+  every chest and pickup at once, fighting the battles met on the way with the basic `battle`
+  macro's skills; after a battle the walk reads the party's spot again and goes on from there.
+  A chest not found on the way gets one more try, walked to by the area map, before the exit.
+- **Enemies left, then the exit**: on a map whose enemies run out (the banner can show), with
+  `defeat_all` on and the banner not seen yet, walk back and forth fighting until
+  "The enemies have disappeared" (`clear_max_battles` is only a safety cap); then the exit
+  (ground bars sign, or `door_sign` for grand staircases). The option is only offered by
+  dungeons with such a map.
 - **Small maps by steps** (`steps:`), maps without enemies (`enemies: false`), and the
   **boss map** (sweep, "!" taps, "A major trial awaits... Proceed?" → Yes, `boss_setup` skills).
 - **End of run**: rewards, light/shadow animation, "Continue to skip?" → End, White Key

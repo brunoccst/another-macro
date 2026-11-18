@@ -47,9 +47,15 @@ class MacroStepsTest {
         assertTrue(lines.any { "Map 1: Basement Entrance" in it })
         assertTrue(lines.any { "chest 2" in it })
         assertTrue(lines.any { "Ancient Sentry" in it })
-        // clear_first is off by default for Dogma Tower: straight to the chests
-        assertTrue(lines.any { "go straight to the stops" in it })
-        assertTrue(flat(steps("dogma-tower", mapOf("clear_first" to "true"))).any { "The enemies have disappeared" in it })
+        // the stops first, battles on the way; defeat_all is off by default for Dogma Tower: then straight to the exit
+        assertTrue(lines.any { "fighting the battles met on the way" in it })
+        assertTrue(lines.any { "straight to the exit once the stops are done" in it })
+        val all = flat(steps("dogma-tower", mapOf("defeat_all" to "true")))
+        val left = all.indexOfFirst { "The enemies have disappeared" in it }
+        assertTrue(left >= 0)
+        // the enemies left come after the chests, before the exit
+        assertTrue(all.indexOfFirst { "chest 1" in it } < left)
+        assertTrue(all.subList(left, all.size).any { "exit" in it })
     }
 
     @Test fun optionsChangeTheSteps() {

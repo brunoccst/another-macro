@@ -24,9 +24,12 @@
 # "L 1000"/"R 1000" (hold), "chest L" (walk until the chest's "!" shows), "boss L" (walk to the boss).
 # area_map_scrolls: the area map scrolls up and down with the party; each look lines the layout up.
 # camera_lags: a walk's first second can look still on screen; no late start is counted.
+# requires: characters the game wants in the party to enter ("please include: Poporo"; the wiki
+#   doesn't list them, the game's box does). The run's stop names them when the party lacks one.
 dogma_tower:
   name: Dogma Tower
   era: Present
+  requires: [Poporo]
   boss: Ancient Sentry
   maps:
     - names: [Basement Entrance]
@@ -76,6 +79,8 @@ burning_beast_kings_castle:
   # on the Present map, "Parallel Time Layer" opens a smaller map with the castle; its label wraps
   area: Parallel Time Layer
   label: Burning Beast King's
+  # the game's box when the party lacks her (seen 2026-11-18)
+  requires: [Deirdre]
   boss: ""
   # the wiki minimaps (2160x1080) line up with the phone's area map with no offset:
   # x = (x_wiki + 120) / 2400, y = y_wiki / 1080. Checked on the phone 2026-11-08: map 1 right

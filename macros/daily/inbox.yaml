@@ -18,7 +18,7 @@ how:
   - "Tap the top-most item not marked \"Opened\", then OK on its rewards (noted for the outcome message)"
   - "Again until the page has none left; if any were opened, close and reopen the inbox to bring the rest to the top"
   - "Done when a freshly opened inbox starts with an opened item, or after {max_items} items: close the inbox and the menu and stop"
-screens: [inbox_item, inbox, menu_open, field]
+screens: [inbox_item, close_app, inbox, menu_open, field]
 unknown_timeout_s: 45
 
 setup:
@@ -82,6 +82,11 @@ handlers:
 
   # Menu → Inbox (also to reopen it): the basic macro open-menu-page (it opens the menu from the
   # field, and the game first if it isn't open)
+  close_app:        # a Back too many (here or in the macro before) reached the field: keep the game open
+    - status: "'Close the app?': tapping No"
+    - tap: [0.412, 0.568]
+    - wait: 1.5
+
   menu_open:
     - if: done
       then:

@@ -176,6 +176,40 @@ def _flow(v) -> str:
     return json.dumps(v, separators=(", ", ": "))
 
 
+def bridge_icons(m: dict, max_gap: float = 0.1, reach: float = 0.05) -> list[str]:
+    """Close the street gaps the party marker and the feather leave in the survey's street read.
+
+    The icons are drawn on the street and aren't street-grey, so the read splits a street where
+    they sit (seen 2026-11-18: Sky Fortress Eeza's arrival and cat both fell in such gaps). Two
+    pieces of one row either side of the icon become one street; a lone piece reaching toward it
+    is stretched to it. Returns what was changed (for the notes).
+    """
+    segs = [list(s) for s in m.get("segs") or []]
+    done = []
+    for key in ("arrival", "cat"):
+        p = m.get(key)
+        if not p:
+            continue
+        x, y = p
+        row = [s for s in segs if abs(s[0] - y) < 0.035]
+        if any(s[1] - 0.004 <= x <= s[2] + 0.004 for s in row):
+            continue
+        left = max((s for s in row if s[2] < x), key=lambda s: s[2], default=None)
+        right = min((s for s in row if s[1] > x), key=lambda s: s[1], default=None)
+        if left and right and abs(left[0] - right[0]) < 0.01 and right[1] - left[2] <= max_gap:
+            segs.remove(right)
+            left[2] = right[2]
+            done.append(f"{key}: joined the street at y {left[0]} across the icon ({left[1]}-{left[2]})")
+        elif left and x - left[2] <= reach:
+            left[2] = round(x + 0.01, 3)
+            done.append(f"{key}: stretched the street at y {left[0]} to {left[2]}")
+        elif right and right[1] - x <= reach:
+            right[1] = round(x - 0.01, 3)
+            done.append(f"{key}: stretched the street at y {right[0]} to {right[1]}")
+    m["segs"] = segs
+    return done
+
+
 def area_block(m: dict) -> list[str]:
     """The `area:` lines of cat_spots.yaml for one measured spot."""
     lines = ["  area:\n"]
@@ -213,6 +247,9 @@ def import_measured(text: str, path: Path = SPOTS, force: bool = False) -> tuple
             skipped.append(f"{name} (already has an area; --force replaces it)")
             out += block
             continue
+        bridged = bridge_icons(m)
+        if bridged:
+            m["notes"] = list(m.get("notes") or []) + [f"import: {b}" for b in bridged]
         i = next(j for j, ln in enumerate(block) if ln.startswith("  area:"))
         j = i + 1
         while j < len(block) and (block[j].startswith("    ") or block[j].strip() == ""):
