@@ -331,6 +331,8 @@ underworld_cathedral:
       links: [[0.410, 0.322, 0.440], [0.538, 0.322, 0.440], [0.602, 0.322, 0.440],
               [0.378, 0.440, 0.558], [0.441, 0.440, 0.558], [0.569, 0.440, 0.558], [0.634, 0.440, 0.558],
               [0.347, 0.558, 0.677], [0.412, 0.558, 0.677], [0.538, 0.558, 0.677]]
+      # chest 3: walking right from chest 2, the party stops short at its chest (~0.470) and the "!" opens it
+      # (run 2026-11-18: 5/5 in 6m15s)
       chests: [[0.470, 0.558], [0.384, 0.322], [0.572, 0.322], [0.508, 0.440]]
       arrival: [0.490, 0.677]
       # the stairs (door sign) on the top street, to the boss
