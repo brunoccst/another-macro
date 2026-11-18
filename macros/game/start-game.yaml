@@ -38,7 +38,7 @@ handlers:
       then:
         - status: "title screen: tapping Continue"
         - count: continue_taps
-        - set: {continued: true}
+        - set: {continued: true, taps: 0}
         - tap: [0.5, 0.75]
         - wait: 8
       else:
