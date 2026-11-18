@@ -25,8 +25,9 @@ import kotlin.math.abs
  *  4. the Cape or the final world: its chests, then the "!" on the stairs out; Congratulations;
  *  5. an NPC (final world, sometimes the Cape) offers a free Treatise/Codex/Opus of
  *     your choice: in the Last World the run stops after the chests, before talking to the
- *     Sensationalist, so the user talks to them and chooses. The World's Cape ends the same way (he can be
- *     there too).
+ *     Sensationalist, so the user talks to them and chooses. In the World's Cape he is only
+ *     sometimes there: the run looks for his "!" (never talking to him) and stops for the user only when
+ *     he's there; otherwise it takes the stairs out and finishes the dimension.
  *
  * There are no enemies and no area map. Nothing is bought: every tap goes through the same
  * purchase guard as the rest of the app.
@@ -45,6 +46,8 @@ object PhantomCrystal {
         var cape = false
         /** The Last World: after its chests the run stops before the Sensationalist (the user talks to them). */
         var last = false
+        /** The height (screen y) of the Cape cat's "!", once its stamp was taken: a person's "!" sits higher. */
+        var catY: Double? = null
         /** "!" spots that open a menu (the stamp cat, the notice board): screen x in the current world. */
         val skip = ArrayList<Point>()
     }
@@ -178,7 +181,11 @@ object PhantomCrystal {
         // user looks and finishes the dimension (no way to tell him on screen yet)
         if (r.cape) {
             capeCats(r)
-            ctx.stop("World's Cape: chests and cat taken; left for you: talk to the Sensationalist if he's here, then take the stairs out")
+            // the Sensationalist is only sometimes in the Cape (the user, 2026-11-18: the run stopped for him
+            // when he wasn't there): stop only when his "!" is seen, else take the stairs out
+            if (sensationalistInCape(r)) ctx.stop("World's Cape: the Sensationalist is here! Chests and cat taken; " +
+                "talk to him and choose your free Treatise/Codex/Opus, then take the stairs out")
+            return capeExit(r)
         }
         // nothing left to take: a portal (or, in the Cape / final world, the stairs out)
         return leave(r)
@@ -228,7 +235,7 @@ object PhantomCrystal {
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         MacroLog.i("World ${r.world}: \"!\" shows: ${lines.joinToString(" | ") { it.text }.take(120)}")
         when {
-            "treatise" in all || "codex" in all || "opus" in all -> ctx.stop("an NPC offers a free Treatise/Codex/Opus: choose it yourself")
+            "treatise" in all || "codex" in all || "opus" in all || "sensationalist" in all -> ctx.stop("an NPC offers a free Treatise/Codex/Opus: choose it yourself")
             // the game autosaves on arriving in a world: the last straw dummy of a bonus room moved the party on
             // with no fade the watcher saw, and the run went on in the jungle as "world 2" until it stopped with
             // "no way out" (2026-11-16)
@@ -271,10 +278,11 @@ object PhantomCrystal {
         var ends = 0
         for (step in 0 until 30) {
             val f = ctx.refresh()
-            val ups = findAll(f.gray, icon(ctx, "ground_arrow_up"), listOf(0.9, 1.0, 1.1), 0.75)
-            val cats = bubbles(ctx, f).filter { b ->
-                b.y > 0.25 && r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 } &&
-                    ups.none { abs(it.x - b.x) < 0.08 && it.y > b.y && it.y - b.y < 0.45 }
+            val still = notStairs(ctx, f)
+            // two "!"s off the stairs: the cat and a person (the Sensationalist), whose "!" sits higher: never tap him
+            val top = if (still.size >= 2) still.minByOrNull { it.y }!!.y else -1.0
+            val cats = still.filter { b ->
+                b.y > CAT_MIN_Y && b.y > top + 0.015 && r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 }
             }
             for (b in cats) {
                 MacroLog.i("World's Cape: a still \"!\" at (${"%.2f".format(b.x)}, ${"%.2f".format(b.y)}): the cat?")
@@ -283,12 +291,78 @@ object PhantomCrystal {
                     Taken.LEFT, Taken.END -> return
                     else -> {}
                 }
-                if (r.stamps > had) return
+                if (r.stamps > had) { r.catY = b.y; MacroLog.i("World's Cape: the cat's \"!\" is at y ${"%.2f".format(b.y)}"); return }
             }
             val before = view(ctx)
             walk(ctx, dir, 500)
             if (!moved(ctx, before)) { if (++ends > 1) break; dir = -dir }
         }
+    }
+
+    /** The "!"s on [f] that aren't over the stairs out (a "!" with the floor's up arrow under it). */
+    private fun notStairs(ctx: Context, f: Frame): List<Point> {
+        val ups = stairsArrows(ctx, f)
+        return bubbles(ctx, f).filter { b -> ups.none { overArrow(b, it) } }
+    }
+
+    private fun stairsArrows(ctx: Context, f: Frame) = findAll(f.gray, icon(ctx, "ground_arrow_up"), listOf(0.9, 1.0, 1.1), 0.75)
+
+    private fun overArrow(b: Point, up: Point) = abs(up.x - b.x) < 0.08 && up.y > b.y && up.y - b.y < 0.45
+
+    /**
+     * Is the Sensationalist in the World's Cape? Looked for without talking to him (the user picks the reward):
+     * besides the stairs out, the Cape's only "!"s are the cat's and his, and his sits higher than the cat's
+     * (he is a person, the cat is small; he stands just right of the cat). Walks the whole Cape in short steps.
+     * When unsure it says yes: missing his free Treatise/Codex/Opus costs more than a stop for nothing.
+     */
+    private fun sensationalistInCape(r: Run): Boolean {
+        val ctx = r.ctx
+        MacroLog.status("World's Cape: is the Sensationalist here?")
+        if (InputService.instance?.controls(true)?.first == true) Thread.sleep(400)
+        // the cat's "!" height when known, else a little above where cats' "!"s sit (~0.29)
+        val personBelow = r.catY?.let { it - 0.015 } ?: CAT_MIN_Y
+        var dir = 1.0
+        var ends = 0
+        for (step in 0 until 30) {
+            val still = notStairs(ctx, ctx.refresh())
+            val ys = still.joinToString { "%.2f".format(it.y) }
+            if (still.size >= 2) { MacroLog.i("World's Cape: two \"!\"s off the stairs (y $ys): the cat and the Sensationalist"); return true }
+            val b = still.firstOrNull()
+            if (b != null && b.y < personBelow) {
+                MacroLog.i("World's Cape: a \"!\" at (${"%.2f".format(b.x)}, ${"%.2f".format(b.y)}) above a cat's (${"%.2f".format(personBelow)}): the Sensationalist")
+                return true
+            }
+            val before = view(ctx)
+            walk(ctx, dir, 500)
+            if (!moved(ctx, before)) { if (++ends > 1) break; dir = -dir }
+        }
+        MacroLog.i("World's Cape: no Sensationalist")
+        return false
+    }
+
+    /** No Sensationalist: walk to the stairs out (their "!" shows only close by) and take them. */
+    private fun capeExit(r: Run): Next {
+        val ctx = r.ctx
+        MacroLog.status("World's Cape: no Sensationalist, taking the stairs out")
+        if (InputService.instance?.controls(true)?.first == true) Thread.sleep(400)
+        var dir = 1.0
+        var ends = 0
+        for (step in 0 until 30) {
+            val f = ctx.refresh()
+            val ups = stairsArrows(ctx, f)
+            val stairs = bubbles(ctx, f).filter { b -> ups.any { overArrow(b, it) } }.minByOrNull { abs(it.x - 0.5) }
+            if (stairs != null) {
+                when (tapBubble(r, stairs)) {
+                    Taken.END -> return Next.END
+                    Taken.LEFT -> return Next.WORLD
+                    else -> {}
+                }
+            }
+            val before = view(ctx)
+            walk(ctx, dir, 500)
+            if (!moved(ctx, before)) { if (++ends > 2) break; dir = -dir }
+        }
+        ctx.stop("World's Cape: no Sensationalist here, but the stairs out weren't found: take them yourself")
     }
 
     /** Take any "!" left (not a known menu): a portal, the stairs out. */
@@ -453,6 +527,9 @@ object PhantomCrystal {
     }
 
     private const val HALF = 0.5
+
+    /** A cat's "!" sits at y ~0.29, a person's higher (smaller y): a still "!" lower on screen than this is taken for a cat. */
+    private const val CAT_MIN_Y = 0.275
 
     /** The "!" bubbles on screen (not under the app's own buttons on the right). */
     private fun bubbles(ctx: Context, f: Frame): List<Point> =

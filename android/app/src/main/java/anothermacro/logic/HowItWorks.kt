@@ -175,7 +175,8 @@ object HowItWorks {
         Step("In every world: open every chest, tap the cats for their paw stamps, then take a portal (any \"!\" leading on)"),
         Step("World I has no chests: its king cat and notice board open the paw stamp menu, which is closed (claiming is left to you)"),
         Step("Bonus worlds move on by themselves once emptied"),
-        Step("The last world (or the World's Cape): its chests, then stop before the character who offers a free Treatise/Codex/Opus, so you choose"),
+        Step("The last world: its chests, then stop before the character who offers a free Treatise/Codex/Opus, so you choose"),
+        Step("The World's Cape: its chests and cat; if that character is there too, stop so you choose, otherwise take the stairs out"),
     )
 
     // --- Cat Scratchbook ---------------------------------------------------------------------

@@ -159,7 +159,7 @@ object AnotherDungeon {
         var offPlan = false
         var cleared = false
         /** Chests on this map not found on the way: tried once more (by the area map) before the exit. */
-        val missed = ArrayList<Point>()
+        val retryLater = ArrayList<Point>()
         /** This map's chests already tried a second time (each gets one retry only). */
         val retried = HashSet<Point>()
         var onBossMap = false
@@ -175,6 +175,8 @@ object AnotherDungeon {
         val items = LinkedHashMap<String, Int>()
         val rewards = LinkedHashMap<String, Int>()
         var chestsTotal = 0
+        /** Chests the search gave up on, with where the map showed the party (the report names them: the log rolls over). */
+        val missed = mutableListOf<String>()
         var skipped = false
         /** What the run is doing (the live log shows it again after a battle). */
         var task = ""
@@ -369,7 +371,7 @@ object AnotherDungeon {
                 // the path is walked at once and the battles on the way are fought where they come (the
                 // walk reads its spot on the area map after each one); the enemies left, if any, after it
                 r.map = idx; r.chestsDone = 0; r.legsDone = 0; r.cleared = !spec.maps[idx].enemies
-                r.missed.clear(); r.retried.clear()
+                r.retryLater.clear(); r.retried.clear()
                 r.onBossMap = spec.maps[idx].boss
                 r.chestsTotal += spec.maps[idx].chests.size.takeIf { it > 0 } ?: spec.maps[idx].chestsCount
                 task(r, "Map ${idx + 1}/${spec.maps.size}: ${spec.maps[idx].names.first()}")
@@ -400,7 +402,7 @@ object AnotherDungeon {
                 }
                 r.chestsDone < ms.chests.size -> takeChest(r, ms, ms.chests[r.order.getOrElse(r.chestsDone) { r.chestsDone }])
                 // the rewards first: a chest missed on the way gets a second, slower try by the area map
-                r.missed.isNotEmpty() && ms.layout != null -> retryChest(r, ms, r.missed.removeAt(0))
+                r.retryLater.isNotEmpty() && ms.layout != null -> retryChest(r, ms, r.retryLater.removeAt(0))
                 // every stop done: the enemies still left, when the map's can run out and the user wants them all
                 !r.cleared && !r.onBossMap && ms.exit != null && defeatAll(ctx) -> {
                     // a chest search or a battle can have moved the party: its spot first (the back and forth stays on its street)
@@ -550,13 +552,14 @@ object AnotherDungeon {
         val items = r.items.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val rewards = r.rewards.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val text = "$outcome — ${secs / 60}m ${secs % 60}s; " +
-            (if (r.skipped) "skipped with a Cat Express Ticket; " else "chests ${st["chests"] ?: 0}/${r.chestsTotal}, battles ${st["battles"] ?: 0}; ") +
+            (if (r.skipped) "skipped with a Cat Express Ticket; " else "chests ${st["chests"] ?: 0}/${r.chestsTotal}" +
+                (if (r.missed.isNotEmpty()) " (missed: ${r.missed.joinToString("; ")})" else "") + ", battles ${st["battles"] ?: 0}; ") +
             (if (r.skipped) "" else "chest items: $items; ") + "rewards: $rewards; White Key: ${if (r.phantom) "yes" else "no"}"
         runCatching {
             val o = org.json.JSONObject().put("when", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(r.start)))
                 .put("dungeon", r.spec.name).put("key", r.key).put("seconds", secs).put("outcome", outcome)
                 .put("skipped", r.skipped).put("chests", st["chests"] ?: 0).put("chests_total", r.chestsTotal)
-                .put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
+                .put("missed", org.json.JSONArray(r.missed)).put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
             java.io.File(r.ctx.debugDir.parentFile, "runs.log").appendText(o.toString() + "\n")
         }.onFailure { MacroLog.e("could not save the run report", it) }
         MacroLog.status(text)
@@ -896,11 +899,13 @@ object AnotherDungeon {
         }
         if (ms.layout != null && chest !in r.retried) {
             MacroLog.i("no chest found by (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}) yet: trying again before the exit")
-            r.missed += chest
+            r.retryLater += chest
             r.unsure = r.pos != null
             r.chestsDone++
             return
         }
+        r.missed += "map ${r.map + 1} chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)})" +
+            (at?.let { ", party at (${"%.3f".format(it.x)}, ${"%.3f".format(it.y)})" } ?: "")
         MacroLog.i("no chest found by (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}); skipping it" +
             (at?.let { " (the map shows the party at (${"%.3f".format(it.x)}, ${"%.3f".format(it.y)}))" } ?: ""))
         r.unsure = r.pos != null
