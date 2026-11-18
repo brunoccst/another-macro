@@ -22,7 +22,7 @@ how:
   - "Tap OK on \"You have been rewarded 10 Chronos Stones\" (noted for the outcome message)"
   - "Again while the play button stays (at most {max_ads} commercials), then close the shop and the menu and stop"
   - "Nothing in the shop itself is ever tapped, so nothing can be bought"
-screens: [premium_thanks, shop_ok_dialog, shop, menu_open, field]
+screens: [premium_thanks, shop_ok_dialog, close_app, shop, menu_open, field]
 unknown_timeout_s: 120
 
 setup:
@@ -71,6 +71,11 @@ handlers:
     - tap: dialog_close_button
     - set: {done: true}
     - wait: 2
+
+  close_app:        # a Back too many (here or in the macro before) reached the field: keep the game open
+    - status: "'Close the app?': tapping No"
+    - tap: [0.412, 0.568]
+    - wait: 1.5
 
   shop_ok_dialog:   # "Thank you for watching. You have been rewarded 10 Chronos Stones."
     - count: ad_rewards

@@ -21,7 +21,7 @@ how:
   - "Tap through the chest that opens, and note what it gave (for the outcome message)"
   - "Back to the video icon for the next group"
   - "A commercial that won't close: leave it once, then force-close the game and start it again"
-screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, ad_chest, menu_open, field]
+screens: [premium_thanks, ad_reward, reward_confirm, ok_dialog, close_app, ad_chest, menu_open, field]
 unknown_timeout_s: 120
 
 setup:
@@ -34,7 +34,9 @@ handlers:
       then:
         - tap: ad_dont_watch_button
         - wait: 1.5
-        - back: true
+        # back to the field: Back only while the field isn't showing (a blind Back here once
+        # reached the field and left "Close the app?" open for the next macro)
+        - run: back-to-field
         - stop: "no commercials left today ({stats.ads_started} watched this run, {stats.rewards} rewards)"
     - count: ads_started
     - status: "commercial {stats.ads_started}/{max_ads}"
@@ -53,6 +55,11 @@ handlers:
     - status: "commercial {stats.ads_started}/{max_ads}: premium, no commercial; opening the chest"
     - tap: dialog_close_button
     - wait: 2
+
+  close_app:        # a Back too many (here or in the macro before) reached the field: keep the game open
+    - status: "'Close the app?': tapping No"
+    - tap: [0.412, 0.568]
+    - wait: 1.5
 
   ad_reward:
     - status: "commercial {stats.ads_started}/{max_ads}: done, opening the chest"
