@@ -371,17 +371,22 @@ underworld_ark:
   key_cost: 2
   boss: Dimensional Destroyer Himika
   maps:
-    # the second street's left end (wall; a specter may walk up and talk at the arrival, so the walk starts
-    # from the wall) -> 3.2 s right to the stairs up to the top street (a bit further is the inn's door) ->
-    # its left end (wall) -> the ladder 1.5 s back right, up to the upper floor. Checked on the phone 11-18
+    # Nazrik by its area map (fixed steps missed the stairs on 11-18: holds walk different lengths): the
+    # streets as Demon's Den measured them; the exit = the ladder near the top street's left end (its
+    # stairs sign shows on the ground there), up to the upper floor
     - names: ["Nazrik, City of Shadows"]
       enemies: false
-      steps: [L 6000, R 3200, U, L 4000, R 1500, U]
-    # Nazrik's upper floor (the same title): right to the end (past the portal), back to the portal, up,
-    # and Yes to "Go to The Ark of the Underworld?". Checked on the phone 11-18
+      area_map_scrolls: true
+      segs: [[0.382, 0.461, 0.603], [0.497, 0.461, 0.598], [0.607, 0.532, 0.700]]
+      links: [[0.520, 0.382, 0.497], [0.588, 0.382, 0.497], [0.554, 0.497, 0.607]]
+      exit: [0.493, 0.382]
+    # Nazrik's upper floor (the same title): the party comes up on the middle street (~0.465); the portal
+    # (the ⇔ on the area map) near its right end: its door sign, then "Go to The Ark of the Underworld?" Yes.
+    # Measured on the phone 11-18
     - names: ["Nazrik, City of Shadows"]
       enemies: false
-      steps: [R 7500, L 1300, U, "yes"]
+      segs: [[0.556, 0.417, 0.629]]
+      exit: [0.606, 0.556]
     - names: [The Ark of the Underworld]
       # five streets in a brick pattern (top, row 2-5); the area map shows no chest icons. A Horror (red
       # star) at row 2's left end (beaten in 1 turn). Chests only show when close
