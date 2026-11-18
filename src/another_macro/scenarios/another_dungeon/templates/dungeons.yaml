@@ -310,9 +310,11 @@ underworld_cathedral:
       # the sparkles move every run (seen: (0.476, top), (0.563, A), (0.490, C), (0.613, D); the wiki's:
       # (0.438, A), (0.621, B), (0.505, D), (0.614, D)): read off the area map's bag icons
       sparkle_icons: true
-      # the Cathedral's way: the round two-arrow sign above the top street's middle (the area map, 2026-11-18;
-      # row A's left end is a dead end)
-      exit: [0.480, 0.278]
+      # the Cathedral's way: a ladder the Present Man (Nazrik's upper floor) installs at the upper-left exit
+      # on the visit after he is given an Embedded Ladder (one per run, bought by the user). Without it row A's
+      # left end is a dead end. (The two-arrow sign above the top street leads to a cat shrine, 2026-11-18.)
+      # Spot still a guess: check it on the phone with a ladder installed
+      exit: [0.405, 0.390]
 
 # Mark of God's Tomb (the game's gate: "Dark Lord's Tomb"): the seal in Nazrik's basement, 1 Mural Fragment
 # a run (the user buys them from the Lost Traveler, 30 Sea-Drifts; the macro never does). No Zero Point.
