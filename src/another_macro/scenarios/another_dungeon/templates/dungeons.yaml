@@ -192,9 +192,10 @@ sea_of_ice:
         - [exit, L 1320]
     - names: [Sea of Color, Sea of Splendor]
       # the second street is two parts joined by a slope (right part 0.390, left 0.419): one street here.
-      # The right part of the third street is reached only from below (stairs at 0.580)
+      # The right part of the third street is reached only from below (stairs at 0.580). The stairs up to
+      # chest 1's short street: taken at x 0.414 and 0.415 in two runs (2026-11-18; 0.420 before)
       segs: [[0.279, 0.517, 0.623], [0.310, 0.389, 0.435], [0.405, 0.404, 0.589], [0.530, 0.420, 0.517], [0.530, 0.548, 0.596], [0.642, 0.404, 0.612], [0.783, 0.479, 0.579]]
-      links: [[0.548, 0.279, 0.405], [0.420, 0.310, 0.405], [0.486, 0.405, 0.530], [0.436, 0.530, 0.642], [0.580, 0.530, 0.642], [0.548, 0.642, 0.783]]
+      links: [[0.548, 0.279, 0.405], [0.415, 0.310, 0.405], [0.486, 0.405, 0.530], [0.436, 0.530, 0.642], [0.580, 0.530, 0.642], [0.548, 0.642, 0.783]]
       chests: [[0.389, 0.310], [0.548, 0.530]]
       sparkles: [[0.589, 0.405], [0.517, 0.530]]
       # (the area map also showed a fish icon at (0.483, 0.642): no fish there in two runs, 2026-11-17)
@@ -205,8 +206,8 @@ sea_of_ice:
       path:
         - [fish 1, L 4120]
         - [sparkle 1, R 1280, D, R 2050]
-        - [chest 1, L 6770, U, L 1620]
-        - [sparkle 2, R 1280, D, R 2790, D, R 1620]
+        - [chest 1, L 6960, U, L 1410]
+        - [sparkle 2, R 1070, D, R 3000, D, R 1620]
         - [fish 2, L 3390, D, R 7350]
         - [chest 2, L 1320, U, L 1660]
         - [exit, R 1320, D, L 1320, D, L 3230]
