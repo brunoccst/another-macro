@@ -331,6 +331,9 @@ object AnotherDungeon {
             if (idx == null) {
                 if (fight(r)) return@repeat
                 if (bossGate(r)) return@repeat
+                // an NPC talking mid-run (Underworld's Nazrik: a specter walks up on the way to the Ark,
+                // seen 11-18) hides the map title: tap through it, the run goes on
+                if (!r.bossBeaten && !r.bossNext && talkThrough(r)) return@repeat
                 // not on one of the dungeon's maps any more: the run ended
                 return finish(r)
             }
