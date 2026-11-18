@@ -299,11 +299,17 @@ object PhantomCrystal {
         }
     }
 
-    /** The "!"s on [f] that aren't over the stairs out (a "!" with the floor's up arrow under it). */
+    /** The "!"s on [f] that aren't over the stairs out. */
     private fun notStairs(ctx: Context, f: Frame): List<Point> {
         val ups = stairsArrows(ctx, f)
-        return bubbles(ctx, f).filter { b -> ups.none { overArrow(b, it) } }
+        return bubbles(ctx, f).filter { b -> !isStairs(b, ups) }
     }
+
+    /**
+     * The stairs out's "!": the floor's up arrow under it, or (the Cape has no such arrow, 2026-11-18: its stairs "!"
+     * at y 0.23-0.24 was taken for the Sensationalist and the run stopped for nobody) a "!" this high on screen.
+     */
+    private fun isStairs(b: Point, ups: List<Point>) = b.y < STAIRS_MAX_Y || ups.any { overArrow(b, it) }
 
     private fun stairsArrows(ctx: Context, f: Frame) = findAll(f.gray, icon(ctx, "ground_arrow_up"), listOf(0.9, 1.0, 1.1), 0.75)
 
@@ -350,7 +356,7 @@ object PhantomCrystal {
         for (step in 0 until 30) {
             val f = ctx.refresh()
             val ups = stairsArrows(ctx, f)
-            val stairs = bubbles(ctx, f).filter { b -> ups.any { overArrow(b, it) } }.minByOrNull { abs(it.x - 0.5) }
+            val stairs = bubbles(ctx, f).filter { b -> isStairs(b, ups) }.minByOrNull { abs(it.x - 0.5) }
             if (stairs != null) {
                 when (tapBubble(r, stairs)) {
                     Taken.END -> return Next.END
@@ -530,6 +536,12 @@ object PhantomCrystal {
 
     /** A cat's "!" sits at y ~0.29, a person's higher (smaller y): a still "!" lower on screen than this is taken for a cat. */
     private const val CAT_MIN_Y = 0.275
+
+    /**
+     * The Cape's stairs "!" sits at y ~0.234 (measured 2026-11-18), the Sensationalist's at ~0.26 (from the user's
+     * picture, scaled by the cat's "!"), the cat's at ~0.30: above this a "!" is the stairs.
+     */
+    private const val STAIRS_MAX_Y = 0.248
 
     /** The "!" bubbles on screen (not under the app's own buttons on the right). */
     private fun bubbles(ctx: Context, f: Frame): List<Point> =
