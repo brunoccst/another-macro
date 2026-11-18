@@ -445,9 +445,9 @@ object AnotherDungeon {
      */
     /**
      * The character the "please include" box names ("In order to move to Dogma Tower (Hard) please
-     * include: Poporo"; the name can come on the same OCR line or the next). A name from the dungeon's
-     * `requires` list that the box shows wins (OCR can mangle a name); else what follows "include:",
-     * when it reads like a name; else the `requires` list itself; null when there's nothing to go by.
+     * include: Poporo"). A name from the dungeon's `requires` list that the screen shows wins (OCR can
+     * mangle a name); else what follows "include:" on the same line, when it reads like a name; else
+     * the `requires` list itself; null when there's nothing to go by.
      */
     internal fun missingMember(lines: List<Ocr.Line>, requires: List<String>): String? {
         val ordered = lines.sortedWith(compareBy({ (it.center.y * 25).toInt() }, { it.center.x }))
@@ -455,8 +455,9 @@ object AnotherDungeon {
         requires.filter { Ocr.norm(it).isNotEmpty() && Ocr.norm(it) in all }.takeIf { it.isNotEmpty() }?.let { return it.joinToString(" and ") }
         val i = ordered.indexOfFirst { Ocr.norm(it.text).contains("please include") }
         if (i >= 0) {
-            val same = ordered[i].text.substringAfter(":", "").trim()
-            val raw = same.ifEmpty { ordered.getOrNull(i + 1)?.text?.trim() ?: "" }
+            // only a name on the same line: the box sits over the party list, so the "next" OCR line is a
+            // party member or the screen's title ("Dungeon", seen 2026-11-18), not the name asked for
+            val raw = ordered[i].text.substringAfter(":", "").trim()
             val name = raw.replace(Regex("""[^\p{L}'\-. ]"""), " ").trim().replace(Regex("\\s+"), " ")
             val n = Ocr.norm(name)
             // the box's buttons and the key line aren't names
