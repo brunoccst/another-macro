@@ -140,8 +140,11 @@ Copy `macros/dungeon/dogma-tower.yaml` to `macros/dungeon/<dungeon>.yaml`, chang
 `description` and the `another_dungeon:` id. Keep `group: dungeon` and the standard
 dungeon params every dungeon macro has: `key`, `runs` (1-10 or all: until the key counter on
 the dungeon panel reads 0), `white_key` (phantom / stop / keep_going), `cat_ticket`,
-the skill setups (every map's enemies are always fought first, so the fixed path
-isn't interrupted by battles).
+the skill setups, and `defeat_all` + `clear_max_battles` only when one of the dungeon's maps
+has enemies that run out ("The enemies have disappeared" can show; maps whose enemies never run
+out get `enemies: false` in dungeons.yaml). Every map walks its stops first, fighting the
+battles on the way (the walk reads its spot again after each one); with `defeat_all` on, the
+enemies left are fought after the stops, before the exit. A test checks the option matches the data.
 
 ## What we know about Another Dungeons (keep in mind for every dungeon)
 

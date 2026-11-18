@@ -1,12 +1,13 @@
 # One run of the Burning Beast King's Castle Another Dungeon (Present era, Parallel Time Layer):
-# every map's enemies first (until "The enemies have disappeared"), then every chest by the map's fixed path, then the boss.
+# every chest by the map's fixed path, fighting the battles on the way, then the enemies left (until
+# "The enemies have disappeared"; defeat_all), then the exit; then the boss.
 # Stops when the run ends, and says so when a White Key opened the Phantom Crystal Dimension.
 # Never buys keys: a purchase offer stops it. Start it anywhere on the field: away from the Another
 # Dungeon door it travels to the Spacetime Rift and walks to the door (or start inside the castle).
 name: burning-beast-kings-castle
 group: dungeon
 icon: chest
-description: "Another Dungeon: Burning Beast King's Castle (Ethereal Dewdrop). All enemies, all chests, then the boss."
+description: "Another Dungeon: Burning Beast King's Castle (Ethereal Dewdrop). All chests, then all enemies, then the boss."
 templates: [another_dungeon, daily_ads]
 params:
   # the keys to use: either or both (runs with each, red first, then green); keys are never bought
@@ -18,8 +19,8 @@ params:
   white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
   party: {global: party, choices: [current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the game's party to use, by its number in the game's party list (1 = the first; Menu → Party, the dots under it); current = the party in front now; global = the Global parameters' party. Picked once on the field before the first run (basic macro pick-party)"}
   cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
-  clear_first: {default: true, type: bool, help: "fight every map until \"The enemies have disappeared\" before going for its chests; off = walk straight to the chests and fight only the battles on the way (faster)"}
-  clear_max_battles: {default: 15, show_if: clear_first, help: "every map's enemies are fought until the game says \"The enemies have disappeared\"; this is a safety cap on fights per map in case the banner is missed (0 = no cap)"}
+  defeat_all: {default: true, type: bool, help: "after every chest and pickup of a map, fight the enemies still left until \"The enemies have disappeared\", then go to the exit (the battles met on the way count); off = straight to the exit once the stops are done (faster)"}
+  clear_max_battles: {default: 15, show_if: defeat_all, help: "a safety cap on the fights for the enemies left on one map, in case the banner is missed (0 = no cap)"}
   # the mobs: this macro's own Battle options (battle.skill_1..4), taken over from the basic macro
   # battle by the app (not declared here; they start as the battle macro's own skills)
   boss_setup: {default: false, type: bool, help: "fight the boss with its own skills (below) instead of this macro's Battle options"}

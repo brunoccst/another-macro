@@ -88,25 +88,35 @@ object HowItWorks {
             note = opt(listOf("cat_ticket")))
         else Step("Tap Move", note = opt(listOf("cat_ticket")))
 
-        val clear = on(o["clear_first"], default = true)
+        val clear = AnotherDungeon.defeatAll(o)
         val cap = o["clear_max_battles"]?.let { MacroSteps.shown(it) }?.takeIf { it != "0" }
         for ((i, m) in spec.maps.withIndex()) {
             val sub = ArrayList<Step>()
-            if (m.enemies && !m.boss && m.layout != null) {
-                sub += if (clear) Step("Fight its enemies first, walking back and forth, until the game says \"The enemies have disappeared\"" +
-                    (cap?.let { " (at most $it battles)" } ?: ""), note = opt(listOf("clear_first", "clear_max_battles")))
-                else Step("Don't stop for its enemies: go straight to the stops below and fight only the battles met on the way", note = opt(listOf("clear_first")))
-            }
+            // a map whose enemies run out: the ones the walk to the stops didn't meet, before the exit
+            val enemiesLeft = if (m.enemies && !m.boss && m.layout != null && m.steps == null) {
+                if (clear) Step("Every stop done: fight the enemies still left, walking back and forth, until the game says \"The enemies have disappeared\"" +
+                    " (skipped when it already said so on the way)" + (cap?.let { " (at most $it battles)" } ?: ""), note = opt(listOf("defeat_all", "clear_max_battles")))
+                else Step("Don't stop for the enemies left: straight to the exit once the stops are done", note = opt(listOf("defeat_all")))
+            } else null
+            if (m.enemies && !m.boss && m.layout != null && m.steps == null)
+                sub += Step("Walk to the stops below at once, fighting the battles met on the way (after each one the party's spot is read again)")
             when {
                 m.steps != null -> m.steps.forEach { sub += fixedStep(it, spec) }
                 m.layout == null -> sub += Step("Look around the map and tap each \"!\": its chest, then ${boss(spec)}")
                 m.path != null -> {
-                    for (leg in m.path) sub += leg(leg, o)
+                    for (leg in m.path) {
+                        if (leg.target == "exit") {
+                            if (m.chests.isNotEmpty()) sub += Step("A chest not found on the way: one more try, walking to it by the area map")
+                            enemiesLeft?.let { sub += it }
+                        }
+                        sub += leg(leg, o)
+                    }
                 }
                 else -> {
                     if (m.sparkleIcons) sub += Step("Read where this run's sparkles are on the area map and pick each one up" +
                         (if (on(o["sparkles"], true)) "" else " (left out)"), skipped = !on(o["sparkles"], true), note = opt(listOf("sparkles")))
-                    if (m.chests.isNotEmpty()) sub += Step("Walk to its ${m.chests.size} chest(s), nearest first, and open each one")
+                    if (m.chests.isNotEmpty()) sub += Step("Walk to its ${m.chests.size} chest(s), nearest first, and open each one (a chest not found gets one more try before the exit)")
+                    if (m.exit != null) enemiesLeft?.let { sub += it }
                     if (m.exit != null) sub += Step(if (m.exitWalk) "Walk off the edge of the map to the next one" else "Walk to the exit and take it")
                 }
             }

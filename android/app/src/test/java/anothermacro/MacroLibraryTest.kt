@@ -75,16 +75,35 @@ class MacroLibraryTest {
         val grind = macros.getValue("grind-battles").params
         assertEquals("false", grind.getValue("until_cleared").default)
         assertEquals("bool", grind.getValue("until_cleared").type)
-        // the dungeons fight until the banner; the fight count is only a safety cap
-        for (n in listOf("dogma-tower", "burning-beast-kings-castle")) {
+        // the enemies left after every stop are fought until the banner; the fight count is only a safety cap
+        for (n in listOf("dogma-tower", "burning-beast-kings-castle", "sea-of-ice")) {
             val p = macros.getValue(n).params
             assertFalse(n, p.containsKey("clear_battles"))
+            assertFalse(n, p.containsKey("clear_first"))
             assertEquals(n, AnotherDungeon.CLEAR_MAX_BATTLES.toString(), p.getValue("clear_max_battles").default)
-            assertEquals(n, "bool", p.getValue("clear_first").type)
+            assertEquals(n, "bool", p.getValue("defeat_all").type)
         }
-        // Dogma Tower walks straight to its chests by default (the user's way: about half the time)
-        assertEquals("false", macros.getValue("dogma-tower").params.getValue("clear_first").default)
-        assertEquals("true", macros.getValue("burning-beast-kings-castle").params.getValue("clear_first").default)
+        // Dogma Tower goes to the exit once its stops are done by default (the user's way: about half the time)
+        assertEquals("false", macros.getValue("dogma-tower").params.getValue("defeat_all").default)
+        assertEquals("true", macros.getValue("burning-beast-kings-castle").params.getValue("defeat_all").default)
+    }
+
+    @Test fun defeatAllOnlyWhereTheEnemiesRunOut() {
+        // the option is offered only by a dungeon with a map whose enemies run out (the banner can show)
+        val macros = Scenarios.parseAll(LibraryFiles(repo)).associateBy { it.name }
+        val text = File(repo, "src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml").readText()
+        val ids = Regex("""(?m)^([a-z_]+):""").findAll(text).map { it.groupValues[1] }.toList()
+        for (n in listOf("dogma-tower", "burning-beast-kings-castle", "sea-of-ice", "underworld")) {
+            val id = n.replace('-', '_')
+            val limited = ids.filter { it == id || it.startsWith("${id}_") }
+                .any { d -> AnotherDungeon.spec(text, d).maps.any { it.enemies && !it.boss && it.steps == null } }
+            assertEquals(n, limited, macros.getValue(n).params.containsKey("defeat_all"))
+            assertEquals(n, limited, macros.getValue(n).params.containsKey("clear_max_battles"))
+        }
+        // options saved before the rename still count; no option = straight to the exit
+        assertTrue(AnotherDungeon.defeatAll(mapOf("clear_first" to "true")))
+        assertFalse(AnotherDungeon.defeatAll(mapOf("defeat_all" to "false", "clear_first" to "true")))
+        assertFalse(AnotherDungeon.defeatAll(emptyMap()))
     }
 
     @Test fun enemiesGoneBannerIsReadWhenSplitOrClipped() {
