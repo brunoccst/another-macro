@@ -71,6 +71,8 @@ object AnotherDungeon {
         val cameraLags: Boolean = false,
         /** Keys one run takes (dungeons.yaml `key_cost`; the Underworld takes 2 green keys). */
         val keyCost: Int = 1,
+        /** Characters the game wants in the party to enter (dungeons.yaml `requires`; Dogma Tower: Poporo). */
+        val requires: List<String> = emptyList(),
     )
 
     const val DATA = "templates/another_dungeon/dungeons.yaml"
@@ -140,7 +142,8 @@ object AnotherDungeon {
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
-            d["area_map_scrolls"] == true, d["camera_lags"] == true, (d["key_cost"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1)
+            d["area_map_scrolls"] == true, d["camera_lags"] == true, (d["key_cost"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1,
+            (d["requires"] as? List<*>)?.map { it.toString() } ?: emptyList())
     }
 
     private class Run(val ctx: Context, val spec: Spec, /** The key this run enters with: "green" (Hard) or "red" (Very Hard). */ val key: String) {
@@ -440,6 +443,43 @@ object AnotherDungeon {
      * The dungeon panel's counters, left to right. One OCR line can hold two of them
      * ("5/5 En 16/50"): lines go by x, then the counters in a line by their order in it.
      */
+    /**
+     * The character the "please include" box names ("In order to move to Dogma Tower (Hard) please
+     * include: Poporo"; the name can come on the same OCR line or the next). A name from the dungeon's
+     * `requires` list that the box shows wins (OCR can mangle a name); else what follows "include:",
+     * when it reads like a name; else the `requires` list itself; null when there's nothing to go by.
+     */
+    internal fun missingMember(lines: List<Ocr.Line>, requires: List<String>): String? {
+        val ordered = lines.sortedWith(compareBy({ (it.center.y * 25).toInt() }, { it.center.x }))
+        val all = Ocr.norm(ordered.joinToString(" ") { it.text })
+        requires.filter { Ocr.norm(it).isNotEmpty() && Ocr.norm(it) in all }.takeIf { it.isNotEmpty() }?.let { return it.joinToString(" and ") }
+        val i = ordered.indexOfFirst { Ocr.norm(it.text).contains("please include") }
+        if (i >= 0) {
+            val same = ordered[i].text.substringAfter(":", "").trim()
+            val raw = same.ifEmpty { ordered.getOrNull(i + 1)?.text?.trim() ?: "" }
+            val name = raw.replace(Regex("""[^\p{L}'\-. ]"""), " ").trim().replace(Regex("\\s+"), " ")
+            val n = Ocr.norm(name)
+            // the box's buttons and the key line aren't names
+            if (name.count { it.isLetter() } >= 2 && n !in setOf("back", "move", "skip", "ok", "cancel") &&
+                !n.startsWith("using") && "key" !in n.split(" ") && name.split(" ").size <= 4) return name
+        }
+        return requires.takeIf { it.isNotEmpty() }?.joinToString(" and ")
+    }
+
+    /**
+     * Close the Another Dungeon panel and map back to the field. A place's box ("Parallel Time Layer",
+     * Sea of Ice's "Glacial Place") can still be open over the panel, so the close misses it (seen
+     * 2026-11-18: left on the Another Dungeon screen): Back until the screen's title is gone.
+     */
+    private fun closePanel(ctx: Context) {
+        ctx.tap(AD_CLOSE); ctx.wait(1.5)
+        repeat(3) {
+            if (ctx.readText(Region(0.3, 0.0, 0.4, 0.08)).none { Ocr.norm(it.text).contains("another dungeon") }) return
+            MacroLog.i("still on the Another Dungeon screen: Back")
+            ctx.back(); ctx.wait(1.2)
+        }
+    }
+
     /** The chosen key's count and the Cat Express Tickets' count from [panelCounters]; null when not read. */
     internal fun keysAndTickets(counters: List<List<Int>>, red: Boolean): Pair<Int?, Int?> {
         val tickets = counters.firstOrNull { it[1] == 50 }?.get(0)
@@ -616,14 +656,7 @@ object AnotherDungeon {
         MacroLog.i("keys (${if (red) "red" else "green"}): ${keys ?: "not read"}; Cat Express Tickets: ${tickets ?: "not read"}")
         if (keys != null && keys < r.spec.keyCost) {
             // the game would offer to buy keys: never; the loop ends here
-            ctx.tap(AD_CLOSE); ctx.wait(1.5)
-            // a dungeon's box (Sea of Ice's "Glacial Place" map) can still be open over the panel, so the
-            // close above missed (seen 2026-11-18: left on the Another Dungeon screen): Back until it's gone
-            repeat(3) {
-                if (ctx.readText(Region(0.3, 0.0, 0.4, 0.08)).none { Ocr.norm(it.text).contains("another dungeon") }) return@repeat
-                MacroLog.i("still on the Another Dungeon screen: Back")
-                ctx.back(); ctx.wait(1.2)
-            }
+            closePanel(ctx)
             r.outOfKeys = true
             return "out of ${if (red) "red" else "green"} keys" + (if (r.spec.keyCost > 1) " ($keys left, a run takes ${r.spec.keyCost})" else "")
         }
@@ -634,12 +667,18 @@ object AnotherDungeon {
         // "Using Green Key×1 to move to Dogma Tower (Hard)."
         val lines = ctx.readText()
         // "In order to move to Dogma Tower (Hard) please include: <a character>": Move stays greyed out
-        val include = lines.indexOfFirst { Ocr.norm(it.text).contains("please include") }
-        if (include >= 0) {
-            val who = lines.getOrNull(include + 1)?.text?.takeIf { lines[include].text.trimEnd().endsWith(":") }
-                ?: lines[include].text.substringAfter(":", "").trim()
+        if (lines.any { Ocr.norm(it.text).contains("please include") }) {
+            val who = missingMember(lines, r.spec.requires)
+            MacroLog.i("the game asks for a character: ${lines.joinToString(" | ") { it.text }} → ${who ?: "not read"}")
+            // the box's Back, then the dungeon panel and the era map: the run leaves the field as it found it
             tapText(r, "Back", exact = true)
-            ctx.stop("the party must include ${who.ifEmpty { "a character the game names" }}: add them to the party in front, then start again")
+            ctx.wait(1.0)
+            closePanel(ctx)
+            val party = Party.number(ctx.params["party"])?.let { "party $it" } ?: "the party in front"
+            ctx.stop(if (who != null) "${r.spec.name} needs $who in the party, and $party doesn't have $who: " +
+                    "add $who to it (or pick a party with $who), then start again"
+                else "${r.spec.name} needs a character $party doesn't have (the game's box named them, OCR couldn't read it): " +
+                    "add them to the party, then start again")
         }
         val using = lines.firstOrNull { Ocr.norm(it.text).startsWith("using") }?.text ?: ""
         val keyWord = if (red) "red" else "green"
