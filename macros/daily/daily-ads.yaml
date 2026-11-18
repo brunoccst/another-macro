@@ -103,7 +103,7 @@ unknown:
   - if: ad_in_front()
     then:
       - if: stats.ads_left_here >= 2
-        then: [{stop: "a commercial did not close, even after force-closing the game"}]
+        then: [{stop: "failed: a commercial did not close, even after force-closing the game"}]
       - count: ads_left_here
       - if: stats.ads_left_here == 1
         then:
