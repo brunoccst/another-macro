@@ -1612,7 +1612,7 @@ object AnotherDungeon {
     internal const val CLEAR_MAX_BATTLES = 15
 
     /** The round signs where a staircase/door leads to another map (on the ground, or a door sign over it). */
-    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps", "door_sign", "door_sign_round")
+    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps", "door_sign", "door_sign_round", "ladder_sign")
 
     /**
      * Walk back and forth fighting (like grind-battles with until_cleared) until the game says
