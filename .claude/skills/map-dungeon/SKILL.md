@@ -36,7 +36,8 @@ answers:
    Time Layer" for the castle), and the label exactly as the game shows it (does it wrap
    onto two lines?). Hard and Very Hard both, and which key(s) each costs (1 or 2).
 3. **Party and unlocks**: a character the game requires in the party (Dogma Tower needs
-   Poporo), a character who earns Light/Shadow there, and whether both difficulties are
+   Poporo; the wiki pages don't list these, only the game's "please include" box does; record
+   it as `requires` in dungeons.yaml), a character who earns Light/Shadow there, and whether both difficulties are
    unlocked on their account.
 4. **How it works**, anything the wiki may not say or they have seen: the number of maps, rare
    maps, a dungeon currency or "Continue to skip?" box at the end, a different fight limit
