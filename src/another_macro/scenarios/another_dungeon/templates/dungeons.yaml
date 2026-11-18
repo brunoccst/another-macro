@@ -305,6 +305,8 @@ underworld_cathedral:
       segs: [[0.330, 0.477, 0.541], [0.440, 0.379, 0.558], [0.556, 0.417, 0.629], [0.651, 0.526, 0.590]]
       links: [[0.494, 0.330, 0.440], [0.432, 0.440, 0.556], [0.520, 0.440, 0.556], [0.567, 0.556, 0.651]]
       exit: [0.386, 0.440]
+      # a house door sits by the ladder (its sign nearer the middle took the party indoors, 2026-11-18)
+      exit_sign: ground_arrow_bars
     # Nazrik's west part (same title again): the party comes down a ladder; Zero Point (West) is off the
     # screen's left edge (5 s of walking left got there)
     - names: ["Nazrik, City of Shadows"]

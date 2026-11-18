@@ -46,7 +46,9 @@ object AnotherDungeon {
                        /** The way on is walking off the screen's edge at [exit] (no sign): Nazrik into Zero Point. */
                        val exitWalk: Boolean = false,
                        /** This map's area map scrolls up and down with the party (see [Spec.areaMapScrolls]). */
-                       val scrolls: Boolean = false) {
+                       val scrolls: Boolean = false,
+                       /** Only this sign template counts as the exit (another sign sits nearer, e.g. a house door). */
+                       val exitSign: String? = null) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
@@ -132,6 +134,7 @@ object AnotherDungeon {
                 lists(m["jars"]).map { Point(it[0], it[1]) },
                 m["exit_walk"] == true,
                 m["area_map_scrolls"] == true,
+                m["exit_sign"]?.toString(),
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
@@ -1534,7 +1537,7 @@ object AnotherDungeon {
             val until = System.currentTimeMillis() + if (attempt == 0) 2500 else 800
             while (arrow == null && System.currentTimeMillis() < until) {
                 ctx.refresh()
-                arrow = ARROWS.mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
+                arrow = (ms.exitSign?.let { listOf(it) } ?: ARROWS).mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
                 if (arrow == null) ctx.wait(0.25)
             }
             if (arrow != null) {
