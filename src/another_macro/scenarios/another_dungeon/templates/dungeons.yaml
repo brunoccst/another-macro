@@ -402,7 +402,8 @@ underworld_ark:
         - [chest 3, L 1710, D, L 3350, U, R 1660]
         - [exit, L 2740, U, R 3960]
     # the boss area (Ark of the Underworld - Depths): its chest right of the arrival, the boss's question left
-    - names: [Ark of the Underworld - Depths]
+    # (its title holds the dungeon's name, so the map is matched by the part after the dash: "Depths")
+    - names: [Ark of the Underworld - Depths, Depths]
       boss: true
       enemies: false
       chests_count: 1
