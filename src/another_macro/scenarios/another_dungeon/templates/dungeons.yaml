@@ -324,12 +324,14 @@ underworld_tomb:
   key_cost: 2
   boss: Phantom Eden
   maps:
-    # the arrival is the left part of the second street (~0.476, 0.499 on the area map). The way down: the
-    # stairs at its right part (0.554) to the third street, its left end, the stairs down there (0.454) to a
-    # short fourth street (0.716, x 0.449-0.522) and the basement stairs at its right end (0.508, up)
+    # the arrival is the left part of the second street (~0.476, 0.499 on the area map; walking here is
+    # slow, ~18 px of area map a second). The way down: the stairs at its right part (0.554, R 4700 from the
+    # arrival) to the third street, its left end (wall) and 600 ms back right, the stairs down to a short
+    # fourth street, its right end (wall) and 700 ms back left to the manhole (basement stairs, up).
+    # Measured by hand on 2026-11-18.
     - names: ["Nazrik, City of Shadows"]
       enemies: false
-      steps: [R 2900, D, L 5000, R 200, D, R 2000, U]
+      steps: [R 4700, D, L 6000, R 600, D, R 3000, L 700, U]
     # Nazrik's basement (the same title): a street with the seal's "!" behind an opening near its left end
     - names: ["Nazrik, City of Shadows"]
       enemies: false

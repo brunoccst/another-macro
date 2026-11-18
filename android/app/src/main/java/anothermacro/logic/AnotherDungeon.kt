@@ -1813,8 +1813,10 @@ object AnotherDungeon {
                     val text = ctx.readText().joinToString(" ") { it.text }
                     MacroLog.i("gate: ${text.take(120)}")
                     if ("not enough" in Ocr.norm(text)) {
-                        ctx.back(); ctx.wait(1.0)
-                        ctx.stop("the way on needs an item you don't have: '${text.take(100)}' (buy it yourself; the macro never spends Sea-Drifts)")
+                        // Back does not close this box and the purchase guard refuses a tap on its Cancel:
+                        // the user closes it
+                        ctx.stop("the way on needs an item you don't have: '${text.take(100)}'. Tap Cancel on the box, " +
+                            "then buy the item yourself (the macro never spends Sea-Drifts)")
                     }
                     answerExitQuestion(r)
                     r.expect = r.map + 1; r.moved = true
