@@ -371,15 +371,17 @@ underworld_ark:
   key_cost: 2
   boss: Dimensional Destroyer Himika
   maps:
-    # the arrival (left part of the second street) -> the stairs up just right of it to the top street ->
-    # its left end (wall) -> the ladder 1.5 s back right, up to the upper floor
+    # the second street's left end (wall; a specter may walk up and talk at the arrival, so the walk starts
+    # from the wall) -> 3.2 s right to the stairs up to the top street (a bit further is the inn's door) ->
+    # its left end (wall) -> the ladder 1.5 s back right, up to the upper floor. Checked on the phone 11-18
     - names: ["Nazrik, City of Shadows"]
       enemies: false
-      steps: [R 2300, U, L 4000, R 1500, U]
-    # Nazrik's upper floor (the same title): right to the end (past the portal), back to the portal, up
+      steps: [L 6000, R 3200, U, L 4000, R 1500, U]
+    # Nazrik's upper floor (the same title): right to the end (past the portal), back to the portal, up,
+    # and Yes to "Go to The Ark of the Underworld?". Checked on the phone 11-18
     - names: ["Nazrik, City of Shadows"]
       enemies: false
-      steps: [R 7500, L 1300, U]
+      steps: [R 7500, L 1300, U, "yes"]
     - names: [The Ark of the Underworld]
       # five streets in a brick pattern (top, row 2-5); the area map shows no chest icons. A Horror (red
       # star) at row 2's left end (beaten in 1 turn). Chests only show when close

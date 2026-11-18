@@ -34,7 +34,7 @@ object AnotherDungeon {
                        val path: List<Route.Leg>? = null,
                        /** False for a map without enemies (no fights first). */
                        val enemies: Boolean = true,
-                       /** A small map done by fixed steps instead of a layout: "bubble", "gate" (a "!" that travels on, Yes), "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
+                       /** A small map done by fixed steps instead of a layout: "bubble", "gate" (a "!" that travels on, Yes), "yes" (Yes to the travel question a flick opened), "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
                        val steps: List<String>? = null,
                        /** Items picked up from the ground (green/blue sparks, e.g. T. Black Pearls): stops on the path, tapped when they show. */
                        val sparkles: List<Point> = emptyList(),
@@ -1821,6 +1821,13 @@ object AnotherDungeon {
                         ctx.stop("the way on needs an item you don't have: '${text.take(100)}'. Tap Cancel on the box, " +
                             "then buy the item yourself (the macro never spends Sea-Drifts)")
                     }
+                    answerExitQuestion(r)
+                    r.expect = r.map + 1; r.moved = true
+                    return
+                }
+                // "yes": the travel question a flick just opened (the Ark's portal: "Go to The Ark of the
+                // Underworld? ... No / Yes"): Yes, and the next map follows
+                "YES" -> {
                     answerExitQuestion(r)
                     r.expect = r.map + 1; r.moved = true
                     return
