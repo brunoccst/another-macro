@@ -11,6 +11,7 @@ icon: chest
 description: "Another Dungeon: Underworld (Hard, 2 green keys). Zero Point's Sea-Drift sparkles, Demon's Den's chests, then the boss."
 templates: [another_dungeon, daily_ads]
 params:
+  area: {default: demons_den, choices: [demons_den, cathedral, tomb, ark], help: "the chest area to run: demons_den (always open), cathedral (Dimensional Cathedral: needs the ladder the Present Man installs for an Embedded Ladder, which you buy), tomb (Mark of God's Tomb: uses 1 Mural Fragment, which you buy; stops if there is none), ark (Ark of the Underworld: Nazrik upper-floor portal)"}
   green_key: {default: true, type: bool, help: "use green keys: Underworld is Hard only, 2 a run (off = only pick the party)"}
   # every dungeon macro: how many runs in a row (or all keys), and what to do when a White Key drops
   runs: {default: 1, type: number, help: "runs in a row, any number; switch All keys on (beside it) to run until the keys run out"}

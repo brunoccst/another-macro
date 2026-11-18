@@ -22,6 +22,18 @@ import kotlin.math.abs
  */
 object AreaNav {
     val MINIMAP = Point(0.917, 0.12)
+
+    /**
+     * Where to tap the minimap: [MINIMAP], or another spot on it when this app's floating handle (the
+     * round badge, which the user can drag) sits over that point and would swallow the tap.
+     */
+    fun minimap(ctx: Context): Point {
+        val area = runCatching { InputService.instance?.controls()?.second }.getOrNull() ?: return MINIMAP
+        val f = ctx.frame ?: return MINIMAP
+        fun free(p: Point) = !area.contains((p.x * f.width).toInt(), (p.y * f.height).toInt())
+        return listOf(MINIMAP, Point(0.875, 0.10), Point(0.965, 0.2), Point(0.86, 0.2)).firstOrNull { free(it) }
+            ?: MINIMAP.also { MacroLog.i("the floating handle covers the minimap: drag it elsewhere") }
+    }
     private val MAP_CLOSE = Point(0.5, 0.93)
 
     /** Map units (fraction of the screen width) walked per second of holding. Measured in Unigan. */
@@ -85,7 +97,7 @@ object AreaNav {
         // the bottom middle lands on the 4th character's portrait)
         ctx.refresh()
         if (ctx.find("field_menu_button") == null) return View(emptyList(), null, emptyList(), null, 0, 0)
-        ctx.tap(MINIMAP); ctx.wait(1.3)
+        ctx.tap(minimap(ctx)); ctx.wait(1.3)
         val frame = ctx.refresh()
         if (Battle.inBattle(ctx)) return View(emptyList(), null, emptyList(), null, 0, 0)
         val first = ctx.colorMat()

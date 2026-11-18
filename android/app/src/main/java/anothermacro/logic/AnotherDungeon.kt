@@ -34,7 +34,7 @@ object AnotherDungeon {
                        val path: List<Route.Leg>? = null,
                        /** False for a map without enemies (no fights first). */
                        val enemies: Boolean = true,
-                       /** A small map done by fixed steps instead of a layout: "bubble", "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
+                       /** A small map done by fixed steps instead of a layout: "bubble", "gate" (a "!" that travels on, Yes), "yes" (Yes to the travel question a flick opened), "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
                        val steps: List<String>? = null,
                        /** Items picked up from the ground (green/blue sparks, e.g. T. Black Pearls): stops on the path, tapped when they show. */
                        val sparkles: List<Point> = emptyList(),
@@ -46,7 +46,9 @@ object AnotherDungeon {
                        /** The way on is walking off the screen's edge at [exit] (no sign): Nazrik into Zero Point. */
                        val exitWalk: Boolean = false,
                        /** This map's area map scrolls up and down with the party (see [Spec.areaMapScrolls]). */
-                       val scrolls: Boolean = false) {
+                       val scrolls: Boolean = false,
+                       /** Only this sign template counts as the exit (another sign sits nearer, e.g. a house door). */
+                       val exitSign: String? = null) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
@@ -92,6 +94,19 @@ object AnotherDungeon {
 
     fun spec(ctx: Context, id: String): Spec = spec(ctx.assets.open(DATA).bufferedReader().use { it.readText() }, id)
 
+    /**
+     * A hub dungeon's chest area (the macro's `area` option, e.g. Underworld's cathedral): the data entry
+     * "<id>_<area>" when there is one, else the dungeon's own entry (its default area).
+     */
+    @Suppress("UNCHECKED_CAST")
+    internal fun areaId(ctx: Context, id: String): String {
+        val area = ctx.params["area"]?.trim()?.lowercase()?.replace(Regex("[^a-z0-9]+"), "_")?.trim('_')
+        if (area.isNullOrEmpty()) return id
+        val text = ctx.assets.open(DATA).bufferedReader().use { it.readText() }
+        val all = Load(LoadSettings.builder().build()).loadFromString(text) as Map<String, Any?>
+        return if ("${id}_$area" in all) "${id}_$area" else id.also { MacroLog.i("area '$area': the dungeon's own data") }
+    }
+
     /** The dungeon [id] from the text of dungeons.yaml (also read by the app's "How it works": HowItWorks.kt). */
     @Suppress("UNCHECKED_CAST")
     fun spec(text: String, id: String): Spec {
@@ -119,6 +134,7 @@ object AnotherDungeon {
                 lists(m["jars"]).map { Point(it[0], it[1]) },
                 m["exit_walk"] == true,
                 m["area_map_scrolls"] == true,
+                m["exit_sign"]?.toString(),
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
@@ -210,7 +226,7 @@ object AnotherDungeon {
      * Phantom Crystal Dimension and comes back to the loop, stop ends the loop, keep_going ignores it.
      */
     fun run(ctx: Context, id: String): String {
-        val spec = spec(ctx, id)
+        val spec = spec(ctx, areaId(ctx, id))
         val plan = keyPlan(ctx.params)
         // the party first, from the field (the menu's Party page)
         // (by its number in the game's list, through the basic macro pick-party)
@@ -318,6 +334,9 @@ object AnotherDungeon {
             if (idx == null) {
                 if (fight(r)) return@repeat
                 if (bossGate(r)) return@repeat
+                // an NPC talking mid-run (Underworld's Nazrik: a specter walks up on the way to the Ark,
+                // seen 11-18) hides the map title: tap through it, the run goes on
+                if (!r.bossBeaten && !r.bossNext && talkThrough(r)) return@repeat
                 // not on one of the dungeon's maps any more: the run ended
                 return finish(r)
             }
@@ -727,7 +746,7 @@ object AnotherDungeon {
     private fun whereAmI(r: Run): Int? {
         val ctx = r.ctx
         if (!waitForField(ctx, 10) && !(talkThrough(r) && waitForField(ctx, 6))) return null
-        ctx.tap(AreaNav.MINIMAP); ctx.wait(1.5)
+        ctx.tap(AreaNav.minimap(ctx)); ctx.wait(1.5)
         ctx.refresh()
         if (Battle.inBattle(ctx)) return null // a battle started: no close tap (it would hit a portrait)
         val text = ctx.readText()
@@ -933,7 +952,19 @@ object AnotherDungeon {
         // (2026-11-15), and the camera doesn't keep the party in the middle near a street's end
         val star = ms.sparkleIcons
         var steps = 0
-        while (System.currentTimeMillis() < end && taps < 3) {
+        // none seen by the spot: the party (or the camera) can hide it, so a short step each way and a look again
+        // (Zero Point 2026-11-18: a bag icon stayed on the area map after "no sparkle by" its spot)
+        val looks = mutableListOf(-1.0, 1.0, 1.0)
+        while (taps < 3) {
+            if (System.currentTimeMillis() >= end) {
+                if (taps > 0 || looks.isEmpty()) break
+                val dir = looks.removeAt(0)
+                MacroLog.i("no sparkle in sight: a step ${if (dir < 0) "left" else "right"} and a look again")
+                ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), SPARKLE_STEP_MS); ctx.wait(0.6)
+                fight(r)
+                end = System.currentTimeMillis() + 1500
+                continue
+            }
             val p = if (star) sparkleStar(ctx) else sparkle(ctx)
             if (p == null) { ctx.wait(0.2); continue }
             if (taps > 0 && steps < 2 && abs(p.x - 0.5) < SPARKLE_NEAR) {
@@ -1506,7 +1537,7 @@ object AnotherDungeon {
             val until = System.currentTimeMillis() + if (attempt == 0) 2500 else 800
             while (arrow == null && System.currentTimeMillis() < until) {
                 ctx.refresh()
-                arrow = ARROWS.mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
+                arrow = (ms.exitSign?.let { listOf(it) } ?: ARROWS).mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }
                 if (arrow == null) ctx.wait(0.25)
             }
             if (arrow != null) {
@@ -1596,7 +1627,7 @@ object AnotherDungeon {
     internal const val CLEAR_MAX_BATTLES = 15
 
     /** The round signs where a staircase/door leads to another map (on the ground, or a door sign over it). */
-    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps", "door_sign", "door_sign_round")
+    private val ARROWS = listOf("ground_arrow_bars", "ground_arrow_steps", "door_sign", "door_sign_round", "ladder_sign")
 
     /**
      * Walk back and forth fighting (like grind-battles with until_cleared) until the game says
@@ -1788,6 +1819,34 @@ object AnotherDungeon {
                         ctx.wait(0.6)
                     }
                 }
+                // "gate": a "!" that asks to travel on and uses up an item (Underworld's basement seal: "Go to
+                // Dark Lord's Tomb? ... *Uses 1 Mural Fragment." Yes). Without the item the game says "Not
+                // enough Mural Fragments" | Cancel: closed with Back (never a tap there) and the run stops
+                "GATE" -> {
+                    var b: Match? = null
+                    val until = System.currentTimeMillis() + 6000
+                    while (b == null && System.currentTimeMillis() < until) { ctx.refresh(); b = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE); if (b == null) ctx.wait(0.4) }
+                    if (b == null) { MacroLog.i("step gate: no \"!\" here"); continue }
+                    ctx.tap(b); ctx.wait(1.2)
+                    val text = ctx.readText().joinToString(" ") { it.text }
+                    MacroLog.i("gate: ${text.take(120)}")
+                    if ("not enough" in Ocr.norm(text)) {
+                        // Back does not close this box and the purchase guard refuses a tap on its Cancel:
+                        // the user closes it
+                        ctx.stop("the way on needs an item you don't have: '${text.take(100)}'. Tap Cancel on the box, " +
+                            "then buy the item yourself (the macro never spends Sea-Drifts)")
+                    }
+                    answerExitQuestion(r)
+                    r.expect = r.map + 1; r.moved = true
+                    return
+                }
+                // "yes": the travel question a flick just opened (the Ark's portal: "Go to The Ark of the
+                // Underworld? ... No / Yes"): Yes, and the next map follows
+                "YES" -> {
+                    answerExitQuestion(r)
+                    r.expect = r.map + 1; r.moved = true
+                    return
+                }
                 "U" -> AreaNav.flick(ctx, up = true)
                 "D" -> AreaNav.flick(ctx, up = false)
                 "L", "R" -> {
@@ -1800,6 +1859,8 @@ object AnotherDungeon {
             fight(r)
             if (r.bossBeaten) return
         }
+        // the next map may share this one's title (Nazrik and its basement): the next one is expected
+        r.expect = r.map + 1
         r.moved = true
     }
 

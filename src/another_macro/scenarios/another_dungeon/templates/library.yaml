@@ -41,11 +41,14 @@ templates:
     threshold: 0.75
     scales: [0.9, 1.0, 1.1]
   ground_arrow_bars:
-    notes: Round sign (bars icon) on the ground at a staircase to another map; tap it to take it.
+    notes: >-
+      Round sign (bars icon) on the ground at a staircase to another map; tap it to take it. A ladder down
+      shows it low (Underworld's Nazrik upper floor: y ~0.85, 2026-11-18), hence the region's bottom.
     file: ground_arrow_bars.png
     ref: [2400, 1080]
-    region: [0.05, 0.15, 0.8, 0.8]
+    region: [0.05, 0.15, 0.8, 0.92]
     threshold: 0.8
+    scales: [1.0, 1.1]   # the Nazrik ladder-down sign: 0.86 at 1.1, 0.44 at 1.0 (2026-11-18)
   ground_arrow_steps:
     notes: Round sign (steps icon) at a staircase/door to another map; tap it to take it.
     file: ground_arrow_steps.png
@@ -70,4 +73,14 @@ templates:
     region: [0.05, 0.1, 0.8, 0.9]
     threshold: 0.8
     scales: [0.9, 0.95, 1.0, 1.05, 1.1]   # sharp: 0.91 at 1.0, 0.76 at 0.9
+  ladder_sign:
+    notes: >-
+      Round sign (steps icon, smaller and dimmer than ground_arrow_steps) over a ladder to another floor
+      (Underworld's Nazrik: the top street's ladder up); tap it to climb. Cut from a 1024x461 connector
+      screenshot (2026-11-18), upscaled: 0.92-1.0 by the ladder, under 0.68 elsewhere.
+    file: ladder_sign.png
+    ref: [2400, 1080]
+    region: [0.05, 0.1, 0.8, 0.8]
+    threshold: 0.8
+    scales: [0.9, 1.0, 1.1]
 screens: {}
