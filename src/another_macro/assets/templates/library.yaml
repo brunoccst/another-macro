@@ -116,7 +116,7 @@ templates:
     - 0.1556
     notes: '"Close the app?" dialog that Android back opens on the field.'
   game_data_updating:
-    notes: '"Confirming Updates" under the title screen's progress bar while the game checks or
+    notes: '"Confirming Updates" under the title screen''s progress bar while the game checks or
       downloads its data (cut from a 1024x461 connector screenshot, upscaled).'
     file: game_data_updating.png
     ref: [2400, 1080]
