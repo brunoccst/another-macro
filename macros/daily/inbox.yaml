@@ -28,7 +28,7 @@ handlers:
   inbox_item:   # an opened item: "The items below have been received" + the rewards, OK
     - count: items_opened
     - log: "inbox item {stats.items_opened}: {screen_text(0.08, 0.75)}"
-    - got: "{screen_text(0.08, 0.75)}"   # the rewards it lists, for the outcome message
+    - got: "{text_after('have been received', 0.08, 0.75)}"   # the rewards it lists (not the mail's title), for the outcome message
     - tap: inbox_ok_button
     - set: {misses: 0, this_visit: this_visit + 1, checks: 0, empty_looks: 0}
     - wait: 1
