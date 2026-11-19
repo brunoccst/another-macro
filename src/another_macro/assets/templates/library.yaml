@@ -115,6 +115,14 @@ templates:
     - 0.2358
     - 0.1556
     notes: '"Close the app?" dialog that Android back opens on the field.'
+  game_data_updating:
+    notes: '"Confirming Updates" under the title screen's progress bar while the game checks or
+      downloads its data (cut from a 1024x461 connector screenshot, upscaled).'
+    file: game_data_updating.png
+    ref: [2400, 1080]
+    region: [0.38, 0.70, 0.21, 0.11]
+    threshold: 0.75
+    scales: [0.9, 1.0, 1.1]
   skill_list_open:
     notes: The "Skill Details" button at the top, shown only while a character's skill list is open.
     file: skill_list_open.png
@@ -139,6 +147,10 @@ screens:
   title:
     require:
     - title_screen
+  game_data_update:   # the title screen while the game downloads its data (list it before title)
+    require:
+    - title_screen
+    - game_data_updating
   close_app:
     require:
     - close_app_dialog
