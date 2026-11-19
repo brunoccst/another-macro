@@ -6,11 +6,14 @@ description: Turn the game on, always watch the daily login-bonus ad, stop on th
 templates: [start_game, daily_ads]
 params:
   watch_ad: {default: true, help: "take the daily login-bonus ad; false = just open the game"}
+  wifi_only: {default: true, help: "let the game download its update data only on Wi-Fi; false = on mobile data too"}
   # how long a commercial plays etc.: the Watch Ad options (watch-ad.*), taken over from the basic macro
 # what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
 how:
   - "Open the game"
   - "Title screen: wait for Continue (the game's server) and tap it"
+  - "The game asks to download its update data: Yes on Wi-Fi, else stop and say so (option wifi_only)"
+  - "While it downloads (\"Confirming Updates\"): wait"
   - "Tap through the loading screens and the login bonus"
   - "A popup the taps don't close (e.g. a notice when the game stayed open over the daily reset): press Back; if that asks \"Close the app?\", tap No"
   - if: watch_ad
@@ -21,8 +24,10 @@ how:
     else:
       - "Don't watch the login-bonus ad: stop as soon as the game is open"
   - "Stop on the field"
-screens: [ad_reward, premium_thanks, ad_offer, close_app, field, title]
+screens: [ad_reward, premium_thanks, ad_offer, close_app, field, game_data_update, title]
 unknown_timeout_s: 180
+# loop guard: the title screen comes back once after a download or a restart; more is a loop
+max_visits: {title: 4}
 
 setup:
   - set: {continued: false, skip_ad: false, taps: 0}
@@ -32,6 +37,10 @@ setup:
   - wait: 3
 
 handlers:
+  game_data_update:   # the game downloads its data: as long as it takes
+    - status: "the game is downloading its update data: waiting"
+    - wait: 5
+
   title:
     # "Continue" only shows once the game has reached its server
     - if: found('title_continue')
@@ -102,31 +111,45 @@ unknown:
           - status: "force-closing the game: a commercial won't close"
           - force_close: true
     else:
-      - if: not watch_ad
+      # "Confirming Downloaded Data: Do you wish to download the required data? ... Download Size:
+      # Approx. 644.5 MB" (a game update): Yes on Wi-Fi (or always, wifi_only off), else stop and say so.
+      # No/Back only brings the same question back from the title screen.
+      - if: text_has('download the required data')
         then:
-          - if: continued and game_in_front()
-            then: [{stop: "the game is open (daily ad not checked)"}]
-          - wait: 2
+          - if: wifi_only and not on_wifi()
+            then: [{stop: "failed: the game wants to download its update data and the phone isn't on Wi-Fi ({screen_text(0.4, 0.6)}): start the game on Wi-Fi, or turn wifi_only off"}]
+          - count: data_downloads
+          - status: "the game asks to download its update data: Yes"
+          - log: "update data: {screen_text(0.4, 0.6)}"
+          - tap: [0.588, 0.638]
+          - set: {taps: 0}
+          - wait: 3
         else:
-          - if: not game_in_front()
+          - if: not watch_ad
             then:
-              - status: "the game isn't in front: opening it again"
-              - launch: "'games.wfs.anothereden'"
-              - wait: 3
+              - if: continued and game_in_front()
+                then: [{stop: "the game is open (daily ad not checked)"}]
+              - wait: 2
             else:
-              # loading screens and the cat delivering the login bonus. Some popups ignore taps (seen
-              # after the login-bonus ad when the game stayed open over the daily reset) and only
-              # Back closes them: after 8 taps that changed nothing once the ad was taken, Back
-              # (25 before it: a cold start's loading screens can take ~40 s of taps)
-              - set: {taps: taps + 1}
-              - if: taps >= 25 or (stats.ads_accepted > 0 and taps >= 8)
+              - if: not game_in_front()
                 then:
-                  - count: popup_backs
-                  - status: "a popup the taps don't close: pressing Back"
-                  - set: {taps: 0}
-                  - back: true
-                  - wait: 1.5
+                  - status: "the game isn't in front: opening it again"
+                  - launch: "'games.wfs.anothereden'"
+                  - wait: 3
                 else:
-                  - status: "loading (tapping through the login bonus)"
-                  - tap: [0.5, 0.3]
-                  - wait: 1.5
+                  # loading screens and the cat delivering the login bonus. Some popups ignore taps (seen
+                  # after the login-bonus ad when the game stayed open over the daily reset) and only
+                  # Back closes them: after 8 taps that changed nothing once the ad was taken, Back
+                  # (25 before it: a cold start's loading screens can take ~40 s of taps)
+                  - set: {taps: taps + 1}
+                  - if: taps >= 25 or (stats.ads_accepted > 0 and taps >= 8)
+                    then:
+                      - count: popup_backs
+                      - status: "a popup the taps don't close: pressing Back"
+                      - set: {taps: 0}
+                      - back: true
+                      - wait: 1.5
+                    else:
+                      - status: "loading (tapping through the login bonus)"
+                      - tap: [0.5, 0.3]
+                      - wait: 1.5
