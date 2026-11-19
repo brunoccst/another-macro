@@ -141,6 +141,7 @@ sea_of_ice:
   era: Antiquity
   # top left of the Migleina continent on the Antiquity map: "Glacial Place" opens a box with "Sea of Ice"
   area: Glacial Place
+  requires: [Sheila]
   boss: Abyssal Queen
   # the area map is a see-through overlay that scrolls up and down with the party (it draws ~0.035
   # higher with the party two streets down): each look lines the layout up with the streets it shows
