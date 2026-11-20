@@ -1,10 +1,12 @@
-# Everything daily, unattended: open the game (login-bonus ad), the 5 menu commercials,
-# the shop commercial, today's scratchbook cats, the inbox (claims what the steps above sent there,
-# e.g. the login-bonus ad reward), then turn the game off. If the game doesn't open (start-game
+# Everything daily, unattended: open the game (login-bonus ad), spend the dungeon keys picked in
+# dungeon-keys (off by default), the 5 menu commercials, the shop commercial, the dungeon keys again
+# (the commercials can give keys; why before them too: docs/knowledge-base/learned/dungeons/README.md),
+# today's scratchbook cats, the inbox (claims what the steps above sent there, e.g. the login-bonus
+# ad reward), then turn the game off. If the game doesn't open (start-game
 # gets stuck or fails), the steps that need it are skipped and only stop-game runs.
 name: daily-routine
 group: daily
-description: "Daily: start game, 5 menu ads, shop ad, cat scratchbook, claim the inbox, then turn the game off."
-steps: [start-game, daily-ads, shop-ad, cat-scratchbook, inbox, stop-game]
+description: "Daily: start game, dungeon keys, 5 menu ads, shop ad, dungeon keys again, cat scratchbook, claim the inbox, then turn the game off."
+steps: [start-game, dungeon-keys, daily-ads, shop-ad, dungeon-keys, cat-scratchbook, inbox, stop-game]
 required: [start-game]
 always: [stop-game]

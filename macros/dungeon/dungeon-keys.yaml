@@ -1,0 +1,52 @@
+# Use up the Another Dungeon keys: for each key colour, the dungeon macro the user picked runs with
+# that colour's keys only, until they run out (never buys keys), with the party picked for that colour.
+# Red keys first, then green. Each dungeon macro runs with its own saved options otherwise (White Key,
+# Cat Express Ticket, boss skills, ...). The daily routine runs it twice: before the ads (why:
+# docs/knowledge-base/learned/dungeons/README.md) and after them.
+# Every dungeon macro with a red_key / green_key option is a choice of that colour (a test checks it).
+name: dungeon-keys
+group: dungeon
+icon: chest
+description: "Another Dungeon: spend all green and red keys, each colour in the dungeon and party you pick for it."
+templates: [another_dungeon]
+params:
+  red_dungeon: {default: "off", choices: ["off", burning-beast-kings-castle, dogma-tower, moonlight-forest, sea-of-ice], help: "the dungeon macro that spends the red keys (Very Hard); off = keep the red keys"}
+  red_party: {default: dungeon, choices: [dungeon, current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the party for the red key runs, by its number in the game's party list (1 = the first); dungeon = that dungeon macro's own Party option; current = the party in front now"}
+  green_dungeon: {default: "off", choices: ["off", burning-beast-kings-castle, dogma-tower, moonlight-forest, underworld], help: "the dungeon macro that spends the green keys (Hard); off = keep the green keys"}
+  green_party: {default: dungeon, choices: [dungeon, current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the party for the green key runs, by its number in the game's party list (1 = the first); dungeon = that dungeon macro's own Party option; current = the party in front now"}
+# what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
+how:
+  - if: red_dungeon != 'off'
+    then:
+      - {run: {macro: "{red_dungeon}"}, text: "Red keys: run {red_dungeon} with red keys only until they run out (party: {red_party})"}
+    else: ["Red keys: off (kept)"]
+  - if: green_dungeon != 'off'
+    then:
+      - {run: {macro: "{green_dungeon}"}, text: "Green keys: run {green_dungeon} with green keys only until they run out (party: {green_party})"}
+    else: ["Green keys: off (kept)"]
+  - "Stop with what each colour did"
+screens: [field]
+unknown_timeout_s: 120
+
+# the whole job runs once, from setup: each dungeon macro starts from wherever the game is
+setup:
+  - set: {red_done: "'off'", green_done: "'off'"}
+  - if: red_dungeon != 'off'
+    then:
+      - status: "red keys: {red_dungeon}"
+      - if: red_party == 'dungeon'
+        then:
+          - run: {macro: "{red_dungeon}", params: {red_key: true, green_key: false, all_keys: true}}
+        else:
+          - run: {macro: "{red_dungeon}", params: {red_key: true, green_key: false, all_keys: true, party: red_party}}
+      - set: {red_done: result}
+  - if: green_dungeon != 'off'
+    then:
+      - status: "green keys: {green_dungeon}"
+      - if: green_party == 'dungeon'
+        then:
+          - run: {macro: "{green_dungeon}", params: {green_key: true, red_key: false, all_keys: true}}
+        else:
+          - run: {macro: "{green_dungeon}", params: {green_key: true, red_key: false, all_keys: true, party: green_party}}
+      - set: {green_done: result}
+  - stop: "red keys: {red_done}; green keys: {green_done}"

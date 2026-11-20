@@ -11,7 +11,7 @@ A test checks that this table names every macro in `macros/`.
 
 | Group | Macro | What it does |
 |---|---|---|
-| Daily | [daily-routine](../macros/daily/daily-routine.yaml) | Starts the game, watches the 5 menu ad chests and the shop ad, does the cat scratchbook, claims the inbox, then turns the game off. |
+| Daily | [daily-routine](../macros/daily/daily-routine.yaml) | Starts the game, spends the dungeon keys (dungeon-keys), watches the 5 menu ad chests and the shop ad, spends the keys again, does the cat scratchbook, claims the inbox, then turns the game off. |
 | Daily | [daily-ads](../macros/daily/daily-ads.yaml) | The 5 daily commercial chests (Menu → video icon, 1-3 ads each). |
 | Daily | [shop-ad](../macros/daily/shop-ad.yaml) | The shop's daily commercial for Chronos Stones. |
 | Daily | [cat-scratchbook](../macros/daily/cat-scratchbook.yaml) | Reads today's cat clues, travels to each cat by a fixed route and finds it (`mode`: daily / read / hunt). |
@@ -21,6 +21,7 @@ A test checks that this table names every macro in `macros/`.
 | Another Dungeon | [sea-of-ice](../macros/dungeon/sea-of-ice.yaml) | Sea of Ice runs (Very Hard). |
 | Another Dungeon | [moonlight-forest](../macros/dungeon/moonlight-forest.yaml) | Moonlight Forest runs. |
 | Another Dungeon | [underworld](../macros/dungeon/underworld.yaml) | Underworld runs (2 green keys a run). |
+| Another Dungeon | [dungeon-keys](../macros/dungeon/dungeon-keys.yaml) | Spends all red and green keys: per colour, the dungeon macro and party the user picks (off = keep them). |
 | Another Dungeon | [phantom-crystal](../macros/dungeon/phantom-crystal.yaml) | The Phantom Crystal Dimension after a White Key: every chest and paw stamp, world by world. Stops so the user picks a free Treatise/Codex/Opus. |
 | Game | [start-game](../macros/game/start-game.yaml) | Opens the game, takes the daily login-bonus ad, stops on the field. |
 | Game | [stop-game](../macros/game/stop-game.yaml) | Closes the game the clean way (Back → "Close the app?" → Yes). |
