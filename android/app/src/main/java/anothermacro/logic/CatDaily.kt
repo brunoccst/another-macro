@@ -442,9 +442,6 @@ object CatDaily {
         if (all.isEmpty()) all += Point(0.5 - dx / 2, 0.55 - dy / 2)
         return all.filter { free(it) } + all.filterNot { free(it) }
     }
-        val tries = listOf(0.55, 0.42, 0.68, 0.35, 0.75).map { y -> Point(0.5 - dx / 2, y - dy / 2) }
-        return tries.firstOrNull { free(it) } ?: tries.first()
-    }
 
     /** Tap a place's [label] on the world map, pick [sub] in its destinations panel if one opens, confirm the trip. */
     internal fun goVia(ctx: Context, label: Ocr.Line, place: String, sub: String): Boolean {
