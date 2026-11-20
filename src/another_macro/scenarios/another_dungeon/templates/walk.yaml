@@ -1,6 +1,6 @@
 # How far the party walks on the area map for a left/right hold that starts from rest
 # (the party accelerates, so distance is not proportional to time). Distances are in
-# area-map units (fractions of the screen width), the same units as dungeons.yaml.
+# area-map units (fractions of the screen width), the same units as the dungeon macros' `dungeon:` data.
 #
 # Measured on the phone (right holds; docs/knowledge-base/learned/dungeons/README.md). Every
 # hold starts from rest: after a battle the party is stopped in place, so the rest of a walk

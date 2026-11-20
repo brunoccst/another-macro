@@ -14,7 +14,7 @@
 #               Trips start at POINT ZERO: the World Map on the Present era with Baruoki's
 #               label on screen. Then the era tab and, if `continent` is set, Expand ->
 #               continent, then the label by OCR (labels have no fixed screen spot).
-#   area:       on the opened area map (fractions of a 2400x1080 screen, as in dungeons.yaml):
+#   area:       on the opened area map (fractions of a 2400x1080 screen, as in the dungeon macros' data):
 #     segs:       streets [y, x_from, x_to];  links: stairs [x, y_from, y_to] (a flick takes them)
 #     arrival:    [x, y] where the party stands after the trip
 #     cat:        [x, y] where the cat starts

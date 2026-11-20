@@ -21,7 +21,7 @@ def test_pack_layout(tmp_path):
     assert "macros/basic/grind-battles.yaml" in names
     assert "templates/common/library.yaml" in names
     # the data the app's built-in steps read
-    assert "templates/another_dungeon/dungeons.yaml" in names
+    assert "macros/dungeon/dogma-tower.yaml" in names  # with its dungeon: block
     assert "templates/another_dungeon/walk.yaml" in names
     assert "templates/cat_scratchbook/riddles.yaml" in names
     # never Python code
@@ -39,9 +39,10 @@ def test_ads_go_through_watch_ad():
 
 
 def test_no_character_names():
-    # macros stay generic: party slots and skill numbers, never who is in the party
+    # macros stay generic: party slots and skill numbers, never who is in the party (a dungeon's
+    # `requires:` is the game's own entry rule, which the run checks, not the user's party)
     for f, _ in macro_pack.macros().values():
-        text = f.read_text(encoding="utf-8").lower()
+        text = "\n".join(ln for ln in f.read_text(encoding="utf-8").lower().splitlines() if not ln.strip().startswith("requires:"))
         assert "verdanta" not in text and "poporo" not in text, f
 
 

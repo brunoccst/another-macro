@@ -48,9 +48,10 @@ is in [learned/dungeons/](knowledge-base/learned/dungeons/README.md).
 
 ### What every dungeon macro reuses
 
-The Burning Beast King's Castle and Dogma Tower macros are the same YAML with a different
-id: the whole run is the `another_dungeon` action (`AnotherDungeon.kt`), which already does
-the parts every dungeon shares:
+Every dungeon macro is the same YAML steps plus its own dungeon: the whole run is the
+`{another_dungeon: <macro>}` action (`AnotherDungeon.kt`), which reads the dungeon from that
+macro file's `dungeon:` block ([fields](dungeon-data.md)) and already does the parts every
+dungeon shares, so a fix to the shared flow reaches every dungeon at once:
 
 - **Entry**: Spacetime Rift door "!" → era tab → (optional `area:` sub-map such as
   "Parallel Time Layer") → the dungeon's label (`label:` when it wraps) → Hard/Very Hard
@@ -77,11 +78,12 @@ the parts every dungeon shares:
   `type: number` box) and beside it the switch `all_keys` (`beside: runs`: until the keys run
   out). With both colours on, `runs` runs are done with each colour: red keys first, then
   green (a colour that runs out ends its runs). No colour on = only the party is picked (a safe test). Keys are never bought. A
-  dungeon whose run takes more than one key sets `key_cost` (Underworld: 2) in dungeons.yaml.
+  dungeon whose run takes more than one key sets `key_cost` (Underworld: 2) in its `dungeon:` block.
 
-So a new dungeon needs **data, not code**: one `dungeons.yaml` entry (era, area/label, map
-names, each map's layout, chests, arrival, exit, boss map) and a 40-line macro YAML copied
-from `macros/dungeon/burning-beast-kings-castle.yaml` with the new id. Code changes are
+So a new dungeon needs **data, not code**: one macro file, copied from
+`macros/dungeon/burning-beast-kings-castle.yaml` with the new name (in its `another_dungeon`
+steps too) and its own `dungeon:` block (era, area/label, map names, each map's layout,
+chests, arrival, exit, boss map; see [dungeon-data.md](dungeon-data.md)). Code changes are
 only needed for a family with its own rules (below).
 
 ### Per dungeon (skill `map-dungeon`)
@@ -92,7 +94,7 @@ only needed for a family with its own rules (below).
 2. **Read the wiki page**: map names (regular/rare), chests per map, minimaps → layouts.
 3. **Line it up on the phone** (the user's OK first; only one thread drives the phone): arrival
    offsets, stairs, exits. Or the user records the path by hand and Claude turns it into the route.
-4. **Write** the `dungeons.yaml` entry, `dungeon-routes --write`, tests, the macro YAML,
+4. **Write** the macro YAML with its `dungeon:` block, `dungeon-routes --write`, tests,
    link it in [All dungeons](#all-dungeons) and [All macros](#all-macros), the wiki's facts in
    `docs/knowledge-base/external/dungeons/<dungeon>.md` and the mapping notes in
    `docs/knowledge-base/learned/dungeons/<dungeon>.md`.
@@ -129,10 +131,10 @@ on day one, and its logs (where chests and exits were found) would seed the fixe
 
 ### All dungeons
 
-Every dungeon in the game with the id the data and macros use (`dungeons.yaml` keys), its kind
+Every dungeon in the game with its id in this list (a dungeon's macro is its id with dashes), its kind
 (standard = Spacetime Rift door → era tab → the dungeon's label; otherlands / mysterious_vortex /
 kairos / sealed_realm = families with their own entry and rules) and the macro that runs it
-(`todo` until one does). A test checks this table against `dungeons.yaml` and `macros/dungeon/`.
+(`todo` until one does). A test checks this table against `macros/dungeon/`.
 The wiki's facts for each (era, levels, elements, tomes, wiki page) are in
 [the knowledge base](knowledge-base/external/another-dungeon-list.md).
 

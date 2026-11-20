@@ -88,15 +88,38 @@ class MacroLibraryTest {
         assertEquals("true", macros.getValue("burning-beast-kings-castle").params.getValue("defeat_all").default)
     }
 
+    @Test fun everyDungeonMacroCarriesItsOwnDungeon() {
+        // the another_dungeon step reads the dungeon from the macro file it names (itself)
+        for (f in File(repo, "macros/dungeon").listFiles()!!.filter { it.name.endsWith(".yaml") && it.name != "phantom-crystal.yaml" }) {
+            val n = f.name.removeSuffix(".yaml")
+            val spec = AnotherDungeon.spec(f.readText(), n)
+            assertEquals(n, n, spec.id)
+            assertTrue(n, spec.maps.isNotEmpty() && spec.maps.count { it.boss } == 1)
+            assertTrue(n, f.readText().contains("{another_dungeon: $n}"))
+        }
+        val dogma = AnotherDungeon.spec(File(repo, "macros/dungeon/dogma-tower.yaml").readText(), "dogma-tower")
+        assertEquals(listOf("Poporo"), dogma.requires)
+        assertEquals(3, dogma.maps[0].path!!.size)
+        // a chest area replaces the boss and maps and keeps the rest; an unknown area is the dungeon's own
+        val text = File(repo, "macros/dungeon/underworld.yaml").readText()
+        val cathedral = AnotherDungeon.spec(text, "underworld", "cathedral")
+        assertEquals("Haunted Queen Himika", cathedral.boss)
+        assertEquals(6, cathedral.maps.size)
+        assertEquals(2, cathedral.keyCost)
+        assertEquals("Underworld", cathedral.name)
+        assertEquals("Titan Ogre", AnotherDungeon.spec(text, "underworld", "demons_den").boss)
+        assertEquals("cathedral", AnotherDungeon.area(mapOf("area" to " Cathedral ")))
+        assertEquals(null, AnotherDungeon.area(mapOf("area" to " ")))
+    }
+
     @Test fun defeatAllOnlyWhereTheEnemiesRunOut() {
         // the option is offered only by a dungeon with a map whose enemies run out (the banner can show)
         val macros = Scenarios.parseAll(LibraryFiles(repo)).associateBy { it.name }
-        val text = File(repo, "src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml").readText()
-        val ids = Regex("""(?m)^([a-z_]+):""").findAll(text).map { it.groupValues[1] }.toList()
         for (n in listOf("dogma-tower", "burning-beast-kings-castle", "sea-of-ice", "underworld")) {
-            val id = n.replace('-', '_')
-            val limited = ids.filter { it == id || it.startsWith("${id}_") }
-                .any { d -> AnotherDungeon.spec(text, d).maps.any { it.enemies && !it.boss && it.steps == null } }
+            // the dungeon's own maps and every chest area's (the macro's area option)
+            val text = File(repo, "macros/dungeon/$n.yaml").readText()
+            val areas = listOf(null) + ((macros.getValue(n) as FlowScenario).spec["dungeon"] as Map<*, *>)["areas"].let { (it as? Map<*, *>)?.keys?.map { k -> k.toString() } ?: emptyList() }
+            val limited = areas.any { a -> AnotherDungeon.spec(text, n, a).maps.any { it.enemies && !it.boss && it.steps == null } }
             assertEquals(n, limited, macros.getValue(n).params.containsKey("defeat_all"))
             assertEquals(n, limited, macros.getValue(n).params.containsKey("clear_max_battles"))
         }

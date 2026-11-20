@@ -1,11 +1,10 @@
-"""The list of every Another Dungeon (the table in docs/macros.md) and the dungeons the macros know."""
+"""The list of every Another Dungeon (the table in docs/macros.md) and the dungeon macros."""
 import re
 from pathlib import Path
 
 import yaml
 
 ROOT = Path(__file__).resolve().parents[1]
-DATA = ROOT / "src/another_macro/scenarios/another_dungeon/templates"
 MACROS = ROOT / "macros/dungeon"
 PLAN = ROOT / "docs/macros.md"
 KINDS = {"standard", "otherlands", "mysterious_vortex", "kairos", "sealed_realm"}
@@ -41,13 +40,9 @@ def test_every_macro_is_in_the_full_list():
     assert {(group, stem) for _, group, stem in linked} == files
 
 
-def test_every_mapped_dungeon_is_in_the_list():
+def test_every_listed_macro_exists():
     listed = listed_dungeons()
-    mapped = yaml.safe_load((DATA / "dungeons.yaml").read_text(encoding="utf-8"))
     assert len(listed) >= 80
-    # a hub dungeon's other chest areas ("<id>_<area>", picked by the macro's area option) say whose area they are
-    assert {k for k, v in mapped.items() if "area_of" not in v} <= set(listed)
-    assert all(v["area_of"] in listed and k.startswith(v["area_of"] + "_") for k, v in mapped.items() if "area_of" in v)
     for name, kind, macro in listed.values():
         assert kind in KINDS, name
         macro = macro_name(macro)
@@ -62,9 +57,8 @@ def test_every_dungeon_macro_is_in_the_list():
 
 
 def test_required_characters_are_names():
-    mapped = yaml.safe_load((DATA / "dungeons.yaml").read_text(encoding="utf-8"))
-    for k, v in mapped.items():
-        req = v.get("requires", [])
-        assert isinstance(req, list) and all(isinstance(n, str) and n.strip() for n in req), k
-    assert mapped["dogma_tower"]["requires"] == ["Poporo"]
-    assert mapped["burning_beast_kings_castle"]["requires"] == ["Deirdre"]
+    for f in MACROS.glob("*.yaml"):
+        d = yaml.safe_load(f.read_text(encoding="utf-8")).get("dungeon")
+        if d:
+            req = d.get("requires", [])
+            assert isinstance(req, list) and all(isinstance(n, str) and n.strip() for n in req), f.stem

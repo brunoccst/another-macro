@@ -5,8 +5,8 @@ description: Learn and map a new Another Dungeon for the another_dungeon action 
 
 # Map a new Another Dungeon
 
-The `another_dungeon` action (`AnotherDungeon.kt`) walks a dungeon from data in
-`src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml`. The game's area
+The `another_dungeon` action (`AnotherDungeon.kt`) walks a dungeon from the `dungeon:` block of
+its own macro file, `macros/dungeon/<macro>.yaml` (fields: `docs/dungeon-data.md`). The game's area
 map only shows what the party has already walked, so every map's layout must be known
 up front: streets, stairs between streets, chests, where the party arrives, and the
 way down. From that, `another-macro dungeon-routes --write` plans each map's fastest
@@ -24,7 +24,7 @@ Start from the dungeon's rows there.
 `docs/knowledge-base/`, never in code. Facts from the wiki or another source go to
 `docs/knowledge-base/external/` (information only, no images, with the page and revision); what
 you learn on the phone goes to `docs/knowledge-base/learned/dungeons/<dungeon>.md` (dated).
-`dungeons.yaml`, the macro YAML and Kotlin carry only the data the run needs, and their comments
+The macro YAML (with its `dungeon:` block) and Kotlin carry only the data the run needs, and their comments
 only say what the code or data does.
 
 ## 0. Interview the user first
@@ -44,7 +44,7 @@ answers:
    onto two lines?). Hard and Very Hard both, and which key(s) each costs (1 or 2).
 3. **Party and unlocks**: a character the game requires in the party (Dogma Tower needs
    Poporo; the wiki pages don't list these, only the game's "please include" box does; it goes
-   in dungeons.yaml as `requires`, which the run reads), a character who earns Light/Shadow there, and whether both difficulties are
+   in the `dungeon:` block as `requires`, which the run reads), a character who earns Light/Shadow there, and whether both difficulties are
    unlocked on their account.
 4. **How it works**, anything the wiki may not say or they have seen: the number of maps, rare
    maps, a dungeon currency or "Continue to skip?" box at the end, a different fight limit
@@ -105,7 +105,7 @@ Enter the dungeon (ask the user before spending a key) and on each map:
 - open the area map (tap the minimap, top right), read the party marker (a gold "eye",
   it pulses) and note where the party **arrives**: that's `arrival`;
 - the difference between the measured arrival x and the wiki's is the map's offset:
-  shift the whole map by it in dungeons.yaml (Dogma Tower: map 1 -0.005, map 2 -0.042,
+  shift the whole map by it in the `dungeon:` block (Dogma Tower: map 1 -0.005, map 2 -0.042,
   map 3 -0.029);
 - check stairs the macro has trouble with: walk there and read the marker where a flick
   up/down works; a street end is where the party stops against the wall;
@@ -119,8 +119,13 @@ appears.
 
 ## 4. Write the data and the macro
 
+Copy `macros/dungeon/dogma-tower.yaml` to `macros/dungeon/<macro>.yaml` (e.g.
+`ruins-of-ruoyana`), change `name`, `description` and every `another_dungeon:` step to the new
+macro's name (the step reads the dungeon from the macro it names), and replace its `dungeon:`
+block at the end of the file:
+
 ```yaml
-ruins_of_ruoyana:
+dungeon:
   name: Ruins of Ruoyana
   era: Present
   boss: <boss name>
@@ -138,7 +143,9 @@ ruins_of_ruoyana:
 Set the dungeon's Macro column in `docs/macros.md` (All dungeons) to a link to the new macro's
 file, `[<macro>](../macros/dungeon/<macro>.yaml)`, and add the macro to that doc's All macros
 table (tests check both), and write the mapping notes (offsets, stairs, signs, what the run met) into
-`docs/knowledge-base/learned/dungeons/<dungeon>.md`, not into `dungeons.yaml` comments.
+`docs/knowledge-base/learned/dungeons/<dungeon>.md`, not into the `dungeon:` block's comments.
+A hub dungeon with several chest areas (Underworld) lists the others under `areas:`, each with
+its own `boss` and `maps`, picked by the macro's `area` option.
 
 Then generate the paths and check them:
 
@@ -151,13 +158,15 @@ python -m pytest -q tests/test_dungeon_routes.py
 The tests replay every path on the layout: each flick must start on stairs, each leg must
 end by its chest/exit, and the stored paths must match the layout and `walk.yaml`.
 
-Copy `macros/dungeon/dogma-tower.yaml` to `macros/dungeon/<dungeon>.yaml`, change `name`,
-`description` and the `another_dungeon:` id. Keep `group: dungeon` and the standard
+While mapping, the draft macro (with its `dungeon:` block) can also be saved to the phone with
+the connector's `save_macro` and run at once: the step reads the data from the draft itself.
+
+In the macro, keep `group: dungeon` and the standard
 dungeon params every dungeon macro has: `key`, `runs` (1-10 or all: until the key counter on
 the dungeon panel reads 0), `white_key` (phantom / stop / keep_going), `cat_ticket`,
 the skill setups, and `defeat_all` + `clear_max_battles` only when one of the dungeon's maps
 has enemies that run out ("The enemies have disappeared" can show; maps whose enemies never run
-out get `enemies: false` in dungeons.yaml). Every map walks its stops first, fighting the
+out get `enemies: false` in the `dungeon:` block). Every map walks its stops first, fighting the
 battles on the way (the walk reads its spot again after each one); with `defeat_all` on, the
 enemies left are fought after the stops, before the exit. A test checks the option matches the data.
 

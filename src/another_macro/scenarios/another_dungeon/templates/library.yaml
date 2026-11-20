@@ -1,6 +1,6 @@
 # Another Dungeon templates (captured on a 2400x1080 phone).
 # closed_chest.png (PNG only, used by PhantomCrystal.kt): an unopened red-and-gold chest.
-# The maps' layouts are in dungeons.yaml.
+# The maps' layouts are in each dungeon macro's `dungeon:` block (docs/dungeon-data.md).
 templates:
   field_interact_bubble:
     notes: The "!" bubble over something the party can use when close (a chest of any look, the Another Dungeon door).

@@ -1,8 +1,6 @@
 # Burning Beast King's Castle: mapping notes
 
-What the project found on the phone (data: `burning_beast_kings_castle` in
-`src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml`; macro:
-`macros/dungeon/burning-beast-kings-castle.yaml`). The wiki's facts:
+What the project found on the phone (data and macro: `macros/dungeon/burning-beast-kings-castle.yaml`, its `dungeon:` block). The wiki's facts:
 [knowledge base](../../external/dungeons/burning-beast-kings-castle.md).
 
 - **Reach**: the Present tab, "Parallel Time Layer" opens a smaller map with the castle; its
