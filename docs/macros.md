@@ -1,4 +1,44 @@
-# One macro per Another Dungeon: the plan
+# Macros
+
+Every macro in the app's library, by group (the app's tabs; the README explains the groups),
+then the plan for an Another Dungeon macro per dungeon, with
+[the list of all dungeons](#all-dungeons) and which macro runs each. How the library is packed
+and how macros reuse each other: [macros/README.md](../macros/README.md).
+
+## All macros
+
+A test checks that this table names every macro in `macros/`.
+
+| Group | Macro | What it does |
+|---|---|---|
+| Daily | [daily-routine](../macros/daily/daily-routine.yaml) | Starts the game, watches the 5 menu ad chests and the shop ad, does the cat scratchbook, claims the inbox, then turns the game off. |
+| Daily | [daily-ads](../macros/daily/daily-ads.yaml) | The 5 daily commercial chests (Menu → video icon, 1-3 ads each). |
+| Daily | [shop-ad](../macros/daily/shop-ad.yaml) | The shop's daily commercial for Chronos Stones. |
+| Daily | [cat-scratchbook](../macros/daily/cat-scratchbook.yaml) | Reads today's cat clues, travels to each cat by a fixed route and finds it (`mode`: daily / read / hunt). |
+| Daily | [inbox](../macros/daily/inbox.yaml) | Claims every inbox item not opened yet. |
+| Another Dungeon | [dogma-tower](../macros/dungeon/dogma-tower.yaml) | Dogma Tower runs. |
+| Another Dungeon | [burning-beast-kings-castle](../macros/dungeon/burning-beast-kings-castle.yaml) | Burning Beast King's Castle runs. |
+| Another Dungeon | [sea-of-ice](../macros/dungeon/sea-of-ice.yaml) | Sea of Ice runs (Very Hard). |
+| Another Dungeon | [moonlight-forest](../macros/dungeon/moonlight-forest.yaml) | Moonlight Forest runs. |
+| Another Dungeon | [underworld](../macros/dungeon/underworld.yaml) | Underworld runs (2 green keys a run). |
+| Another Dungeon | [phantom-crystal](../macros/dungeon/phantom-crystal.yaml) | The Phantom Crystal Dimension after a White Key: every chest and paw stamp, world by world. Stops so the user picks a free Treatise/Codex/Opus. |
+| Game | [start-game](../macros/game/start-game.yaml) | Opens the game, takes the daily login-bonus ad, stops on the field. |
+| Game | [stop-game](../macros/game/stop-game.yaml) | Closes the game the clean way (Back → "Close the app?" → Yes). |
+| Basic | [battle](../macros/basic/battle.yaml) | Fights the battle on screen to its end, with a skill per party slot. Every fight uses it. |
+| Basic | [grind-battles](../macros/basic/grind-battles.yaml) | Walks a map back and forth and fights every encounter. Also works on its own. |
+| Basic | [watch-ad](../macros/basic/watch-ad.yaml) | Waits out the commercial that just started, closes it and takes the reward. |
+| Basic | [open-menu](../macros/basic/open-menu.yaml) | From the field, opens the game's menu. |
+| Basic | [open-menu-page](../macros/basic/open-menu-page.yaml) | Opens one page of the menu (commercials, shop, inbox), starting the game first if needed. |
+| Basic | [pick-party](../macros/basic/pick-party.yaml) | Puts party N (its number in the game's party list) in front. |
+| Basic | [back-to-field](../macros/basic/back-to-field.yaml) | Presses Back until the field shows. |
+
+Every Another Dungeon run (except the Phantom Crystal Dimension) works the same way: it enters
+with the chosen key (or skips with a Cat Express Ticket), walks fixed routes to every chest
+(fighting on the way), optionally clears the enemies left until "The enemies have disappeared",
+then takes the exit and fights the boss. It stops at 0 keys (never buys) and reports a White Key.
+The details are below.
+
+## Another Dungeons: one macro per dungeon
 
 The goal is a macro for every Another Dungeon. The full list (80 dungeons) is
 [All dungeons](#all-dungeons) below: each row's Macro says which macro runs it (`todo` until one
@@ -6,7 +46,7 @@ does). What the wiki says about each one is in
 [the knowledge base](knowledge-base/external/another-dungeon-list.md); what the project learned on the phone
 is in [learned/dungeons/](knowledge-base/learned/dungeons/README.md).
 
-## What every dungeon macro reuses
+### What every dungeon macro reuses
 
 The Burning Beast King's Castle and Dogma Tower macros are the same YAML with a different
 id: the whole run is the `another_dungeon` action (`AnotherDungeon.kt`), which already does
@@ -44,7 +84,7 @@ names, each map's layout, chests, arrival, exit, boss map) and a 40-line macro Y
 from `macros/dungeon/burning-beast-kings-castle.yaml` with the new id. Code changes are
 only needed for a family with its own rules (below).
 
-## Per dungeon (skill `map-dungeon`)
+### Per dungeon (skill `map-dungeon`)
 
 1. **Interview the user** (step 0 of the skill): the saved wiki page (the wiki refuses automated
    fetches), how to reach it (era, continent, location, sub-location, label), key cost,
@@ -53,12 +93,12 @@ only needed for a family with its own rules (below).
 3. **Line it up on the phone** (the user's OK first; only one thread drives the phone): arrival
    offsets, stairs, exits. Or the user records the path by hand and Claude turns it into the route.
 4. **Write** the `dungeons.yaml` entry, `dungeon-routes --write`, tests, the macro YAML,
-   set its Macro in [All dungeons](#all-dungeons), the wiki's facts in
+   link it in [All dungeons](#all-dungeons) and [All macros](#all-macros), the wiki's facts in
    `docs/knowledge-base/external/dungeons/<dungeon>.md` and the mapping notes in
    `docs/knowledge-base/learned/dungeons/<dungeon>.md`.
    Open a PR; merge once phone-tested.
 
-## Order
+### Order
 
 1. **Standard dungeons with an era tab** (46 left): same entry as the castle, so only
    data. Start with the ones that drop tomes or that the user farms; easy low-level ones
@@ -80,14 +120,14 @@ only needed for a family with its own rules (below).
 Done: Dogma Tower, Burning Beast King's Castle, Sea of Ice, Moonlight Forest, Underworld (Demon's Den and
 the Dimensional Cathedral), and the White Key's Phantom Crystal Dimension.
 
-## Idea: an explore mode before a dungeon is mapped
+### Idea: an explore mode before a dungeon is mapped
 
 The run already sweeps a map that has no layout (the boss map). Letting a dungeon entry
 with only `era` + `maps: [{names}]` sweep every map (fight until cleared, walk each way,
 tap every "!", take the exit sign) would give a slow but working macro for any dungeon
 on day one, and its logs (where chests and exits were found) would seed the fixed routes.
 
-## All dungeons
+### All dungeons
 
 Every dungeon in the game with the id the data and macros use (`dungeons.yaml` keys), its kind
 (standard = Spacetime Rift door → era tab → the dungeon's label; otherlands / mysterious_vortex /
@@ -98,7 +138,7 @@ The wiki's facts for each (era, levels, elements, tomes, wiki page) are in
 
 | Id | Dungeon | Kind | Macro |
 |---|---|---|---|
-| `moonlight_forest` | Moonlight Forest | standard | moonlight-forest |
+| `moonlight_forest` | Moonlight Forest | standard | [moonlight-forest](../macros/dungeon/moonlight-forest.yaml) |
 | `industrial_ruins` | Industrial Ruins | standard | todo |
 | `transitory_time_space` | Transitory Time Space | sealed_realm | todo |
 | `nadara_volcano` | Nadara Volcano | standard | todo |
@@ -130,7 +170,7 @@ The wiki's facts for each (era, levels, elements, tomes, wiki page) are in
 | `otherlands_baruoki_area_2` | Otherlands: Baruoki Region. Area 2 | otherlands | todo |
 | `otherlands_elzion_area_2` | Otherlands: Elzion Region. Area 2 | otherlands | todo |
 | `otherlands_ratle_area_2` | Otherlands: Ratle Region. Area 2 | otherlands | todo |
-| `dogma_tower` | Dogma Tower | standard | dogma-tower |
+| `dogma_tower` | Dogma Tower | standard | [dogma-tower](../macros/dungeon/dogma-tower.yaml) |
 | `otherlands_baruoki_area_3` | Otherlands: Baruoki Region. Area 3 | otherlands | todo |
 | `otherlands_baruoki_area_4` | Otherlands: Baruoki Region. Area 4 | otherlands | todo |
 | `otherlands_elzion_area_3` | Otherlands: Elzion Region. Area 3 | otherlands | todo |
@@ -138,7 +178,7 @@ The wiki's facts for each (era, levels, elements, tomes, wiki page) are in
 | `otherlands_ratle_area_3` | Otherlands: Ratle Region. Area 3 | otherlands | todo |
 | `otherlands_ratle_area_4` | Otherlands: Ratle Region. Area 4 | otherlands | todo |
 | `beast_kings_castle` | Beast King's Castle | standard | todo |
-| `burning_beast_kings_castle` | Burning Beast King's Castle | standard | burning-beast-kings-castle |
+| `burning_beast_kings_castle` | Burning Beast King's Castle | standard | [burning-beast-kings-castle](../macros/dungeon/burning-beast-kings-castle.yaml) |
 | `former_kms_hq` | Former KMS HQ | standard | todo |
 | `ruins_of_rucyana` | Ruins of Rucyana | standard | todo |
 | `snake_liver_damaku` | Snake Liver Damaku | standard | todo |
@@ -151,7 +191,7 @@ The wiki's facts for each (era, levels, elements, tomes, wiki page) are in
 | `jasmond` | Jasmond | standard | todo |
 | `omegapolis` | Omegapolis | standard | todo |
 | `present_garulea_continent` | Present Garulea Continent | standard | todo |
-| `underworld` | Underworld | standard | underworld |
+| `underworld` | Underworld | standard | [underworld](../macros/dungeon/underworld.yaml) |
 | `mysterious_vortex_warped_cochlea` | Mysterious Vortex - Warped Cochlea | mysterious_vortex | todo |
 | `mysterious_vortex_dust_city` | Mysterious Vortex - Dust City | mysterious_vortex | todo |
 | `mysterious_vortex_isle_of_gospel` | Mysterious Vortex - Isle of Gospel | mysterious_vortex | todo |
@@ -172,7 +212,7 @@ The wiki's facts for each (era, levels, elements, tomes, wiki page) are in
 | `city_of_lost_paradise` | City of Lost Paradise | standard | todo |
 | `iscariot` | Iscariot | standard | todo |
 | `sapient_complex_midnight` | Sapient Complex: Midnight | standard | todo |
-| `sea_of_ice` | Sea of Ice | standard | sea-of-ice |
+| `sea_of_ice` | Sea of Ice | standard | [sea-of-ice](../macros/dungeon/sea-of-ice.yaml) |
 | `temporal_surveillance_ship_kairos_blood_ritual_site` | Temporal Surveillance Ship Kairos - Blood Ritual Site | kairos | todo |
 | `temporal_surveillance_ship_kairos_holy_meadow` | Temporal Surveillance Ship Kairos - Holy Meadow | kairos | todo |
 | `temporal_surveillance_ship_kairos_institute_of_despair` | Temporal Surveillance Ship Kairos - Institute of Despair | kairos | todo |
