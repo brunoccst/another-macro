@@ -52,8 +52,18 @@ def test_every_listed_macro_exists():
 def test_every_dungeon_macro_is_in_the_list():
     named = {macro_name(m) for _, _, m in listed_dungeons().values()}
     for f in MACROS.glob("*.yaml"):
-        if f.stem != "phantom-crystal":
+        if "dungeon" in yaml.safe_load(f.read_text(encoding="utf-8")):
             assert f.stem in named, f.stem
+
+
+def test_daily_routine_offers_every_dungeon_of_each_colour():
+    """The daily routine lists, per key colour, every dungeon macro with that colour's key switch."""
+    params = yaml.safe_load((ROOT / "macros/daily/daily-routine.yaml").read_text(encoding="utf-8"))["params"]
+    for colour in ("red", "green"):
+        takes = {f.stem for f in MACROS.glob("*.yaml")
+                 if f"{colour}_key" in (yaml.safe_load(f.read_text(encoding="utf-8")).get("params") or {})}
+        choices = params[f"{colour}_dungeon"]["choices"]
+        assert choices[0] == "none" and set(choices[1:]) == takes, (colour, sorted(takes))
 
 
 def test_required_characters_are_names():

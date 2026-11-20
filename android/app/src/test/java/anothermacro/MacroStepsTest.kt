@@ -69,8 +69,18 @@ class MacroStepsTest {
 
     @Test fun routineOpensUpItsMacros() {
         val top = steps("daily-routine")
-        assertEquals(listOf("start-game", "daily-ads", "shop-ad", "cat-scratchbook", "inbox", "stop-game"), top.map { it.macro })
-        assertTrue(top.all { it.sub.isNotEmpty() })
+        // no dungeon picked: those steps are left out
+        assertEquals(listOf("start-game", null, null, "daily-ads", "shop-ad", null, null, "cat-scratchbook", "inbox", "stop-game"), top.map { it.macro })
+        assertTrue(top.filter { it.macro != null }.all { it.sub.isNotEmpty() })
+    }
+
+    @Test fun dailyRoutineOpensUpThePickedDungeons() {
+        // a picked dungeon: that macro's own steps, before and after the ads, with that colour's keys only
+        val top = steps("daily-routine", mapOf("green_dungeon" to "dogma-tower", "green_party" to "3"))
+        assertEquals(listOf("start-game", null, "dogma-tower", "daily-ads", "shop-ad", null, "dogma-tower", "cat-scratchbook", "inbox", "stop-game"), top.map { it.macro })
+        assertTrue(top[2].note, "Party: 3" in top[2].note && "All keys: on" in top[2].note)
+        assertTrue(flat(top).any { "Map 1: Basement Entrance" in it })
+        assertTrue(top[1].text, top[1].skipped && "none picked" in top[1].text)
     }
 
     @Test fun fillsOptionsAndPicksBranches() {
