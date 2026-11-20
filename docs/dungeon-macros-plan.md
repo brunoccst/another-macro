@@ -1,9 +1,10 @@
 # One macro per Another Dungeon: the plan
 
-The goal is a macro for every Another Dungeon. The full list (80 dungeons, from
-the wiki's Another Dungeon page) is
-[`dungeon_list.yaml`](../src/another_macro/scenarios/another_dungeon/templates/dungeon_list.yaml),
-next to `dungeons.yaml`. Each entry's `macro:` says which macro runs it (`todo` until one does).
+The goal is a macro for every Another Dungeon. The full list (80 dungeons) is
+[All dungeons](#all-dungeons) below: each row's Macro says which macro runs it (`todo` until one
+does). What the wiki says about each one is in
+[the knowledge base](knowledge-base/another-dungeon-list.md); what the project learned on the phone
+is in [docs/dungeons/](dungeons/README.md).
 
 ## What every dungeon macro reuses
 
@@ -52,7 +53,9 @@ only needed for a family with its own rules (below).
 3. **Line it up on the phone** (the user's OK first; only one thread drives the phone): arrival
    offsets, stairs, exits. Or the user records the path by hand and Claude turns it into the route.
 4. **Write** the `dungeons.yaml` entry, `dungeon-routes --write`, tests, the macro YAML,
-   set `macro:` in `dungeon_list.yaml`. Open a PR; merge once phone-tested.
+   set its Macro in [All dungeons](#all-dungeons), the wiki's facts in
+   `docs/knowledge-base/dungeons/<dungeon>.md` and the mapping notes in `docs/dungeons/<dungeon>.md`.
+   Open a PR; merge once phone-tested.
 
 ## Order
 
@@ -73,7 +76,8 @@ only needed for a family with its own rules (below).
    Lost Atelier, Toto Theater World): the until-cleared mode already copes with any limit;
    check the key-cost box text.
 
-Done: Dogma Tower, Burning Beast King's Castle (and the White Key's Phantom Crystal Dimension).
+Done: Dogma Tower, Burning Beast King's Castle, Sea of Ice, Moonlight Forest, Underworld (Demon's Den and
+the Dimensional Cathedral), and the White Key's Phantom Crystal Dimension.
 
 ## Idea: an explore mode before a dungeon is mapped
 
@@ -84,85 +88,92 @@ on day one, and its logs (where chests and exits were found) would seed the fixe
 
 ## All dungeons
 
-| Dungeon | Kind | Era | Hard lvl | Very Hard lvl | Light/Shadow | Tomes | Macro |
-|---|---|---|---|---|---|---|---|
-| Moonlight Forest | standard | Present | 21 | 58 | shadow | yes | moonlight-forest |
-| Industrial Ruins | standard | Future | 24 | 60 | light | yes | todo |
-| Transitory Time Space | sealed realm | none | 25 | 60 | light, shadow |  | todo |
-| Nadara Volcano | standard | Antiquity | 28 | 62 | light | yes | todo |
-| Man-eating Marsh | standard | Antiquity | 33 | 64 | shadow | yes | todo |
-| Miglance Labyrinth | standard | Present | 33 | 40 | light, shadow |  | todo |
-| Saki's Dream World | standard | Future | 35 | 42 | light, shadow |  | todo |
-| Tower of Time | standard | Antiquity | 36 | - | shadow | yes | todo |
-| Dragon Palace | standard | Antiquity | 40 | 50 | light, shadow |  | todo |
-| Miglance Castle | standard | Present | 40 | 66 | light | yes | todo |
-| Xeno-Domain | standard | Future | 44 | 68 | light | yes | todo |
-| Mementos | standard | Present | 45 | 65 | light, shadow |  | todo |
-| Corridor of Time Layers | standard | Future | 48 | - | shadow | yes | todo |
-| Darkrealm - Wyrmking's Domain | standard | Antiquity | 50 | 70 | light, shadow |  | todo |
-| Dream Flower | standard | Antiquity | 50 | 70 | light, shadow |  | todo |
-| Dreamslip Tower of Time | standard | Present | 50 | 70 | light, shadow |  | todo |
-| Edge of Contradiction | standard | Present | 50 | 70 | light, shadow |  | todo |
-| Evil's Nest Arena | standard | Future | 50 | 70 | light, shadow |  | todo |
-| Forgotten Tale: Unborn Visions | standard | Antiquity | 50 | 70 | light, shadow |  | todo |
-| Path of Avarice | standard | Antiquity | 50 | 70 | light, shadow |  | todo |
-| Riftbreaker Ark | standard | Future | 50 | 70 | light, shadow |  | todo |
-| Wyrmrest Isle - Dragon's Depths | standard | Antiquity | 50 | 70 | light, shadow |  | todo |
-| Wyrmrest Isle - Quadra Wastes | standard | Antiquity | 50 | 70 | light, shadow |  | todo |
-| Otherlands: Baruoki Region. Area 1 | otherlands | Present | 50-70 | - | light, shadow |  | todo |
-| Otherlands: Elzion Region. Area 1 | otherlands | Future | 50-70 | - | light, shadow |  | todo |
-| Otherlands: Ratle Region. Area 1 | otherlands | Antiquity | 50-70 | - | light, shadow |  | todo |
-| Mayu's Dream World | standard | Future | 52 | 62 | light |  | todo |
-| The Riftbreaker | standard | Future | 52 | 70 | light | yes | todo |
-| Tower of Stars | standard | Antiquity | 55 | - | shadow | yes | todo |
-| Otherlands: Baruoki Region. Area 2 | otherlands | Present | 55-75 | - | light, shadow |  | todo |
-| Otherlands: Elzion Region. Area 2 | otherlands | Future | 55-75 | - | light, shadow |  | todo |
-| Otherlands: Ratle Region. Area 2 | otherlands | Antiquity | 55-75 | - | light, shadow |  | todo |
-| Dogma Tower | standard | Present | 60 | 65 | light, shadow |  | dogma-tower |
-| Otherlands: Baruoki Region. Area 3 | otherlands | Present | 60-80 | - | light, shadow |  | todo |
-| Otherlands: Baruoki Region. Area 4 | otherlands | Present | 60-80 | - | shadow |  | todo |
-| Otherlands: Elzion Region. Area 3 | otherlands | Future | 60-80 | - | light, shadow |  | todo |
-| Otherlands: Elzion Region. Area 4 | otherlands | Future | 60-80 | - | light |  | todo |
-| Otherlands: Ratle Region. Area 3 | otherlands | Antiquity | 60-80 | - | light, shadow |  | todo |
-| Otherlands: Ratle Region. Area 4 | otherlands | Antiquity | 60-80 | - | light |  | todo |
-| Beast King's Castle | standard | Present | 64 | 72 | shadow | yes | todo |
-| Burning Beast King's Castle | standard | Present | 65 | 70 | light, shadow | yes | burning-beast-kings-castle |
-| Former KMS HQ | standard | Future | 65 | 70 | light, shadow |  | todo |
-| Ruins of Rucyana | standard | Present | 66 | - | light, shadow |  | todo |
-| Snake Liver Damaku | standard | Present | 66 | 72 | shadow | yes | todo |
-| Proto Eden | standard | Future | 70 | 90 | light, shadow |  | todo |
-| Toto Dreamland | standard | Future | 70 | 76 | light | yes | todo |
-| Antiquity Garulea Continent | standard | Antiquity | 80 | - | light, shadow |  | todo |
-| Edax Unigan | standard | none | 80 | - | light, shadow |  | todo |
-| Entrana | standard | none | 80 | - | light, shadow |  | todo |
-| Future Garulea Continent | standard | Future | 80 | - | light, shadow |  | todo |
-| Jasmond | standard | none | 80 | - | light, shadow |  | todo |
-| Omegapolis | standard | none | 80 | - | light, shadow |  | todo |
-| Present Garulea Continent | standard | Present | 80 | - | light, shadow |  | todo |
-| Underworld | standard | none | 80 | - | light, shadow | yes | underworld (Demon's Den) |
-| Mysterious Vortex - Warped Cochlea | mysterious vortex | none | - | ? | light, shadow |  | todo |
-| Mysterious Vortex - Dust City | mysterious vortex | none | - | 50-70 | light, shadow |  | todo |
-| Mysterious Vortex - Isle of Gospel | mysterious vortex | none | - | 50-70 | light, shadow |  | todo |
-| Mysterious Vortex - Land of Ro | mysterious vortex | none | - | 50-70 | light, shadow |  | todo |
-| Mysterious Vortex - The Tower Argentauri | mysterious vortex | none | - | 50-70 | light, shadow |  | todo |
-| Mysterious Vortex - Thundering Fortress | mysterious vortex | none | - | 50-70 | light, shadow |  | todo |
-| Mysterious Vortex - Tower of Selection | mysterious vortex | none | - | 50-70 | light, shadow |  | todo |
-| Forest of Forgetfulness | standard | Present | - | 65 | light | yes | todo |
-| Hanging Garden | standard | Future | - | 67 | light | yes | todo |
-| Astral Ruins | standard | Present | - | 70 | light, shadow |  | todo |
-| Burning Kurosagi Castle | standard | Present | - | 70 | light, shadow |  | todo |
-| Meigoku | standard | Present | - | 70 | light, shadow |  | todo |
-| What the Planet Dreamt | standard | Present | - | 70 | light, shadow |  | todo |
-| Home's Lost Atelier | standard | none | - | 72 | light, shadow |  | todo |
-| Ephemeral Time Space | sealed realm | none | - | 75 | light, shadow |  | todo |
-| Antiquity Zerberiya Continent: Crystal | standard | Antiquity | - | 80 | light, shadow | yes | todo |
-| Antiquity Zerberiya Continent: Thunder | standard | Antiquity | - | 80 | light, shadow | yes | todo |
-| City of Lost Paradise | standard | Antiquity | - | 80 | light, shadow | yes | todo |
-| Iscariot | standard | Future | - | 80 | light, shadow | yes | todo |
-| Sapient Complex: Midnight | standard | Future | - | 80 | light, shadow | yes | todo |
-| Sea of Ice | standard | Antiquity | - | 80 | light, shadow | yes | sea-of-ice |
-| Temporal Surveillance Ship Kairos - Blood Ritual Site | kairos | Present | - | 80 | light, shadow |  | todo |
-| Temporal Surveillance Ship Kairos - Holy Meadow | kairos | Present | - | 80 | light, shadow |  | todo |
-| Temporal Surveillance Ship Kairos - Institute of Despair | kairos | Present | - | 80 | light, shadow |  | todo |
-| Temporal Surveillance Ship Kairos - Ruins of Glory | kairos | Present | - | 80 | light, shadow |  | todo |
-| Toto Theater World | standard | Future | - | 80 | light, shadow |  | todo |
+Every dungeon in the game with the id the data and macros use (`dungeons.yaml` keys), its kind
+(standard = Spacetime Rift door → era tab → the dungeon's label; otherlands / mysterious_vortex /
+kairos / sealed_realm = families with their own entry and rules) and the macro that runs it
+(`todo` until one does). A test checks this table against `dungeons.yaml` and `macros/dungeon/`.
+The wiki's facts for each (era, levels, elements, tomes, wiki page) are in
+[the knowledge base](knowledge-base/another-dungeon-list.md).
+
+| Id | Dungeon | Kind | Macro |
+|---|---|---|---|
+| `moonlight_forest` | Moonlight Forest | standard | moonlight-forest |
+| `industrial_ruins` | Industrial Ruins | standard | todo |
+| `transitory_time_space` | Transitory Time Space | sealed_realm | todo |
+| `nadara_volcano` | Nadara Volcano | standard | todo |
+| `man_eating_marsh` | Man-eating Marsh | standard | todo |
+| `miglance_labyrinth` | Miglance Labyrinth | standard | todo |
+| `sakis_dream_world` | Saki's Dream World | standard | todo |
+| `tower_of_time` | Tower of Time | standard | todo |
+| `dragon_palace` | Dragon Palace | standard | todo |
+| `miglance_castle` | Miglance Castle | standard | todo |
+| `xeno_domain` | Xeno-Domain | standard | todo |
+| `mementos` | Mementos | standard | todo |
+| `corridor_of_time_layers` | Corridor of Time Layers | standard | todo |
+| `darkrealm_wyrmkings_domain` | Darkrealm - Wyrmking's Domain | standard | todo |
+| `dream_flower` | Dream Flower | standard | todo |
+| `dreamslip_tower_of_time` | Dreamslip Tower of Time | standard | todo |
+| `edge_of_contradiction` | Edge of Contradiction | standard | todo |
+| `evils_nest_arena` | Evil's Nest Arena | standard | todo |
+| `forgotten_tale_unborn_visions` | Forgotten Tale: Unborn Visions | standard | todo |
+| `path_of_avarice` | Path of Avarice | standard | todo |
+| `riftbreaker_ark` | Riftbreaker Ark | standard | todo |
+| `wyrmrest_isle_dragons_depths` | Wyrmrest Isle - Dragon's Depths | standard | todo |
+| `wyrmrest_isle_quadra_wastes` | Wyrmrest Isle - Quadra Wastes | standard | todo |
+| `otherlands_baruoki_area_1` | Otherlands: Baruoki Region. Area 1 | otherlands | todo |
+| `otherlands_elzion_area_1` | Otherlands: Elzion Region. Area 1 | otherlands | todo |
+| `otherlands_ratle_area_1` | Otherlands: Ratle Region. Area 1 | otherlands | todo |
+| `mayus_dream_world` | Mayu's Dream World | standard | todo |
+| `the_riftbreaker` | The Riftbreaker | standard | todo |
+| `tower_of_stars` | Tower of Stars | standard | todo |
+| `otherlands_baruoki_area_2` | Otherlands: Baruoki Region. Area 2 | otherlands | todo |
+| `otherlands_elzion_area_2` | Otherlands: Elzion Region. Area 2 | otherlands | todo |
+| `otherlands_ratle_area_2` | Otherlands: Ratle Region. Area 2 | otherlands | todo |
+| `dogma_tower` | Dogma Tower | standard | dogma-tower |
+| `otherlands_baruoki_area_3` | Otherlands: Baruoki Region. Area 3 | otherlands | todo |
+| `otherlands_baruoki_area_4` | Otherlands: Baruoki Region. Area 4 | otherlands | todo |
+| `otherlands_elzion_area_3` | Otherlands: Elzion Region. Area 3 | otherlands | todo |
+| `otherlands_elzion_area_4` | Otherlands: Elzion Region. Area 4 | otherlands | todo |
+| `otherlands_ratle_area_3` | Otherlands: Ratle Region. Area 3 | otherlands | todo |
+| `otherlands_ratle_area_4` | Otherlands: Ratle Region. Area 4 | otherlands | todo |
+| `beast_kings_castle` | Beast King's Castle | standard | todo |
+| `burning_beast_kings_castle` | Burning Beast King's Castle | standard | burning-beast-kings-castle |
+| `former_kms_hq` | Former KMS HQ | standard | todo |
+| `ruins_of_rucyana` | Ruins of Rucyana | standard | todo |
+| `snake_liver_damaku` | Snake Liver Damaku | standard | todo |
+| `proto_eden` | Proto Eden | standard | todo |
+| `toto_dreamland` | Toto Dreamland | standard | todo |
+| `antiquity_garulea_continent` | Antiquity Garulea Continent | standard | todo |
+| `edax_unigan` | Edax Unigan | standard | todo |
+| `entrana` | Entrana | standard | todo |
+| `future_garulea_continent` | Future Garulea Continent | standard | todo |
+| `jasmond` | Jasmond | standard | todo |
+| `omegapolis` | Omegapolis | standard | todo |
+| `present_garulea_continent` | Present Garulea Continent | standard | todo |
+| `underworld` | Underworld | standard | underworld |
+| `mysterious_vortex_warped_cochlea` | Mysterious Vortex - Warped Cochlea | mysterious_vortex | todo |
+| `mysterious_vortex_dust_city` | Mysterious Vortex - Dust City | mysterious_vortex | todo |
+| `mysterious_vortex_isle_of_gospel` | Mysterious Vortex - Isle of Gospel | mysterious_vortex | todo |
+| `mysterious_vortex_land_of_ro` | Mysterious Vortex - Land of Ro | mysterious_vortex | todo |
+| `mysterious_vortex_the_tower_argentauri` | Mysterious Vortex - The Tower Argentauri | mysterious_vortex | todo |
+| `mysterious_vortex_thundering_fortress` | Mysterious Vortex - Thundering Fortress | mysterious_vortex | todo |
+| `mysterious_vortex_tower_of_selection` | Mysterious Vortex - Tower of Selection | mysterious_vortex | todo |
+| `forest_of_forgetfulness` | Forest of Forgetfulness | standard | todo |
+| `hanging_garden` | Hanging Garden | standard | todo |
+| `astral_ruins` | Astral Ruins | standard | todo |
+| `burning_kurosagi_castle` | Burning Kurosagi Castle | standard | todo |
+| `meigoku` | Meigoku | standard | todo |
+| `what_the_planet_dreamt` | What the Planet Dreamt | standard | todo |
+| `homes_lost_atelier` | Home's Lost Atelier | standard | todo |
+| `ephemeral_time_space` | Ephemeral Time Space | sealed_realm | todo |
+| `antiquity_zerberiya_continent_crystal` | Antiquity Zerberiya Continent: Crystal | standard | todo |
+| `antiquity_zerberiya_continent_thunder` | Antiquity Zerberiya Continent: Thunder | standard | todo |
+| `city_of_lost_paradise` | City of Lost Paradise | standard | todo |
+| `iscariot` | Iscariot | standard | todo |
+| `sapient_complex_midnight` | Sapient Complex: Midnight | standard | todo |
+| `sea_of_ice` | Sea of Ice | standard | sea-of-ice |
+| `temporal_surveillance_ship_kairos_blood_ritual_site` | Temporal Surveillance Ship Kairos - Blood Ritual Site | kairos | todo |
+| `temporal_surveillance_ship_kairos_holy_meadow` | Temporal Surveillance Ship Kairos - Holy Meadow | kairos | todo |
+| `temporal_surveillance_ship_kairos_institute_of_despair` | Temporal Surveillance Ship Kairos - Institute of Despair | kairos | todo |
+| `temporal_surveillance_ship_kairos_ruins_of_glory` | Temporal Surveillance Ship Kairos - Ruins of Glory | kairos | todo |
+| `toto_theater_world` | Toto Theater World | standard | todo |

@@ -1,72 +1,29 @@
-# Moonlight Forest (Another Dungeon): wiki notes
+# Moonlight Forest: mapping notes
 
-Facts taken from the anothereden.wiki page "Moonlight Forest (Another Dungeon)" (saved
-2026-11-20, revision 319627). Data only; no game art is kept here. The macro's layout lives in
-`src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml` (`moonlight_forest`).
+What the project found on the phone (data: `moonlight_forest` in
+`src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml`; macro:
+`macros/dungeon/moonlight-forest.yaml`). The wiki's facts:
+[knowledge base](../knowledge-base/dungeons/moonlight-forest.md).
 
-## Overview
-
-| | |
-|---|---|
-| Era tab | Present |
-| Recommended level | Hard 21, Very Hard 58 |
-| Cat Express Ticket (Skip) | yes |
-| Light/Shadow | shadow |
-| Completion reward slots | Hard: 1st 0+, 2nd 24+, 3rd 96+ shadow points. Very Hard: 24+ / 60+ / 120+ |
-
-## Maps
-
-| # | Regular name | Rare name | Chests |
-|---|---|---|---|
-| 1 | Moonlight Forest Entrance | - | 2 |
-| 2 | Moonlight Forest Beast Road | Moonlight Forest Thorn Road | 1 |
-| 3 | Moonlight Forest Natural Path | Moonlight Forest Mysterious Path | 3 |
-| 4 | Moonlight Forest Center (boss) | - | 1 |
-
-The wiki has minimaps for maps 1 to 3 (1200x675 screenshots of the area map); map 4 has none.
-Minimap 1 also shows a large chest by the way out: the map's hidden one-time chest (exclusive
-equipment), which the macro leaves out.
-
-## Enemies
-
-| Enemy | Type | Hard lv | Very Hard lv | Weak | Resist |
-|---|---|---|---|---|---|
-| Plum Goblin | Mob | 20-21 | 57-58 | slash, fire | wind |
-| Abbetos | Mob | 20-21 | 58 | | |
-| Elite Goblin | Mob | 20-21 | 58 | | |
-| Forest Guardian | Horror | 31 | 68 | | |
-| Beast Vares | Boss | ?? | ?? | fire | wind (Very Hard also earth) |
-
-Horror drops: Forest's Secret (Hard), Golden Fruit (Very Hard). The boss drops nothing.
-
-Mob drops (Hard / Very Hard):
-- Plum Goblin: Oregano, Oregano Fruit, Oregano Seed / Marjoram, Marjoram Seed, Marjoram Roots
-- Abbetos: Hardened Giant Skin, Wooden Club, Black Lightstone / Giant Blood, Black Obsidian, Wooden Hammer
-- Elite Goblin: Blue Wild Beast Skin, Walnut Branch, Black Skin / Beast Tail Skin, Maple, Dark Skin
-
-## Treasure chests
-
-Most regular chests: three of a material (~59-60%), one of a second material (31-40%), and on
-some a Murmur Script x1-3 (10%). Rare maps swap in Prayer Scripts.
-
-| Map | Chest | Hard | Very Hard |
-|---|---|---|---|
-| 1 | 1 | Oregano x3 / Oregano Seed / Murmur Script | Marjoram x3 / Marjoram Seed / Murmur Script |
-| 1 | 2 | Blue Wild Beast Skin x3 / Walnut Branch / Murmur Script | Beast Tail Skin x3 / Maple / Murmur Script |
-| 2 | 3 | Hardened Giant Skin x3 / Black Lightstone / Murmur Script | Giant Blood x3 / Black Obsidian / Murmur Script |
-| 2 rare (Thorn Road) | 3 | Prayer Script x1 (75%) or x2 (25%) | Prayer Script x1 (70%) / x2 (25%), Chant Script (5%) |
-| 3 | 4 | Oregano x3 / Oregano Seed / Murmur Script | Marjoram x3 / Marjoram Seed / Murmur Script |
-| 3 | 5 | Blue Wild Beast Skin x3 / Walnut Branch | Beast Tail Skin x3 / Maple |
-| 3 | 6 | Hardened Giant Skin x3 / Black Lightstone | Giant Blood x3 / Black Obsidian |
-| 3 rare (Mysterious Path) | 4 | Prayer Script x1-2 | Prayer Script x1-2, Chant Script (5%) |
-| 3 rare | 5 | Black Lightstone x3 / Black Skin | Black Obsidian x2 / Dark Skin x2 |
-| 3 rare | 6 | Oregano Seed x3 / Wooden Club | Marjoram Seed x2 / Wooden Hammer x2 |
-| 4 | 7 | Murmur Script x1 (50%) / x2 (25%), Prayer Script (25%) | the same, plus Chant Script (0.5%) |
-
-## Completion rewards
-
-Class change tomes (Hard and Very Hard): Yaobikuni, Raven Tengu, Wenefica, Golden Flower Cat,
-Utsutahime, Shadow Lord, Murasame, Lapin, Sun Goddess, Titan, plus the standard job tomes listed
-in `dungeon_list.yaml`. Very Hard adds Treatises, Codices and Opuses (Opuses on the page include
-Fantasist, Nightmare, Yin-Yang Cat, Daikokuten, Voleur, Ame-no-Uzume, Bête Théâtrale, Felis Lord,
-Briar Rose, Enforcer, Muse, Takuhatachiji).
+- **Reach**: the Present tab shows its label straight away (no sub-map), on one line. Hard = 1
+  green key, Very Hard = 1 red key. No "please include" box (seen 2026-11-20). The user runs it
+  with party 1.
+- **Stairs** take a quick flick; a slow hold up only turns the party around.
+- **Wiki minimaps** are 1200x675 (16:9) shots of the area map: x = (1.6 x_wiki + 240) / 2400,
+  y = 1.6 y_wiki / 1080. Checked 2026-11-20: map 1's arrival marker at 0.609 (wiki 0.610) and its
+  Horror icon matched to the pixel. On the wiki pictures the blue box is where the party arrives
+  and the red box the way on; the blue star icons are Horrors (Forest Guardian, fought only when
+  met). Map 1's big open chest by the arrival is scenery.
+- **The way on**: map 1 a door sign over the ground arrow at the top-left street's left end;
+  maps 2 and 3 a ground arrow.
+- Map 1 (Entrance): the middle street is two parts (the right one starts at 0.525, a wall,
+  seen 2026-11-20). Chest 1 sits at the left part's right end (opened with the party at 0.488),
+  reached by the stairs up from the bottom street at 0.467.
+- Map 3 (Natural / Mysterious Path), measured 2026-11-20: the stairs down to the bottom-left
+  street taken at 0.436, 0.430 and 0.427, the top-right stairs at 0.558 and 0.567. The
+  bottom-left street runs on to 0.335 and its door sign (the way on) is at 0.357 (at 0.374 the
+  sign was out of sight and the run stalled).
+- Map 4 (Center, boss; no wiki minimap): the chest a short walk left of the arrival, then on
+  left past the glowing pond to "A major trial awaits you beyond this point. Proceed?".
+- **Runs** 2026-11-20: Hard 7/7 chests in 7m09s, Very Hard 7/7 in 7m06s and, with every fix,
+  6m28s.
