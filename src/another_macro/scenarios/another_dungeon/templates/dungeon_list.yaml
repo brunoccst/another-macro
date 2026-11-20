@@ -29,7 +29,7 @@ moonlight_forest:
   light_shadow: [shadow]
   drops: [Adept Fencer Tome, Amazon Tome, Battler Tome, Mercenary Tome, Monk Tome, Mystic Tome, Phalanx Tome, Sniper Tome, Sword Master Tome, Vanguard Tome, "Wu-Shu Tome", Raven Tengu Tome, Yaobikuni Tome, Wenefica Tome, Utsutahime Tome, Titan Tome, Sun Goddess Tome, Shadow Lord Tome, Murasame Tome, Lapin Tome, Golden Flower Cat Tome, All Treatises, All Codices, All Opuses]
   wiki: Moonlight Forest (Another Dungeon)
-  macro: todo
+  macro: moonlight-forest
 industrial_ruins:
   name: Industrial Ruins
   kind: standard
