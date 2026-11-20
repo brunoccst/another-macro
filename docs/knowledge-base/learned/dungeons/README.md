@@ -4,7 +4,7 @@ Notes the project wrote while mapping and running dungeons with the app. Facts f
 in [the knowledge base](../../README.md) instead
 ([how Another Dungeons work](../../external/another-dungeon.md),
 [every dungeon](../../external/another-dungeon-list.md)). The plan for one macro per dungeon:
-[dungeon-macros-plan.md](../../../dungeon-macros-plan.md). The White Key dimension:
+[macros.md](../../../macros.md#another-dungeons-one-macro-per-dungeon). The White Key dimension:
 [phantom-crystal.md](../phantom-crystal.md).
 
 ## Per dungeon

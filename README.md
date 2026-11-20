@@ -50,18 +50,26 @@ Claude chat ──(custom connector)──> relay (your Cloudflare Worker) <─�
 
 ## Macros
 
-| Group | Macro | What it does |
-|---|---|---|
-| Daily | `daily-routine` | Starts the game, watches the 5 menu ad chests and the shop ad, does the cat scratchbook, claims the inbox, then turns the game off. |
-| Daily | `daily-ads` | The 5 daily commercial chests (Menu → video icon, 1-3 ads each). |
-| Daily | `shop-ad` | The shop's daily commercial for Chronos Stones. |
-| Daily | `cat-scratchbook` | Reads today's cat clues, travels to each cat by a fixed route and finds it (`mode`: daily / read / hunt). |
-| Daily | `inbox` | Claims every inbox item not opened yet. |
-| Another Dungeon | `dogma-tower`, `burning-beast-kings-castle`, `moonlight-forest` | One or more runs: enters with the chosen key (or skips with a Cat Express Ticket), walks fixed routes to every chest (fighting on the way), optionally the enemies left until "The enemies have disappeared", then the exit, then the boss. Stops at 0 keys (never buys), reports a White Key. |
-| Another Dungeon | `phantom-crystal` | The Phantom Crystal Dimension after a White Key: every chest and paw stamp, world by world. Stops so you pick a free Treatise/Codex/Opus yourself. |
-| Game | `start-game` | Opens the game, takes the daily login-bonus ad, stops on the field. |
-| Game | `stop-game` | Closes the game the clean way (Back → "Close the app?" → Yes). |
-| Basic | `battle`, `grind-battles`, `watch-ad`, `open-menu`, `open-menu-page`, `back-to-field`, `pick-party` | Building blocks the other macros run. `grind-battles` also works on its own: walk a map and fight every encounter. |
+The app shows its macros in groups, one tab each (Macros page). The full list, with a link to
+each macro's file, is in [docs/macros.md](docs/macros.md).
+
+- **Daily**: the things the game resets every day: the 5 menu ad chests, the shop ad, the cat
+  scratchbook and the inbox, each on its own, or all of them in one go with `daily-routine`
+  (which also starts and closes the game). The app's Daily schedule can run one by itself after
+  the game's daily reset.
+- **Another Dungeon**: one macro per dungeon. Each does one or more runs: it enters with the
+  chosen key (or skips with a Cat Express Ticket), walks a fixed route to every chest (fighting
+  on the way), optionally clears the enemies left, then the boss. It stops at 0 keys (never
+  buys) and reports a White Key; the Phantom Crystal Dimension a White Key opens has a macro
+  too. Which dungeons have one so far: [docs/macros.md](docs/macros.md#all-dungeons).
+- **Farming**: repeated grinding of one thing (empty for now; `grind-battles` in Basic walks a
+  map and fights every encounter).
+- **Game**: turning the game on (with the daily login-bonus ad) and off the clean way.
+- **Basic**: building blocks the other macros run (one battle, watching an ad, opening a menu
+  page, picking a party...). Some, like `grind-battles`, also work on their own.
+- **Other**: macros that fit no group above (none yet).
+- **Custom**: drafts Claude saves on the phone while making a new macro; ones that work move to
+  the library for everyone.
 
 Battles use one skill choice per party slot (`skill_1`..`skill_4` = auto or skill 1-4), and the
 dungeons a party by its number. Both are **Global parameters** (System → Settings), set once and
@@ -90,7 +98,7 @@ then added to `macros/<group>/` here, for everyone. The format is in
 - [macros/README.md](macros/README.md): the macro library and basic macros
 - [docs/writing-scenarios.md](docs/writing-scenarios.md): this game's macros, its Kotlin steps and input notes
 - macro-forge: [writing macros](../../../macro-forge/blob/main/docs/writing-macros.md), [the Android app](../../../macro-forge/blob/main/docs/android-app.md), [the logic pack](../../../macro-forge/blob/main/docs/logic-pack.md), [the game profile](../../../macro-forge/blob/main/docs/game-profile.md)
-- [docs/dungeon-macros-plan.md](docs/dungeon-macros-plan.md): every Another Dungeon and the plan for their macros
+- [docs/macros.md](docs/macros.md): every macro, every Another Dungeon and the plan for their macros
 - [docs/knowledge-base/](docs/knowledge-base/README.md): everything known about the game, split into what outside sources say (`external/`: the wiki, Altema) and what the project learned itself while building and testing macros (`learned/`)
 - [android/README.md](android/README.md): what this app adds to the core, build and releases
 
