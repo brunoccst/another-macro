@@ -86,8 +86,8 @@ object CatRoute {
     // --- 1-2. the world map ---------------------------------------------------------------
     /**
      * Point zero, then the spot's era tab and (only if set) its continent, then the place's label
-     * by OCR: the view each era tab opens on is where that era's last trip went (measured on the
-     * phone, 2026-11-03), so a label has no fixed screen spot; the search starts from that view.
+     * by OCR: the view each era tab opens on is where that era's last trip went, so a label has no
+     * fixed screen spot; the search starts from that view.
      */
     fun travel(ctx: Context, s: Spot): Boolean {
         if (!CatDaily.pointZero(ctx)) return false
@@ -119,13 +119,13 @@ object CatRoute {
         if (!s.fixedWalk) return null
         settle(ctx)
         for (up in s.enter) {
-            // e.g. Miglance Castle: the trip lands on 1F at the stairs, the cat is on 2F
+            // the trip lands on another floor than the cat's: flick there first
             MacroLog.i("${s.location}: flick ${if (up) "U" else "D"} to the cat's floor")
             AreaNav.flick(ctx, up)
             settle(ctx)
         }
-        // every feather-like icon: a big grey quill-in-a-circle icon (seen in Ratle) matches the
-        // feather template nearly as well, so the one nearest the cat's start is taken
+        // every feather-like icon: other icons can match the feather template nearly as well, so the
+        // one nearest the cat's start is taken
         val view = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png") }
         val arrival = s.arrival!!
         val party = view.candidates.minByOrNull { abs(it.x - arrival.x) + 3 * abs(it.y - arrival.y) }
@@ -138,8 +138,8 @@ object CatRoute {
         val catSeg = Route.segOf(l, cat) ?: return null
         val lo = maxOf(catSeg.x1, cat.x - s.driftLeft) - 0.02
         val hi = minOf(catSeg.x2, cat.x + s.driftRight) + 0.02
-        // the data wins over the icons (the user: the cat's spot is fixed); a mismatch is only logged,
-        // and the caller steers by the map only if the sweep there doesn't find the cat
+        // the data wins over the icons (the cat's spot is fixed); a mismatch is only logged, and the
+        // caller steers by the map only if the sweep there doesn't find the cat
         if (feather != null && (abs(feather.y - catSeg.y) > AreaNav.ROW_TOL * 2 || feather.x < lo - 0.03 || feather.x > hi + 0.03))
             MacroLog.i("${s.location}: the feather icon read at ${fmt(feather)} isn't where this cat starts or wanders " +
                 "(a look-alike icon, or fix area.cat/drift); following the path anyway")
@@ -179,8 +179,8 @@ object CatRoute {
         val change = Route.change(before, after)
         before.release(); after.release()
         if (change < STILL && !Route.disturbed) {
-            // the view didn't move: the hold came too soon (area banner, fade-in) and walked nothing
-            // (Ratle, 2026-11-03: "hold R 539 ... view change 0.3"); hold it again from the same spot
+            // the view didn't move: the hold came too soon (area banner, fade-in) and walked nothing;
+            // hold it again from the same spot
             MacroLog.i("hold ${if (d > 0) "R" else "L"}: view change ${"%.1f".format(change)}, the party didn't move; again")
             settle(ctx)
             w.p = Route.hold(ctx, w.l, w.t, from, d > 0, w.t.holdMs(abs(d)).toLong(), fight)

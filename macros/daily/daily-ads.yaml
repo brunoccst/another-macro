@@ -34,8 +34,8 @@ handlers:
       then:
         - tap: ad_dont_watch_button
         - wait: 1.5
-        # back to the field: Back only while the field isn't showing (a blind Back here once
-        # reached the field and left "Close the app?" open for the next macro)
+        # back to the field: Back only while the field isn't showing (a Back on the field opens
+        # "Close the app?")
         - run: back-to-field
         - stop: "no commercials left today ({stats.ads_started} watched this run, {stats.rewards} rewards)"
     - count: ads_started

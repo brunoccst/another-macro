@@ -2,7 +2,7 @@
 
 What the project found on the phone while mapping Dogma Tower (data: `dogma_tower` in
 `src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml`; macro:
-`macros/dungeon/dogma-tower.yaml`). The wiki's facts: [knowledge base](../knowledge-base/dungeons/dogma-tower.md).
+`macros/dungeon/dogma-tower.yaml`). The wiki's facts: [knowledge base](../../external/dungeons/dogma-tower.md).
 
 - **Reach**: the Present tab of the Another Dungeon map, the "Dogma Tower" label.
 - **Party**: the game's "please include: Poporo" box: Poporo must be in the party (the wiki

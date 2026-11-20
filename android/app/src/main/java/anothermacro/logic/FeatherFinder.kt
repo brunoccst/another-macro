@@ -15,8 +15,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
 /**
  * Finds the scratchbook cat's feather bubble. The bubble is semi-transparent and
  * its size changes with each map's zoom, so the white feather shape is matched on
- * a binarized, half-resolution frame at five scales (some maps, e.g. tree-top villages,
- * are zoomed further in or out than the map the template was cut on).
+ * a binarized, half-resolution frame at five scales.
  */
 class FeatherFinder private constructor(private val templates: List<Mat>, private val bubbles: List<Mat>) {
 
@@ -28,13 +27,13 @@ class FeatherFinder private constructor(private val templates: List<Mat>, privat
         val half = Mat()
         Imgproc.resize(band, half, Size(0.0, 0.0), 0.5, 0.5, Imgproc.INTER_AREA)
         band.release()
-        // the minimap (top right) shows the cat's feather icon too: never a bubble to tap
-        // (2026-11-15: five taps on it at Zarbo). Blank it before matching.
+        // the minimap (top right) shows the cat's feather icon too: never a bubble to tap.
+        // Blank it before matching.
         val mmBottom = ((g.rows() * 0.26 - top) / 2).toInt().coerceIn(0, half.rows())
         if (mmBottom > 0) half.submat(0, mmBottom, (half.cols() * 0.82).toInt(), half.cols()).setTo(org.opencv.core.Scalar(0.0))
         // two binarizations: plain brightness (the bubble over a dark field), and brightness
         // against the local background (white top-hat) for a bubble over a bright sky, where
-        // a fixed threshold turns the whole sky white (Snake Skull Mescita's sunset, 2026-11-12)
+        // a fixed threshold turns the whole sky white
         val plain = Mat()
         Imgproc.threshold(half, plain, 180.0, 255.0, Imgproc.THRESH_BINARY)
         val hat = Mat()
@@ -44,9 +43,9 @@ class FeatherFinder private constructor(private val templates: List<Mat>, privat
         var best = 0.0
         var at = Point(0.0, 0.0)
         // the whole bubble (disc, rim and feather) on the plain grey frame: it tells a small
-        // bubble from bright scenery better than the feather's shape alone (half-res frames
-        // of the sunset map: bubbles 0.81-0.84, scenery at most 0.72). Counted a hair above the
-        // feather-shape score so 0.78 still means "a bubble".
+        // bubble from bright scenery better than the feather's shape alone (bubbles 0.81-0.84,
+        // scenery at most 0.72). Counted a hair above the feather-shape score so 0.78 still means
+        // "a bubble".
         for (t in bubbles) {
             if (t.rows() > half.rows() || t.cols() > half.cols()) continue
             val r = Mat()

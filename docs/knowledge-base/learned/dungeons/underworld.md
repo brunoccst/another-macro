@@ -4,7 +4,7 @@ What the project found on the phone (data: `underworld`, `underworld_cathedral`,
 `underworld_tomb` and `underworld_ark` in
 `src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml`; macro:
 `macros/dungeon/underworld.yaml`). No wiki page has been shared for it yet (see
-[the knowledge base](../knowledge-base/README.md#missing)), so everything here comes from the phone.
+[the knowledge base](../../external/README.md#missing)), so everything here comes from the phone.
 
 ## Reach and cost
 
@@ -87,3 +87,22 @@ ladder the Present Man installs (Embedded Ladder, a path item kept for good).
   The door (⇔) on row 2.
 - Boss area "Ark of the Underworld - Depths": its chest right of the arrival, the boss's
   question left. Its title holds the dungeon's name, so the map is matched by "Depths".
+
+## What the macro's checks are based on
+
+- **Shared titles**: Demon's Den and its boss area share a title, as do Nazrik and its upper
+  floor, west part and basement: the run expects the map an exit was just taken toward.
+- **Talk mid-run**: a specter walks up and talks on the way to the Ark (2026-11-18), and a new
+  merchant every few runs in Nazrik: the run taps through talk.
+- **Questions**: "Go to Demon's Den? *You cannot return once you travel to the dungeon." (Yes);
+  the seal "Go to Dark Lord's Tomb? ... *Uses 1 Mural Fragment." (Yes), and without one "Not
+  enough Mural Fragments" | Cancel: Back doesn't close that box and the purchase guard refuses a
+  tap on its Cancel, so the user closes it; the Ark's portal "Go to The Ark of the Underworld?
+  ... No / Yes".
+- **Sparkle bag icons** are drawn ~0.027 above their spot on the street (2026-11-15). Pickups:
+  twice by 2026-11-15 a tap got no banner; once two taps at x 0.46-0.47, right by the party in
+  the middle of the screen, got nothing (hence the step away before a retap). The blob finder
+  took green plants (x 0.16, 0.74, 0.79) and the party for sparkles (2026-11-15), and the camera
+  doesn't keep the party in the middle near a street's end. A bag icon stayed on the area map
+  after "no sparkle by" its spot (2026-11-18). OCR reads "Obtained" as "Obtalned" at times.
+- **Ladder-down sign** in Nazrik matches its template at 0.86 at scale 1.1, 0.44 at 1.0 (2026-11-18).

@@ -1,9 +1,7 @@
 # Claim the inbox: Menu → Inbox, open every item not opened yet (that receives its rewards), OK.
-# The game has no "receive all" button and keeps opened items in the list for 90 days (marked
-# "Opened"). When the inbox opens, the items not opened yet come first. So the macro opens the
-# top-most row without the "Opened" mark until the page has none, then closes and reopens the
-# inbox to bring the rest to the top; it is done when a freshly opened inbox starts with an opened
-# item. Only rows, OK and the inbox's X are tapped: nothing is bought or spent.
+# The macro opens the top-most row without the "Opened" mark until the page has none, then
+# closes and reopens the inbox to bring the rest to the top; it is done when a freshly opened
+# inbox starts with an opened item. Only rows, OK and the inbox's X are tapped: nothing is bought or spent.
 name: inbox
 group: daily
 icon: chest
@@ -34,8 +32,7 @@ handlers:
     - wait: 1
 
   inbox:
-    # Opening an item asks the game server first: a dimmed "Connecting..." overlay covers the
-    # list for a few seconds, and the list (title, X, rows) still matches under it. That wait
+    # Opening an item can show a dimmed "Connecting..." overlay over the list for a few seconds, and the list (title, X, rows) still matches under it. That wait
     # must not count as a failed tap, or the macro gives up on the list and closes the inbox.
     # The rows also slide in after the title shows, so an empty look waits for them, and
     # "nothing to open" is only believed when a second look agrees.

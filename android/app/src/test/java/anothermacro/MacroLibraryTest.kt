@@ -83,7 +83,7 @@ class MacroLibraryTest {
             assertEquals(n, AnotherDungeon.CLEAR_MAX_BATTLES.toString(), p.getValue("clear_max_battles").default)
             assertEquals(n, "bool", p.getValue("defeat_all").type)
         }
-        // Dogma Tower goes to the exit once its stops are done by default (the user's way: about half the time)
+        // Dogma Tower goes to the exit once its stops are done by default
         assertEquals("false", macros.getValue("dogma-tower").params.getValue("defeat_all").default)
         assertEquals("true", macros.getValue("burning-beast-kings-castle").params.getValue("defeat_all").default)
     }

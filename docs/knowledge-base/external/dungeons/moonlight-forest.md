@@ -2,7 +2,7 @@
 
 Source: anothereden.wiki, page "Moonlight Forest (Another Dungeon)" (saved 2026-11-20, revision
 319627). Facts only; no game art. The project's own mapping notes:
-[docs/dungeons/moonlight-forest.md](../../dungeons/moonlight-forest.md).
+[learned/dungeons/moonlight-forest.md](../../learned/dungeons/moonlight-forest.md).
 
 ## Overview
 

@@ -14,12 +14,11 @@ import kotlin.math.abs
  * Reads the party's spot from the small minimap in the field's top-right corner, without
  * opening the area map (~3 s a look).
  *
- * The minimap draws the same layout as the area map at about half its size (0.49 of the
- * area map's screen fractions, the same on both axes; castle screenshots 2026-11-12):
- * light-grey streets on a dark red background, the party as a gold ring (a teardrop when it
- * faces up), only the parts already walked. It scrolls with the party, so where the layout
- * sits in it is found every time: the layout is drawn at that scale and slid over the grey
- * streets that show; the party's marker, taken through that fit, gives the spot.
+ * The minimap draws the same layout as the area map at 0.49 of the area map's screen fractions
+ * (both axes): light-grey streets on a dark background, the party as a gold ring (a teardrop
+ * when it faces up), only the parts already walked. It scrolls with the party, so where the
+ * layout sits in it is found every time: the layout is drawn at that scale and slid over the
+ * grey streets that show; the party's marker, taken through that fit, gives the spot.
  *
  * A read is kept only when the fit is clear: most of the grey lies on the layout's streets,
  * and no other fit (a spot more than 0.012 away along the street, or another floor) comes
@@ -67,8 +66,8 @@ object MiniMap {
      * [near] are considered (the followed spot; after a flick, both ends of the stairs).
      */
     fun locate(ctx: Context, l: AreaNav.Layout, near: List<Point>, tol: Double = 0.08): Read? {
-        // a map whose area map scrolls (Sea of Ice): its see-through minimap gave a wrong "clear" read
-        // after a flick that missed the stairs (2026-11-15): only the area map is trusted there
+        // a map whose area map scrolls: only the area map is trusted there (its see-through minimap
+        // can give a wrong "clear" read)
         if (AreaNav.align != null) return null
         val bgr = ctx.colorMat() ?: return null
         try {

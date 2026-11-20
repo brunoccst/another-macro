@@ -112,7 +112,7 @@ unknown:
           - force_close: true
     else:
       # "Confirming Downloaded Data: Do you wish to download the required data? ... Download Size:
-      # Approx. 644.5 MB" (a game update): Yes on Wi-Fi (or always, wifi_only off), else stop and say so.
+      # ..." (a game update): Yes on Wi-Fi (or always, wifi_only off), else stop and say so.
       # No/Back only brings the same question back from the title screen.
       - if: text_has('download the required data')
         then:
@@ -137,9 +137,7 @@ unknown:
                   - launch: "'games.wfs.anothereden'"
                   - wait: 3
                 else:
-                  # loading screens and the cat delivering the login bonus. Some popups ignore taps (seen
-                  # after the login-bonus ad when the game stayed open over the daily reset) and only
-                  # Back closes them: after 8 taps that changed nothing once the ad was taken, Back
+                  # loading screens and the login bonus. A popup that ignores taps is closed with Back: after 8 taps that changed nothing once the ad was taken, Back
                   # (25 before it: a cold start's loading screens can take ~40 s of taps)
                   - set: {taps: taps + 1}
                   - if: taps >= 25 or (stats.ads_accepted > 0 and taps >= 8)

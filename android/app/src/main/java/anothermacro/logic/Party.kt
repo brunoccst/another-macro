@@ -13,10 +13,10 @@ import kotlin.math.sqrt
  * who is in it: every user names and fills their parties differently. The basic macro `pick-party`
  * runs this, and every dungeon macro's `party` option goes through that macro.
  *
- * The page (seen on the phone 2026-11-15): one party at a time, a big arrow at each side (left
- * ~(0.124, 0.553), right ~(0.874, 0.553); drawn, not text) and a row of dots at the bottom, one
- * per party (10), the one in front marked. The arrows wrap around (right of the last party is the
- * first). The party left in front is the active one: Back needs no confirmation.
+ * The page: one party at a time, a big arrow at each side (left ~(0.124, 0.553), right
+ * ~(0.874, 0.553); drawn, not text) and a row of dots at the bottom, one per party, the one in
+ * front marked. The arrows wrap around. The party left in front is the active one: Back needs no
+ * confirmation.
  *
  * Which party is in front is read from the dots ([Dots]); the log names parties by number only.
  * Nothing is bought or changed besides which party is active.
@@ -87,11 +87,11 @@ object Party {
     }
 
     /**
-     * The page dots (phone 2026-11-16, 2400x1080): a row of small grey discs centred under the
-     * party, y ~0.948, ~0.017 of the width apart; the party in front is a grey RING with a white
-     * middle instead of a filled disc. Read as: the filled discs (blobs clearly darker than the
-     * light page) in one evenly spaced row, then every place of that row (one before and after
-     * too) is looked at: dark middle = a party, light middle = the party in front.
+     * The page dots: a row of small grey discs centred under the party, y ~0.948, ~0.017 of the
+     * width apart; the party in front is a grey RING with a white middle instead of a filled disc.
+     * Read as: the filled discs (blobs clearly darker than the light page) in one evenly spaced row,
+     * then every place of that row (one before and after too) is looked at: dark middle = a party,
+     * light middle = the party in front.
      * Pure (ARGB pixels in, place out) so it is unit-tested without a phone.
      */
     object Dots {

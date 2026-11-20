@@ -1,7 +1,6 @@
 # Another Dungeon templates (captured on a 2400x1080 phone).
-# closed_chest.png (PNG only, used by PhantomCrystal.kt): the red-and-gold chest the Phantom
-# Crystal Dimension's worlds use, unopened. The maps' layouts are in
-# dungeons.yaml: the area map only shows the parts already walked.
+# closed_chest.png (PNG only, used by PhantomCrystal.kt): an unopened red-and-gold chest.
+# The maps' layouts are in dungeons.yaml.
 templates:
   field_interact_bubble:
     notes: The "!" bubble over something the party can use when close (a chest of any look, the Another Dungeon door).
@@ -9,7 +8,7 @@ templates:
     ref: [2400, 1080]
     region: [0.05, 0.1, 0.9, 0.6]
     threshold: 0.8
-    scales: [0.9, 1.0, 1.1, 1.2]   # the door's bubble is drawn ~10% larger than a chest's
+    scales: [0.9, 1.0, 1.1, 1.2]   # also matches the door's bubble, drawn ~10% larger
   field_interact_bubble_core:
     notes: >-
       The inside of the "!" bubble only (no background around it), for bright or busy places where the
@@ -30,7 +29,7 @@ templates:
     ref: [2400, 1080]
     region: [0.05, 0.1, 0.9, 0.6]
     threshold: 0.82
-    scales: [0.5, 0.55, 0.6, 0.65]   # grey: 0.87-0.89 at 0.5-0.55 (2026-11-15)
+    scales: [0.5, 0.55, 0.6, 0.65]   # grey: 0.87-0.89 at 0.5-0.55
   field_jar_bubble:
     notes: >-
       The round bubble with a jar icon over a bait jar (Sea of Ice) when the party stands by it; tap it to
@@ -48,7 +47,7 @@ templates:
     ref: [2400, 1080]
     region: [0.05, 0.15, 0.8, 0.92]
     threshold: 0.8
-    scales: [1.0, 1.1]   # the Nazrik ladder-down sign: 0.86 at 1.1, 0.44 at 1.0 (2026-11-18)
+    scales: [1.0, 1.1]   # a ladder-down sign: 0.86 at 1.1, 0.44 at 1.0
   ground_arrow_steps:
     notes: Round sign (steps icon) at a staircase/door to another map; tap it to take it.
     file: ground_arrow_steps.png

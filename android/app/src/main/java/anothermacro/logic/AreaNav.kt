@@ -36,7 +36,7 @@ object AreaNav {
     }
     private val MAP_CLOSE = Point(0.5, 0.93)
 
-    /** Map units (fraction of the screen width) walked per second of holding. Measured in Unigan. */
+    /** Map units (fraction of the screen width) walked per second of holding. */
     const val WALK_PER_S = 0.027
     const val ROW_TOL = 0.035
 
@@ -80,10 +80,10 @@ object AreaNav {
     private var last: View? = null
 
     /**
-     * The layout of a map whose area map scrolls up and down with the party (Sea of Ice: a
-     * see-through overlay drawn higher when the party is on a lower street). While set, every
-     * look lines this layout up with the streets it shows and gives the party's spot in the
-     * layout's y (as the map is drawn with the party on its arrival street). Null: no scrolling.
+     * The layout of a map whose area map scrolls up and down with the party (drawn higher when the
+     * party is on a lower street). While set, every look lines this layout up with the streets it
+     * shows and gives the party's spot in the layout's y (as the map is drawn with the party on its
+     * arrival street). Null: no scrolling.
      */
     @Volatile var align: Layout? = null
 
@@ -208,14 +208,14 @@ object AreaNav {
     /**
      * How much lower than [l] the area map draws its streets now (screen-height fraction; negative:
      * higher), by sliding the layout up and down over the streets that show. 0 when no fit is clear.
-     * The streets are light grey (most maps) or a see-through grey-blue over a dark sea (Sea of Ice).
+     * The streets are light grey or a see-through grey-blue over a dark background.
      */
     internal fun verticalShift(bgr: Mat, l: Layout): Double {
         val w = 512
         val h = Math.round(bgr.rows() * w.toDouble() / bgr.cols()).toInt()
         val small = Mat(); Imgproc.resize(bgr, small, Size(w.toDouble(), h.toDouble()), 0.0, 0.0, Imgproc.INTER_AREA)
         val hsv = Mat(); Imgproc.cvtColor(small, hsv, Imgproc.COLOR_BGR2HSV)
-        // (wide: Sea of Ice streets read from S 20/V 135 grey to S 90/V 80 blue, 2026-11-15)
+        // (wide: streets read from S 20/V 135 grey to S 90/V 80 blue)
         val streets = Mat(); Core.inRange(hsv, Scalar(0.0, 0.0, 90.0), Scalar(180.0, 60.0, 230.0), streets)
         val blue = Mat(); Core.inRange(hsv, Scalar(90.0, 20.0, 60.0), Scalar(140.0, 130.0, 170.0), blue)
         Core.bitwise_or(streets, blue, streets)
@@ -240,7 +240,7 @@ object AreaNav {
             if (score > best) { best = score; bestDy = dy }
         }
         listOf(small, hsv, streets, blue, model, both).forEach { it.release() }
-        // the right layout fits 0.89-0.95, another map's up to 0.65 (Sea of Ice screenshots, 2026-11-15)
+        // the right layout fits 0.89-0.95, another map's up to 0.65
         val ok = best >= 0.75 && (bestDy == 0.0 || best - atZero >= 0.05)
         MacroLog.i("area map drawn ${"%.3f".format(bestDy)} lower (fit ${"%.2f".format(best)}, unshifted ${"%.2f".format(atZero)})${if (ok) "" else ": not clear, taken as 0"}")
         return if (ok) bestDy else 0.0

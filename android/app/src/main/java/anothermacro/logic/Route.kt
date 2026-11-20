@@ -133,8 +133,7 @@ object Route {
 
     /**
      * Frame-to-frame view change below this is a standing party; above [WALK_STEP] it walks.
-     * Walking reads 10-24 a frame; the encounter's screen stays at 0-6 (it shimmers a little)
-     * (three castle traces, 2026-11-12).
+     * Walking reads 10-24 a frame; the encounter's screen stays at 0-6.
      */
     private const val STILL_STEP = 7.0
     private const val WALK_STEP = 12.0
@@ -143,10 +142,8 @@ object Route {
     /** A still view this long (ms) after walking ends a hold to look for a battle. */
     private const val STILL_MS = 450L
     /**
-     * The same where the camera lags ([cameraLags]): the dark view there barely changes for moments in
-     * mid-walk, and 450 ms ended long holds early as "stood still" (4 times in one Sea of Ice run,
-     * 2026-11-15, each followed by a ~2.5 s battle wait and a ~3.5 s area-map look); 900 ms still did
-     * twice a run (5150 and 5813 ms holds), so 1.5 s. An encounter there flashes anyway.
+     * The same where the camera lags ([cameraLags]): the dark view there can barely change for
+     * moments in mid-walk, so a still view must last 1.5 s before it ends a hold.
      */
     private const val STILL_MS_LAGGING = 1500L
     /** Where the camera lags, a hold's last walking frame this long (ms) before its end is no early stop yet. */
@@ -159,10 +156,10 @@ object Route {
     private const val NORMAL_START_MS = 700L
 
     /**
-     * A dark scene where the camera waits before following (Sea of Ice, 2026-11-15): the view can stand
-     * still for the first second of a walk that started at once, so no late start is counted; a short
-     * hold may show no walking frame at all, which is no sign of an encounter there; and a still view
-     * must last longer ([STILL_MS_LAGGING]) before it ends a hold.
+     * A dark scene where the camera waits before following: the view can stand still for the first
+     * second of a walk that started at once, so no late start is counted; a short hold may show no
+     * walking frame at all, which is no sign of a battle there; and a still view must last longer
+     * ([STILL_MS_LAGGING]) before it ends a hold.
      */
     @Volatile var cameraLags = false
 
@@ -191,13 +188,13 @@ object Route {
         var noEffect = 0
         repeat(10) {
             // a battle is told by its own look (the screen going dark for the encounter, the battle
-            // HUD), never by the field's buttons: the game hides those while the party walks
+            // HUD), never by the field's buttons (hidden while the party walks)
             var lastField = 0L
             var frames = 0
             var dark = 0
-            // the encounter on the castle (trace 2026-11-12): the walking view (change 10-20 a frame)
-            // stops dead, then a white flash (brightness ~65 → 139), then a still screen for seconds
-            // before the battle HUD shows. Stop on the flash, or on a still view after walking
+            // the encounter: the walking view (change 10-20 a frame) stops dead, then a white flash
+            // (brightness ~65 → 139), then a still screen before the battle HUD shows. Stop on the flash,
+            // or on a still view after walking
             var walking = false
             var still = 0
             var lastWalk = 0L
@@ -222,19 +219,17 @@ object Route {
                 val darkAt = if (baseLevel > 0) minOf(t.darkLevel, baseLevel * DARK_SHARE) else t.darkLevel
                 when {
                     Battle.inBattle(ctx) -> { why = "battle screen"; true }
-                    // (relative too: Sea of Ice's field is ~35 and dimmed to 29-30 in places, which ended 3 holds
-                    // as "dark screen" with no battle, 2026-11-15; the castle's ~65 keeps the plain level)
+                    // (relative too: a darker field dims a little in places without a battle)
                     level < darkAt -> { if (++dark >= 2) why = "dark screen (${"%.0f".format(level)})"; dark >= 2 }
                     baseLevel > 0 && level > 100 && level > baseLevel * 1.6 -> { why = "flash (${"%.0f".format(level)})"; true }
                     // by time, not frames: the capture sends few frames while the screen stands still
                     walking && stepChange < STILL_STEP && held - lastWalk >= (if (cameraLags) STILL_MS_LAGGING else STILL_MS) -> { why = "view stood still"; true }
                     else -> {
                         dark = 0
-                        // (a single shimmer frame of 7-11 in the encounter's still screen doesn't restart the count:
-                        // seen 2026-11-12, a still screen for over a second that never ended the hold)
+                        // (a single shimmer frame of 7-11 in the encounter's still screen doesn't restart the count)
                         // (the screen brightening toward the flash moves too: not walking)
                         // only a walking frame (>= WALK_STEP) marks where the party still walked: a shimmer or the
-                        // brightening before the flash (7-11) came up to a second after the party stopped
+                        // brightening before the flash (7-11) can come after the party stopped
                         if (stepChange >= WALK_STEP && (baseLevel < 0 || level < baseLevel + 8)) { if (!walking) firstWalk = held; lastField = held; lastWalk = held; walking = true; still = 0 }
                         else if (stepChange < STILL_STEP) still++
                         baseLevel = if (baseLevel < 0) level else baseLevel * 0.9 + level * 0.1
@@ -253,7 +248,7 @@ object Route {
                 val seen = seen(ctx, l, listOf(p), "the view barely moved") { AreaNav.look(ctx) { emptyList() }.candidates.filter { segOf(l, it) != null }
                     .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) } }
                 if (seen != null && abs(seen.x - p.x) < 0.006 && abs(seen.y - p.y) < AreaNav.ROW_TOL) {
-                    // it didn't (seen right after a flick onto a street): wait, press a little higher, hold again
+                    // it didn't: wait, press a little higher, hold again
                     noEffect++
                     MacroLog.i("hold ${if (right) "R" else "L"} $holdMs walked nothing (view change ${"%.1f".format(moved)}, map x ${"%.3f".format(seen.x)}): again from (0.5, 0.55)")
                     press = Point(0.5, 0.55)
@@ -268,7 +263,7 @@ object Route {
             }
             val interrupted = interrupted0
             // the view stood still with the party already at the hold's goal (the street's end, a junction):
-            // that's arriving, not an encounter. Waiting for a battle there cost ~3 s at every junction (2026-11-12)
+            // that's arriving, not an encounter, so no wait for a battle
             if (interrupted && why == "view stood still" && !fight()) {
                 arrived(ctx, l, walked(l, p, right, left))?.let {
                     MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the view stood still at ${res.stoppedAtMs}ms with the party at its goal " +
@@ -280,8 +275,7 @@ object Route {
             // rather than taking the quiet screen for "no battle" and holding on into the encounter
             val battle = interrupted && (fight() || ((why?.startsWith("flash") == true || why == "view stood still") && awaitBattle(ctx) && fight()))
             val lag = if (why == "battle screen") t.hudLagMs else t.lagMs
-            // the party sometimes starts late (right after a chest's popup the hold did nothing for ~1 s,
-            // 2026-11-12); a walk usually shows by 0.5-0.9 s: count a later start as time not walked
+            // the party can start late; a walk shows by 0.5-0.9 s: count a later start as time not walked
             val lateStart = if (!cameraLags && frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
             if (lateStart > 0) MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the party started walking late (${firstWalk}ms)")
             val walkedMs = when {
@@ -305,11 +299,9 @@ object Route {
                 // a battle the screen checks missed: the party stopped somewhere along the way. Its
                 // screen can take seconds to show (the flash comes ~2 s after the party stops dead):
                 // wait until it does or the field's menu is back
-                // (where the camera lags, a short hold often shows no walking frame at all: that's no early
-                // stop; taking it for one waited ~3 s for a battle after most short holds, 2026-11-15)
-                // (and its last walking frame comes early: the walk shows late and the dark view settles early. A
-                // ~1 s hold onto a chest waited ~2.5 s for a battle about every other time, 2026-11-15: there an early
-                // stop counts only from [EARLY_LAGGING_MS] before the end)
+                // (where the camera lags, a short hold that shows no walking frame is no early stop, and the
+                // last walking frame comes early: there an early stop counts only from [EARLY_LAGGING_MS]
+                // before the end)
                 val earlyBefore = holdMs - if (cameraLags) EARLY_LAGGING_MS else 250L
                 val stoppedEarly = frames > 5 && lastField < earlyBefore && !(cameraLags && lastField == 0L)
                 if (stoppedEarly && !fight()) {
@@ -331,8 +323,7 @@ object Route {
                         val dw = t.distance(w.toDouble())
                         p = walked(l, pBefore, right, dw)
                         left = leftBefore - dw
-                        // (usually within ~0.005 of the area map's, but once 0.05 off after three battles in a
-                        // row, 2026-11-12: stairs still read the map first)
+                        // (it can drift off the area map's after several battles in a row: stairs still read the map first)
                         disturbed = true
                         MacroLog.i("a battle came after ${w}ms of the ${holdMs}ms hold (the view stopped there); " +
                             "${"%.3f".format(left.coerceAtLeast(0.0))} left from (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})")

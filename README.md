@@ -91,8 +91,7 @@ then added to `macros/<group>/` here, for everyone. The format is in
 - [docs/writing-scenarios.md](docs/writing-scenarios.md): this game's macros, its Kotlin steps and input notes
 - macro-forge: [writing macros](../../../macro-forge/blob/main/docs/writing-macros.md), [the Android app](../../../macro-forge/blob/main/docs/android-app.md), [the logic pack](../../../macro-forge/blob/main/docs/logic-pack.md), [the game profile](../../../macro-forge/blob/main/docs/game-profile.md)
 - [docs/dungeon-macros-plan.md](docs/dungeon-macros-plan.md): every Another Dungeon and the plan for their macros
-- [docs/knowledge-base/](docs/knowledge-base/README.md): what the wiki and other sources say about the game (dungeons, Cat Scratchbook)
-- [docs/dungeons/](docs/dungeons/README.md): what the project learned about each dungeon on the phone
+- [docs/knowledge-base/](docs/knowledge-base/README.md): everything known about the game, split into what outside sources say (`external/`: the wiki, Altema) and what the project learned itself while building and testing macros (`learned/`)
 - [android/README.md](android/README.md): what this app adds to the core, build and releases
 
 ## Development

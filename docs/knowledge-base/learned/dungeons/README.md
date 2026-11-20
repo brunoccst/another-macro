@@ -1,19 +1,20 @@
 # Another Dungeons: what the project learned on the phone
 
 Notes the project wrote while mapping and running dungeons with the app. Facts from the wiki are
-in [the knowledge base](../knowledge-base/README.md) instead
-([how Another Dungeons work](../knowledge-base/another-dungeon.md),
-[every dungeon](../knowledge-base/another-dungeon-list.md)). The plan for one macro per dungeon:
-[dungeon-macros-plan.md](../dungeon-macros-plan.md).
+in [the knowledge base](../../README.md) instead
+([how Another Dungeons work](../../external/another-dungeon.md),
+[every dungeon](../../external/another-dungeon-list.md)). The plan for one macro per dungeon:
+[dungeon-macros-plan.md](../../../dungeon-macros-plan.md). The White Key dimension:
+[phantom-crystal.md](../phantom-crystal.md).
 
 ## Per dungeon
 
 | Dungeon | Mapping notes | Wiki facts |
 |---|---|---|
-| Burning Beast King's Castle | [burning-beast-kings-castle.md](burning-beast-kings-castle.md) | [knowledge base](../knowledge-base/dungeons/burning-beast-kings-castle.md) |
-| Dogma Tower | [dogma-tower.md](dogma-tower.md) | [knowledge base](../knowledge-base/dungeons/dogma-tower.md) |
-| Moonlight Forest | [moonlight-forest.md](moonlight-forest.md) | [knowledge base](../knowledge-base/dungeons/moonlight-forest.md) |
-| Sea of Ice | [sea-of-ice.md](sea-of-ice.md) | [knowledge base](../knowledge-base/dungeons/sea-of-ice.md) |
+| Burning Beast King's Castle | [burning-beast-kings-castle.md](burning-beast-kings-castle.md) | [knowledge base](../../external/dungeons/burning-beast-kings-castle.md) |
+| Dogma Tower | [dogma-tower.md](dogma-tower.md) | [knowledge base](../../external/dungeons/dogma-tower.md) |
+| Moonlight Forest | [moonlight-forest.md](moonlight-forest.md) | [knowledge base](../../external/dungeons/moonlight-forest.md) |
+| Sea of Ice | [sea-of-ice.md](sea-of-ice.md) | [knowledge base](../../external/dungeons/sea-of-ice.md) |
 | Underworld | [underworld.md](underworld.md) | not shared yet |
 
 ## Every dungeon (seen on the phone)
@@ -67,22 +68,30 @@ in [the knowledge base](../knowledge-base/README.md) instead
   a flick before it's taken as a street change) are tuned live from the log lines
   "walk ... stopped after" and "flick U: screen change N".
 
-## The Phantom Crystal Dimension (White Key, `phantom-crystal`)
-
-Seen live on 2026-11-02: door "!" → "???" tab (glows) → "Phantom Crystal Dimension" → Hard
-("Using White Key×1", Back / Skip / Move: never Skip) → Move. No enemies, no area map; the
-bottom bar has only Menu and Rewards. World I (the first room): no chests; the king cat and the
-notice board open the paw stamp menu (Cancel); drawer/window/bed are portals (no
-confirmation, a white fade). Other worlds: the standard red-and-gold chests (their "!" shows
-only when close), one cat with a "!" (a paw stamp), and portals (a "!" on scenery). The Cape:
-4 chests (10,000 Git, Medium Class Scroll ×5, Broken Club, Cat Express Ticket ×1-5), a cat,
-and a "!" on the stairs out → Congratulations → autosave → the Another Dungeon map. "!"
-bubbles are drawn at different sizes per world (scales 0.8-1.35 of the template).
-
-## 5. Test
+## Test
 
 Build (CI `android.yml`), install, re-allow screen capture, and run from next to the
 Another Dungeon door with the live log on. Check the run report at the end (time,
 chests n/total, items) and `adb logcat -s MacroForge:I` for "no chest found",
 "gave up walking" or many looks at the same stairs: those mean a position in the data
 is off. Fix it and run again.
+
+## What the macro's checks are based on
+
+- **The panel's counters**: green keys "/10" or "/9", red keys "/5", Cat Express Tickets "/50";
+  OCR reads 0 as O at times ("16/5O") and can join two counters ("5/515/50"). A counter OCR
+  misses shifts the rest, so each is told by its denominator.
+- **Labels on the Another Dungeon map**: the map keeps its last pan, so a label can sit half
+  hidden under the era icons ("Dogma TovSealed"), cut by the left edge ("lel Time Layer") or under
+  the app's floating buttons ("Dogma Towe" at x 0.93). A drag that starts on the islands in the
+  middle (0.49, 0.65) doesn't pan the Present map (2026-11-11); the Present map can't pan the
+  Parallel Time Layer label further left than x 0.78 (2026-11-18).
+- **The "???" tab** opens on the continent of its last trip (Underworld after an Underworld run);
+  the Spacetime Rift is on Illusion World. A "!" over a tree NPC near the door sits higher than
+  the door's.
+- **"please include" box**: it sits over the party list, so the next OCR line is a party member or
+  the screen's title "Dungeon" (2026-11-18). A place's box ("Parallel Time Layer", Sea of Ice's
+  "Glacial Place") can stay open over the panel, so the close missed it (2026-11-18).
+- **Safety words**: talk in dungeons uses "buy" without any sale, so "buy " is not one of the
+  words the dungeon run stops on.
+- **Walk table** (`walk.yaml`): right holds measured in Dogma Tower map 1 on 2026-11-02.

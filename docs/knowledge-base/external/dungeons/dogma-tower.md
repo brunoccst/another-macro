@@ -2,7 +2,7 @@
 
 Source: anothereden.wiki, page "Dogma Tower (Another Dungeon)" (saved 2026-11-20, revision
 319644). Facts only; no game art. The project's own mapping notes:
-[docs/dungeons/dogma-tower.md](../../dungeons/dogma-tower.md).
+[learned/dungeons/dogma-tower.md](../../learned/dungeons/dogma-tower.md).
 
 ## Overview
 

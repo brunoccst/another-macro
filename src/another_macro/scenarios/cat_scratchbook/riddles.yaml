@@ -1,6 +1,6 @@
 # Cat Scratchbook clue -> where the cat is, read by the daily cat macro (CatDaily.kt): it matches
 # the clues it reads on screen against `text` and travels to `location` (keyed in cat_spots.yaml).
-# The clue table comes from the wiki: docs/knowledge-base/cat-scratchbook.md.
+# The clue table comes from the wiki: docs/knowledge-base/external/cat-scratchbook.md.
 # Keys with a template in templates/library.yaml are recognised on screen; capture the
 # first line of a new clue as `riddle_<words>` (the key below) to make it recognisable.
 riddle_a_peaceful_and_lovely_seaside:

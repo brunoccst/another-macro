@@ -16,9 +16,9 @@
 #     the field ("Close the app?"), and if that dialog shows anyway, answer No
 #   - the game's reward dialog (or the premium thank-you): tap OK / Close and stop
 #   - the caller's own screen back (its `until:`): stop there
-#   - a commercial that opens a Google Play app sheet by itself (often ~45 s in): Back closes the
+#   - a commercial that opens a Google Play app sheet by itself: Back closes the
 #     sheet (never tap anything in Play: no installs, no purchases), then the usual Backs close the
-#     commercial behind it (tapping its X only pulled down the status bar)
+#     commercial behind it
 #   - a commercial that won't close (a playable one with no X, not even on its end card, and Back
 #     ignored): after leave_after Backs, leave it once: Home, then the game's own screen (leave_ad;
 #     the game carries on, the reward is usually lost). Still there after that (some come straight
@@ -180,7 +180,7 @@ unknown:
                   - wait: 2
           # Backs don't close it (a playable commercial with no X): leave it, Home then the game's own
           # screen; the branch above ends the group once the game is back
-          # (once left, a commercial still on 20 s later came back by itself: no more Backs for it)
+          # (once left, a commercial still on later is not given more Backs)
           - if: (tries >= leave_after and now() - last_back > 5) or (leaves >= 1 and now() - since > 20)
             then:
               # left once and it is still (or again) on: force-close the game, the caller starts it again

@@ -3,7 +3,7 @@
 Source: anothereden.wiki, page "Cat Scratchbook" (saved 2026-11-20, revision 343355). Facts
 only; no game art. The daily macro's data: `riddles.yaml` (clue -> place) and `cat_spots.yaml`
 (how the app reaches each place); the project's own notes on the spots:
-[docs/cat-scratchbook-spots.md](../cat-scratchbook-spots.md).
+[learned/cat-scratchbook.md](../learned/cat-scratchbook.md).
 
 ## Unlocking
 
