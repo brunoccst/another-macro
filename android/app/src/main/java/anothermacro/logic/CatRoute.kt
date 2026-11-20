@@ -143,10 +143,27 @@ object CatRoute {
         if (feather != null && (abs(feather.y - catSeg.y) > AreaNav.ROW_TOL * 2 || feather.x < lo - 0.03 || feather.x > hi + 0.03))
             MacroLog.i("${s.location}: the feather icon read at ${fmt(feather)} isn't where this cat starts or wanders " +
                 "(a look-alike icon, or fix area.cat/drift); following the path anyway")
+        // the trip didn't land at the usual arrival (Baruoki: two different spots on two days) but the
+        // marker is on a street of the layout: walk the layout from there, reading the map as it goes
+        val atArrival = party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL && abs(party.x - arrival.x) < 0.025
+        var elsewhere = view.candidates.firstOrNull { Route.segOf(l, it) != null }
+        if (!atArrival && elsewhere != null) {
+            // a second look: the marker pulses and a gold map icon can pass for it (Ratle's inn), so
+            // only a spot read twice, with nothing at the arrival, counts
+            val again = AreaNav.look(ctx) { emptyList() }.candidates
+            val near = again.any { abs(it.y - arrival.y) < AreaNav.ROW_TOL && abs(it.x - (arrival.x + shift)) < 0.025 }
+            if (near || again.none { abs(it.x - elsewhere!!.x) < 0.02 && abs(it.y - elsewhere!!.y) < AreaNav.ROW_TOL }) elsewhere = null
+        }
+        if (!atArrival && elsewhere != null) {
+            MacroLog.i("${s.location}: the party is at ${fmt(elsewhere)}, not the usual arrival ${fmt(arrival)}: walking the layout to the cat")
+            settle(ctx)
+            if (!AreaNav.walkLayout(ctx, l, cat, onStep = { fight() })) { MacroLog.i("${s.location}: couldn't walk the layout to the cat"); return null }
+            return Triple(maxOf(catSeg.x1, cat.x - s.driftLeft), minOf(catSeg.x2, cat.x + s.driftRight), catSeg.y)
+        }
         // only a marker read close to the arrival counts (in Ratle a gold inn icon at (0.548, 0.509)
         // passes the marker filter while the real marker is faint)
-        val start = if (party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL && abs(party.x - arrival.x) < 0.025)
-            Point(party.x, Route.segOf(l, party)?.y ?: arrival.y)
+        val start = if (atArrival)
+            Point(party!!.x, Route.segOf(l, party)?.y ?: arrival.y)
             else Point(arrival.x + shift, arrival.y).also { MacroLog.i("${s.location}: party marker not read at the arrival; taking the arrival spot") }
         val w = Walk(l, table(ctx, s.walkScale), start, Point(arrival.x + shift, arrival.y))
         settle(ctx) // the area map just closed
