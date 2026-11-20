@@ -56,9 +56,9 @@ def test_every_dungeon_macro_is_in_the_list():
             assert f.stem in named, f.stem
 
 
-def test_dungeon_keys_offers_every_dungeon_of_each_colour():
-    """dungeon-keys lists, per key colour, every dungeon macro with that colour's key switch."""
-    params = yaml.safe_load((MACROS / "dungeon-keys.yaml").read_text(encoding="utf-8"))["params"]
+def test_daily_routine_offers_every_dungeon_of_each_colour():
+    """The daily routine lists, per key colour, every dungeon macro with that colour's key switch."""
+    params = yaml.safe_load((ROOT / "macros/daily/daily-routine.yaml").read_text(encoding="utf-8"))["params"]
     for colour in ("red", "green"):
         takes = {f.stem for f in MACROS.glob("*.yaml")
                  if f"{colour}_key" in (yaml.safe_load(f.read_text(encoding="utf-8")).get("params") or {})}

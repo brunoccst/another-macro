@@ -62,7 +62,6 @@ Where to start each macro:
 |---|---|
 | `daily-routine`, `start-game`, `stop-game` | anywhere (the game may be closed) |
 | `daily-ads`, `shop-ad`, `inbox`, `cat-scratchbook` | the game's field (or closed: they start it) |
-| `dungeon-keys` | the game's field (each dungeon macro it runs travels to the door) |
 | `dogma-tower`, `burning-beast-kings-castle` | the field, next to the Another Dungeon door |
 | `phantom-crystal` | next to the shining Another Dungeon door, holding a White Key |
 | `grind-battles` | a map with random encounters |
