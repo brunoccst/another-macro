@@ -18,7 +18,7 @@ class CatMapDragTest {
     }
 
     @Test fun dragStartAvoidsALabel() {
-        // the phone, 2026-11-17: "The Riftbreaker" sat right where the sweep's drags started
+        // a label right where the sweep's drags start
         val labels = listOf(label("The Riftbreaker", 0.72, 0.53))
         val p = CatDaily.dragStart(-0.4, 0.0, labels)
         assertEquals(0.7, p.x, 1e-9)

@@ -2,7 +2,7 @@
 
 Source: anothereden.wiki, page "Burning Beast King's Castle (Another Dungeon)" (saved
 2026-11-20, revision 319646). Facts only; no game art. The project's own mapping notes:
-[docs/dungeons/burning-beast-kings-castle.md](../../dungeons/burning-beast-kings-castle.md).
+[learned/dungeons/burning-beast-kings-castle.md](../../learned/dungeons/burning-beast-kings-castle.md).
 
 ## Overview
 

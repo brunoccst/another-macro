@@ -1,16 +1,12 @@
 """Deterministic routes to the Cat Scratchbook cats (`another-macro cat-routes`).
 
-Each scratchbook clue points at a fixed place, and the cat always starts at the same spot on
-that place's map (it wanders a little from there, always along the same street). So, like the
-Another Dungeon paths (dungeon_routes.py), the whole trip can be a fixed list of actions:
+Like the Another Dungeon paths (dungeon_routes.py), the whole trip to a cat is a fixed list of
+actions (how the cats move: docs/knowledge-base/learned/cat-scratchbook.md):
 
-1. **Point zero** (the user): the World Map on the Present era with Baruoki's label on screen.
-   Baruoki is the game's first map, so every account has it; other places, and even the Expand
-   button, only show once the story unlocks them.
+1. **Point zero**: the World Map on the Present era with Baruoki's label on screen.
 2. **World map**: the era tab (if not Present) and Expand -> continent (only when set), then the
-   place's label by OCR. Each era tab opens where that era's last trip went (measured on the
-   phone), so a label has no fixed screen spot; the search starts from that view. Then the
-   sub-location's panel entry (`sub`) and Yes.
+place's label by OCR (a label has no fixed screen spot; the search starts from the view the
+era tab opens). Then the sub-location's panel entry (`sub`) and Yes.
 3. **Area map**: the party arrives at a fixed spot (`area.arrival`); the fixed moves (`path`,
    generated here from the street layout, the walk table and the map's `walk_scale`) take it to
    the cat's start (`area.cat`).
@@ -44,7 +40,7 @@ def load_spots(path: Path = SPOTS) -> dict[str, dict]:
 
 
 def scaled(t: dr.WalkTable, scale: float) -> dr.WalkTable:
-    """The walk table for a map whose area map is drawn [scale] times as large as Dogma Tower's.
+    """The walk table for a map whose area map is drawn [scale] times as large as walk.yaml's.
 
     The same hold walks the same distance in the game, but each area map has its own zoom, so
     the distance in area-map units differs by map (measured once per map: hold R 3000 from rest
@@ -180,9 +176,8 @@ def bridge_icons(m: dict, max_gap: float = 0.1, reach: float = 0.05) -> list[str
     """Close the street gaps the party marker and the feather leave in the survey's street read.
 
     The icons are drawn on the street and aren't street-grey, so the read splits a street where
-    they sit (seen 2026-11-18: Sky Fortress Eeza's arrival and cat both fell in such gaps). Two
-    pieces of one row either side of the icon become one street; a lone piece reaching toward it
-    is stretched to it. Returns what was changed (for the notes).
+    they sit. Two pieces of one row either side of the icon become one street; a lone piece
+    reaching toward it is stretched to it. Returns what was changed (for the notes).
     """
     segs = [list(s) for s in m.get("segs") or []]
     done = []

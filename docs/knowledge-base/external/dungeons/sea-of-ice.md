@@ -3,7 +3,7 @@
 Source: anothereden.wiki, page "Sea of Ice (Another Dungeon)" (saved 2026-11-20, revision
 325485). Facts only; no game art. Several values on this page are still placeholders on the
 wiki ("x%", "add"); they are left out here. The project's own mapping notes:
-[docs/dungeons/sea-of-ice.md](../../dungeons/sea-of-ice.md).
+[learned/dungeons/sea-of-ice.md](../../learned/dungeons/sea-of-ice.md).
 
 ## Overview
 

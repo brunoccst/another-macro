@@ -36,27 +36,13 @@ White Key and the collect switches change). Change what such a step does, change
 too. `another_dungeon` and `cat_daily` fight with the basic macro `battle`, so macros using them
 take over `battle`'s options (`stepUses`).
 
-## Game input notes (learned on the phone)
+## Macro notes for this game
 
-- **Walking is a virtual stick.** The party walks in the direction a held finger *slides*, not
-  toward the side of the screen you press. Press mid-screen and slide a little left or right
-  (`walk:` or `drag:`); a hold that drifts the wrong way walks the wrong way.
-- **Battles start with an intro animation** with no HUD; it shows as `unknown` for a second or
-  two before the command screen.
-- **Closing the game:** Android back on the field opens "Close the app?"; Yes exits cleanly
-  (`stop-game`). Starting: splash → title ("Game Id..." while connecting, then "Continue") → tap
-  → field (`start-game`).
-- **Ads:** the first `start-game` of the day always takes "Watch Video" on the login-bonus ad
-  offer; that reward goes to the inbox. Each watch button (login, the 5 daily chests, the shop)
-  can play 1-3 commercials before the reward. Some end with "Reward granted", others only with a
-  progress bar; `watch-ad` closes them with Back (also a Google Play sheet a commercial opens)
-  and takes the reward dialog. With the premium subscription a "Thank you for subscribing"
-  dialog replaces the ad (Close).
-- **Battles (`Battle.kt`):** each front-row character's skill row is 5 boxes: normal attack,
-  then skills 1-4 (x 0.177 / 0.346 / 0.499 / 0.653 / 0.807, y 0.759 on a 20:9 screen). Not every
-  character has 4 skills; a missing or unusable one leaves the list open, and the normal attack
-  closes it. Tapping the portrait again does not close it.
-- **Another Dungeons:** see `.claude/skills/map-dungeon/SKILL.md` (entry, Skip, the "Continue to
+How the game behaves on the phone (walking, battles, ads, closing the game) is in the knowledge
+base: [learned/playing-on-the-phone.md](knowledge-base/learned/playing-on-the-phone.md).
+
+- **Another Dungeons:** see `.claude/skills/map-dungeon/SKILL.md` and
+  [learned/dungeons/](knowledge-base/learned/dungeons/README.md) (entry, Skip, the "Continue to
   skip?" box, the boss gate, the area map's quirks, what never to tap).
 - **Cat Scratchbook routes:** `scenarios/cat_scratchbook/templates/cat_spots.yaml` holds, per
   clue location, the era, continent, place, sub-location, and on the area map the arrival spot,

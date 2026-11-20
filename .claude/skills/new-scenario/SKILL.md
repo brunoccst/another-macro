@@ -20,11 +20,12 @@ Note: the live wiki can be Cloudflare-gated for automated fetches. If a page won
 load, try Altema, the wiki's `?action=raw` page source, or ask the user for a
 screenshot.
 
-Start from what the repo already knows: `docs/knowledge-base/` (facts from the wiki and other
-sources) and the project's own notes in `docs/` (e.g. `docs/dungeons/`). Write what you learn
-there, not into code: sourced facts go to `docs/knowledge-base/` (text only, no images, with the
-page and revision), what you find on the phone to the other `docs/` pages. Macros, YAML data and
-Kotlin only carry what they run on, and their comments only say what the code does.
+Start from what the repo already knows: the knowledge base `docs/knowledge-base/`, with facts
+from the wiki and other sources in `external/` and what the project learned itself in `learned/`.
+Write what you learn there, not into code: sourced facts go to `docs/knowledge-base/external/`
+(text only, no images, with the page and revision), what you find on the phone or while testing
+to `docs/knowledge-base/learned/` (dated). Macros, YAML data and Kotlin only carry what they run
+on, and their comments only say what the code does.
 
 Write down, as a numbered flow:
 

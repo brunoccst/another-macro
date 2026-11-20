@@ -1,6 +1,6 @@
 # The Another Dungeons the another_dungeon action (AnotherDungeon.kt) runs: each map's layout
 # and the fixed walk through it. Game knowledge and mapping notes are not kept here: see
-# docs/dungeons/<dungeon>.md (found on the phone) and docs/knowledge-base/ (wiki facts).
+# docs/knowledge-base/ (learned/dungeons/<dungeon>.md: found on the phone; external/: wiki facts).
 #
 # Positions are fractions of the screen as the opened area map shows them:
 #   segs:     streets, [y, x_from, x_to]
@@ -26,7 +26,7 @@
 # area map. exit_walk: the way on is walking off the screen's edge at `exit` (no sign).
 # exit_sign: only this sign template counts as the exit.
 # key_cost: keys one run takes. area_of: another chest area of that dungeon (the macro's area option).
-# notes: docs/dungeons/dogma-tower.md
+# notes: docs/knowledge-base/learned/dungeons/dogma-tower.md
 dogma_tower:
   name: Dogma Tower
   era: Present
@@ -70,7 +70,7 @@ dogma_tower:
       boss: true
       chests_count: 1
 
-# notes: docs/dungeons/burning-beast-kings-castle.md
+# notes: docs/knowledge-base/learned/dungeons/burning-beast-kings-castle.md
 burning_beast_kings_castle:
   name: Burning Beast King's Castle
   era: Present
@@ -121,7 +121,7 @@ burning_beast_kings_castle:
       enemies: false
       steps: [boss L]
 
-# notes: docs/dungeons/sea-of-ice.md
+# notes: docs/knowledge-base/learned/dungeons/sea-of-ice.md
 sea_of_ice:
   name: Sea of Ice
   era: Antiquity
@@ -190,7 +190,7 @@ sea_of_ice:
       chests_count: 1
       steps: [chest L 2000, boss L]
 
-# notes: docs/dungeons/moonlight-forest.md
+# notes: docs/knowledge-base/learned/dungeons/moonlight-forest.md
 moonlight_forest:
   name: Moonlight Forest
   era: Present
@@ -234,7 +234,7 @@ moonlight_forest:
       chests_count: 1
       steps: [chest L 1000, boss L]
 
-# notes: docs/dungeons/underworld.md
+# notes: docs/knowledge-base/learned/dungeons/underworld.md
 underworld:
   name: Underworld
   era: "???"
@@ -274,7 +274,7 @@ underworld:
       chests_count: 1
       steps: [chest R 1000, boss L]
 
-# notes: docs/dungeons/underworld.md
+# notes: docs/knowledge-base/learned/dungeons/underworld.md
 underworld_cathedral:
   name: Underworld
   area_of: underworld
@@ -325,7 +325,7 @@ underworld_cathedral:
       chests_count: 1
       steps: [chest R, U, bubble, boss R]
 
-# notes: docs/dungeons/underworld.md
+# notes: docs/knowledge-base/learned/dungeons/underworld.md
 underworld_tomb:
   name: Underworld
   area_of: underworld
@@ -359,7 +359,7 @@ underworld_tomb:
       chests_count: 1
       steps: [chest R, boss L]
 
-# notes: docs/dungeons/underworld.md
+# notes: docs/knowledge-base/learned/dungeons/underworld.md
 underworld_ark:
   name: Underworld
   area_of: underworld

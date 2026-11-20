@@ -12,25 +12,22 @@ import org.opencv.imgproc.Imgproc
 import kotlin.math.abs
 
 /**
- * The Phantom Crystal Dimension (anothereden.wiki/w/Phantom_Crystal_Dimension), with the White
- * Key a finished Another Dungeon run can drop (10%):
+ * The Phantom Crystal Dimension, entered with a White Key:
  *
  *  1. the "!" over the Another Dungeon door → the glowing "???" tab → "Phantom Crystal
  *     Dimension" → Hard ("Using White Key×1") → Move;
- *  2. every world: open every chest (each shows a "!" when the party is close), tap the cats
- *     (a paw stamp each), then take a portal (any other "!": the outcome was decided when the
- *     key dropped, so which one doesn't matter). World I has no chests; its king cat and
- *     notice board open the paw stamp menu, which is cancelled (claiming is left to you);
- *  3. bonus worlds (Ratle shop, Nuaru Uplands, Izana) move on by themselves once emptied;
+ *  2. every world: open every chest (each shows a "!" when the party is close), tap the cats,
+ *     then take a portal (any other "!"). A "!" that opens the paw stamp menu is cancelled
+ *     (claiming is left to the user);
+ *  3. a world that moves on by itself once emptied is followed;
  *  4. the Cape or the final world: its chests, then the "!" on the stairs out; Congratulations;
- *  5. an NPC (final world, sometimes the Cape) offers a free Treatise/Codex/Opus of
- *     your choice: in the Last World the run stops after the chests, before talking to the
- *     Sensationalist, so the user talks to them and chooses. In the World's Cape he is only
- *     sometimes there: the run looks for his "!" (never talking to him) and stops for the user only when
- *     he's there; otherwise it takes the stairs out and finishes the dimension.
+ *  5. the Last World: the run stops after the chests, before talking to the Sensationalist, so
+ *     the user talks to them and chooses the reward. The World's Cape: the run looks for their "!"
+ *     (never talking to them) and stops for the user only when it is there; otherwise it takes
+ *     the stairs out and finishes the dimension.
  *
- * There are no enemies and no area map. Nothing is bought: every tap goes through the same
- * purchase guard as the rest of the app.
+ * No area map is used. Nothing is bought: every tap goes through the same purchase guard as the
+ * rest of the app. The dimension itself: docs/knowledge-base/learned/phantom-crystal.md.
  */
 object PhantomCrystal {
     private const val ICONS = "templates/another_dungeon/"
@@ -72,7 +69,7 @@ object PhantomCrystal {
     private fun inner(r: Run): String {
         val ctx = r.ctx
         // a world's title or an item banner hides the field's buttons for a few seconds: look again before
-        // taking this for the outside (twice the "door" tapped was a chest inside, 2026-11-12)
+        // taking this for the outside
         var isInside = inside(ctx)
         for (i in 0 until 6) {
             if (isInside) break
@@ -100,7 +97,7 @@ object PhantomCrystal {
         if (ctx.find("field_menu_button") == null) return false
         // OCR may read the bar as one line ("Menu Rewards")
         val words = ctx.readText(Region(0.0, 0.82, 0.6, 0.18)).flatMap { Ocr.norm(it.text).split(' ') }
-        // ...or as one word ("MenuRewards", world V 2026-11-12)
+        // ...or as one word ("MenuRewards")
         return words.any { "rewards" in it } && words.none { it == "quests" || it == "map" || it == "diary" || "quests" in it || "diary" in it }
     }
 
@@ -144,7 +141,7 @@ object PhantomCrystal {
      */
     private fun clearWorld(r: Run): Next {
         val ctx = r.ctx
-        // the world's title banner ("Phantom Crystal Dimension Last World") shows for a few seconds on arrival
+        // the world's title banner ("Phantom Crystal Dimension <world>") shows for a few seconds on arrival
         repeat(4) {
             ctx.refresh()
             val title = ctx.readText(Region(0.1, 0.0, 0.8, 0.3)).joinToString(" ") { Ocr.norm(it.text) }
@@ -175,14 +172,13 @@ object PhantomCrystal {
             walk(ctx, dir, 700)
             if (!moved(ctx, before)) { ends++; dir = -dir }
         }
-        // the Last World: its chests are taken; the Sensationalist's free Treatise/Codex/Opus is the user's choice
+        // the Last World: its chests are taken; the Sensationalist's reward is the user's choice
         if (r.last) ctx.stop("Last World: chests taken; the Sensationalist is left for you (free Treatise/Codex/Opus of your choice, then the way out)")
-        // the Sensationalist can wait in the Cape too (the user, 2026-11-12): never take the way out there, the
-        // user looks and finishes the dimension (no way to tell him on screen yet)
+        // the Cape: never take the way out while the Sensationalist may be there; the user looks and
+        // finishes the dimension
         if (r.cape) {
             capeCats(r)
-            // the Sensationalist is only sometimes in the Cape (the user, 2026-11-18: the run stopped for him
-            // when he wasn't there): stop only when his "!" is seen, else take the stairs out
+            // stop only when the Sensationalist's "!" is seen, else take the stairs out
             if (sensationalistInCape(r)) ctx.stop("World's Cape: the Sensationalist is here! Chests and cat taken; " +
                 "talk to him and choose your free Treatise/Codex/Opus, then take the stairs out")
             return capeExit(r)
@@ -221,10 +217,8 @@ object PhantomCrystal {
         val ctx = r.ctx
         MacroLog.i("World ${r.world}: tapping the \"!\" at (${"%.2f".format(b.x)}, ${"%.2f".format(b.y)})")
         ctx.tapExact(b); ctx.wait(1.0)
-        // the chest's banner can take ~3 s to show (read at 2 s it was blank, and the run then waited for a
-        // new world with the banner open, 2026-11-12): read until there's text, a fade, or ~4.5 s
-        // (the app's own "AM" badge is always read: it is no banner, so it doesn't end the wait; with it counted,
-        // most chests' banners were only caught 2-5 s later as "late banners", 2026-11-16)
+        // the chest's banner can take ~3 s to show: read until there's text, a fade, or ~4.5 s
+        // (the app's own "AM" badge is always read: it is no banner, so it doesn't end the wait)
         fun game() = ctx.readText().filter { Ocr.norm(it.text) != "am" }
         var lines = game()
         val readUntil = System.currentTimeMillis() + 3500
@@ -236,9 +230,8 @@ object PhantomCrystal {
         MacroLog.i("World ${r.world}: \"!\" shows: ${lines.joinToString(" | ") { it.text }.take(120)}")
         when {
             "treatise" in all || "codex" in all || "opus" in all || "sensationalist" in all -> ctx.stop("an NPC offers a free Treatise/Codex/Opus: choose it yourself")
-            // the game autosaves on arriving in a world: the last straw dummy of a bonus room moved the party on
-            // with no fade the watcher saw, and the run went on in the jungle as "world 2" until it stopped with
-            // "no way out" (2026-11-16)
+            // arriving in a world can come with no fade the watcher sees (an autosave): the world's title
+            // is checked too
             "autosaving" in all -> { MacroLog.i("World ${r.world}: autosave: a new world"); ctx.wait(1.5); return Taken.LEFT }
             "stamp" in all && ("you got" in all || "filled out" in all) -> {
                 r.stamps++; MacroLog.i("paw stamp"); dismiss(ctx); return Taken.SOME
@@ -266,9 +259,9 @@ object PhantomCrystal {
     }
 
     /**
-     * The World's Cape's cat sits still, so the walking-cat check never took it (the user got its stamp by hand,
-     * 2026-11-16). Walk the Cape in short steps and tap each still "!" that is neither the stairs out (a "!" with
-     * the floor's up arrow under it, high at y ~0.23) nor a person (their "!" sits higher than a cat's ~0.29).
+     * The World's Cape's cat sits still, so the walking-cat check doesn't take it. Walk the Cape in
+     * short steps and tap each still "!" that is neither the stairs out (a "!" with the floor's up
+     * arrow under it, high at y ~0.23) nor a person (their "!" sits higher than a cat's ~0.29).
      */
     private fun capeCats(r: Run) {
         val ctx = r.ctx
@@ -279,7 +272,7 @@ object PhantomCrystal {
         for (step in 0 until 30) {
             val f = ctx.refresh()
             val still = notStairs(ctx, f)
-            // two "!"s off the stairs: the cat and a person (the Sensationalist), whose "!" sits higher: never tap him
+            // two "!"s off the stairs: the cat and a person (the Sensationalist), whose "!" sits higher: never tap them
             val top = if (still.size >= 2) still.minByOrNull { it.y }!!.y else -1.0
             val cats = still.filter { b ->
                 b.y > CAT_MIN_Y && b.y > top + 0.015 && r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 }
@@ -306,8 +299,8 @@ object PhantomCrystal {
     }
 
     /**
-     * The stairs out's "!": the floor's up arrow under it, or (the Cape has no such arrow, 2026-11-18: its stairs "!"
-     * at y 0.23-0.24 was taken for the Sensationalist and the run stopped for nobody) a "!" this high on screen.
+     * The stairs out's "!": the floor's up arrow under it, or (where there is no such arrow) a "!"
+     * this high on screen.
      */
     private fun isStairs(b: Point, ups: List<Point>) = b.y < STAIRS_MAX_Y || ups.any { overArrow(b, it) }
 
@@ -316,10 +309,10 @@ object PhantomCrystal {
     private fun overArrow(b: Point, up: Point) = abs(up.x - b.x) < 0.08 && up.y > b.y && up.y - b.y < 0.45
 
     /**
-     * Is the Sensationalist in the World's Cape? Looked for without talking to him (the user picks the reward):
-     * besides the stairs out, the Cape's only "!"s are the cat's and his, and his sits higher than the cat's
-     * (he is a person, the cat is small; he stands just right of the cat). Walks the whole Cape in short steps.
-     * When unsure it says yes: missing his free Treatise/Codex/Opus costs more than a stop for nothing.
+     * Is the Sensationalist in the World's Cape? Looked for without talking to them (the user picks
+     * the reward): besides the stairs out, the Cape's only "!"s are the cat's and theirs, and theirs
+     * sits higher than the cat's. Walks the whole Cape in short steps. When unsure it says yes: a
+     * missed reward costs more than a stop for nothing.
      */
     private fun sensationalistInCape(r: Run): Boolean {
         val ctx = r.ctx
@@ -376,8 +369,8 @@ object PhantomCrystal {
         val ctx = r.ctx
         // the unfolded floating buttons' label can sit over a "!" near the right edge and hide it from the match
         if (InputService.instance?.controls(true)?.first == true) Thread.sleep(400)
-        // a door's "!" shows only when the party stands close to it (the water palace, 2026-11-12: walks of
-        // 2.5 s went past it): walk the world in short steps, one way to its end, then back
+        // a door's "!" shows only when the party stands close to it: walk the world in short steps,
+        // one way to its end, then back
         var dir = 1.0
         var ends = 0
         for (step in 0 until 40) {
@@ -447,7 +440,7 @@ object PhantomCrystal {
 
     // --- helpers ------------------------------------------------------------------------
     private fun noteItem(r: Run, lines: List<Ocr.Line>) {
-        // OCR can split the count off the name ("Obtained Cat Express Ticket" | "x3.", 2026-11-16): join them back
+        // OCR can split the count off the name ("Obtained <item>" | "x3."): join them back
         val texts = mutableListOf<String>()
         for (l in lines) {
             if (texts.isNotEmpty() && Regex("""^\s*[x×X]\s*[0-9OoIl]""").containsMatchIn(l.text) &&
@@ -467,8 +460,8 @@ object PhantomCrystal {
         }
     }
 
-    // the item and stamp popups are a banner at the top: a tap low on the screen left one open in the
-    // World's Cape for minutes (2026-11-12), a tap on the banner closes it
+    // the item and stamp popups are a banner at the top: a tap on the banner closes it (a tap low on
+    // the screen can leave it open)
     private fun dismiss(ctx: Context) { MacroLog.i("closing the banner"); ctx.tap(Point(0.5, 0.11)); ctx.wait(1.2) }
 
     /** Close a banner by tapping the banner itself (a tap on the field would walk the party). */
@@ -510,7 +503,7 @@ object PhantomCrystal {
     /** Every place [t] shows on [g], over several sizes (the worlds are drawn at different zooms). */
     private fun findAll(full: Mat, t: Mat, scales: List<Double>, min: Double): List<Point> {
         if (t.empty()) return emptyList()
-        // at half size: full size took seconds per look (a world step ~20 s, 2026-11-12)
+        // at half size: full size takes seconds per look
         val g = Mat(); Imgproc.resize(full, g, Size(0.0, 0.0), HALF, HALF, Imgproc.INTER_AREA)
         val hits = ArrayList<Pair<Double, Point>>()
         for (k in scales) {
@@ -538,8 +531,7 @@ object PhantomCrystal {
     private const val CAT_MIN_Y = 0.275
 
     /**
-     * The Cape's stairs "!" sits at y ~0.234 (measured 2026-11-18), the Sensationalist's at ~0.26 (from the user's
-     * picture, scaled by the cat's "!"), the cat's at ~0.30: above this a "!" is the stairs.
+     * Above this a "!" is the stairs out (stairs ~0.234, the Sensationalist ~0.26, the cat ~0.30).
      */
     private const val STAIRS_MAX_Y = 0.248
 
@@ -548,8 +540,8 @@ object PhantomCrystal {
         findAll(f.gray, icon(ctx, "field_interact_bubble"), listOf(0.8, 0.9, 1.0, 1.2, 1.35), 0.7).filter { it.x < 0.92 }
 
     /**
-     * Closed treasure chests in view: the red and gold kind most worlds use, and the blue-grey
-     * metal kind of the teal pipe world (it never matched the red one, so its chests were walked past, 2026-11-12).
+     * Closed treasure chests in view: the red and gold kind and the blue-grey metal kind (the red
+     * template doesn't match the metal one).
      */
     private fun closedChests(ctx: Context): List<Point> {
         val g = ctx.frame?.gray ?: ctx.refresh().gray

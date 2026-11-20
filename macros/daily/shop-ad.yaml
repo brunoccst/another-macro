@@ -1,4 +1,4 @@
-# The Shop's daily commercial: Menu → Shop → play button (top-left) → 10 free Chronos Stones.
+# The Shop's daily commercial: Menu → Shop → play button (top-left) → the reward.
 # The commercial itself is the basic macro watch-ad (watch it, close it, take the reward); this
 # one gets to the shop (the basic macro open-menu-page), taps the play button, and closes the shop when there's none left.
 # Only the play button, OK/Close of the reward dialogs and the shop's X are ever tapped:

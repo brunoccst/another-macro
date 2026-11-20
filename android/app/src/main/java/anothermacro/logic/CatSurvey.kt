@@ -66,7 +66,7 @@ object CatSurvey {
         val arrival = Point(party.x, arrivalSeg?.y ?: party.y)
         if (arrivalSeg == null) notes += "the party marker is on no street read"
         val feathers = first.targets
-        // the cat's feather: the best match on a street (a grey quill-in-a-circle icon matches too, Ratle)
+        // the cat's feather: the best match on a street (other icons can match too)
         val cat0 = feathers.firstOrNull { Route.segOf(layout, it) != null } ?: feathers.firstOrNull()
         if (cat0 == null) notes += "no feather on the area map (a quest marker may hide it)"
         val catSeg = cat0?.let { Route.segOf(layout, it) }

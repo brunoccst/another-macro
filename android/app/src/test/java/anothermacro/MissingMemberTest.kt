@@ -12,7 +12,7 @@ class MissingMemberTest {
     private fun line(text: String, y: Double, x: Double = 0.3) = Ocr.Line(text, Region(x, y, 0.4, 0.04))
 
     @Test fun nameFromTheDataOverTheBoxAndPartyList() {
-        // as read on the phone 2026-11-18: the box over the party list, the name not on the box's line
+        // the box over the party list, the name not on the box's line
         val box = listOf(line("In order to move to Burning Beast King's Castle (Hard) please include:", 0.40),
             line("Dungeon", 0.44), line("Verdanta", 0.50), line("Back", 0.75, 0.2), line("Sheila", 0.55),
             line("Deirdre", 0.55, 0.5), line("Move", 0.75, 0.6))

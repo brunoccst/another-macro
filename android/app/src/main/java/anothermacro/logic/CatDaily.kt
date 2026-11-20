@@ -11,16 +11,16 @@ import kotlin.math.abs
 /**
  * The whole daily Cat Scratchbook, unattended:
  *  1. open Diary → Cat Scratchbook and read today's clues with on-device OCR,
- *     matching them against the wiki's clue table (riddles.yaml);
+ *     matching them against the clue table (riddles.yaml);
  *  2. travel to the clue's place on the World Map: the fixed way from point zero where
  *     cat_spots.yaml has it (CatRoute), else era → find the place's label by OCR,
  *     panning and switching continents as needed → Yes;
  *  3. walk the spot's fixed path to the cat's start (CatRoute), else steer toward the
- *     feather on the area map (party marker vs feather icon); a quest "!" marker can
- *     hide the feather, so the markers stand in for it when it isn't seen;
+ *     feather on the area map (party marker vs feather icon); when the feather isn't seen,
+ *     the quest "!" markers stand in for it;
  *     a spot with no fixed route is measured first (CatSurvey), so a later import routes it;
  *  4. hunt: walk in short steps and tap the cat's feather bubble (wider on each retry);
- *  5. back to the book (a cat that ran away leaves a new clue) until all are found.
+ *  5. back to the book (a found cat can leave a new clue) until all are found.
  */
 object CatDaily {
     data class Clue(val key: String, val text: String, val location: String, val era: String)
@@ -29,9 +29,8 @@ object CatDaily {
     private val MAP_BUTTON = Point(0.385, 0.917)
     private val CLOSE = Point(0.88, 0.03)
     private val PANEL_CLOSE = Point(0.825, 0.10) // the X of an island's panel on the world map
-    // the era tabs' top half: their lower edge (y ~0.18) sits over the map, where a place
-    // label under it takes the tap and opens "Moving to ..." (seen with Moonlight Forest)
-    // "???" is the fourth tab (Nazrik, Zero Point: the Underworld), right of Future (phone 2026-11-16)
+    // the era tabs' top half (a tap on their lower edge can land on a place label under it);
+    // "???" is the fourth tab, right of Future
     private val ERA = mapOf("Antiquity" to Point(0.1525, 0.135), "Present" to Point(0.2283, 0.135), "Future" to Point(0.3029, 0.135),
         "???" to Point(0.378, 0.15))
     private val EXPAND = Point(0.844, 0.935)
@@ -137,7 +136,7 @@ object CatDaily {
         if (spot != null && spot.fixedWalk) {
             ctx.count("fixed_routes")
             step("following the fixed route to the cat")
-            // the cat can be next to the arrival (Ratle: its bubble shows at once): look before moving
+            // the cat's bubble can show at the arrival: look before moving
             if (hunt(ctx, walks = 1, walk = {})) return null
             val range = CatRoute.walk(ctx, spot, fight)
             if (range != null && hunt(ctx, walks = 16, walk = CatRoute.sweeper(ctx, spot, range, fight))) return null
@@ -151,7 +150,7 @@ object CatDaily {
         return search(ctx)
     }
 
-    /** Places on islands that the Expand view lists apart from the continents (anothereden.wiki/w/Map). */
+    /** Places on islands that the Expand view lists apart from the continents. */
     private val REGIONS = mapOf(
         "Snake Bone Island" to listOf("Snake Tail Corabel", "Snake Spine Gabaraki", "Konium", "Konium Bridge", "Snake Liver Damaku",
             "Snake Neck Igoma", "Snake Dream", "Snake Skull Mescita"),
@@ -165,14 +164,14 @@ object CatDaily {
 
     private fun supported(c: Clue) = c.era in ERA && !c.location.contains("quick destination")
 
-    /** "Karek Swampland (Enter from Baruoki)": the cat is on a map the party walks to from a travel point. */
+    /** "<map> (Enter from <place>)": the cat is on a map the party walks to from a travel point. */
     private val ENTER_FROM = Regex("""^(.*?)\s*\(Enter from ([^)]*)\)""")
 
     private val CONTINENT_NAMES = listOf("Migleina", "Garulea", "Zerberiya", "Kiliphe")
 
     /**
-     * "Light's Fading, Garulea": the map label is "Light's Fading", on Garulea Continent's map.
-     * Returns the label and that continent's Expand entry (null when the name carries none).
+     * "<label>, <continent>": the map label and that continent's Expand entry (null when the name
+     * carries none).
      */
     internal fun splitPlace(place: String): Pair<String, String?> {
         val m = Regex("""^(.+),\s*([A-Za-z]+)$""").find(place.trim()) ?: return place to null
@@ -180,7 +179,7 @@ object CatDaily {
         return m.groupValues[1].trim() to "$c Continent"
     }
 
-    /** The islands' continents (Konium, on Snake Bone Island, was learned on Migleina Continent, 2026-11-03). */
+    /** The islands' continents (Expand entries). */
     private val ISLAND_CONTINENT = mapOf("Snake Bone Island" to "Migleina Continent")
 
     /**
@@ -231,10 +230,10 @@ object CatDaily {
     // --- 2. world map travel ----------------------------------------------------
     fun travel(ctx: Context, clue: Clue): Boolean {
         val place = splitPlace(clue.location.substringBefore(" (").substringBefore(" –").substringBefore(" -").trim()).first
-        // "Moonlight Forest (Forest Edge)" / "Nadara Volcano – Caldera Edge": the sub-destination
+        // "<place> (<sub-location>)" / "<place> – <sub-location>": the sub-destination
         val sub = Regex("""\(([^)]*)\)|[–-] (.+)$""").find(clue.location)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }?.trim() ?: ""
         if (!openWorldMap(ctx, clue.era)) return false
-        // the place's own region (from the wiki's map list): islands show as a label on a continent's map
+        // the place's own region: islands show as a label on a continent's map
         val region = regionOf(place)
         // learned before: go straight to its continent
         val known = splitPlace(clue.location).second ?: continentFor(ctx, place, clue.era)
@@ -272,7 +271,7 @@ object CatDaily {
         return false
     }
 
-    /** Open the World Map on [era]'s tab. The Map button sometimes ignores a tap (right after a hunt or a trip): retried. */
+    /** Open the World Map on [era]'s tab. A tap the Map button ignores is retried. */
     internal fun openWorldMap(ctx: Context, era: String): Boolean {
         var opened = false
         step("opening the world map")
@@ -311,11 +310,9 @@ object CatDaily {
     }
 
     /**
-     * Point zero (the user): the World Map on the Present era with Baruoki's label on screen. Baruoki
-     * is the game's first map, so every account has it (other places, and even the Expand button,
-     * only show once the story unlocks them). It sits by the map's west edge: the Present tab
-     * opens with it at about (0.185, 0.509) and a drag doesn't move the map further (phone,
-     * 2026-11-03); after a Present trip elsewhere the map is dragged west until it shows.
+     * Point zero: the World Map on the Present era with Baruoki's label on screen. The Present tab
+     * opens with it at about (0.185, 0.509); after a Present trip elsewhere the map is dragged west
+     * until it shows.
      */
     internal fun pointZero(ctx: Context): Boolean {
         if (!openWorldMap(ctx, "Present")) return false
@@ -357,15 +354,13 @@ object CatDaily {
         // look here first; then from the top-left corner, sweep the map row by row (snake order)
         val pans = ArrayList<Pair<Double, Double>>()
         pans += 0.0 to 0.0
-        // to the top-left corner (the drags stop at the edges): five, as three left the view below
-        // Migleina's top edge after a trip elsewhere and the sweep missed Zarbo (top right, 2026-11-16)
+        // to the top-left corner (the drags stop at the edges): five drags, so the sweep starts at the edge
         repeat(5) { pans += 0.6 to 0.4 }
-        // five rows: a continent's map is taller than three screens at the zoom a trip leaves it
-        // at (an island's label sat below a three-row sweep, 2026-11-12); the drags stop at the edge
+        // five rows, to cover a continent's map at the zoom a trip leaves it at; the drags stop at the edge
         for (row in 0 until 5) {
             val step = if (row % 2 == 0) -0.4 else 0.4
             if (row > 0) pans += 0.0 to -0.35
-            repeat(6) { pans += step to 0.0 }   // Migleina is wider than 4 pans (Zarbo, east end, 2026-11-15)
+            repeat(6) { pans += step to 0.0 }   // six pans to reach a wide continent's east end
         }
         var seen: List<Ocr.Line> = emptyList()
         for ((i, pan) in pans.withIndex()) {
@@ -384,7 +379,7 @@ object CatDaily {
             }
             var label = placeLabel()
             if (label == null && region != null) {
-                // an island (e.g. Snake Bone Island) is one label on the continent map: it opens a panel of its places
+                // an island is one label on the continent map: it opens a panel of its places
                 val island = read.firstOrNull {
                     it.center.y > 0.12 && (Ocr.similarity(it.text, region) >= 0.8 ||
                         (Ocr.norm(it.text).length >= 8 && Ocr.norm(region).startsWith(Ocr.norm(it.text))))
@@ -411,8 +406,7 @@ object CatDaily {
 
     /**
      * Where a world-map drag of ([dx], [dy]) starts: the middle, unless a place label from the last
-     * read ([labels]) is there. A drag that starts on a label doesn't move the map (a quest marker's
-     * "The Riftbreaker" sat there and a whole sweep row stood still, missing Zarbo, 2026-11-17).
+     * read ([labels]) is there (a drag that starts on a label doesn't move the map).
      */
     internal fun dragStart(dx: Double, dy: Double, labels: List<Ocr.Line>): Point {
         fun free(p: Point) = labels.none { l ->
@@ -460,7 +454,7 @@ object CatDaily {
      */
     /** Which side of the travel point leads to an "Enter from" map (-1 left, 1 right), measured on the phone. */
     private val ACROSS_SIDE = mapOf(
-        Ocr.norm("Karek Swampland") to 1.0,   // Baruoki's east end (2026-11-12: the west end is a dead end)
+        Ocr.norm("Karek Swampland") to 1.0,   // its exit is at the east end
     )
 
     /** The area map's title (the map the party is on), or "" if the map didn't open. */

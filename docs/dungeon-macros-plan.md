@@ -3,8 +3,8 @@
 The goal is a macro for every Another Dungeon. The full list (80 dungeons) is
 [All dungeons](#all-dungeons) below: each row's Macro says which macro runs it (`todo` until one
 does). What the wiki says about each one is in
-[the knowledge base](knowledge-base/another-dungeon-list.md); what the project learned on the phone
-is in [docs/dungeons/](dungeons/README.md).
+[the knowledge base](knowledge-base/external/another-dungeon-list.md); what the project learned on the phone
+is in [learned/dungeons/](knowledge-base/learned/dungeons/README.md).
 
 ## What every dungeon macro reuses
 
@@ -54,7 +54,8 @@ only needed for a family with its own rules (below).
    offsets, stairs, exits. Or the user records the path by hand and Claude turns it into the route.
 4. **Write** the `dungeons.yaml` entry, `dungeon-routes --write`, tests, the macro YAML,
    set its Macro in [All dungeons](#all-dungeons), the wiki's facts in
-   `docs/knowledge-base/dungeons/<dungeon>.md` and the mapping notes in `docs/dungeons/<dungeon>.md`.
+   `docs/knowledge-base/external/dungeons/<dungeon>.md` and the mapping notes in
+   `docs/knowledge-base/learned/dungeons/<dungeon>.md`.
    Open a PR; merge once phone-tested.
 
 ## Order
@@ -93,7 +94,7 @@ Every dungeon in the game with the id the data and macros use (`dungeons.yaml` k
 kairos / sealed_realm = families with their own entry and rules) and the macro that runs it
 (`todo` until one does). A test checks this table against `dungeons.yaml` and `macros/dungeon/`.
 The wiki's facts for each (era, levels, elements, tomes, wiki page) are in
-[the knowledge base](knowledge-base/another-dungeon-list.md).
+[the knowledge base](knowledge-base/external/another-dungeon-list.md).
 
 | Id | Dungeon | Kind | Macro |
 |---|---|---|---|

@@ -4,7 +4,7 @@ Source: anothereden.wiki, page "Another Dungeon" (saved 2026-11-20, revision 342
 "List of Dungeons (Hard)" and "List of Dungeons (Very Hard)" grids. Facts only; no game art.
 General rules (keys, fight limit, rare maps, rewards, Cat Express Tickets): see
 [another-dungeon.md](another-dungeon.md). Which of these the macros run: see
-[the dungeon macros plan](../dungeon-macros-plan.md).
+[the dungeon macros plan](../../dungeon-macros-plan.md).
 
 80 dungeons; one with both difficulties is listed once. Columns:
 
@@ -20,7 +20,7 @@ General rules (keys, fight limit, rare maps, rewards, Cat Express Tickets): see
 - **Wiki page**: the dungeon's own page (maps, minimaps, chests, enemies). The wiki blocks
   automated fetches: the user saves the page and uploads it.
 
-| Dungeon | Era tab | Hard lv | Very Hard lv | 3rd reward icon | Hard: enemies | Very Hard: enemies  Wiki page |
+| Dungeon | Era tab | Hard lv | Very Hard lv | 3rd reward icon | Hard: enemies | Very Hard: enemies | Wiki page |
 |---|---|---|---|---|---|---|---|
 | Moonlight Forest | Present | 21 | 58 | shadow | weak fire; resist wind | weak fire; resist earth, wind | Moonlight Forest (Another Dungeon) |
 | Industrial Ruins | Future | 24 | 60 | light | weak wind; resist earth | weak wind; resist earth, water | Industrial Ruins (Another Dungeon) |

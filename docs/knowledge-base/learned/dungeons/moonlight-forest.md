@@ -3,7 +3,7 @@
 What the project found on the phone (data: `moonlight_forest` in
 `src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml`; macro:
 `macros/dungeon/moonlight-forest.yaml`). The wiki's facts:
-[knowledge base](../knowledge-base/dungeons/moonlight-forest.md).
+[knowledge base](../../external/dungeons/moonlight-forest.md).
 
 - **Reach**: the Present tab shows its label straight away (no sub-map), on one line. Hard = 1
   green key, Very Hard = 1 red key. No "please include" box (seen 2026-11-20). The user runs it
