@@ -7,7 +7,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
 import kotlin.math.abs
 
 /**
- * Walking a dungeon map by its fixed path (dungeons.yaml `path:`, made by
+ * Walking a dungeon map by its fixed path (the dungeon data's `path:`, made by
  * `another-macro dungeon-routes` from the layout) instead of looking at the area map.
  *
  * Steps: "R 1180" / "L 2950" hold right/left that many ms from rest; "U" / "D" flick

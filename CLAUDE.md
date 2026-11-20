@@ -10,6 +10,8 @@ Cloudflare Worker relay, `core/relay/` from macro-forge), from an ordinary chat.
 - Game-specific values (package, safety words, groups, repo): `game.yaml`, see `core/docs/game-profile.md`. Logic code reads them with `Game.of(ctx)` and never names the game.
 - Phone setup: `docs/setup-android.md`
 - New automation requests ("automate X"): use the `new-scenario` skill
+- Another Dungeons: one macro per dungeon, `macros/dungeon/<macro>.yaml`, whose `dungeon:` block holds
+  that dungeon's maps and routes (`docs/dungeon-data.md`); the shared run is `AnotherDungeon.kt`. New dungeon: `map-dungeon` skill
 - Missing templates: use the `capture-templates` skill (needs the live phone)
 - Android app changes: code in the logic packages (`core/android/core/src/main/java/macroforge/logic/` and `android/app/src/main/java/anothermacro/logic/`) ships as a downloadable logic pack and reaches the phone with no install (no Play Protect prompt); any other app file needs an install. See `core/docs/logic-pack.md`.
 - Tests: `pip install -e '.[dev]' && python -m pytest -q`. Tests never need a device.

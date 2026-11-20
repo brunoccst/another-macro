@@ -9,12 +9,12 @@ import org.snakeyaml.engine.v2.api.LoadSettings
 import kotlin.math.abs
 
 /**
- * One run of an Another Dungeon (data in templates/another_dungeon/dungeons.yaml):
+ * One run of an Another Dungeon (data in its macro file's `dungeon:` block, see docs/dungeon-data.md):
  *
  *  1. enter: the "!" over the Another Dungeon door → era tab → the dungeon's label → Hard
  *     (green key) or Very Hard (red key) → Move, or Skip when the user chose to spend a
  *     Cat Express Ticket;
- *  2. every map: follow its fixed path (dungeons.yaml `path:`, planned from the map's
+ *  2. every map: follow its fixed path (the dungeon data's `path:`, planned from the map's
  *     layout by `another-macro dungeon-routes`) to each chest and sparkle and open it with the "!"
  *     bubble, fighting the battles on the way (after a battle the walk reads its spot again
  *     and goes on from there, see Route.kt); a map without a path walks its layout looking
@@ -34,7 +34,7 @@ object AnotherDungeon {
     data class MapSpec(val names: List<String>, val layout: AreaNav.Layout?, val chests: List<Point>, val exit: Point?, val boss: Boolean, val arrival: Point? = null, val chestsCount: Int = 0,
                        /** The fixed walk: one leg per chest (in order), then the exit. */
                        val path: List<Route.Leg>? = null,
-                       /** False: the map is never cleared (dungeons.yaml `enemies: false`). */
+                       /** False: the map is never cleared (the dungeon data's `enemies: false`). */
                        val enemies: Boolean = true,
                        /** A small map done by fixed steps instead of a layout: "bubble", "gate" (a "!" that travels on, Yes), "yes" (Yes to the travel question a flick opened), "U"/"D", "L 1000"/"R 1000", "chest L" (walk until the chest's "!"), "boss L" (walk to the boss). */
                        val steps: List<String>? = null,
@@ -69,13 +69,12 @@ object AnotherDungeon {
         val areaMapScrolls: Boolean = false,
         /** A walk's first second may look still on screen: no late-start correction. */
         val cameraLags: Boolean = false,
-        /** Keys one run takes (dungeons.yaml `key_cost`). */
+        /** Keys one run takes (the dungeon data's `key_cost`). */
         val keyCost: Int = 1,
-        /** Characters the party must hold to enter (dungeons.yaml `requires`). */
+        /** Characters the party must hold to enter (the dungeon data's `requires`). */
         val requires: List<String> = emptyList(),
     )
 
-    const val DATA = "templates/another_dungeon/dungeons.yaml"
     private const val BUBBLE = "field_interact_bubble"
     /** A sparkle's bag icon on the area map. */
     private const val BAG_ICON = "templates/another_dungeon/area_map_bag.png"
@@ -96,26 +95,42 @@ object AnotherDungeon {
      */
     private fun buyWords(ctx: Context) = Game.of(ctx).buyWords.filter { it.trim() != "buy" }
 
-    fun spec(ctx: Context, id: String): Spec = spec(ctx.assets.open(DATA).bufferedReader().use { it.readText() }, id)
-
     /**
-     * A hub dungeon's chest area (the macro's `area` option): the data entry "<id>_<area>" when
-     * there is one, else the dungeon's own entry (its default area).
+     * The dungeon the macro [macro] runs: its file's `dungeon:` block (the macro running the step
+     * names itself), with the chest area its `area` option picks.
      */
-    @Suppress("UNCHECKED_CAST")
-    internal fun areaId(ctx: Context, id: String): String {
-        val area = ctx.params["area"]?.trim()?.lowercase()?.replace(Regex("[^a-z0-9]+"), "_")?.trim('_')
-        if (area.isNullOrEmpty()) return id
-        val text = ctx.assets.open(DATA).bufferedReader().use { it.readText() }
-        val all = Load(LoadSettings.builder().build()).loadFromString(text) as Map<String, Any?>
-        return if ("${id}_$area" in all) "${id}_$area" else id.also { MacroLog.i("area '$area': the dungeon's own data") }
+    fun spec(ctx: Context, macro: String): Spec {
+        val file = ctx.findMacro(macro) as? FlowScenario ?: throw IllegalArgumentException("no macro '$macro' to read the dungeon from")
+        val data = dungeonOf(file.spec, macro)
+        val area = area(ctx.params)
+        if (area != null && (data["areas"] as? Map<*, *>)?.containsKey(area) != true) MacroLog.i("area '$area': the dungeon's own data")
+        return spec(data, macro, area)
     }
 
-    /** The dungeon [id] from the text of dungeons.yaml (also read by the app's "How it works": HowItWorks.kt). */
+    /** The `area` option as an `areas:` key ("Demon's Den" -> "demon_s_den"), or null. */
+    internal fun area(params: Map<String, String>): String? =
+        params["area"]?.trim()?.lowercase()?.replace(Regex("[^a-z0-9]+"), "_")?.trim('_')?.takeIf { it.isNotEmpty() }
+
+    /** The `dungeon:` block of a parsed macro file. */
     @Suppress("UNCHECKED_CAST")
-    fun spec(text: String, id: String): Spec {
-        val all = Load(LoadSettings.builder().build()).loadFromString(text) as Map<String, Map<String, Any?>>
-        val d = all[id] ?: throw IllegalArgumentException("unknown Another Dungeon '$id' (known: ${all.keys.joinToString()})")
+    internal fun dungeonOf(macroFile: Map<String, Any?>, macro: String): Map<String, Any?> =
+        macroFile["dungeon"] as? Map<String, Any?> ?: throw IllegalArgumentException("the macro '$macro' has no dungeon: block")
+
+    /** The dungeon in the text of the macro file [macro] (also read by the app's "How it works": HowItWorks.kt). */
+    @Suppress("UNCHECKED_CAST")
+    fun spec(macroText: String, macro: String, area: String? = null): Spec =
+        spec(dungeonOf(Load(LoadSettings.builder().build()).loadFromString(macroText) as Map<String, Any?>, macro), macro, area)
+
+    /**
+     * The dungeon from a macro's `dungeon:` block [data]. A hub dungeon's other chest area [area]
+     * (`areas:` key) replaces the keys it sets (its boss and maps); an area it doesn't list is the
+     * dungeon's own (its default area).
+     */
+    @Suppress("UNCHECKED_CAST")
+    fun spec(data: Map<String, Any?>, id: String, area: String? = null): Spec {
+        val areas = data["areas"] as? Map<String, Any?> ?: emptyMap()
+        val own = area?.let { areas[it] } as? Map<String, Any?>
+        val d = data - "areas" + own.orEmpty()
         fun nums(v: Any?) = (v as? List<*>)?.map { (it as Number).toDouble() }
         fun lists(v: Any?) = (v as? List<*>)?.mapNotNull { nums(it) } ?: emptyList()
         val maps = (d["maps"] as List<Map<String, Any?>>).map { m ->
@@ -237,7 +252,7 @@ object AnotherDungeon {
      * Phantom Crystal Dimension and comes back to the loop, stop ends the loop, keep_going ignores it.
      */
     fun run(ctx: Context, id: String): String {
-        val spec = spec(ctx, areaId(ctx, id))
+        val spec = spec(ctx, id)
         val plan = keyPlan(ctx.params)
         // the party first, from the field (the menu's Party page)
         // (by its number in the game's list, through the basic macro pick-party)
@@ -926,7 +941,7 @@ object AnotherDungeon {
             fight(r)
             if (waitBubble(r, 1.5)) { r.chestsDone++; ctx.count("chests"); return }
         }
-        // (where the party stands on the map tells whether the chest's spot in dungeons.yaml is off)
+        // (where the party stands on the map tells whether the chest's spot in the dungeon data is off)
         val at = r.pos?.let { p -> ms.layout?.let { readSpot(r, it, p) } }
         // a picture of the screen for working out why (the app's own storage, never shared)
         runCatching {
@@ -1480,7 +1495,7 @@ object AnotherDungeon {
                         MacroLog.i("flick ${st} (try $attempt) at ${Battle.clock(flickAt)}: settled in ${settledMs}ms, screen change ${"%.1f".format(change)}${if (battle) " (a battle came)" else ""}")
                         if (!battle && change >= t.flickChange) {
                             took = true
-                            if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in dungeons.yaml")
+                            if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in the dungeon data")
                             break
                         }
                         // check on the map: on the far end of the stairs, or still at their foot?
@@ -1489,7 +1504,7 @@ object AnotherDungeon {
                         Route.disturbed = false
                         if (seen != null && abs(seen.y - next.y) < AreaNav.ROW_TOL) {
                             took = true
-                            if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in dungeons.yaml")
+                            if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in the dungeon data")
                             break
                         }
                         if (seen != null && Route.segOf(l, seen) == Route.segOf(l, plan)) {
@@ -1842,7 +1857,7 @@ object AnotherDungeon {
     }
 
     /**
-     * A small map by its fixed steps (dungeons.yaml `steps:`). Then the map is read again: if the
+     * A small map by its fixed steps (the dungeon data's `steps:`). Then the map is read again: if the
      * party is still here the steps run again (a chest already open shows no "!", so it costs only
      * a look).
      */

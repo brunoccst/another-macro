@@ -32,7 +32,7 @@ object AnotherEdenPlugin : GamePlugin {
         "find_feather" -> "Look for the feather bubble and tap it"
         "read_cat_clues" -> "Read today's clues"
         "cat_daily" -> "Read the clues, travel to each place and find what they describe, then stop"
-        "another_dungeon" -> "Play the Another Dungeon run \"${arg.toString().replace('_', ' ')}\" (its steps are listed above), then stop"
+        "another_dungeon" -> "Play the Another Dungeon run \"${arg.toString().replace('-', ' ')}\" (its steps are listed above), then stop"
         "phantom_crystal" -> "Play the Phantom Crystal Dimension world by world, then stop"
         "pick_party" -> "Open Menu → Party and put party $arg (its number in the list) in front"
         else -> null

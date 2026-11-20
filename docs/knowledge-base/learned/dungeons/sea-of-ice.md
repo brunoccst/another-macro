@@ -1,8 +1,6 @@
 # Sea of Ice: mapping notes
 
-What the project found on the phone (data: `sea_of_ice` in
-`src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml`; macro:
-`macros/dungeon/sea-of-ice.yaml`). The wiki's facts:
+What the project found on the phone (data and macro: `macros/dungeon/sea-of-ice.yaml`, its `dungeon:` block). The wiki's facts:
 [knowledge base](../../external/dungeons/sea-of-ice.md).
 
 - **Reach**: top left of the Migleina continent on the Antiquity map: "Glacial Place" opens a

@@ -26,8 +26,8 @@ def build_parser() -> argparse.ArgumentParser:
     sub = p.add_subparsers(dest="command", required=True)
 
     s = sub.add_parser("dungeon-routes", help="plan the fixed walking routes of the Another Dungeons (chests, exit) from their layouts")
-    s.add_argument("--write", action="store_true", help="write them into dungeons.yaml as each map's path")
-    s.add_argument("--check", action="store_true", help="fail if the paths in dungeons.yaml are out of date")
+    s.add_argument("--write", action="store_true", help="write them into each dungeon macro file as each map's path")
+    s.add_argument("--check", action="store_true", help="fail if the paths in the dungeon macro files are out of date")
     s.set_defaults(fn=cmd_dungeon_routes)
 
     s = sub.add_parser("cat-routes", help="plan the fixed walking routes to the Cat Scratchbook cats from cat_spots.yaml")

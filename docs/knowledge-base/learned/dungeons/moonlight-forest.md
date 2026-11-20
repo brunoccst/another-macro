@@ -1,8 +1,6 @@
 # Moonlight Forest: mapping notes
 
-What the project found on the phone (data: `moonlight_forest` in
-`src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml`; macro:
-`macros/dungeon/moonlight-forest.yaml`). The wiki's facts:
+What the project found on the phone (data and macro: `macros/dungeon/moonlight-forest.yaml`, its `dungeon:` block). The wiki's facts:
 [knowledge base](../../external/dungeons/moonlight-forest.md).
 
 - **Reach**: the Present tab shows its label straight away (no sub-map), on one line. Hard = 1

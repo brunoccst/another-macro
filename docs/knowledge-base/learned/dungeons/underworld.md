@@ -1,9 +1,7 @@
 # Underworld: mapping notes
 
-What the project found on the phone (data: `underworld`, `underworld_cathedral`,
-`underworld_tomb` and `underworld_ark` in
-`src/another_macro/scenarios/another_dungeon/templates/dungeons.yaml`; macro:
-`macros/dungeon/underworld.yaml`). No wiki page has been shared for it yet (see
+What the project found on the phone (data and macro: `macros/dungeon/underworld.yaml`, its `dungeon:` block with the
+`cathedral`, `tomb` and `ark` areas). No wiki page has been shared for it yet (see
 [the knowledge base](../../external/README.md#missing)), so everything here comes from the phone.
 
 ## Reach and cost

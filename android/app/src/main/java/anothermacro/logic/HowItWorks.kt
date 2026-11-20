@@ -6,7 +6,7 @@ import macroforge.MacroSteps.Step
 /**
  * The logic's own steps in plain words, for the app's "How it works" ([MacroSteps]): what the
  * code in this package does, read from the same data it runs on (a dungeon's maps, chests and
- * fixed route from dungeons.yaml) and the options as set now. Kept next to the code it describes:
+ * fixed route from its macro file's `dungeon:` block) and the options as set now. Kept next to the code it describes:
  * change a step there, change its words here (both ship in the logic pack).
  */
 object HowItWorks {
@@ -39,8 +39,8 @@ object HowItWorks {
 
     private fun dungeon(id: String, env: MacroSteps.Env): List<Step> {
         val o = env.options
-        val text = env.file(AnotherDungeon.DATA) ?: return listOf(Step("Play the Another Dungeon run \"${id.replace('_', ' ')}\" (its data isn't downloaded yet)"))
-        val spec = runCatching { AnotherDungeon.spec(text, id) }.getOrElse { return listOf(Step("Play the Another Dungeon run \"$id\" (${it.message})")) }
+        val text = env.file("macros/dungeon/$id.yaml") ?: return listOf(Step("Play the Another Dungeon run \"${id.replace('-', ' ')}\" (its data isn't downloaded yet)"))
+        val spec = runCatching { AnotherDungeon.spec(text, id, AnotherDungeon.area(o)) }.getOrElse { return listOf(Step("Play the Another Dungeon run \"$id\" (${it.message})")) }
         val out = ArrayList<Step>()
         val opt = { keys: List<String> -> MacroSteps.optionsIn(keys.joinToString(" "), o) }
 
@@ -153,7 +153,7 @@ object HowItWorks {
         }
     }
 
-    /** A small map's fixed step (dungeons.yaml `steps:`). */
+    /** A small map's fixed step (the dungeon data's `steps:`). */
     private fun fixedStep(raw: String, spec: AnotherDungeon.Spec): Step {
         val p = raw.trim().split(Regex("\\s+"))
         fun dir() = if (p.getOrNull(1)?.uppercase() == "R") "right" else "left"

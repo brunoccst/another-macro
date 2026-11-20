@@ -13,8 +13,9 @@ class MacroStepsTest {
     private val repo = generateSequence(File("").absoluteFile) { it.parentFile }.first { File(it, "macros").isDirectory }
     private val macros = Scenarios.parseAll(LibraryFiles(repo)).filterIsInstance<FlowScenario>().associateBy { it.name }
 
-    /** A library file as the pack has it (templates/<folder>/... lives under src/another_macro/scenarios/<folder>/templates). */
+    /** A library file as the pack has it (macros/... as in the repo; templates/<folder>/... lives under src/another_macro/scenarios/<folder>/templates). */
     private fun file(path: String): String? {
+        if (path.startsWith("macros/")) return File(repo, path).takeIf { it.isFile }?.readText()
         val m = Regex("""^templates/([^/]+)/(.+)$""").find(path) ?: return null
         return File(repo, "src/another_macro/scenarios/${m.groupValues[1]}/templates/${m.groupValues[2]}").takeIf { it.isFile }?.readText()
     }
