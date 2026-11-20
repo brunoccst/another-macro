@@ -90,7 +90,7 @@ class MacroLibraryTest {
 
     @Test fun everyDungeonMacroCarriesItsOwnDungeon() {
         // the another_dungeon step reads the dungeon from the macro file it names (itself)
-        for (f in File(repo, "macros/dungeon").listFiles()!!.filter { it.name.endsWith(".yaml") && it.name != "phantom-crystal.yaml" }) {
+        for (f in File(repo, "macros/dungeon").listFiles()!!.filter { it.name.endsWith(".yaml") && "\ndungeon:" in it.readText() }) {
             val n = f.name.removeSuffix(".yaml")
             val spec = AnotherDungeon.spec(f.readText(), n)
             assertEquals(n, n, spec.id)
@@ -171,7 +171,7 @@ class MacroLibraryTest {
         }
         assertTrue(sections.flatMap { calls(it.nodes) }.contains("watch-ad"))
         val routine = MacroDiagram.build(FlowScenario.parse(File(repo, "macros/daily/daily-routine.yaml").readText(), "r").spec)
-        assertEquals(listOf("start-game", "daily-ads", "shop-ad", "cat-scratchbook", "inbox", "stop-game"),
+        assertEquals(listOf("start-game", "dungeon-keys", "daily-ads", "shop-ad", "dungeon-keys", "cat-scratchbook", "inbox", "stop-game"),
             routine.single().nodes.map { (it as MacroDiagram.Node.Call).macro })
     }
 

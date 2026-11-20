@@ -63,7 +63,7 @@ def test_dungeon_keys_offers_every_dungeon_of_each_colour():
         takes = {f.stem for f in MACROS.glob("*.yaml")
                  if f"{colour}_key" in (yaml.safe_load(f.read_text(encoding="utf-8")).get("params") or {})}
         choices = params[f"{colour}_dungeon"]["choices"]
-        assert choices[0] == "off" and set(choices[1:]) == takes, (colour, sorted(takes))
+        assert choices[0] == "none" and set(choices[1:]) == takes, (colour, sorted(takes))
 
 
 def test_required_characters_are_names():
