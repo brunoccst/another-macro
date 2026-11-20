@@ -6,7 +6,7 @@
 name: moonlight-forest
 group: dungeon
 icon: chest
-description: "Another Dungeon: Moonlight Forest (shadow, Hard 21 / Very Hard 58). All chests (battles on the way), then the boss (Beast Vares)."
+description: "Another Dungeon: Moonlight Forest. All chests (battles on the way), then the boss."
 templates: [another_dungeon, daily_ads]
 params:
   # the keys to use: either or both (runs with each, red first, then green); keys are never bought

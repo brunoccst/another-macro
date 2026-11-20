@@ -1,6 +1,6 @@
 # Where each Cat Scratchbook cat is, and the fixed way there (cat-routes, see cat_routes.py).
-# Keyed by the clue's `location` in riddles.yaml. Game data only (place names from the
-# Another Eden Wiki's clue table); positions are measured on the phone, never from art.
+# Keyed by the clue's `location` in riddles.yaml; positions are measured on the phone, never
+# from art. Notes on reaching places by hand: docs/cat-scratchbook-spots.md.
 #
 #   era:        World Map era tab (Antiquity / Present / Future)
 #   continent:  the entry to tap in the World Map's Expand list when the place isn't on the map
@@ -396,8 +396,7 @@ Hidden Village Itoise:
   continent: Garulea Continent  # learned on the phone (known_places.yaml)
   place: Hidden Village Itoise
   sub: null
-  # world map (phone 2026-11-08): Present > Expand > Garulea Continent, pan down once, then the
-  # label; no panel, straight to "Moving to Hidden Village Itoise" and Yes
+  # notes: docs/cat-scratchbook-spots.md
   area:
     # measured on the phone 2026-11-08: four streets; down the stairs by flicks (a down hold
     # does nothing here)
@@ -529,10 +528,7 @@ Inanari Plateau:
   continent: null
   place: Inanari Plateau
   sub: null
-  # Not a World Map travel point (phone 2026-11-16): travel to Cat Shrine, walk to the lower
-  # street's exit (about x 0.508, y 0.616 on Cat Shrine's map) and flick down into the plateau.
-  # The party then stands on the top street (about 0.532, 0.380); the cat is on the bottom street
-  # (about x 0.405, y 0.733). The plateau has battles. Needs a walk_to that flicks; not routed yet.
+  # notes: docs/cat-scratchbook-spots.md
   area: null
 Temple Ruins - Main Hall Front:
   era: Present
@@ -551,10 +547,7 @@ Satellite Stadium:
   continent: Garulea Continent  # the user: Future > Garulea Continent > Satellite Stadium, north of the map
   place: Satellite Stadium
   sub: null
-  # world map (phone 2026-11-03): Future > Expand > Garulea Continent, pan down 0.4, label at
-  # (0.466, 0.440); no panel, straight to "Moving to Satellite Stadium" with Yes at y~0.59
-  # the user: from the spawn point up to the middle street, left to the next junction and up; the
-  # cat is on that street
+  # notes: docs/cat-scratchbook-spots.md
   area:
     # measured on the phone 2026-11-03
     segs: [[0.6185, 0.441, 0.563], [0.500, 0.390, 0.596], [0.382, 0.373, 0.490], [0.382, 0.531, 0.630]]
@@ -613,10 +606,7 @@ Hot Springs:
   area: null
 Nazrik, City of Shadows:
   era: ???
-  # the ??? tab, then Expand -> Underworld, then the "Nazrik, City of Shadows" label (phone 2026-11-16).
-  # Cat found 2026-11-16 by hand: from the arrival (right street) walk left to the stairs ramp,
-  # flick up to the short top street, walk left to the stairs by the feather and flick down: the
-  # cat is on the feather's street, left of those stairs. Area map scrolls; not measured yet.
+  # notes: docs/cat-scratchbook-spots.md
   continent: Underworld
   place: Nazrik, City of Shadows
   sub: null

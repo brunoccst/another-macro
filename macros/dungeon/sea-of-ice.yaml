@@ -7,7 +7,7 @@
 name: sea-of-ice
 group: dungeon
 icon: chest
-description: "Another Dungeon: Sea of Ice (Celestial Soul, Very Hard). All chests and sparkles, then all enemies, then the boss."
+description: "Another Dungeon: Sea of Ice (Very Hard). All chests and sparkles, then all enemies, then the boss."
 templates: [another_dungeon, daily_ads]
 params:
   red_key: {default: true, type: bool, help: "use red keys: Sea of Ice is Very Hard only (off = only pick the party)"}

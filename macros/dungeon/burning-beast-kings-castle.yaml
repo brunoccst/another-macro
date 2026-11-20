@@ -7,7 +7,7 @@
 name: burning-beast-kings-castle
 group: dungeon
 icon: chest
-description: "Another Dungeon: Burning Beast King's Castle (Ethereal Dewdrop). All chests, then all enemies, then the boss."
+description: "Another Dungeon: Burning Beast King's Castle. All chests, then all enemies, then the boss."
 templates: [another_dungeon, daily_ads]
 params:
   # the keys to use: either or both (runs with each, red first, then green); keys are never bought

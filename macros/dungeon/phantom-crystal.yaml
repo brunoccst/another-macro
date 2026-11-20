@@ -3,7 +3,7 @@
 # the final world ends it. Start it next to the shining Another Dungeon door (Spacetime Rift),
 # or inside the dimension. In the Last World it stops after the chests, before the Sensationalist (you talk to them and pick
 # the free Treatise/Codex/Opus) and the way out. In the World's Cape it stops the same way only when the Sensationalist is
-# there (his "!" next to the cat's); otherwise it takes the stairs out.
+# there (their "!" next to the cat's); otherwise it takes the stairs out.
 name: phantom-crystal
 group: dungeon
 icon: crystal
