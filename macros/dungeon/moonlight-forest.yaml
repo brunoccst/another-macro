@@ -1,0 +1,50 @@
+# One run of the Moonlight Forest Another Dungeon (Present era): every chest by the map's fixed path,
+# fighting the battles on the way (defeat_all on: then the enemies left, until they disappear), then the boss.
+# Stops when the run ends, and says so when a White Key opened the Phantom Crystal Dimension.
+# Never buys keys: a purchase offer stops it.
+# Start it anywhere on the field (it travels to the Spacetime Rift and walks to the door) or inside Moonlight Forest.
+name: moonlight-forest
+group: dungeon
+icon: chest
+description: "Another Dungeon: Moonlight Forest (shadow, Hard 21 / Very Hard 58). All chests (battles on the way), then the boss (Beast Vares)."
+templates: [another_dungeon, daily_ads]
+params:
+  # the keys to use: either or both (runs with each, red first, then green); keys are never bought
+  green_key: {default: true, type: bool, help: "use green keys (Hard)"}
+  red_key: {default: false, type: bool, help: "use red keys (Very Hard)"}
+  # every dungeon macro: how many runs in a row (or all keys), and what to do when a White Key drops
+  runs: {default: 1, type: number, help: "runs in a row, any number; switch All keys on (beside it) to run until the keys run out. With both keys on, that many runs with each: red keys first, then green"}
+  all_keys: {default: false, type: bool, beside: runs, help: "run until the switched-on keys run out (runs above not used)"}
+  white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
+  party: {global: party, choices: [current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the game's party to use, by its number in the game's party list (1 = the first; Menu → Party, the dots under it); current = the party in front now; global = the Global parameters' party. Picked once on the field before the first run (basic macro pick-party)"}
+  cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
+  defeat_all: {default: false, type: bool, help: "after every chest and pickup of a map, fight the enemies still left until \"The enemies have disappeared\", then go to the exit (the battles met on the way count); off = straight to the exit once the stops are done (faster)"}
+  clear_max_battles: {default: 15, show_if: defeat_all, help: "a safety cap on the fights for the enemies left on one map, in case the banner is missed (0 = no cap)"}
+  # the mobs: this macro's own Battle options (battle.skill_1..4), taken over from the basic macro
+  # battle by the app (not declared here; they start as the battle macro's own skills)
+  boss_setup: {default: false, type: bool, help: "fight the boss with its own skills (below) instead of this macro's Battle options"}
+  boss_skill_1: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 1: auto or skill 1-4"}
+  boss_skill_2: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 2: auto or skill 1-4"}
+  boss_skill_3: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 3: auto or skill 1-4"}
+  boss_skill_4: {default: auto, choices: [auto, 1, 2, 3, 4], show_if: boss_setup, help: "boss, party slot 4: auto or skill 1-4"}
+screens: [field, battle_command, battle, battle_result]
+unknown_timeout_s: 120
+
+# the whole run is one action (AnotherDungeon.kt); it starts from the field or inside the dungeon
+handlers:
+  field: [{another_dungeon: moonlight_forest}]
+  battle_command: [{another_dungeon: moonlight_forest}]
+  battle: [{another_dungeon: moonlight_forest}]
+  battle_result: [{another_dungeon: moonlight_forest}]
+
+# nothing recognised for a few seconds (the boss gate's question, the area map left open):
+# the run itself looks at the screen's text; the area map closes with a tap at the bottom
+setup: [{set: {unknown_ticks: 0}}]
+unknown:
+  - set: {unknown_ticks: unknown_ticks + 1}
+  - if: unknown_ticks >= 8
+    then:
+      - set: {unknown_ticks: 0}
+      - if: text_has('Proceed') or text_has('major trial')
+        then: [{another_dungeon: moonlight_forest}]
+        else: [{tap: [0.5, 0.93]}, {wait: 1.5}]

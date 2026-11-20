@@ -86,7 +86,7 @@ on day one, and its logs (where chests and exits were found) would seed the fixe
 
 | Dungeon | Kind | Era | Hard lvl | Very Hard lvl | Light/Shadow | Tomes | Macro |
 |---|---|---|---|---|---|---|---|
-| Moonlight Forest | standard | Present | 21 | 58 | shadow | yes | todo |
+| Moonlight Forest | standard | Present | 21 | 58 | shadow | yes | moonlight-forest |
 | Industrial Ruins | standard | Future | 24 | 60 | light | yes | todo |
 | Transitory Time Space | sealed realm | none | 25 | 60 | light, shadow |  | todo |
 | Nadara Volcano | standard | Antiquity | 28 | 62 | light | yes | todo |
