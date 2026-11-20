@@ -892,6 +892,16 @@ object AnotherDungeon {
             AreaNav.walkLayout(ctx, ms.layout!!, chest, onStep(r))
             AreaNav.look(ctx) { emptyList() }.party
         }
+        // test hook (never in a macro's options): param test_miss_chest = "map.chest" (1-based, in the
+        // order taken) treats that chest's first try as missed, to exercise the second try live
+        if (chest !in r.retried && ms.layout != null &&
+            ctx.params["test_miss_chest"]?.trim() == "${r.map + 1}.${r.chestsDone + 1}") {
+            MacroLog.i("test: treating chest ${r.chestsDone + 1} on map ${r.map + 1} as missed on its first try")
+            r.retryLater += chest
+            r.unsure = r.pos != null
+            r.chestsDone++
+            return
+        }
         // close by: the chest's "!" shows; look around the spot, a little further each side, until it does
         val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
         // the "!" pops up a while after the party stops: watch for it before looking around
