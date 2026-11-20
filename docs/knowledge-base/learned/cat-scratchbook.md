@@ -76,6 +76,27 @@ clue table, levels, rewards): [knowledge base](../external/cat-scratchbook.md).
 What was noted while each spot's data in `cat_spots.yaml` was measured (by hand or by the
 app's survey); the data itself stays in the YAML.
 
+### Baruoki
+
+- measured by hand on the phone 2026-11-20: four streets (a short diagonal path up to the fish
+  icon at the top left is left out); the feather sits on the long middle street, left of the arrival
+- `arrival`: the trip of 2026-11-20 landed on the middle street at x 0.508; the survey's trip of
+  2026-11-19 read the party on the lower street at (0.306, 0.588). The trip doesn't always land on
+  the same spot, so the route walks the layout from wherever the party is (`CatRoute.walk`)
+- `cat`: feather drawn at (0.450, 0.435); the survey read x 0.435-0.448
+- `walk_scale`: R 3000 from rest walked 0.0618
+- 2026-11-20 run missed this cat: the feather wasn't read on the area map (cause not found; the
+  icon matches the feather template at 0.89 on a screenshot of the same map), so the steering
+  walked to a quest marker instead. With the fixed route the steering is only the fallback.
+
+### Sarupa
+
+- on the Antiquity tab, Migleina Continent, at the map's top right: north of Vulga Mountain Road,
+  next to Vega Forest and Charol Plains (phone, 2026-11-20). The map scrolls further up than the
+  view a trip leaves it at, so the label shows only after the sweep reaches the top edge
+- 2026-11-20 run missed it: the sweep's drags to the top-left corner started on place labels
+  (Migleina's west is dense with them) and didn't move the map, so the top rows were never seen
+
 ### Last Island
 
 - measured by hand on the phone 2026-11-18: the streets are pale lines over white sand, which the survey's street mask can't tell apart (it read none under the party or the feather)

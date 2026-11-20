@@ -367,8 +367,18 @@ object CatDaily {
             val (dx, dy) = pan
             val cornerDrag = i in 1..4              // no point reading while still on the way to the corner
             if (dx != 0.0 || dy != 0.0) {
-                val from = dragStart(dx, dy, seen)
-                ctx.drag(from, Point(from.x + dx, from.y + dy), 700); ctx.wait(1.0)
+                // a drag that starts on a label doesn't move the map: try the next free start until the view moves
+                if (cornerDrag || i == 5) seen = ctx.readText()
+                val before = ctx.refresh().gray.clone()
+                for ((k, from) in dragStarts(dx, dy, seen).take(3).withIndex()) {
+                    ctx.drag(from, Point(from.x + dx, from.y + dy), 700); ctx.wait(1.0)
+                    val change = Route.change(before, ctx.refresh().gray)
+                    if (change >= MAP_MOVED) break
+                    // at an edge the map stops too: one retry tells the two apart
+                    if (k == 0) MacroLog.i("world map drag (${"%.2f".format(dx)}, ${"%.2f".format(dy)}) from (${"%.2f".format(from.x)}, ${"%.2f".format(from.y)}) didn't move the view (change ${"%.1f".format(change)})")
+                    else break
+                }
+                before.release()
             }
             if (cornerDrag) continue
             var read = ctx.readText()
@@ -408,13 +418,29 @@ object CatDaily {
      * Where a world-map drag of ([dx], [dy]) starts: the middle, unless a place label from the last
      * read ([labels]) is there (a drag that starts on a label doesn't move the map).
      */
-    internal fun dragStart(dx: Double, dy: Double, labels: List<Ocr.Line>): Point {
+    internal fun dragStart(dx: Double, dy: Double, labels: List<Ocr.Line>): Point = dragStarts(dx, dy, labels).first()
+
+    /** Mean grey change (0-255) above which a world-map drag moved the view. */
+    private const val MAP_MOVED = 4.0
+
+    /**
+     * Where a world-map drag of ([dx], [dy]) can start, best first: off every place label from the
+     * last read ([labels]), with the whole drag on the map (below the era tabs, clear of the screen
+     * edges). Labels sit thick on some maps (Migleina's west), so starts across the width are tried.
+     */
+    internal fun dragStarts(dx: Double, dy: Double, labels: List<Ocr.Line>): List<Point> {
         fun free(p: Point) = labels.none { l ->
             val b = l.box
             p.x in (b.x - 0.03)..(b.x + b.w + 0.03) && p.y in (b.y - 0.05)..(b.y + b.h + 0.05)
         }
-        val tries = listOf(0.55, 0.42, 0.68, 0.35, 0.75).map { y -> Point(0.5 - dx / 2, y - dy / 2) }
-        return tries.firstOrNull { free(it) } ?: tries.first()
+        fun inside(p: Point) = p.x in 0.04..0.96 && p.y in 0.22..0.9
+        val all = ArrayList<Point>()
+        for (ox in listOf(0.0, -0.12, 0.12, -0.24, 0.24, -0.36, 0.36)) for (y in listOf(0.55, 0.42, 0.68, 0.35, 0.75)) {
+            val p = Point(0.5 - dx / 2 + ox, y - dy / 2)
+            if (inside(p) && inside(Point(p.x + dx, p.y + dy))) all += p
+        }
+        if (all.isEmpty()) all += Point(0.5 - dx / 2, 0.55 - dy / 2)
+        return all.filter { free(it) } + all.filterNot { free(it) }
     }
 
     /** Tap a place's [label] on the world map, pick [sub] in its destinations panel if one opens, confirm the trip. */
