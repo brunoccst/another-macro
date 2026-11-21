@@ -753,6 +753,10 @@ object AnotherDungeon {
         }
         if (tapText(r, "Spacetime Rift") == null) {
             MacroLog.i("no Spacetime Rift on the map: ${seen(ctx)}")
+            // a tap on the map may have asked to travel somewhere else ("Moving to ...?"): No first
+            if (ctx.readText().any { Ocr.norm(it.text).contains("moving to") }) {
+                ctx.readText().firstOrNull { Ocr.norm(it.text) == "no" && it.center.y > 0.4 }?.let { ctx.tapExact(it.center); ctx.wait(1.5) }
+            }
             ctx.tap(AD_CLOSE); ctx.wait(1.5)
             return null
         }
@@ -2013,6 +2017,8 @@ object AnotherDungeon {
         val lines = r.ctx.readText()
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         if ("major trial" !in all && "proceed" !in all) return false
+        // "Moving to <place>. Do you wish to proceed?" is a trip on the world map, not the boss
+        if ("moving to" in all) return false
         val yes = lines.firstOrNull { Ocr.norm(it.text) == "yes" } ?: return false
         task(r, "The boss: proceeding")
         r.ctx.tapExact(yes.center)
