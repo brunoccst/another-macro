@@ -182,6 +182,8 @@ object AnotherDungeon {
         val retried = HashSet<Point>()
         var onBossMap = false
         var bossNext = false
+        /** Looks in a row that found no map of the dungeon while its boss wasn't beaten yet. */
+        var notOnAMap = 0
         var bossBeaten = false
         var phantom = false
         var entered = false
@@ -361,9 +363,13 @@ object AnotherDungeon {
                 if (bossGate(r)) return@repeat
                 // talk on screen hides the map title: tap through it, the run goes on
                 if (!r.bossBeaten && !r.bossNext && talkThrough(r)) return@repeat
+                // the boss not beaten yet: the map's title can still be coming in (just arrived, a
+                // fade): look again a few times before taking the run as over
+                if (!r.bossBeaten && r.notOnAMap < 5) { r.notOnAMap++; ctx.wait(1.5); return@repeat }
                 // not on one of the dungeon's maps any more: the run ended
                 return finish(r)
             }
+            r.notOnAMap = 0
             if (idx != r.map) {
                 AreaNav.align = if (spec.areaMapScrolls || spec.maps[idx].scrolls) spec.maps[idx].layout else null
                 r.live = null; r.expect = null
