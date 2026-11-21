@@ -57,20 +57,32 @@ handlers:
   ad_offer:
     - if: not watch_ad
       then: [{stop: "the game is open (daily ad not checked)"}]
+    # the popup fades in: its header shows before its buttons, so wait for the button to tap
     - if: skip_ad
       then:
-        - status: "login-bonus ad skipped (its commercial did not close)"
-        - tap: ad_dont_watch_button
-        - wait: 2
-    - count: ads_accepted
-    - status: "login-bonus ad"
-    - tap: watch_video_button
-    - wait: 3
-    - run: {macro: watch-ad, until: [field, ad_offer]}
-    - log: "login-bonus ad: {result}"
-    # watch-ad closed the game to get out of a commercial: start it again, without the ad this time
-    - if: result == 'force-closed the game, a commercial did not close'
-      then: [{set: {skip_ad: true}}, {launch: "'games.wfs.anothereden'"}, {wait: 3}]
+        - if: found('ad_dont_watch_button')
+          then:
+            - status: "login-bonus ad skipped (its commercial did not close)"
+            - tap: ad_dont_watch_button
+            - wait: 2
+          else:
+            - status: "login-bonus ad: waiting for its buttons"
+            - wait: 1
+      else:
+        - if: found('watch_video_button')
+          then:
+            - count: ads_accepted
+            - status: "login-bonus ad"
+            - tap: watch_video_button
+            - wait: 3
+            - run: {macro: watch-ad, until: [field, ad_offer]}
+            - log: "login-bonus ad: {result}"
+            # watch-ad closed the game to get out of a commercial: start it again, without the ad this time
+            - if: result == 'force-closed the game, a commercial did not close'
+              then: [{set: {skip_ad: true}}, {launch: "'games.wfs.anothereden'"}, {wait: 3}]
+          else:
+            - status: "login-bonus ad: waiting for its buttons"
+            - wait: 1
 
   premium_thanks:   # premium subscribers get this instead of an ad
     - if: not watch_ad
