@@ -9,6 +9,6 @@ no game art.
 - One of the Cat Scratchbook's places (clue: "The road is lined with candles. Something's creepy
   about them..."; see [cat-scratchbook.md](cat-scratchbook.md)).
 
-What the user said (2026-11-22, not on the wiki page): the trip to Palsifal Palace lands in front
-of its main door, and walking left from there leads to Keruri Highroad. See
+What the user said (2026-11-22, not on the wiki page): from Tower of Time, the door below the
+spawn point leads out to Keruri Highroad's north-west. See
 [learned/cat-scratchbook.md](../learned/cat-scratchbook.md).
