@@ -124,7 +124,12 @@ object CatDaily {
         // "X (Enter from Y)": travel to Y, then walk across into X
         val via = ENTER_FROM.find(clue.location)
         val walkTo = spot?.walkTo ?: via?.groupValues?.get(1)?.trim()
-        val tripClue = if (via != null) clue.copy(location = via.groupValues[2].trim()) else clue
+        val tripClue = when {
+            via != null -> clue.copy(location = via.groupValues[2].trim())
+            // the spot's travel point when the cat's map isn't one (walk_to)
+            spot?.walkTo != null -> clue.copy(location = spot.place)
+            else -> clue
+        }
         val arrived = if (spot != null && spot.fixedTravel) {
             CatRoute.travel(ctx, spot) || run {
                 if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) closeMap(ctx)
@@ -319,9 +324,11 @@ object CatDaily {
         fun baruoki() = ctx.readText().firstOrNull { it.center.y > 0.12 && Ocr.similarity(it.text, "Baruoki") >= 0.8 }
         var label = baruoki()
         if (label == null && openContinent(ctx, "Migleina Continent")) label = baruoki()
-        repeat(4) {
+        // Baruoki is at the continent's north-west: drag the view that way (the drags stop at the edges)
+        repeat(6) {
             if (label != null) return@repeat
-            ctx.drag(Point(0.3, 0.55), Point(0.8, 0.55), 700); ctx.wait(1.0)
+            val from = dragStarts(0.5, 0.3, ctx.readText()).first()
+            ctx.drag(from, Point(from.x + 0.5, from.y + 0.3), 700); ctx.wait(1.0)
             label = baruoki()
         }
         val at = label ?: run { MacroLog.i("point zero: no Baruoki label on the Present map"); return false }
