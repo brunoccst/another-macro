@@ -48,4 +48,12 @@ class AreaStreetsTest {
         assertEquals("", CatDaily.surveyText(emptyList()))
         assertEquals("; measured for a fixed route: Konium, Last Island", CatDaily.surveyText(listOf("Konium", "Last Island")))
     }
+
+    @Test fun surveyOnlyOnTheCluesMap() {
+        assertTrue(CatDaily.sameMap("Nazrik, City of Shadows", "Nazrik, City of Shadows"))
+        assertTrue(CatDaily.sameMap("Karek Swampland", "Karek Swampland (Enter from Baruoki)"))
+        assertTrue(CatDaily.sameMap("Zero Point", "Zero Point - East"))
+        assertTrue(!CatDaily.sameMap("Konium", "Keruri Highroad"))
+        assertTrue(!CatDaily.sameMap("", "Keruri Highroad"))
+    }
 }
