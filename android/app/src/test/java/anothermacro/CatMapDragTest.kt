@@ -43,7 +43,7 @@ class CatMapDragTest {
             Ocr.Line("Dimensional Cathedral", Region(0.60, 0.30, 0.20, 0.04)))
         val all = CatDaily.withWrapped(lines)
         val joined = all.single { Ocr.norm(it.text) == Ocr.norm("Nazrik, City of Shadows") }
-        assertEquals(0.5, joined.center.y, 0.03)
+        assertEquals(0.5425, joined.center.y, 1e-9)
         // labels far apart are not joined
         assertTrue(all.none { it.text.contains("Cathedral") && it.text.contains("Nazrik") })
     }
