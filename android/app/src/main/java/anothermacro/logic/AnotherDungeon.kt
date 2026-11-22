@@ -747,15 +747,22 @@ object AnotherDungeon {
             waitForField(ctx, 5)
         }
         if (!opened) return null.also { MacroLog.i("the world map didn't open") }
-        ctx.tap(ERA_OTHER); ctx.wait(2.0)
         // the "???" tab opens on the continent of its last trip: Expand and pick the Rift's continent
-        // when it isn't in view
-        if (ctx.readText().none { Ocr.norm(it.text).contains("spacetime rift") }) {
+        // when it isn't in view. Its continents list has Illusion World: without it the tap didn't
+        // reach the "???" tab (the map was still opening on another era's tab), so tap it again
+        for (attempt in 1..2) {
+            ctx.tap(ERA_OTHER); ctx.wait(2.0)
+            if (ctx.readText().any { Ocr.norm(it.text).contains("spacetime rift") }) break
             MacroLog.i("no Spacetime Rift in view: Expand -> Illusion World")
-            if (tapText(r, "Expand", exact = true) != null) {
-                ctx.wait(2.0)
-                if (tapText(r, "Illusion World") != null) ctx.wait(2.0)
+            if (tapText(r, "Expand", exact = true) == null) continue
+            ctx.wait(2.0)
+            if (ctx.readText().none { Ocr.norm(it.text) == "illusion world" }) {
+                MacroLog.i("no Illusion World among the continents (not the \"???\" tab): ${seen(ctx)}")
+                continue
             }
+            tapText(r, "Illusion World", exact = true)
+            ctx.wait(2.0)
+            break
         }
         if (tapText(r, "Spacetime Rift") == null) {
             MacroLog.i("no Spacetime Rift on the map: ${seen(ctx)}")
