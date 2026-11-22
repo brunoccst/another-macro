@@ -346,8 +346,10 @@ object AnotherDungeon {
         val spec = r.spec
         MacroLog.i("${spec.name}: key ${r.key}, cat ticket ${ctx.bool("cat_ticket")}, " +
             "mobs ${r.mobs}, boss ${r.bossSetup}")
-        // started on the boss gate's question, or outside: else already inside
-        if (!bossGate(r) && whereAmI(r) == null && !Battle.inBattle(ctx)) {
+        // started on the boss gate's question, or outside: else already inside. A dungeon's first
+        // map can be a town also open outside a run (Underworld's Nazrik): inside, the field's bar
+        // has only Menu and Rewards
+        if (!bossGate(r) && (whereAmI(r) == null || !PhantomCrystal.inside(ctx)) && !Battle.inBattle(ctx)) {
             enter(r)?.let { return it }
         }
         repeat(300) {
@@ -754,7 +756,11 @@ object AnotherDungeon {
             ctx.tap(ERA_OTHER); ctx.wait(2.0)
             if (ctx.readText().any { Ocr.norm(it.text).contains("spacetime rift") }) break
             MacroLog.i("no Spacetime Rift in view: Expand -> Illusion World")
-            if (tapText(r, "Expand", exact = true) == null) continue
+            // OCR can miss the button's label: then its place
+            if (tapText(r, "Expand", exact = true, tries = 1) == null) {
+                MacroLog.i("no Expand label read: tapping its place")
+                ctx.tap(EXPAND_BUTTON)
+            }
             ctx.wait(2.0)
             if (ctx.readText().none { Ocr.norm(it.text) == "illusion world" }) {
                 MacroLog.i("no Illusion World among the continents (not the \"???\" tab): ${seen(ctx)}")
@@ -2112,6 +2118,8 @@ object AnotherDungeon {
     private val MAP_BUTTON = Point(0.385, 0.917)
     /** The World Map's "???" tab. */
     private val ERA_OTHER = Point(0.379, 0.17)
+    /** The world map's Expand button (its icon, above the label). */
+    private val EXPAND_BUTTON = Point(0.844, 0.89)
     private const val DOOR_MIN_Y = 0.13
     private const val RIFT_STEP_MS = 350L
 
