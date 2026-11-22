@@ -202,10 +202,12 @@ Moonlight Forest (Forest Edge):
   sub: Forest Edge
   area: null
 Keruri Highroad:
+  # notes: docs/knowledge-base/learned/cat-scratchbook.md
   era: Antiquity
   continent: null
-  place: Keruri Highroad
+  place: Palsifal Palace
   sub: null
+  walk_to: Keruri Highroad
   area: null
 Tower of Stars:
   era: Antiquity

@@ -23,6 +23,7 @@ a note the project wrote never mix. The whole knowledge base: [README.md](../REA
 
 | Page | Source (saved 2026-11-20) |
 |---|---|
+| [keruri-highroad.md](keruri-highroad.md): era, continent, how it is reached (saved 2026-11-22) | wiki "Keruri Highroad", rev 310040 |
 | [another-dungeon.md](another-dungeon.md): keys, fight limit, rare maps, rewards, White Key, Cat Express Ticket, Otherlands | wiki "Another Dungeon", rev 342027 |
 | [another-dungeon-list.md](another-dungeon-list.md): all 80 dungeons (era, levels, elements, 3rd reward, tomes, wiki page) | wiki "Another Dungeon", rev 342027 |
 | [dungeons/burning-beast-kings-castle.md](dungeons/burning-beast-kings-castle.md) | wiki "Burning Beast King's Castle (Another Dungeon)", rev 319646 |
