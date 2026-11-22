@@ -384,7 +384,7 @@ object CatDaily {
             var read = ctx.readText()
             seen = read
             MacroLog.i("map labels: " + read.filter { it.center.y > 0.12 }.joinToString { it.text }.take(300))
-            fun placeLabel() = read.firstOrNull {
+            fun placeLabel() = withWrapped(read).firstOrNull {
                 it.center.y > 0.12 && (Ocr.norm(it.text) == Ocr.norm(place) || Ocr.similarity(it.text, place) >= 0.85)
             }
             var label = placeLabel()
@@ -412,6 +412,24 @@ object CatDaily {
             return goVia(ctx, label, place, sub)
         }
         return false
+    }
+
+    /**
+     * [lines] plus each label that wraps onto a second line, joined into one line ("Nazrik, City of"
+     * over "Shadows"): the second line starts right under the first and overlaps it across.
+     */
+    internal fun withWrapped(lines: List<Ocr.Line>): List<Ocr.Line> {
+        val joined = ArrayList<Ocr.Line>()
+        for (a in lines) for (b in lines) {
+            if (a === b) continue
+            val ab = a.box; val bb = b.box
+            val gap = bb.y - (ab.y + ab.h)
+            val overlap = minOf(ab.x + ab.w, bb.x + bb.w) - maxOf(ab.x, bb.x)
+            if (gap < -ab.h * 0.3 || gap > ab.h * 0.8 || overlap < minOf(ab.w, bb.w) * 0.5) continue
+            val x = minOf(ab.x, bb.x); val y = ab.y
+            joined += Ocr.Line("${a.text} ${b.text}", Region(x, y, maxOf(ab.x + ab.w, bb.x + bb.w) - x, bb.y + bb.h - y))
+        }
+        return lines + joined
     }
 
     /**
