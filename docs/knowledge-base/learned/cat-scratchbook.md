@@ -89,6 +89,13 @@ app's survey); the data itself stays in the YAML.
   icon matches the feather template at 0.89 on a screenshot of the same map), so the steering
   walked to a quest marker instead. With the fixed route the steering is only the fallback.
 
+### Keruri Highroad
+
+- not a world-map travel point; the user (2026-11-22): travel to Palsifal Palace (the party lands in
+  front of the main door) and walk left into the next map, Keruri Highroad. `cat_spots.yaml` gives
+  it `place: Palsifal Palace` and `walk_to: Keruri Highroad` (the app checks the map title after
+  each walk and tries the other side if left leads elsewhere)
+
 ### Nazrik, City of Shadows
 
 - measured by hand on the phone 2026-11-22 (positions on the area map as it opens at the arrival)

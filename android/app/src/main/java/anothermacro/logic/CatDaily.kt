@@ -124,7 +124,12 @@ object CatDaily {
         // "X (Enter from Y)": travel to Y, then walk across into X
         val via = ENTER_FROM.find(clue.location)
         val walkTo = spot?.walkTo ?: via?.groupValues?.get(1)?.trim()
-        val tripClue = if (via != null) clue.copy(location = via.groupValues[2].trim()) else clue
+        val tripClue = when {
+            via != null -> clue.copy(location = via.groupValues[2].trim())
+            // the spot's travel point when the cat's map isn't one (walk_to)
+            spot?.walkTo != null -> clue.copy(location = spot.place)
+            else -> clue
+        }
         val arrived = if (spot != null && spot.fixedTravel) {
             CatRoute.travel(ctx, spot) || run {
                 if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) closeMap(ctx)
@@ -319,9 +324,11 @@ object CatDaily {
         fun baruoki() = ctx.readText().firstOrNull { it.center.y > 0.12 && Ocr.similarity(it.text, "Baruoki") >= 0.8 }
         var label = baruoki()
         if (label == null && openContinent(ctx, "Migleina Continent")) label = baruoki()
-        repeat(4) {
+        // Baruoki is at the continent's north-west: drag the view that way (the drags stop at the edges)
+        repeat(6) {
             if (label != null) return@repeat
-            ctx.drag(Point(0.3, 0.55), Point(0.8, 0.55), 700); ctx.wait(1.0)
+            val from = dragStarts(0.5, 0.3, ctx.readText()).first()
+            ctx.drag(from, Point(from.x + 0.5, from.y + 0.3), 700); ctx.wait(1.0)
             label = baruoki()
         }
         val at = label ?: run { MacroLog.i("point zero: no Baruoki label on the Present map"); return false }
@@ -478,7 +485,14 @@ object CatDaily {
             if (yes == null) {
                 MacroLog.i("$place: no travel dialog (already here, or not a travel point)")
                 ctx.tap(CLOSE); ctx.wait(1.5)
-                return true // probably already there
+                // already here only if the area map says so (a place that isn't a travel point gives no dialog either)
+                waitForField(ctx, 10)
+                val title = mapTitle(ctx)
+                if (title.isNotEmpty() && !sameMap(title, place)) {
+                    MacroLog.i("$place: the party is on '$title', not $place: not travelling there this way")
+                    return false
+                }
+                return true
             }
             ctx.tap(yes.center)
             ctx.count("trips")
@@ -507,6 +521,16 @@ object CatDaily {
 
     private fun names(title: String, map: String) =
         title.isNotEmpty() && (Ocr.similarity(title, map) >= 0.8 || Ocr.norm(title).contains(Ocr.norm(map)))
+
+    /**
+     * Whether an area map's [title] is [location]'s map: a clue's "(Enter from ...)" is left out,
+     * and either name may hold the other ("Zero Point" for "Zero Point - East").
+     */
+    internal fun sameMap(title: String, location: String): Boolean {
+        val t = Ocr.norm(title)
+        val l = Ocr.norm(location.substringBefore(" ("))
+        return t.isNotEmpty() && l.isNotEmpty() && (Ocr.similarity(t, l) >= 0.8 || t.contains(l) || l.contains(t))
+    }
 
     /**
      * From the travel point, walk off the map's side into [target] (a clue's "Enter from" map).
