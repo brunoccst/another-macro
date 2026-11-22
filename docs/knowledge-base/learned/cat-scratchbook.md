@@ -89,6 +89,24 @@ app's survey); the data itself stays in the YAML.
   icon matches the feather template at 0.89 on a screenshot of the same map), so the steering
   walked to a quest marker instead. With the fixed route the steering is only the fallback.
 
+### Nazrik, City of Shadows
+
+- measured by hand on the phone 2026-11-22 (positions on the area map as it opens at the arrival)
+- the world map writes the place's label on two lines ("Nazrik, City of" / "Shadows"); the trip
+  matches the two lines joined (missed 2026-11-21 before that)
+- the trip lands on a lower floor at (0.689, 0.395); the cat's street is drawn at the same height
+  just to the left (x 0.52-0.584) but is another floor, reached over the upper street:
+  - walk left to the alley at x 0.627 (the lower street slopes down a ramp on the way) and flick up
+    at the ground arrow
+  - on the upper street (y about 0.29, partly a ramp) walk left to x 0.569 and flick down at the
+    ground arrow
+  - the cat starts at x 0.548 on that street (survey reads 0.543-0.556)
+- from the arrival floor the feather is drawn faded, and the feather template misses it after the
+  first look, so the map steering lost the cat on 2026-11-22 (found by walking the floors by hand)
+- the area map scrolls up and down with the party (up to about 0.03), not sideways
+- `walk_scale`: L 2000 walked 0.040 and L 3000 on the upper street 0.058 (0.84 and 0.82)
+- a flick right after closing the area map can be ignored; the second one took
+
 ### Sarupa
 
 - on the Antiquity tab, Migleina Continent, at the map's top right: north of Vulga Mountain Road,
