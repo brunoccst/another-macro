@@ -182,6 +182,8 @@ object AnotherDungeon {
         val retried = HashSet<Point>()
         var onBossMap = false
         var bossNext = false
+        /** Looks in a row that found no map of the dungeon while its boss wasn't beaten yet. */
+        var notOnAMap = 0
         var bossBeaten = false
         var phantom = false
         var entered = false
@@ -361,9 +363,13 @@ object AnotherDungeon {
                 if (bossGate(r)) return@repeat
                 // talk on screen hides the map title: tap through it, the run goes on
                 if (!r.bossBeaten && !r.bossNext && talkThrough(r)) return@repeat
+                // the boss not beaten yet: the map's title can still be coming in (just arrived, a
+                // fade): look again a few times before taking the run as over
+                if (!r.bossBeaten && r.notOnAMap < 5) { r.notOnAMap++; ctx.wait(1.5); return@repeat }
                 // not on one of the dungeon's maps any more: the run ended
                 return finish(r)
             }
+            r.notOnAMap = 0
             if (idx != r.map) {
                 AreaNav.align = if (spec.areaMapScrolls || spec.maps[idx].scrolls) spec.maps[idx].layout else null
                 r.live = null; r.expect = null
@@ -741,18 +747,29 @@ object AnotherDungeon {
             waitForField(ctx, 5)
         }
         if (!opened) return null.also { MacroLog.i("the world map didn't open") }
-        ctx.tap(ERA_OTHER); ctx.wait(2.0)
         // the "???" tab opens on the continent of its last trip: Expand and pick the Rift's continent
-        // when it isn't in view
-        if (ctx.readText().none { Ocr.norm(it.text).contains("spacetime rift") }) {
+        // when it isn't in view. Its continents list has Illusion World: without it the tap didn't
+        // reach the "???" tab (the map was still opening on another era's tab), so tap it again
+        for (attempt in 1..2) {
+            ctx.tap(ERA_OTHER); ctx.wait(2.0)
+            if (ctx.readText().any { Ocr.norm(it.text).contains("spacetime rift") }) break
             MacroLog.i("no Spacetime Rift in view: Expand -> Illusion World")
-            if (tapText(r, "Expand", exact = true) != null) {
-                ctx.wait(2.0)
-                if (tapText(r, "Illusion World") != null) ctx.wait(2.0)
+            if (tapText(r, "Expand", exact = true) == null) continue
+            ctx.wait(2.0)
+            if (ctx.readText().none { Ocr.norm(it.text) == "illusion world" }) {
+                MacroLog.i("no Illusion World among the continents (not the \"???\" tab): ${seen(ctx)}")
+                continue
             }
+            tapText(r, "Illusion World", exact = true)
+            ctx.wait(2.0)
+            break
         }
         if (tapText(r, "Spacetime Rift") == null) {
             MacroLog.i("no Spacetime Rift on the map: ${seen(ctx)}")
+            // a tap on the map may have asked to travel somewhere else ("Moving to ...?"): No first
+            if (ctx.readText().any { Ocr.norm(it.text).contains("moving to") }) {
+                ctx.readText().firstOrNull { Ocr.norm(it.text) == "no" && it.center.y > 0.4 }?.let { ctx.tapExact(it.center); ctx.wait(1.5) }
+            }
             ctx.tap(AD_CLOSE); ctx.wait(1.5)
             return null
         }
@@ -2013,6 +2030,8 @@ object AnotherDungeon {
         val lines = r.ctx.readText()
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
         if ("major trial" !in all && "proceed" !in all) return false
+        // "Moving to <place>. Do you wish to proceed?" is a trip on the world map, not the boss
+        if ("moving to" in all) return false
         val yes = lines.firstOrNull { Ocr.norm(it.text) == "yes" } ?: return false
         task(r, "The boss: proceeding")
         r.ctx.tapExact(yes.center)

@@ -11,7 +11,7 @@ A test checks that this table names every macro in `macros/`.
 
 | Group | Macro | What it does |
 |---|---|---|
-| Daily | [daily-routine](../macros/daily/daily-routine.yaml) | Starts the game, watches the 5 menu ad chests and the shop ad, does the cat scratchbook, claims the inbox, then turns the game off. |
+| Daily | [daily-routine](../macros/daily/daily-routine.yaml) | Starts the game, spends the dungeon keys in the dungeon picked per key colour, watches the 5 menu ad chests and the shop ad, spends the keys again, does the cat scratchbook, claims the inbox, then turns the game off. |
 | Daily | [daily-ads](../macros/daily/daily-ads.yaml) | The 5 daily commercial chests (Menu → video icon, 1-3 ads each). |
 | Daily | [shop-ad](../macros/daily/shop-ad.yaml) | The shop's daily commercial for Chronos Stones. |
 | Daily | [cat-scratchbook](../macros/daily/cat-scratchbook.yaml) | Reads today's cat clues, travels to each cat by a fixed route and finds it (`mode`: daily / read / hunt). |

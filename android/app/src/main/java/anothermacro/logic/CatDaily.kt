@@ -384,7 +384,7 @@ object CatDaily {
             var read = ctx.readText()
             seen = read
             MacroLog.i("map labels: " + read.filter { it.center.y > 0.12 }.joinToString { it.text }.take(300))
-            fun placeLabel() = read.firstOrNull {
+            fun placeLabel() = withWrapped(read).firstOrNull {
                 it.center.y > 0.12 && (Ocr.norm(it.text) == Ocr.norm(place) || Ocr.similarity(it.text, place) >= 0.85)
             }
             var label = placeLabel()
@@ -412,6 +412,24 @@ object CatDaily {
             return goVia(ctx, label, place, sub)
         }
         return false
+    }
+
+    /**
+     * [lines] plus each label that wraps onto a second line, joined into one line ("Nazrik, City of"
+     * over "Shadows"): the second line starts right under the first and overlaps it across.
+     */
+    internal fun withWrapped(lines: List<Ocr.Line>): List<Ocr.Line> {
+        val joined = ArrayList<Ocr.Line>()
+        for (a in lines) for (b in lines) {
+            if (a === b) continue
+            val ab = a.box; val bb = b.box
+            val gap = bb.y - (ab.y + ab.h)
+            val overlap = minOf(ab.x + ab.w, bb.x + bb.w) - maxOf(ab.x, bb.x)
+            if (gap < -ab.h * 0.3 || gap > ab.h * 0.8 || overlap < minOf(ab.w, bb.w) * 0.5) continue
+            val x = minOf(ab.x, bb.x); val y = ab.y
+            joined += Ocr.Line("${a.text} ${b.text}", Region(x, y, maxOf(ab.x + ab.w, bb.x + bb.w) - x, bb.y + bb.h - y))
+        }
+        return lines + joined
     }
 
     /**
@@ -460,7 +478,14 @@ object CatDaily {
             if (yes == null) {
                 MacroLog.i("$place: no travel dialog (already here, or not a travel point)")
                 ctx.tap(CLOSE); ctx.wait(1.5)
-                return true // probably already there
+                // already here only if the area map says so (a place that isn't a travel point gives no dialog either)
+                waitForField(ctx, 10)
+                val title = mapTitle(ctx)
+                if (title.isNotEmpty() && !sameMap(title, place)) {
+                    MacroLog.i("$place: the party is on '$title', not $place: not travelling there this way")
+                    return false
+                }
+                return true
             }
             ctx.tap(yes.center)
             ctx.count("trips")
@@ -489,6 +514,16 @@ object CatDaily {
 
     private fun names(title: String, map: String) =
         title.isNotEmpty() && (Ocr.similarity(title, map) >= 0.8 || Ocr.norm(title).contains(Ocr.norm(map)))
+
+    /**
+     * Whether an area map's [title] is [location]'s map: a clue's "(Enter from ...)" is left out,
+     * and either name may hold the other ("Zero Point" for "Zero Point - East").
+     */
+    internal fun sameMap(title: String, location: String): Boolean {
+        val t = Ocr.norm(title)
+        val l = Ocr.norm(location.substringBefore(" ("))
+        return t.isNotEmpty() && l.isNotEmpty() && (Ocr.similarity(t, l) >= 0.8 || t.contains(l) || l.contains(t))
+    }
 
     /**
      * From the travel point, walk off the map's side into [target] (a clue's "Enter from" map).

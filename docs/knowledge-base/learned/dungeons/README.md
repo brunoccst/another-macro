@@ -26,6 +26,10 @@ in [the knowledge base](../../README.md) instead
   than a chest's.
 - **Never tap the "+"** beside the key and ticket counters at the bottom of the panel:
   they buy more (premium currency). The third counter ("17/50") is Cat Express Tickets.
+- **Key cap and ad rewards** (the user, 2026-11-20): at the cap (10/10 green, 5/5 red on the
+  user's account) the player can't receive more key cards, so a key card won from a daily ad
+  chest is lost. So the daily routine spends the keys before the ads (`daily-routine`) and
+  again after them, for the keys the ads gave.
 - **Skip** (Cat Express Ticket + the key): no confirmation, straight to "Congratulations"
   (rewards, Light/Shadow points) and the chest/enemy loot. Greyed out with no tickets.
 - **End of a run in a dungeon with its own currency** (Dogma Tower: Dark Residue): an
@@ -87,7 +91,9 @@ is off. Fix it and run again.
   middle (0.49, 0.65) doesn't pan the Present map (2026-11-11); the Present map can't pan the
   Parallel Time Layer label further left than x 0.78 (2026-11-18).
 - **The "???" tab** opens on the continent of its last trip (Underworld after an Underworld run);
-  the Spacetime Rift is on Illusion World. A "!" over a tree NPC near the door sits higher than
+  the Spacetime Rift is on Illusion World. Its Expand lists two continents: Illusion World and
+  Underworld (2026-11-22). From a Present place (Kurosagi Castle) the map opens on that era's tab;
+  a run's "???" tap there once didn't switch the tab (2026-11-21). A "!" over a tree NPC near the door sits higher than
   the door's.
 - **"please include" box**: it sits over the party list, so the next OCR line is a party member or
   the screen's title "Dungeon" (2026-11-18). A place's box ("Parallel Time Layer", Sea of Ice's
