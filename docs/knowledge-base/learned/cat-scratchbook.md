@@ -95,6 +95,11 @@ app's survey); the data itself stays in the YAML.
   door just below the spawn point (flick down); the party comes out at the north-west of Keruri
   Highroad. Then right, down, right, down, left: the cat is at the end of that road.
   `cat_spots.yaml`: `place: Tower of Time`, `enter: [D]`
+- 2026-11-22 on the phone: the trip and the door worked; the party came out at (0.245, 0.322) on a
+  short street at the top left that the survey didn't read (added by hand, with its stairs down at
+  its right end, x 0.293). The macro's map steering didn't reach the cat; by hand: right to the
+  stairs, down, right to x 0.339, down, then left. The cat was by the feather at (0.255, 0.559) and
+  was found. `walk_scale` 0.85 is an estimate (not measured)
 - tried first (2026-11-22) from Palsifal Palace: the trip lands inside on Palsifal Palace 1F; its
   main door (exit icon below the middle of the bottom street, flick down) leads to Derismo
   Highroad, whose top-left exit leads to Corinda Plains, not to Keruri Highroad
