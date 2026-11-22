@@ -91,10 +91,13 @@ app's survey); the data itself stays in the YAML.
 
 ### Keruri Highroad
 
-- not a world-map travel point; the user (2026-11-22): travel to Palsifal Palace (the party lands in
-  front of the main door) and walk left into the next map, Keruri Highroad. `cat_spots.yaml` gives
-  it `place: Palsifal Palace` and `walk_to: Keruri Highroad` (the app checks the map title after
-  each walk and tries the other side if left leads elsewhere)
+- not a world-map travel point. The user (2026-11-22): travel to Tower of Time and leave by the
+  door just below the spawn point (flick down); the party comes out at the north-west of Keruri
+  Highroad. Then right, down, right, down, left: the cat is at the end of that road.
+  `cat_spots.yaml`: `place: Tower of Time`, `enter: [D]`
+- tried first (2026-11-22) from Palsifal Palace: the trip lands inside on Palsifal Palace 1F; its
+  main door (exit icon below the middle of the bottom street, flick down) leads to Derismo
+  Highroad, whose top-left exit leads to Corinda Plains, not to Keruri Highroad
 
 ### Nazrik, City of Shadows
 

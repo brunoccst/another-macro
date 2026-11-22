@@ -9,6 +9,7 @@
 #   walk_to:    the map the cat is on when it is next to the travel point (the clue says
 #               "Enter from"): the party travels to `place` and walks across. Not routed yet.
 #   enter:      flicks ("U" / "D") right after the trip, before `area` (the cat is on
+#               another floor or, through a door, on the next map; also without `area`)
 #               another floor than the arrival)
 #   sub:        the sub-location: the entry in the place's destination panel, if it has one
 #               Trips start at POINT ZERO: the World Map on the Present era with Baruoki's
@@ -205,9 +206,9 @@ Keruri Highroad:
   # notes: docs/knowledge-base/learned/cat-scratchbook.md
   era: Antiquity
   continent: null
-  place: Palsifal Palace
+  place: Tower of Time
   sub: null
-  walk_to: Keruri Highroad
+  enter: [D]
   area: null
 Tower of Stars:
   era: Antiquity

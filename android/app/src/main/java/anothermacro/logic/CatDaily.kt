@@ -126,8 +126,8 @@ object CatDaily {
         val walkTo = spot?.walkTo ?: via?.groupValues?.get(1)?.trim()
         val tripClue = when {
             via != null -> clue.copy(location = via.groupValues[2].trim())
-            // the spot's travel point when the cat's map isn't one (walk_to)
-            spot?.walkTo != null -> clue.copy(location = spot.place)
+            // the spot's travel point when the cat's map isn't one (walk_to, or a door: enter)
+            spot != null && (spot.walkTo != null || spot.enter.isNotEmpty()) -> clue.copy(location = spot.place)
             else -> clue
         }
         val arrived = if (spot != null && spot.fixedTravel) {
@@ -137,6 +137,15 @@ object CatDaily {
             }
         } else travel(ctx, tripClue)
         if (!arrived) return "couldn't travel there"
+        if (spot != null && spot.enter.isNotEmpty() && !spot.fixedWalk) {
+            // a door or stairs right at the arrival (the fixed route flicks these itself)
+            for (up in spot.enter) {
+                MacroLog.i("${clue.location}: flick ${if (up) "U" else "D"} from the arrival")
+                AreaNav.flick(ctx, up)
+                ctx.wait(2.5)
+                waitForField(ctx, 15)
+            }
+        }
         if (walkTo != null && !walkAcross(ctx, walkTo)) return "couldn't walk across to $walkTo"
         if (spot != null && spot.fixedWalk) {
             ctx.count("fixed_routes")
