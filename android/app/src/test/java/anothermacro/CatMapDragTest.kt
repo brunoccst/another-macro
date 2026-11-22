@@ -35,4 +35,16 @@ class CatMapDragTest {
         assertTrue("start (${p.x}, ${p.y}) must leave room for the drag", p.x + 0.6 <= 0.96 && p.y + 0.4 <= 0.9 && p.y >= 0.22)
         assertTrue("start (${p.x}, ${p.y}) is on a label", labels.none { l -> p.x in (l.box.x - 0.03)..(l.box.x + l.box.w + 0.03) && p.y in (l.box.y - 0.05)..(l.box.y + l.box.h + 0.05) })
     }
+
+    @Test fun aLabelWrappedOnTwoLinesIsReadAsOne() {
+        val lines = listOf(
+            Ocr.Line("Nazrik, City of", Region(0.40, 0.50, 0.14, 0.04)),
+            Ocr.Line("ShadowS", Region(0.43, 0.545, 0.08, 0.04)),
+            Ocr.Line("Dimensional Cathedral", Region(0.60, 0.30, 0.20, 0.04)))
+        val all = CatDaily.withWrapped(lines)
+        val joined = all.single { Ocr.norm(it.text) == Ocr.norm("Nazrik, City of Shadows") }
+        assertEquals(0.5, joined.center.y, 0.03)
+        // labels far apart are not joined
+        assertTrue(all.none { it.text.contains("Cathedral") && it.text.contains("Nazrik") })
+    }
 }
