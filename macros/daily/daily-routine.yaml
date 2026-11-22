@@ -1,10 +1,32 @@
-# Everything daily, unattended: open the game (login-bonus ad), the 5 menu commercials,
-# the shop commercial, today's scratchbook cats, the inbox (claims what the steps above sent there,
-# e.g. the login-bonus ad reward), then turn the game off. If the game doesn't open (start-game
-# gets stuck or fails), the steps that need it are skipped and only stop-game runs.
+# Everything daily, unattended: open the game (login-bonus ad), spend the dungeon keys in the
+# dungeon picked for each colour (none by default), the 5 menu commercials, the shop commercial,
+# the dungeon keys again (the commercials can give keys; why spend them before too:
+# docs/knowledge-base/learned/dungeons/README.md), today's scratchbook cats, the inbox (claims what
+# the steps above sent there, e.g. the login-bonus ad reward), then turn the game off. If the game
+# doesn't open (start-game gets stuck or fails), the steps that need it are skipped and only
+# stop-game runs.
 name: daily-routine
 group: daily
-description: "Daily: start game, 5 menu ads, shop ad, cat scratchbook, claim the inbox, then turn the game off."
-steps: [start-game, daily-ads, shop-ad, cat-scratchbook, inbox, stop-game]
+description: "Daily: start game, dungeon keys, 5 menu ads, shop ad, dungeon keys again, cat scratchbook, claim the inbox, then turn the game off."
+# the dungeon macro that spends each key colour (every dungeon macro with that colour's key switch:
+# a test checks the lists), and the party for it
+params:
+  red_dungeon: {default: none, type: search, choices: [none, burning-beast-kings-castle, dogma-tower, moonlight-forest, sea-of-ice], help: "the dungeon macro that spends all the red keys (Very Hard), before and after the ads; none = keep them"}
+  red_party: {global: party, choices: [current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the party for the red key runs, by its number in the game's party list (1 = the first); current = the party in front now"}
+  green_dungeon: {default: none, type: search, choices: [none, burning-beast-kings-castle, dogma-tower, moonlight-forest, underworld], help: "the dungeon macro that spends all the green keys (Hard), before and after the ads; none = keep them"}
+  green_party: {global: party, choices: [current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the party for the green key runs, by its number in the game's party list (1 = the first); current = the party in front now"}
+# the dungeon steps: only that colour's keys, until they run out (never bought); the rest of the
+# dungeon macro's options (White Key, Cat Express Ticket, boss skills) are its own
+steps:
+  - start-game
+  - {macro: "{red_dungeon}", params: {red_key: true, green_key: false, all_keys: true, party: "{red_party}"}}
+  - {macro: "{green_dungeon}", params: {green_key: true, red_key: false, all_keys: true, party: "{green_party}"}}
+  - daily-ads
+  - shop-ad
+  - {macro: "{red_dungeon}", params: {red_key: true, green_key: false, all_keys: true, party: "{red_party}"}}
+  - {macro: "{green_dungeon}", params: {green_key: true, red_key: false, all_keys: true, party: "{green_party}"}}
+  - cat-scratchbook
+  - inbox
+  - stop-game
 required: [start-game]
 always: [stop-game]

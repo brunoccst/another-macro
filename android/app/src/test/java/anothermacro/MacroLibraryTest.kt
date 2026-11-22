@@ -171,7 +171,7 @@ class MacroLibraryTest {
         }
         assertTrue(sections.flatMap { calls(it.nodes) }.contains("watch-ad"))
         val routine = MacroDiagram.build(FlowScenario.parse(File(repo, "macros/daily/daily-routine.yaml").readText(), "r").spec)
-        assertEquals(listOf("start-game", "daily-ads", "shop-ad", "cat-scratchbook", "inbox", "stop-game"),
+        assertEquals(listOf("start-game", "{red_dungeon}", "{green_dungeon}", "daily-ads", "shop-ad", "{red_dungeon}", "{green_dungeon}", "cat-scratchbook", "inbox", "stop-game"),
             routine.single().nodes.map { (it as MacroDiagram.Node.Call).macro })
     }
 

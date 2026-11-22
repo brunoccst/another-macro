@@ -55,7 +55,8 @@ each macro's file, is in [docs/macros.md](docs/macros.md).
 
 - **Daily**: the things the game resets every day: the 5 menu ad chests, the shop ad, the cat
   scratchbook and the inbox, each on its own, or all of them in one go with `daily-routine`
-  (which also starts and closes the game). The app's Daily schedule can run one by itself after
+  (which also starts and closes the game, and spends the dungeon keys before and after the ads
+  in the dungeon picked for each key colour). The app's Daily schedule can run one by itself after
   the game's daily reset.
 - **Another Dungeon**: one macro per dungeon. Each does one or more runs: it enters with the
   chosen key (or skips with a Cat Express Ticket), walks a fixed route to every chest (fighting
