@@ -364,8 +364,9 @@ object PhantomCrystal {
             val stairs = bubbles(ctx, f).filter { b -> isStairs(b, ups) }.minByOrNull { abs(it.x - 0.5) }
             if (stairs != null) {
                 when (tapBubble(r, stairs)) {
-                    Taken.END -> return Next.END
-                    Taken.LEFT -> return Next.WORLD
+                    // the Cape's stairs end the dimension: the game autosaves before Congratulations, which read as
+                    // "a new world" and left the run walking the Congratulations screen as world 5 (2026-11-23)
+                    Taken.END, Taken.LEFT -> return Next.END
                     else -> {}
                 }
             }
@@ -455,7 +456,9 @@ object PhantomCrystal {
         // OCR can split the count off the name ("Obtained <item>" | "x3."): join them back
         val texts = mutableListOf<String>()
         for (l in lines) {
-            if (texts.isNotEmpty() && Regex("""^\s*[x×X]\s*[0-9OoIl]""").containsMatchIn(l.text) &&
+            // ...or the word "Obtained" off its item ("Obtained" | "High Class Scroll x2.", 2026-11-23)
+            if (texts.isNotEmpty() && Ocr.norm(texts.last()) == "obtained") texts[texts.size - 1] = texts.last() + " " + l.text
+            else if (texts.isNotEmpty() && Regex("""^\s*[x×X]\s*[0-9OoIl]""").containsMatchIn(l.text) &&
                 !Regex("""[x×X]\s*[0-9OoIl,]+\.?\s*$""").containsMatchIn(texts.last())) texts[texts.size - 1] = texts.last() + " " + l.text
             else texts += l.text
         }
