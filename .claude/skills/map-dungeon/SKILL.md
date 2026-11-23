@@ -163,7 +163,8 @@ the connector's `save_macro` and run at once: the step reads the data from the d
 
 In the macro, keep `group: dungeon` and the standard
 dungeon params every dungeon macro has: `key`, `runs` (1-10 or all: until the key counter on
-the dungeon panel reads 0), `white_key` (phantom / stop / keep_going), `cat_ticket`,
+the dungeon panel reads 0), `white_key` (phantom / stop / keep_going), `go_to_door` (default
+true: from anywhere on the field to the Spacetime Rift door by itself), `cat_ticket`,
 the skill setups, and `defeat_all` + `clear_max_battles` only when one of the dungeon's maps
 has enemies that run out ("The enemies have disappeared" can show; maps whose enemies never run
 out get `enemies: false` in the `dungeon:` block). Every map walks its stops first, fighting the

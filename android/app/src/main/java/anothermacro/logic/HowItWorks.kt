@@ -12,7 +12,7 @@ import macroforge.MacroSteps.Step
 object HowItWorks {
     fun explain(action: String, arg: Any?, env: MacroSteps.Env): List<Step>? = when (action) {
         "another_dungeon" -> dungeon(arg.toString(), env)
-        "phantom_crystal" -> phantom()
+        "phantom_crystal" -> phantom(env)
         "cat_daily" -> catDaily(env)
         "fight" -> listOf(Step("Fight the battle on screen to its end: each party slot uses its skill from the options " +
             "(${skills(env.options, arg?.toString()?.takeIf { it != "true" } ?: "skill_")}); a defeat stops the macro"))
@@ -78,7 +78,7 @@ object HowItWorks {
         val o = env.options
         val out = ArrayList<Step>()
         val opt = { keys: List<String> -> MacroSteps.optionsIn(keys.joinToString(" "), o) }
-        out += Step("If not next to the Another Dungeon door or inside ${spec.name}: travel to the Spacetime Rift and walk to the door")
+        out += toDoor(o, "inside ${spec.name}")
         val era = if (spec.era == "???") "\"???\"" else spec.era
         out += Step("Tap the \"!\" over the door, pick the $era tab" + (spec.area?.let { ", open $it" } ?: "") +
             ", tap ${spec.name} and pick the difficulty of the key (green: Hard, red: Very Hard)")
@@ -170,7 +170,17 @@ object HowItWorks {
 
     // --- Phantom Crystal Dimension -------------------------------------------------------------
 
-    private fun phantom() = listOf(
+    /** The way to the Another Dungeon door (RiftDoor.kt), by the go_to_door option. */
+    private fun toDoor(o: Map<String, String>, inside: String): Step {
+        val note = MacroSteps.optionsIn(RiftDoor.OPTION, o)
+        return if (RiftDoor.enabled(o))
+            Step("If not next to the Another Dungeon door or $inside: open the World Map's \"???\" tab (Expand → Illusion World " +
+                "when it shows another continent), travel to the Spacetime Rift and walk to the door", note = note)
+        else Step("Start next to the Another Dungeon door or $inside: the macro doesn't travel there by itself", note = note)
+    }
+
+    private fun phantom(env: MacroSteps.Env) = listOf(
+        toDoor(env.options, "inside the Phantom Crystal Dimension"),
         Step("Tap the \"!\" over the Another Dungeon door, the glowing \"???\" tab, Phantom Crystal Dimension, Hard (uses the White Key), Move"),
         Step("In every world: open every chest, tap the cats for their paw stamps, then take a portal (any \"!\" leading on)"),
         Step("World I has no chests: its king cat and notice board open the paw stamp menu, which is closed (claiming is left to you)"),

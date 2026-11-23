@@ -14,7 +14,8 @@ import kotlin.math.abs
 /**
  * The Phantom Crystal Dimension, entered with a White Key:
  *
- *  1. the "!" over the Another Dungeon door → the glowing "???" tab → "Phantom Crystal
+ *  1. the "!" over the Another Dungeon door (from anywhere on the field with the `go_to_door`
+ *     option: RiftDoor.kt) → the glowing "???" tab → "Phantom Crystal
  *     Dimension" → Hard ("Using White Key×1") → Move;
  *  2. every world: open every chest (each shows a "!" when the party is close), tap the cats,
  *     then take a portal (any other "!"). A "!" that opens the paw stamp menu is cancelled
@@ -105,15 +106,8 @@ object PhantomCrystal {
     private fun enter(r: Run) {
         val ctx = r.ctx
         MacroLog.status("Entering the Phantom Crystal Dimension")
-        ctx.refresh()
-        val door = ctx.find("field_interact_bubble") ?: ctx.stop("no \"!\" over the Another Dungeon door: start next to it (Spacetime Rift)")
-        ctx.tap(door); ctx.wait(2.5)
-        var opened = false
-        for (i in 0 until 6) {
-            if (ctx.readText().any { Ocr.norm(it.text) == "another dungeon" }) { opened = true; break }
-            ctx.wait(1.0)
-        }
-        if (!opened) ctx.stop("the door didn't open the Another Dungeon map")
+        // the door's "!", or (option go_to_door, on by default) the trip to it from anywhere on the field
+        RiftDoor.open(ctx)
         ctx.tapExact(PHANTOM_TAB); ctx.wait(2.0)
         fun phantomLabel() = ctx.readText().firstOrNull { Ocr.similarity(it.text, "Phantom Crystal") >= 0.7 || Ocr.norm(it.text).startsWith("phantom crystal") }
         var label = phantomLabel()

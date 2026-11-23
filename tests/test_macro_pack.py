@@ -96,6 +96,21 @@ def test_dungeons_take_battle_options_from_the_battle_macro():
             assert not any(str(k).startswith("skill_") for k in spec.get("params") or {}), name
 
 
+def test_every_dungeon_macro_goes_to_the_door_by_itself():
+    # the user's rule: every dungeon macro gets to the Another Dungeon door from anywhere on the
+    # field (RiftDoor.kt), behind one switch that is on by default
+    found = 0
+    for name, (_, spec) in macro_pack.macros().items():
+        handlers = yaml.safe_dump(spec.get("handlers") or {})
+        if spec.get("group") != "dungeon" or not ("another_dungeon" in handlers or "phantom_crystal" in handlers):
+            continue
+        found += 1
+        opt = (spec.get("params") or {}).get("go_to_door")
+        assert opt, f"{name}: no go_to_door option"
+        assert opt.get("type") == "bool" and opt.get("default") is True, f"{name}: go_to_door must be a switch, on by default"
+    assert found >= 6
+
+
 def test_party_is_picked_by_number_only():
     # every user names and fills their parties differently: the party option is a number
     all_macros = macro_pack.macros()
