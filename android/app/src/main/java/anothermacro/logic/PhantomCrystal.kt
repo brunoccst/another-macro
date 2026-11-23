@@ -33,6 +33,7 @@ object PhantomCrystal {
     private const val ICONS = "templates/another_dungeon/"
     private val AD_CLOSE = Point(0.88, 0.03)
     private val PHANTOM_TAB = Point(0.375, 0.165)
+    private val EXPAND = Point(0.844, 0.9)
 
     private class Run(val ctx: Context) {
         val start = System.currentTimeMillis()
@@ -114,7 +115,18 @@ object PhantomCrystal {
         }
         if (!opened) ctx.stop("the door didn't open the Another Dungeon map")
         ctx.tapExact(PHANTOM_TAB); ctx.wait(2.0)
-        val label = ctx.readText().firstOrNull { Ocr.similarity(it.text, "Phantom Crystal") >= 0.7 || Ocr.norm(it.text).startsWith("phantom crystal") }
+        fun phantomLabel() = ctx.readText().firstOrNull { Ocr.similarity(it.text, "Phantom Crystal") >= 0.7 || Ocr.norm(it.text).startsWith("phantom crystal") }
+        var label = phantomLabel()
+        // the "???" tab opens on the continent of its last trip (Underworld after an Underworld run, 2026-11-23:
+        // the run stopped with "no White Key" while one was held): Expand, then Illusion World
+        if (label == null) {
+            MacroLog.i("no Phantom Crystal Dimension in view: Expand -> Illusion World")
+            val expand = ctx.readText().firstOrNull { Ocr.norm(it.text) == "expand" }
+            if (expand != null) ctx.tapExact(expand.center) else ctx.tapExact(EXPAND)
+            ctx.wait(2.0)
+            ctx.readText().firstOrNull { Ocr.norm(it.text) == "illusion world" }?.let { ctx.tapExact(it.center); ctx.wait(2.0) }
+            label = phantomLabel()
+        }
         if (label == null) {
             ctx.tapExact(AD_CLOSE); ctx.wait(1.5)
             ctx.stop("no White Key: the Phantom Crystal Dimension isn't open")
