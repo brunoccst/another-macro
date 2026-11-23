@@ -4,6 +4,7 @@ import macroforge.*
 
 import anothermacro.logic.AnotherDungeon
 import anothermacro.logic.Party
+import anothermacro.logic.RiftDoor
 import org.junit.Assert.assertEquals
 import org.junit.Test
 
@@ -76,6 +77,15 @@ class DungeonOptionsTest {
             else disc(x0 + i * gap, 40, 8, 0xff969498.toInt())
         }
         return px
+    }
+
+    @Test fun goToDoorIsOnUnlessSwitchedOff() {
+        assertEquals(true, RiftDoor.enabled(emptyMap()))   // a step or macro that doesn't pass it
+        assertEquals(true, RiftDoor.enabled(mapOf("go_to_door" to "true")))
+        assertEquals(true, RiftDoor.enabled(mapOf("go_to_door" to "")))
+        assertEquals(false, RiftDoor.enabled(mapOf("go_to_door" to "false")))
+        assertEquals(false, RiftDoor.enabled(mapOf("go_to_door" to " Off ")))
+        assertEquals(false, RiftDoor.enabled(mapOf("go_to_door" to "0")))
     }
 
     @Test fun partyDots() {

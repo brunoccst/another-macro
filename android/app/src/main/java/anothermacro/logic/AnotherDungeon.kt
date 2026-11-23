@@ -633,17 +633,10 @@ object AnotherDungeon {
         val ctx = r.ctx
         val red = r.key == "red"
         val difficulty = if (red) "Very Hard" else "Hard"
-        if (!waitForField(ctx)) ctx.stop("not on the field: start next to the Another Dungeon door in the Spacetime Rift")
+        if (!waitForField(ctx)) ctx.stop("not on the field: start on the field, or next to the Another Dungeon door in the Spacetime Rift")
         task(r, "Entering ${r.spec.name} ($difficulty)")
-        val door = doorBubble(ctx) ?: toRiftDoor(r) ?: ctx.stop("no \"!\" over the Another Dungeon door: start next to it (Spacetime Rift)")
-        ctx.tap(door); ctx.wait(2.5)
-        // the map fades in: give it a few reads
-        var opened = false
-        for (i in 0 until 6) {
-            if (ctx.readText().any { Ocr.norm(it.text) == "another dungeon" }) { opened = true; break }
-            ctx.wait(1.0)
-        }
-        if (!opened) ctx.stop("the door didn't open the Another Dungeon map: ${seen(ctx)}")
+        // the door's "!", or (option go_to_door, on by default) the trip to it from anywhere on the field
+        RiftDoor.open(ctx)
         if (!r.ignoreHeldKey && phantomTabGlows(ctx)) {
             ctx.tap(AD_CLOSE); ctx.wait(1.5)
             r.heldKey = true
@@ -731,75 +724,6 @@ object AnotherDungeon {
      * half hidden under the era icons at the top right or cut by the left edge: then drag what shows
      * of it (else the map) toward the middle and look again.
      */
-    /** The "!" over the Another Dungeon door, not too far from the party (a "!" over an NPC sits higher). */
-    private fun doorBubble(ctx: Context): Point? =
-        ctx.find(BUBBLE)?.center?.takeIf { it.y > DOOR_MIN_Y }
-
-    /**
-     * Not next to the door: World Map → "???" → Spacetime Rift → Yes, then walk left from the
-     * arrival point until the door's "!" shows near the middle. Null if that didn't work.
-     */
-    private fun toRiftDoor(r: Run): Point? {
-        val ctx = r.ctx
-        task(r, "Going to the Another Dungeon door (Spacetime Rift)")
-        var opened = false
-        for (attempt in 1..3) {
-            ctx.tap(MAP_BUTTON); ctx.wait(2.5)
-            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
-            waitForField(ctx, 5)
-        }
-        if (!opened) return null.also { MacroLog.i("the world map didn't open") }
-        // the "???" tab opens on the continent of its last trip: Expand and pick the Rift's continent
-        // when it isn't in view. Its continents list has Illusion World: without it the tap didn't
-        // reach the "???" tab (the map was still opening on another era's tab), so tap it again
-        for (attempt in 1..2) {
-            ctx.tap(ERA_OTHER); ctx.wait(2.0)
-            if (ctx.readText().any { Ocr.norm(it.text).contains("spacetime rift") }) break
-            MacroLog.i("no Spacetime Rift in view: Expand -> Illusion World")
-            // OCR can miss the button's label: then its place
-            if (tapText(r, "Expand", exact = true, tries = 1) == null) {
-                MacroLog.i("no Expand label read: tapping its place")
-                ctx.tap(EXPAND_BUTTON)
-            }
-            ctx.wait(2.0)
-            if (ctx.readText().none { Ocr.norm(it.text) == "illusion world" }) {
-                MacroLog.i("no Illusion World among the continents (not the \"???\" tab): ${seen(ctx)}")
-                continue
-            }
-            tapText(r, "Illusion World", exact = true)
-            ctx.wait(2.0)
-            break
-        }
-        if (tapText(r, "Spacetime Rift") == null) {
-            MacroLog.i("no Spacetime Rift on the map: ${seen(ctx)}")
-            // a tap on the map may have asked to travel somewhere else ("Moving to ...?"): No first
-            if (ctx.readText().any { Ocr.norm(it.text).contains("moving to") }) {
-                ctx.readText().firstOrNull { Ocr.norm(it.text) == "no" && it.center.y > 0.4 }?.let { ctx.tapExact(it.center); ctx.wait(1.5) }
-            }
-            ctx.tap(AD_CLOSE); ctx.wait(1.5)
-            return null
-        }
-        ctx.wait(1.5)
-        val yes = ctx.readText().firstOrNull { Ocr.norm(it.text) == "yes" && it.center.y > 0.4 }
-        if (yes != null) {
-            ctx.tapExact(yes.center)
-            if (!waitForField(ctx, 30)) return null.also { MacroLog.i("the field didn't come back after the trip") }
-        } else {
-            // already in the Rift: the map just closes
-            ctx.tap(AD_CLOSE); ctx.wait(1.5)
-            waitForField(ctx, 5)
-        }
-        ctx.wait(1.0)
-        // the door is a short walk left of the arrival point
-        repeat(16) {
-            ctx.refresh()
-            doorBubble(ctx)?.let { if (it.x in 0.25..0.75) { MacroLog.i("at the Another Dungeon door"); return it } }
-            ctx.drag(Point(0.5, 0.65), Point(0.4, 0.65), RIFT_STEP_MS)
-            ctx.wait(0.5)
-        }
-        return null.also { MacroLog.i("walked left in the Rift and found no door \"!\"") }
-    }
-
     private fun mapLabel(r: Run, wants: Array<String>, maxX: Double): Ocr.Line? {
         val ctx = r.ctx
         tapText(r, *wants, minY = 0.2, maxX = maxX, tries = 2)?.let { return it }
@@ -2115,13 +2039,6 @@ object AnotherDungeon {
     private val AD_CLOSE = Point(0.88, 0.03)
     /** The Another Dungeon map's "???" tab (it glows with a White Key: see [phantomTabGlows]). */
     private val AD_OTHER_TAB = Point(0.38, 0.11)
-    private val MAP_BUTTON = Point(0.385, 0.917)
-    /** The World Map's "???" tab. */
-    private val ERA_OTHER = Point(0.379, 0.17)
-    /** The world map's Expand button (its icon, above the label). */
-    private val EXPAND_BUTTON = Point(0.844, 0.89)
-    private const val DOOR_MIN_Y = 0.13
-    private const val RIFT_STEP_MS = 350L
 
     private fun readPhantom(r: Run, lines: List<Ocr.Line>) {
         val all = lines.joinToString(" ") { Ocr.norm(it.text) }
@@ -2144,8 +2061,13 @@ object AnotherDungeon {
     private fun tapText(
         r: Run, vararg wants: String, exact: Boolean = false, tries: Int = 3,
         minY: Double = 0.0, minX: Double = 0.0, maxX: Double = 1.0,
+    ): Ocr.Line? = tapText(r.ctx, *wants, exact = exact, tries = tries, minY = minY, minX = minX, maxX = maxX)
+
+    /** [tapText] outside a run (RiftDoor.kt): the same purchase guard. */
+    internal fun tapText(
+        ctx: Context, vararg wants: String, exact: Boolean = false, tries: Int = 3,
+        minY: Double = 0.0, minX: Double = 0.0, maxX: Double = 1.0,
     ): Ocr.Line? {
-        val ctx = r.ctx
         repeat(tries) {
             val lines = ctx.readText()
             val all = lines.joinToString(" ") { Ocr.norm(it.text) }
@@ -2169,7 +2091,7 @@ object AnotherDungeon {
 
     private fun seen(ctx: Context) = ctx.readText().joinToString(" | ") { it.text }.take(300)
 
-    private fun waitForField(ctx: Context, seconds: Int = 20): Boolean {
+    internal fun waitForField(ctx: Context, seconds: Int = 20): Boolean {
         val end = System.currentTimeMillis() + seconds * 1000
         while (System.currentTimeMillis() < end) {
             ctx.refresh()

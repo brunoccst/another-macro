@@ -93,7 +93,10 @@ is off. Fix it and run again.
 - **The "???" tab** opens on the continent of its last trip (Underworld after an Underworld run);
   the Spacetime Rift is on Illusion World. Its Expand lists two continents: Illusion World and
   Underworld (2026-11-22). From a Present place (Kurosagi Castle) the map opens on that era's tab;
-  a run's "???" tap there once didn't switch the tab (2026-11-21). A "!" over a tree NPC near the door sits higher than
+  a run's "???" tap there once didn't switch the tab (2026-11-21). The Phantom Crystal Dimension's
+  label sits on Illusion World too: after an Underworld run its entry missed it until it switched
+  continents (2026-11-23). The user's rule (2026-11-23): every dungeon macro gets to the door by
+  itself from anywhere on the field (option `go_to_door`, on by default). A "!" over a tree NPC near the door sits higher than
   the door's.
 - **"please include" box**: it sits over the party list, so the next OCR line is a party member or
   the screen's title "Dungeon" (2026-11-18). A place's box ("Parallel Time Layer", Sea of Ice's

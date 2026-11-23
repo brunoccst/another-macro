@@ -1,7 +1,7 @@
 # The Phantom Crystal Dimension, with the White Key an Another Dungeon run can drop:
 # every chest and paw-stamp cat of every world, then on through a portal, until the Cape or
-# the final world ends it. Start it next to the shining Another Dungeon door (Spacetime Rift),
-# or inside the dimension. In the Last World it stops after the chests, before the Sensationalist (you talk to them and pick
+# the final world ends it. Start it anywhere on the field (go_to_door: it travels to the Spacetime Rift
+# and walks to the shining Another Dungeon door), next to that door, or inside the dimension. In the Last World it stops after the chests, before the Sensationalist (you talk to them and pick
 # the free Treatise/Codex/Opus) and the way out. In the World's Cape it stops the same way only when the Sensationalist is
 # there (their "!" next to the cat's); otherwise it takes the stairs out.
 name: phantom-crystal
@@ -9,7 +9,8 @@ group: dungeon
 icon: crystal
 description: "Phantom Crystal Dimension (White Key): every chest and stamp, world by world."
 templates: [another_dungeon]
-params: {}
+params:
+  go_to_door: {default: true, type: bool, help: "start anywhere on the field: the macro opens the World Map's \"???\" tab, travels to the Spacetime Rift and walks to the Another Dungeon door by itself; off = start it next to the door (or inside the dimension)"}
 screens: [field]
 unknown_timeout_s: 120
 handlers:

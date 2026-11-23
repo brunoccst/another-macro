@@ -53,6 +53,11 @@ Every dungeon macro is the same YAML steps plus its own dungeon: the whole run i
 macro file's `dungeon:` block ([fields](dungeon-data.md)) and already does the parts every
 dungeon shares, so a fix to the shared flow reaches every dungeon at once:
 
+- **To the door** (`go_to_door`, on by default, on every dungeon macro including the Phantom
+  Crystal Dimension): started anywhere on the field, the macro opens the World Map's "???" tab
+  (Expand → Illusion World when it shows another continent), travels to the Spacetime Rift and
+  walks left to the Another Dungeon door (`logic/RiftDoor.kt`); a "!" in view that opens something
+  else sends it there too. Off: start it next to the door (or inside the dungeon).
 - **Entry**: Spacetime Rift door "!" → era tab → (optional `area:` sub-map such as
   "Parallel Time Layer") → the dungeon's label (`label:` when it wraps) → Hard/Very Hard
   (`key: green/red`) → Move, or Skip with a Cat Express Ticket.

@@ -2,7 +2,7 @@
 # fighting the battles on the way (defeat_all on: then the enemies left, until they disappear), then the boss.
 # Stops when the run ends, and says so when a White Key opened the Phantom Crystal Dimension.
 # Never buys keys: a purchase offer stops it.
-# Start it anywhere on the field (it travels to the Spacetime Rift and walks to the door) or inside Moonlight Forest.
+# Start it anywhere on the field (it travels to the Spacetime Rift (go_to_door) and walks to the door) or inside Moonlight Forest.
 name: moonlight-forest
 group: dungeon
 icon: chest
@@ -16,6 +16,7 @@ params:
   runs: {default: 1, type: number, help: "runs in a row, any number; switch All keys on (beside it) to run until the keys run out. With both keys on, that many runs with each: red keys first, then green"}
   all_keys: {default: false, type: bool, beside: runs, help: "run until the switched-on keys run out (runs above not used)"}
   white_key: {default: phantom, choices: [phantom, stop, keep_going], help: "when a White Key drops: phantom = run the Phantom Crystal Dimension, then back to the runs; stop = stop for you; keep_going = ignore it"}
+  go_to_door: {default: true, type: bool, help: "start anywhere on the field: the macro opens the World Map's \"???\" tab, travels to the Spacetime Rift and walks to the Another Dungeon door by itself; off = start it next to the door (or inside the dungeon)"}
   party: {default: 1, global: party, choices: [current, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10], help: "the game's party to use, by its number in the game's party list (1 = the first; Menu → Party, the dots under it); current = the party in front now; global = the Global parameters' party. Picked once on the field before the first run (basic macro pick-party)"}
   cat_ticket: {default: false, type: bool, help: "use a Cat Express Ticket if you have one (Skip: straight to the clear screen with the chest and enemy loot)"}
   defeat_all: {default: false, type: bool, help: "after every chest and pickup of a map, fight the enemies still left until \"The enemies have disappeared\", then go to the exit (the battles met on the way count); off = straight to the exit once the stops are done (faster)"}
