@@ -11,6 +11,7 @@ group: basic
 icon: sun
 description: "Basic: travel by the World Map to a place (era, continent, place, destination), then stop on the field there. Every trip of the other macros goes through it."
 params:
+  mode: {default: travel, choices: [travel, map_places], help: "travel = go to the place below; map_places = no trip: sweep every era's maps and remember where each place label is (the options below aren't used)"}
   era: {default: Present, choices: [Antiquity, Present, Future, "???"], help: "the World Map's era tab"}
   continent: {default: "", help: "the Expand list's entry to open (e.g. Migleina Continent, Illusion World); empty = the one remembered for the place, else the map the tab shows, then every entry"}
   place: {default: Baruoki, help: "the place's label on the World Map"}
@@ -19,7 +20,10 @@ params:
 # what it does, in order, for the app's "How it works" ({option} = the option's value)
 how:
   - {teleport: true}
-  - "Stop on the field at {place}"
+  - if: mode == 'map_places'
+    then: ["Stop with how many places were found on how many maps"]
+  - if: mode != 'map_places'
+    then: ["Stop on the field at {place}"]
 screens: [field]
 unknown_timeout_s: 30
 

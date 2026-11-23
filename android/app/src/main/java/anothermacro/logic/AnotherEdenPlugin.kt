@@ -60,7 +60,7 @@ object AnotherEdenPlugin : GamePlugin {
                 }
                 "another_dungeon" -> ctx.stop(AnotherDungeon.run(ctx, step["another_dungeon"].toString()))
                 "phantom_crystal" -> ctx.stop(PhantomCrystal.run(ctx))
-                "teleport" -> macro.vars["result"] = Teleport.go(ctx, Teleport.Trip.of(ctx.params))
+                "teleport" -> macro.vars["result"] = if (ctx.params["mode"] == "map_places") Teleport.mapPlaces(ctx) else Teleport.go(ctx, Teleport.Trip.of(ctx.params))
                 "pick_party" -> {
                     val v = Expr.str(macro.value(step["pick_party"]))
                     val n = Party.number(v) ?: throw IllegalArgumentException("${macro.name}: pick_party: '$v' is not a party number")

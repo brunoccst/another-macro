@@ -172,6 +172,9 @@ object HowItWorks {
     // --- World Map trips (Teleport.kt) --------------------------------------------------------
 
     private fun teleport(o: Map<String, String>): List<Step> {
+        if (o["mode"] == "map_places") return listOf(
+            Step("Open the World Map; for every era tab, every entry of its Expand list: sweep the whole map and " +
+                "remember each place label with its era and continent (for later trips)", note = MacroSteps.optionsIn("mode", o)))
         val t = Teleport.Trip.of(o)
         val place = t.place.ifEmpty { "the place" }
         return listOf(

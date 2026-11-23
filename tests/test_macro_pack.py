@@ -228,6 +228,6 @@ def test_teleport_is_the_basic_macro_for_every_trip():
     # one World Map trip for every macro (logic/Teleport.kt): its options are what callers pass
     _, spec = macro_pack.macros()["teleport"]
     assert spec["group"] == "basic"
-    assert set(spec["params"]) == {"era", "continent", "area", "place", "destination"}
+    assert set(spec["params"]) == {"mode", "era", "continent", "area", "place", "destination"}
     assert spec["params"]["era"]["choices"] == ["Antiquity", "Present", "Future", "???"]
     assert "teleport" in yaml.safe_dump(spec["handlers"])

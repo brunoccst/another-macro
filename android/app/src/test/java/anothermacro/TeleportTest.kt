@@ -1,6 +1,7 @@
 package anothermacro
 
 import anothermacro.logic.CatDaily
+import anothermacro.logic.KnownPlaces
 import anothermacro.logic.Teleport
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -25,5 +26,13 @@ class TeleportTest {
         assertEquals("Zarbo" to "Migleina Continent", Teleport.splitPlace("Zarbo, Migleina"))
         assertEquals("Baruoki" to null, Teleport.splitPlace("Baruoki"))
         assertEquals("Snake Bone Island", Teleport.regionOf("Konium"))
+    }
+
+    @Test fun knownPlacesKeepOneEntryPerEra() {
+        val m = KnownPlaces.parseSeed("Baruoki: {era: Present, continent: Migleina Continent}\n" +
+            "Konium:\n  - {era: Present, continent: Migleina Continent, area: Snake Bone Island}\n  - {era: Antiquity, continent: Migleina Continent}\n")
+        assertEquals(3, m.size)
+        assertEquals("Snake Bone Island", m.values.first { it.area != null }.area)
+        assertEquals(setOf("Present", "Antiquity"), m.filterKeys { it.startsWith("konium") }.values.map { it.era }.toSet())
     }
 }

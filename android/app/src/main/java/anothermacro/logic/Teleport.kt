@@ -100,7 +100,7 @@ object Teleport {
         if (trip.era !in ERA) return "unknown era '${trip.era}' (one of ${ERA.keys.joinToString()})"
         val place = splitPlace(trip.place).first
         val sub = trip.destination
-        val region = trip.area ?: regionOf(place)
+        val region = trip.area ?: KnownPlaces.area(ctx, place, trip.era) ?: regionOf(place)
         val where = place + if (sub.isNotEmpty()) " ($sub)" else ""
         if (!waitForField(ctx, 20)) return "not on the field"
         if (!openWorldMap(ctx, trip.era)) return "the world map didn't open"
@@ -279,9 +279,11 @@ object Teleport {
 
     private fun isYes(l: Ocr.Line) = Ocr.norm(l.text) == "yes" && l.center.y > 0.4
 
-    /** Pan around the visible map looking for [place]'s label; tap it and confirm the trip. */
-    internal fun searchAndGo(ctx: Context, place: String, sub: String, region: String? = null): Boolean {
-        // look here first; then from the top-left corner, sweep the map row by row (snake order)
+    /**
+     * Sweep the map shown: this view first, then from the top-left corner row by row (snake
+     * order), calling [visit] with each view's text until it returns true (then true).
+     */
+    private fun sweep(ctx: Context, visit: (List<Ocr.Line>) -> Boolean): Boolean {
         val pans = ArrayList<Pair<Double, Double>>()
         pans += 0.0 to 0.0
         // to the top-left corner (the drags stop at the edges): five drags, so the sweep starts at the edge
@@ -311,8 +313,18 @@ object Teleport {
                 before.release()
             }
             if (cornerDrag) continue
-            var read = ctx.readText()
+            val read = ctx.readText()
             seen = read
+            if (visit(read)) return true
+        }
+        return false
+    }
+
+    /** Pan around the visible map looking for [place]'s label; tap it and confirm the trip. */
+    internal fun searchAndGo(ctx: Context, place: String, sub: String, region: String? = null): Boolean {
+        var went = false
+        sweep(ctx) { first ->
+            var read = first
             MacroLog.i("map labels: " + read.filter { it.center.y > 0.12 }.joinToString { it.text }.take(300))
             fun placeLabel() = withWrapped(read).firstOrNull { it.center.y > 0.12 && isPlace(it, place) }
             var label = placeLabel()
@@ -330,18 +342,80 @@ object Teleport {
                     if (label == null) { MacroLog.i("$place not in the $region panel: ${read.joinToString { it.text }.take(200)}"); ctx.tap(PANEL_CLOSE); ctx.wait(1.5) }
                 }
             }
-            if (label == null) continue
+            if (label == null) return@sweep false
             if (nearButtons(label.center)) {
                 // too close to Expand / the era icons / the side buttons: drag it to the middle first
                 ctx.drag(label.center, Point(0.45, 0.55), 700); ctx.wait(1.2)
                 read = ctx.readText()
-                label = placeLabel() ?: continue
+                label = placeLabel() ?: return@sweep false
             }
-            return goVia(ctx, label, place, sub)
+            went = goVia(ctx, label, place, sub)
+            true
         }
-        return false
+        return went
     }
 
+    // --- mode map_places: every label of every map, into KnownPlaces --------------------------
+
+    /** Text on the World Map that isn't a place: the era tabs, the title, the buttons. */
+    private val NOT_PLACES = setOf("world map", "expand", "antiq", "pres", "fut", "hollow", "antiquity", "present", "future")
+
+    /** Whether [l] can be a place's label (below the era tabs, not a button). */
+    private fun placeLike(l: Ocr.Line): Boolean {
+        val n = Ocr.norm(l.text)
+        if (l.center.y < 0.12 || (l.center.y < 0.28 && l.center.x < 0.52)) return false
+        if (n.length < 3 || n in NOT_PLACES || n.all { it == '?' || it == ' ' }) return false
+        return n.count { it.isLetter() } >= 3
+    }
+
+    /**
+     * Every era tab, every entry of its Expand list, a full sweep of each map: each label read
+     * at least twice is remembered with its era and continent ([KnownPlaces]) and logged as
+     * "MAPPED <era> / <continent>: ...". Labels on the map only (an island's places are inside
+     * its panel: not opened). The stop reason sums it up.
+     */
+    fun mapPlaces(ctx: Context): String {
+        if (!waitForField(ctx, 20)) return "not on the field"
+        var maps = 0
+        var places = 0
+        var opened = false
+        for (era in ERA.keys) {
+            if (!opened) { if (!openWorldMap(ctx, era)) return "the world map didn't open"; opened = true }
+            else tapEra(ctx, era)
+            val expand = ctx.readText().firstOrNull { Ocr.norm(it.text) == "expand" && it.center.y > 0.75 }
+            ctx.tap(expand?.center ?: EXPAND); ctx.wait(2.0)
+            val entries = ctx.readText().filter { l -> l.text.contains("Continent", true) || REGION_NAMES.any { Ocr.similarity(l.text, it) >= 0.8 } }.map { it.text }.distinct()
+            MacroLog.i("map_places: $era: ${entries.joinToString().ifEmpty { "no Expand entries" }}")
+            if (entries.isEmpty()) closeExpand(ctx)
+            for (name in entries.ifEmpty { listOf("") }) {
+                if (name.isNotEmpty()) {
+                    if (ctx.readText().none { it.text == name }) {
+                        val ex = ctx.readText().firstOrNull { Ocr.norm(it.text) == "expand" && it.center.y > 0.75 }
+                        ctx.tap(ex?.center ?: EXPAND); ctx.wait(2.0)
+                    }
+                    val line = ctx.readText().firstOrNull { it.text == name } ?: continue
+                    ctx.tap(line.center); ctx.wait(2.0)
+                }
+                step("mapping $era / ${name.ifEmpty { "the map shown" }}")
+                val counts = LinkedHashMap<String, Pair<String, Int>>()
+                sweep(ctx) { read ->
+                    for (l in withWrapped(read)) if (placeLike(l)) {
+                        val k = Ocr.norm(l.text)
+                        counts[k] = (counts[k]?.first ?: l.text.trim()) to ((counts[k]?.second ?: 0) + 1)
+                    }
+                    false
+                }
+                // a wrapped label is also read as its two halves: keep the joined one
+                val found = counts.values.filter { it.second >= 2 }.map { it.first }
+                val kept = found.filterNot { a -> found.any { b -> b != a && Ocr.norm(b).length > Ocr.norm(a).length && Ocr.norm(b).contains(Ocr.norm(a)) } }
+                for (p in kept) KnownPlaces.learn(ctx, p, era, name, quiet = true)
+                MacroLog.i("MAPPED $era / ${name.ifEmpty { "-" }}: ${kept.joinToString(" | ")}")
+                maps++; places += kept.size
+            }
+        }
+        closeMap(ctx)
+        return "mapped $places place labels on $maps maps (log: MAPPED lines)"
+    }
     /**
      * [lines] plus each label that wraps onto a second line, joined into one line ("Nazrik, City of"
      * over "Shadows"): the second line starts right under the first and overlaps it across.
@@ -429,5 +503,81 @@ object Teleport {
         val t = Ocr.norm(title)
         val l = Ocr.norm(location.substringBefore(" ("))
         return t.isNotEmpty() && l.isNotEmpty() && (Ocr.similarity(t, l) >= 0.8 || t.contains(l) || l.contains(t))
+    }
+}
+
+/**
+ * Where each place is on the World Map (era, the Expand entry, the area label whose panel holds
+ * it), so a trip doesn't search every map. Seeded from the pack (templates/cat_scratchbook/
+ * known_places.yaml: `<place>: {era, continent, area}` or a list of those, one per era); what
+ * trips learn and the teleport's map_places mode finds goes to the app's own storage
+ * (files/known_places.json) and wins over the seed. One entry per place and era.
+ */
+object KnownPlaces {
+    data class Entry(val era: String, val continent: String, val area: String? = null)
+
+    private var cache: MutableMap<String, Entry>? = null
+
+    private fun file(ctx: Context) = java.io.File(ctx.debugDir.parentFile, "known_places.json")
+
+    private fun key(place: String, era: String) = Ocr.norm(place) + "|" + era.lowercase()
+
+    internal fun entry(v: Any?): Entry? {
+        val e = v as? Map<*, *> ?: return null
+        val era = e["era"]?.toString()?.trim().orEmpty()
+        val continent = e["continent"]?.toString()?.trim().orEmpty()
+        if (era.isEmpty()) return null
+        return Entry(era, continent, e["area"]?.toString()?.trim()?.takeIf { it.isNotEmpty() })
+    }
+
+    /** The seed's entries: `<place>: {era, continent, area}` or a list of them. */
+    internal fun parseSeed(text: String): Map<String, Entry> {
+        val m = LinkedHashMap<String, Entry>()
+        (org.snakeyaml.engine.v2.api.Load(org.snakeyaml.engine.v2.api.LoadSettings.builder().build()).loadFromString(text) as? Map<*, *>)?.forEach { (k, v) ->
+            val list = (v as? List<*>) ?: listOf(v)
+            for (x in list) entry(x)?.let { m[key(k.toString(), it.era)] = it }
+        }
+        return m
+    }
+
+    @Synchronized
+    private fun all(ctx: Context): MutableMap<String, Entry> = cache ?: LinkedHashMap<String, Entry>().also { m ->
+        runCatching {
+            m += parseSeed(ctx.assets.open("templates/cat_scratchbook/known_places.yaml").bufferedReader().use { it.readText() })
+        }.onFailure { MacroLog.e("known places seed unreadable", it) }
+        runCatching {
+            val f = file(ctx)
+            if (f.exists()) {
+                val o = org.json.JSONObject(f.readText())
+                for (k in o.keys()) {
+                    val j = o.getJSONObject(k)
+                    val e = Entry(j.getString("era"), j.optString("continent"), j.optString("area").takeIf { it.isNotEmpty() })
+                    // files written before one entry per era: the key is the place alone
+                    m[if ('|' in k) k else key(k, e.era)] = e
+                }
+            }
+        }.onFailure { MacroLog.e("known places file unreadable", it) }
+        cache = m
+    }
+
+    fun continent(ctx: Context, place: String, era: String): String? = all(ctx)[key(place, era)]?.continent?.takeIf { it.isNotEmpty() }
+
+    fun area(ctx: Context, place: String, era: String): String? = all(ctx)[key(place, era)]?.area
+
+    @Synchronized
+    fun learn(ctx: Context, place: String, era: String, continent: String, area: String? = null, quiet: Boolean = false) {
+        val m = all(ctx)
+        val k = key(place, era)
+        val e = Entry(era, continent, area ?: m[k]?.area)
+        if (m[k] == e) return
+        m[k] = e
+        save(ctx, m)
+        if (!quiet) MacroLog.i("learned: $place is on $continent ($era)" + (e.area?.let { ", in $it" } ?: ""))
+    }
+
+    private fun save(ctx: Context, m: Map<String, Entry>) {
+        val o = org.json.JSONObject()
+        m.forEach { (k, e) -> o.put(k, org.json.JSONObject().put("era", e.era).put("continent", e.continent).also { j -> e.area?.let { j.put("area", it) } }) }
+        runCatching { file(ctx).writeText(o.toString(1)) }.onFailure { MacroLog.e("could not save known places", it) }
     }
 }
