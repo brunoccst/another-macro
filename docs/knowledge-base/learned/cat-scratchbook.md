@@ -107,6 +107,24 @@ app's survey); the data itself stays in the YAML.
 - `walk_scale`: L 2000 walked 0.040 and L 3000 on the upper street 0.058 (0.84 and 0.82)
 - a flick right after closing the area map can be ignored; the second one took
 
+### Snake Neck Igoma (Enter from Konium)
+
+- measured by hand on the phone 2026-11-23 (positions on the area map as it opens on the arrival
+  street): travel to Konium, walk left off its middle street's west end, through a short unnamed
+  field map, into Snake Neck Igoma. The party comes in on the long street at y 0.61 (right part)
+- two junctions go up from that street to the left of the arrival. The first one (x 0.61) is
+  stairs (a ground arrow; flick up) to the feather's street (y 0.497, x 0.437-0.62); on the area
+  map it is drawn a little greyer, as another floor. The second one (x 0.548) climbs past that
+  street, on another level, to the top street (y 0.383) and does not reach the cat. The survey's
+  street mask didn't read the greyer street at all
+  (11-23 survey notes: "the feather is on no street read (another floor?)"), so the map steering
+  took the second junction and got stuck (the user's report, 2026-11-23)
+- the 11-23 survey read the party at (0.640, 0.379), on no street: not the marker. The walk across
+  ends wherever its long hold ends, so the arrival isn't fixed; the route reads the party on the
+  layout first
+- `cat`: the feather at (0.473, 0.497); the cat was found there by hand 2026-11-23 (hunt mode)
+- `walk_scale`: L 3000 walked 0.066 (0.93)
+
 ### Sarupa
 
 - on the Antiquity tab, Migleina Continent, at the map's top right: north of Vulga Mountain Road,

@@ -59,8 +59,13 @@ def test_drift_stays_on_the_street():
 
 def test_unmeasured_spots_have_no_route(table):
     assert cr.plan("x", {"era": "Present", "place": "x", "area": None}, table) is None
-    assert cr.plan("x", {**SPOT, "walk_to": "Next Map"}, table) is None
+    assert cr.plan("x", {**SPOT, "walk_to": "Next Map", "area": {**SPOT["area"], "cat": None}}, table) is None
     assert "area.cat" in cr.missing({"area": {"segs": [[0.5, 0.1, 0.9]]}})
+
+
+def test_walk_to_spot_routes_on_the_map_walked_into(table):
+    # the area is measured on the walk_to map; the arrival is where walking across leaves the party
+    assert cr.plan("x", {**SPOT, "walk_to": "Next Map"}, table) == cr.plan("x", SPOT, table)
 
 
 def test_split_location():
