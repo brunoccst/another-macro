@@ -126,10 +126,9 @@ object PhantomCrystal {
             ctx.stop("no White Key: the Phantom Crystal Dimension isn't open")
         }
         ctx.tapExact(label.center); ctx.wait(2.0)
-        // the entry panel slides in from the right, slower after the Expand -> Illusion World detour (2026-11-23:
-        // read once after 2 s, it missed a "Hard" that was there): look for up to 8 s. The level's icon in front
-        // can be read into the same line.
-        fun hardEntry() = ctx.readText().firstOrNull { val t = Ocr.norm(it.text); (t == "hard" || t.endsWith(" hard")) && it.center.x > 0.6 }
+        // the level's icon in front of "Hard" can be read into the word ("OHard", 2026-11-23: the run stopped
+        // with the entry on screen), and the panel slides in from the right: look for up to 8 s
+        fun hardEntry() = ctx.readText().firstOrNull { val t = Ocr.norm(it.text).replace(" ", ""); t.endsWith("hard") && t.length <= 6 && it.center.x > 0.6 }
         var hard = hardEntry()
         val until = System.currentTimeMillis() + 8000
         while (hard == null && System.currentTimeMillis() < until) { ctx.wait(0.5); hard = hardEntry() }
