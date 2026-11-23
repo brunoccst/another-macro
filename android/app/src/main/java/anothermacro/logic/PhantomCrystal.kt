@@ -126,7 +126,18 @@ object PhantomCrystal {
             ctx.stop("no White Key: the Phantom Crystal Dimension isn't open")
         }
         ctx.tapExact(label.center); ctx.wait(2.0)
-        val hard = ctx.readText().firstOrNull { Ocr.norm(it.text) == "hard" && it.center.x > 0.6 } ?: ctx.stop("no Hard entry for the Phantom Crystal Dimension")
+        // the entry panel slides in from the right, slower after the Expand -> Illusion World detour (2026-11-23:
+        // read once after 2 s, it missed a "Hard" that was there): look for up to 8 s. The level's icon in front
+        // can be read into the same line.
+        fun hardEntry() = ctx.readText().firstOrNull { val t = Ocr.norm(it.text); (t == "hard" || t.endsWith(" hard")) && it.center.x > 0.6 }
+        var hard = hardEntry()
+        val until = System.currentTimeMillis() + 8000
+        while (hard == null && System.currentTimeMillis() < until) { ctx.wait(0.5); hard = hardEntry() }
+        if (hard == null) {
+            // close the Another Dungeon screen, so the next macro of a routine starts from the field
+            ctx.tapExact(AD_CLOSE); ctx.wait(1.5)
+            ctx.stop("no Hard entry for the Phantom Crystal Dimension")
+        }
         ctx.tapExact(hard.center); ctx.wait(2.0)
         val lines = ctx.readText()
         if (lines.none { Ocr.norm(it.text).contains("white key") }) {
