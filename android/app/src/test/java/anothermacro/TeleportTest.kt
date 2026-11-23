@@ -9,6 +9,7 @@ import org.junit.Test
 class TeleportTest {
     @Test fun tripRoundTripsThroughTheMacrosOptions() {
         val t = Teleport.Trip("???", "Spacetime Rift", "Illusion World")
+        assertEquals(Teleport.Trip("Present", "Konium", area = "Snake Bone Island"), Teleport.Trip.of(Teleport.Trip("Present", "Konium", area = "Snake Bone Island").params()))
         assertEquals(t, Teleport.Trip.of(t.params()))
         // an empty continent is "not given"
         assertEquals(null, Teleport.Trip.of(mapOf("era" to "Present", "place" to "Baruoki", "continent" to " ")).continent)

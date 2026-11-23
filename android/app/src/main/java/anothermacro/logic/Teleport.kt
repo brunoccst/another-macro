@@ -22,16 +22,18 @@ object Teleport {
     /**
      * Where to: [era] = the era tab, [place] = the map label ("<label>, <continent>" names the
      * continent too), [continent] = the Expand entry to open first (null: learned, else searched),
-     * [destination] = the entry to pick when the label opens a panel of destinations.
+     * [destination] = the entry to pick when the label opens a panel of destinations, [area] =
+     * the label whose panel or mini map holds [place] (null: the islands' list, see [regionOf]).
      */
-    data class Trip(val era: String, val place: String, val continent: String? = null, val destination: String = "") {
-        fun params() = mapOf("era" to era, "place" to place, "continent" to (continent ?: ""), "destination" to destination)
+    data class Trip(val era: String, val place: String, val continent: String? = null, val destination: String = "", val area: String? = null) {
+        fun params() = mapOf("era" to era, "place" to place, "continent" to (continent ?: ""), "destination" to destination, "area" to (area ?: ""))
 
         companion object {
             /** The teleport macro's options. */
             fun of(params: Map<String, String>) = Trip(
                 params["era"]?.trim().orEmpty(), params["place"]?.trim().orEmpty(),
-                params["continent"]?.trim()?.takeIf { it.isNotEmpty() }, params["destination"]?.trim().orEmpty())
+                params["continent"]?.trim()?.takeIf { it.isNotEmpty() }, params["destination"]?.trim().orEmpty(),
+                params["area"]?.trim()?.takeIf { it.isNotEmpty() })
         }
     }
 
@@ -98,7 +100,7 @@ object Teleport {
         if (trip.era !in ERA) return "unknown era '${trip.era}' (one of ${ERA.keys.joinToString()})"
         val place = splitPlace(trip.place).first
         val sub = trip.destination
-        val region = regionOf(place)
+        val region = trip.area ?: regionOf(place)
         val where = place + if (sub.isNotEmpty()) " ($sub)" else ""
         if (!waitForField(ctx, 20)) return "not on the field"
         if (!openWorldMap(ctx, trip.era)) return "the world map didn't open"
@@ -315,7 +317,7 @@ object Teleport {
             fun placeLabel() = withWrapped(read).firstOrNull { it.center.y > 0.12 && isPlace(it, place) }
             var label = placeLabel()
             if (label == null && region != null) {
-                // an island is one label on the continent map: it opens a panel of its places
+                // an area (an island) is one label on the map: it opens a panel or mini map of its places
                 val island = read.firstOrNull {
                     it.center.y > 0.12 && (Ocr.similarity(it.text, region) >= 0.8 ||
                         (Ocr.norm(it.text).length >= 8 && Ocr.norm(region).startsWith(Ocr.norm(it.text))))

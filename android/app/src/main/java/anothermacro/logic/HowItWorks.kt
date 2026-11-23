@@ -177,8 +177,9 @@ object HowItWorks {
         return listOf(
             Step("From the field: open the World Map and pick the ${t.era.ifEmpty { "era's" }} tab (when the tab doesn't open from the " +
                 "continent in view: another continent first, then the tab)", note = MacroSteps.optionsIn("era", o)),
-            Step((t.continent?.let { "Expand → $it, then look" } ?: "Look") + " for $place's label, panning the map; not there: the map the tab " +
-                "shows, then every entry of the Expand list (the continent found is remembered)", note = MacroSteps.optionsIn("continent place", o)),
+            Step((t.continent?.let { "Expand → $it, then look" } ?: "Look") + " for $place's label, panning the map" +
+                (t.area?.let { " (inside $it's panel or mini map: that label first)" } ?: "") + "; not there: the map the tab " +
+                "shows, then every entry of the Expand list (the continent found is remembered)", note = MacroSteps.optionsIn("continent area place", o)),
             Step("Tap the label" + (if (t.destination.isNotEmpty()) ", pick ${t.destination} in its panel" else "") +
                 ", Yes, and wait for the field", note = MacroSteps.optionsIn("destination", o)),
         )
