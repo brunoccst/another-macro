@@ -21,7 +21,7 @@ import kotlin.math.abs
 object CatRoute {
     data class Spot(
         val location: String, val era: String, val continent: String?, val place: String, val sub: String,
-        /** the cat is on a map the party walks to from [place] (not routed yet) */
+        /** the cat is on a map the party walks to from [place]; [layout] is then that map's */
         val walkTo: String?,
         /** flicks right after the trip, before [layout] (true = up): the cat is on another floor */
         val enter: List<Boolean>,
@@ -106,8 +106,16 @@ object CatRoute {
         }
         // every feather-like icon: other icons can match the feather template nearly as well, so the
         // one nearest the cat's start is taken
-        val view = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png") }
         val arrival = s.arrival!!
+        var view = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png") }
+        // after a walk across (walk_to) the party stops wherever the hold ended, so only a marker read
+        // on a street of the layout tells where it is: look again while the map shows none there
+        for (i in 1..2) {
+            if (s.walkTo == null || view.candidates.any { Route.segOf(s.layout!!, it) != null }) break
+            MacroLog.i("${s.location}: party marker not on a street of the layout (${view.candidates.take(3).joinToString { fmt(it) }}); looking again")
+            settle(ctx)
+            view = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, "templates/cat_scratchbook/map_feather_icon.png") }
+        }
         val party = view.candidates.minByOrNull { abs(it.x - arrival.x) + 3 * abs(it.y - arrival.y) }
         val shift = if (party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL && abs(party.x - arrival.x) < 0.025) party.x - arrival.x else 0.0
         val l = AreaNav.Layout(s.layout!!.segs.map { it.copy(x1 = it.x1 + shift, x2 = it.x2 + shift) }, s.layout.links.map { it.copy(x = it.x + shift) })

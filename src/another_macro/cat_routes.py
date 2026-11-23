@@ -63,8 +63,9 @@ def scaled(t: dr.WalkTable, scale: float) -> dr.WalkTable:
 def area_map(name: str, spot: dict) -> dr.MapData | None:
     """The spot's map as a layout the dungeon planner understands, the cat as its only stop."""
     a = spot.get("area") or {}
-    if spot.get("walk_to") or any(a.get(k) is None for k in AREA_KEYS):
-        return None  # unmeasured, or on a map past the travel point (not routed yet)
+    if any(a.get(k) is None for k in AREA_KEYS):
+        return None  # unmeasured
+    # a walk_to spot's area is the map walked into: its arrival is where walking across leaves the party
     return dr.MapData(
         name=name,
         segs=[dr.Seg(*s) for s in a["segs"]],
@@ -107,9 +108,8 @@ def follow(name: str, spot: dict, t: dr.WalkTable, steps: list[str]) -> tuple[fl
 
 def missing(spot: dict) -> list[str]:
     """What still has to be measured on the phone for a fully fixed trip."""
-    out = ["walking across from the travel point (walk_to: not routed yet)"] if spot.get("walk_to") else []
     a = spot.get("area") or {}
-    out += [f"area.{k}" for k in AREA_KEYS if a.get(k) is None]
+    out = [f"area.{k}" for k in AREA_KEYS if a.get(k) is None]
     if a.get("walk_scale") is None:
         out.append("area.walk_scale")
     if a.get("drift") is None:
