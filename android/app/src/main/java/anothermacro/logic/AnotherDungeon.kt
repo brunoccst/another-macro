@@ -1120,7 +1120,7 @@ object AnotherDungeon {
                 if ("dodged" in all || "harpoon" in all) {
                     MacroLog.i("fish: missed (${read.joinToString(" ") { it.text }.take(80)})")
                     ctx.count("fish_missed")
-                    ctx.tap(Point(0.5, 0.65)); ctx.wait(0.5); waitForField(ctx, 4)
+                    ctx.tap(Point(0.5, 0.65)); ctx.wait(0.5); fieldAfterFish(r)
                     return
                 }
                 // the catch's card: the fish's name over "Size ... cm"
@@ -1138,16 +1138,26 @@ object AnotherDungeon {
                         ctx.count("fish")
                         ctx.tap(Point(0.5, 0.5)); ctx.wait(0.8)
                     }
-                    waitForField(ctx, 4)
+                    fieldAfterFish(r)
                     return
                 }
                 ctx.wait(0.3)
             }
             MacroLog.i("tapped the fish, nothing came: ${ctx.readText().joinToString(" | ") { it.text }.take(120)}")
-            waitForField(ctx, 3)
+            fieldAfterFish(r)
             return
         }
         MacroLog.i("no fish by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
+    }
+
+    /**
+     * Back to the field after a throw. A catch can be followed by lines of talk (an item levelling
+     * up, see the knowledge base): when the field doesn't come back, tap them through, so the next
+     * leg doesn't walk blind behind the text box.
+     */
+    private fun fieldAfterFish(r: Run) {
+        if (waitForField(r.ctx, 4)) return
+        if (talkThrough(r)) waitForField(r.ctx, 4)
     }
 
     /** A catch's card on screen: the fish's name over "Size ... cm". */

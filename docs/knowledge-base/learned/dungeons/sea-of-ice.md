@@ -59,6 +59,11 @@ Measurements and sightings behind thresholds in the code (`AnotherDungeon.kt`, `
   second card. The throw doesn't move the party (within ~0.009, 2026-11-17). The fish finder was
   measured on 6 screenshots with a fish and 16 without (2026-11-17): fish blobs had area 900-1530
   (1024-wide units), fill 0.53-0.57, ring saturation 157-197; dark scenery filled under 0.4.
+- **Proof level-up**: fishing in this dungeon levels up an item the game calls "the proof" (the
+  user, 2026-11-23). After a catch the game can show a line of talk such as "Leveled the proof
+  14 -> 15!" over the field, which waits for a tap. In the scheduled run of 2026-11-23 it came
+  right after closing a catch card on map 1; the macro walked behind it for ~8 minutes (area map
+  unreadable), skipped map 1's second chest and only tapped it away at the exit.
 - **Bait jars**: the user sets bait at a shrimp icon and the jar fills in about a day. Standing
   by the jar shows a round bubble with a jar icon (2026-11-18); the party pulls it up (~2 s),
   then "You've caught a total of N fish." (maybe a catch card first).
