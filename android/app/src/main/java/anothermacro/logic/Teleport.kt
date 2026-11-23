@@ -364,6 +364,8 @@ object Teleport {
     private fun placeLike(l: Ocr.Line): Boolean {
         val n = Ocr.norm(l.text)
         if (l.center.y < 0.12 || (l.center.y < 0.28 && l.center.x < 0.52)) return false
+        // the Expand button's label (read garbled as "Dxpand", "Ppand", ...) and the side buttons
+        if ((l.center.x > 0.76 && l.center.y > 0.86) || l.center.x > 0.93) return false
         if (n.length < 3 || n in NOT_PLACES || n.all { it == '?' || it == ' ' }) return false
         return n.count { it.isLetter() } >= 3
     }

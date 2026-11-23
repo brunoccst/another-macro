@@ -14,6 +14,17 @@ and [dungeons/README.md](dungeons/README.md).
   also happens: a continent only one era has is picked after that era's tab. The teleport takes
   a tab whose tap leaves the view unchanged as greyed out and switches to Migleina Continent
   first (an assumption, not yet seen on the phone: that Migleina is on every era's list).
+- **Expand** (seen 2026-11-23) shows the era's whole world with one label per continent
+  ("Zerberiya Continent", "Migleina Continent", "Garulea Continent" on Antiquity); tapping a label
+  opens that continent's map. The era tabs are Antiq., Pres., Fut., "???" and a fifth, "Hollow".
+  On the phone's account (2026-11-23): Antiquity has Zerberiya, Migleina and Garulea; Present
+  and Future have Migleina and Garulea; "???" has Illusion World and Underworld.
+- Every place label of the account was mapped on 2026-11-23 with the teleport's `map_places` mode
+  (`known_places.yaml`, about 120 places on 9 maps). Only unlocked places show, so the list grows
+  as the story goes on: run `map_places` again, or let trips learn them (they search the map and
+  remember the continent). OCR reads the Expand button's label in many garbled ways ("Dxpand",
+  "Ppand"); region names ("Barbera Untrodden Region") and quest markers ("The Riftbreaker") are
+  labels too but not travel points, so they were left out of the list.
 - The "???" tab's Expand list has Illusion World (the Spacetime Rift) and Underworld (Nazrik,
   Zero Point), and opens on the continent of its last trip ([dungeons/README.md](dungeons/README.md)).
 
