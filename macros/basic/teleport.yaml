@@ -1,0 +1,35 @@
+# Basic macro: travel by the World Map. Open the map, pick the era's tab (another continent first
+# when that tab doesn't open from the continent in view), Expand → the continent, find the place's
+# label (panning the map; else the map the tab shows, then every Expand entry), pick the
+# destination in its panel if it opens one, Yes, and wait for the field (logic/Teleport.kt).
+# Other macros run it for every trip: the cat scratchbook's cats and the dungeon macros' way to
+# the Spacetime Rift (`run: {macro: teleport, params: {era: "'Present'", place: "'Baruoki'"}}`
+# from YAML, Teleport.via from code). Start it on the field; it ends on the field at the place.
+name: teleport
+group: basic
+icon: sun
+description: "Basic: travel by the World Map to a place (era, continent, place, destination), then stop on the field there. Every trip of the other macros goes through it."
+params:
+  era: {default: Present, choices: [Antiquity, Present, Future, "???"], help: "the World Map's era tab"}
+  continent: {default: "", help: "the Expand list's entry to open (e.g. Migleina Continent, Illusion World); empty = the one remembered for the place, else the map the tab shows, then every entry"}
+  place: {default: Baruoki, help: "the place's label on the World Map"}
+  destination: {default: "", help: "the entry to pick when the place's label opens a list of destinations; empty = none"}
+# what it does, in order, for the app's "How it works" ({option} = the option's value)
+how:
+  - {teleport: true}
+  - "Stop on the field at {place}"
+screens: [field]
+unknown_timeout_s: 30
+
+setup:
+  - set: {result: "'none'"}
+
+handlers:
+  field:
+    - teleport: true
+    - stop: "{result}"
+
+unknown:
+  - if: not game_in_front()
+    then: [{stop: the game is not in front}]
+  - wait: 1

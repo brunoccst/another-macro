@@ -26,14 +26,7 @@ object CatDaily {
     data class Clue(val key: String, val text: String, val location: String, val era: String)
 
     private val DIARY = Point(0.329, 0.922)
-    private val MAP_BUTTON = Point(0.385, 0.917)
     private val CLOSE = Point(0.88, 0.03)
-    private val PANEL_CLOSE = Point(0.825, 0.10) // the X of an island's panel on the world map
-    // the era tabs' top half (a tap on their lower edge can land on a place label under it);
-    // "???" is the fourth tab, right of Future
-    private val ERA = mapOf("Antiquity" to Point(0.1525, 0.135), "Present" to Point(0.2283, 0.135), "Future" to Point(0.3029, 0.135),
-        "???" to Point(0.378, 0.15))
-    private val EXPAND = Point(0.844, 0.935)
     // "found" messages that replace a clue once its cat is back home
     private val FOUND = listOf("So, you have returned", "Nya! I did think you would be returning", "You took so long", "I've been beside myself")
 
@@ -68,7 +61,7 @@ object CatDaily {
                 if (unknown.isNotEmpty()) "; unreadable: ${unknown.joinToString(" | ")}" else "")
             for (c in pending) if (!supported(c) && skipped.add(c.key)) {
                 MacroLog.i("skipping the cat in ${c.location} (${c.era.ifEmpty { "no era" }}): " +
-                    if (c.era !in ERA) "its era isn't on the world map's era buttons" else "it can't be reached from the world map (not supported yet)")
+                    if (c.era !in Teleport.ERA) "its era isn't on the world map's era buttons" else "it can't be reached from the world map (not supported yet)")
                 ctx.count("cats_skipped")
             }
             val next = pending.firstOrNull { it.key !in failed && supported(it) }
@@ -130,12 +123,8 @@ object CatDaily {
             spot != null && (spot.walkTo != null || spot.enter.isNotEmpty()) -> clue.copy(location = spot.place)
             else -> clue
         }
-        val arrived = if (spot != null && spot.fixedTravel) {
-            CatRoute.travel(ctx, spot) || run {
-                if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) closeMap(ctx)
-                travel(ctx, tripClue)
-            }
-        } else travel(ctx, tripClue)
+        // the spot's own trip where cat_spots.yaml has it, else the clue's place (basic macro teleport)
+        val arrived = Teleport.via(ctx, if (spot != null && spot.fixedTravel) CatRoute.trip(spot) else trip(tripClue))
         if (!arrived) return "couldn't travel there"
         if (spot != null && spot.enter.isNotEmpty() && !spot.fixedWalk) {
             // a door or stairs right at the arrival (the fixed route flicks these itself)
@@ -164,50 +153,10 @@ object CatDaily {
         return search(ctx)
     }
 
-    /** Places on islands that the Expand view lists apart from the continents. */
-    private val REGIONS = mapOf(
-        "Snake Bone Island" to listOf("Snake Tail Corabel", "Snake Spine Gabaraki", "Konium", "Konium Bridge", "Snake Liver Damaku",
-            "Snake Neck Igoma", "Snake Dream", "Snake Skull Mescita"),
-        "Astra Island" to listOf("Astra Pier", "Astra Forest", "Resttin", "Astra Mountains", "Astral Ruins", "Astrarium", "Astra Woodlands"),
-        "Remulia" to listOf("Floating City - Remulia", "Corridor of Time Water", "Ark Exterior", "Ark Interior"),
-    )
-    private val REGION_NAMES = REGIONS.keys + listOf("Snake Bone", "Astra", "Ogres Spike")
-
-    /** The island a place is on (its label on the continent map opens a panel of its places), or null. */
-    internal fun regionOf(place: String) = REGIONS.entries.firstOrNull { (_, places) -> places.any { Ocr.norm(it) == Ocr.norm(place) } }?.key
-
-    private fun supported(c: Clue) = c.era in ERA && !c.location.contains("quick destination")
+    private fun supported(c: Clue) = c.era in Teleport.ERA && !c.location.contains("quick destination")
 
     /** "<map> (Enter from <place>)": the cat is on a map the party walks to from a travel point. */
     private val ENTER_FROM = Regex("""^(.*?)\s*\(Enter from ([^)]*)\)""")
-
-    private val CONTINENT_NAMES = listOf("Migleina", "Garulea", "Zerberiya", "Kiliphe")
-
-    /**
-     * "<label>, <continent>": the map label and that continent's Expand entry (null when the name
-     * carries none).
-     */
-    internal fun splitPlace(place: String): Pair<String, String?> {
-        val m = Regex("""^(.+),\s*([A-Za-z]+)$""").find(place.trim()) ?: return place to null
-        val c = CONTINENT_NAMES.firstOrNull { it.equals(m.groupValues[2], true) } ?: return place to null
-        return m.groupValues[1].trim() to "$c Continent"
-    }
-
-    /** The islands' continents (Expand entries). */
-    private val ISLAND_CONTINENT = mapOf("Snake Bone Island" to "Migleina Continent")
-
-    /**
-     * The continent (Expand entry) to open for [place], if known: learned for the place itself,
-     * else for another place on the same island, else the island's own continent. Without it an
-     * island's label has to be found on whatever map the era tab shows, which a sweep can miss.
-     */
-    internal fun continentFor(ctx: Context, place: String, era: String): String? {
-        splitPlace(place).second?.let { return it }
-        KnownPlaces.continent(ctx, place, era)?.let { return it }
-        val region = regionOf(place) ?: return null
-        REGIONS[region].orEmpty().firstNotNullOfOrNull { KnownPlaces.continent(ctx, it, era) }?.let { return it }
-        return ISLAND_CONTINENT[region]
-    }
 
     // --- 1. clues ----------------------------------------------------------------
     @Suppress("UNCHECKED_CAST")
@@ -241,274 +190,17 @@ object CatDaily {
         return pending to unknown
     }
 
-    // --- 2. world map travel ----------------------------------------------------
-    fun travel(ctx: Context, clue: Clue): Boolean {
-        val place = splitPlace(clue.location.substringBefore(" (").substringBefore(" –").substringBefore(" -").trim()).first
-        // "<place> (<sub-location>)" / "<place> – <sub-location>": the sub-destination
+    // --- 2. world map travel: the basic macro teleport (Teleport.kt) ----------
+    /** "<place> (<sub-location>)" / "<place> – <sub-location>": the trip to the clue's place. */
+    internal fun trip(clue: Clue): Teleport.Trip {
+        val place = clue.location.substringBefore(" (").substringBefore(" –").substringBefore(" -").trim()
         val sub = Regex("""\(([^)]*)\)|[–-] (.+)$""").find(clue.location)?.groupValues?.drop(1)?.firstOrNull { it.isNotBlank() }?.trim() ?: ""
-        if (!openWorldMap(ctx, clue.era)) return false
-        // the place's own region: islands show as a label on a continent's map
-        val region = regionOf(place)
-        // learned before: go straight to its continent
-        val known = splitPlace(clue.location).second ?: continentFor(ctx, place, clue.era)
-        if (known != null) {
-            MacroLog.i("$place: known to be on $known")
-            step("looking for $place on $known")
-            ctx.tap(EXPAND); ctx.wait(2.0)
-            val line = ctx.readText().firstOrNull { Ocr.similarity(it.text, known) >= 0.8 }
-            if (line != null) {
-                ctx.tap(line.center); ctx.wait(2.0)
-                if (searchAndGo(ctx, place, sub, region)) return true
-            }
-            MacroLog.i("$place wasn't where it was last time; searching")
-        }
-        step("looking for $place on the map shown")
-        if (searchAndGo(ctx, place, sub, region)) return true
-        // not on this continent: try each one in the Expand view
-        ctx.tap(EXPAND); ctx.wait(2.0)
-        val expandText = ctx.readText()
-        val continents = expandText.filter { l -> l.text.contains("Continent", true) || REGION_NAMES.any { Ocr.similarity(l.text, it) >= 0.8 } }
-            .sortedByDescending { l -> region != null && Ocr.similarity(l.text, region) >= 0.8 }.map { it.text }
-        MacroLog.i("regions (want ${region ?: "?"}): ${continents.joinToString().ifEmpty { "none read; saw: " + expandText.joinToString { it.text }.take(200) }}")
-        for (name in continents) {
-            if (ctx.readText().none { l -> l.text == name }) { ctx.tap(EXPAND); ctx.wait(2.0) }
-            val line = ctx.readText().firstOrNull { it.text == name } ?: continue
-            step("looking for $place on $name")
-            ctx.tap(line.center); ctx.wait(2.0)
-            if (searchAndGo(ctx, place, sub, region)) {
-                KnownPlaces.learn(ctx, place, clue.era, name)
-                return true
-            }
-        }
-        MacroLog.i("couldn't find $place on the map (not unlocked yet?)")
-        ctx.tap(CLOSE); ctx.wait(1.5)
-        return false
+        return Teleport.Trip(clue.era, place, destination = sub)
     }
 
-    /** Open the World Map on [era]'s tab. A tap the Map button ignores is retried. */
-    internal fun openWorldMap(ctx: Context, era: String): Boolean {
-        var opened = false
-        step("opening the world map")
-        for (attempt in 1..3) {
-            ensureField(ctx)
-            ctx.tap(MAP_BUTTON); ctx.wait(2.5)
-            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
-            ctx.wait(1.5)
-            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
-            MacroLog.i("world map didn't open (try $attempt/3)")
-        }
-        if (!opened) return false.also { MacroLog.i("the world map never opened") }
-        step("on the world map: $era")
-        tapEra(ctx, era)
-        return true
-    }
+    fun travel(ctx: Context, clue: Clue): Boolean = Teleport.via(ctx, trip(clue))
 
-    internal fun tapEra(ctx: Context, era: String) {
-        ctx.tap(ERA.getValue(era)); ctx.wait(2.0)
-        // a label under the tab took the tap: say No to the trip it offers
-        val lines = ctx.readText()
-        if (lines.any { it.text.startsWith("Moving to") }) {
-            val no = lines.firstOrNull { Ocr.norm(it.text) == "no" && it.center.y > 0.4 }
-            MacroLog.i("the $era tab tap opened a trip prompt: No")
-            ctx.tap(no?.center ?: Point(0.412, 0.568)); ctx.wait(1.0)
-            ctx.tap(ERA.getValue(era)); ctx.wait(2.0)
-        }
-    }
-
-    /** Expand → tap [continent]'s entry (by its text). */
-    internal fun openContinent(ctx: Context, continent: String): Boolean {
-        ctx.tap(EXPAND); ctx.wait(2.0)
-        val line = ctx.readText().firstOrNull { Ocr.similarity(it.text, continent) >= 0.8 } ?: return false
-        ctx.tap(line.center); ctx.wait(2.0)
-        return true
-    }
-
-    /**
-     * Point zero: the World Map on the Present era with Baruoki's label on screen. The Present tab
-     * opens with it at about (0.185, 0.509); after a Present trip elsewhere the map is dragged west
-     * until it shows.
-     */
-    internal fun pointZero(ctx: Context): Boolean {
-        if (!openWorldMap(ctx, "Present")) return false
-        fun baruoki() = ctx.readText().firstOrNull { it.center.y > 0.12 && Ocr.similarity(it.text, "Baruoki") >= 0.8 }
-        var label = baruoki()
-        if (label == null && openContinent(ctx, "Migleina Continent")) label = baruoki()
-        // Baruoki is at the continent's north-west: drag the view that way (the drags stop at the edges)
-        repeat(6) {
-            if (label != null) return@repeat
-            val from = dragStarts(0.5, 0.3, ctx.readText()).first()
-            ctx.drag(from, Point(from.x + 0.5, from.y + 0.3), 700); ctx.wait(1.0)
-            label = baruoki()
-        }
-        val at = label ?: run { MacroLog.i("point zero: no Baruoki label on the Present map"); return false }
-        MacroLog.i("point zero: Baruoki at (${"%.3f".format(at.center.x)}, ${"%.3f".format(at.center.y)})")
-        return true
-    }
-
-    internal fun closeMap(ctx: Context) { ctx.tap(CLOSE); ctx.wait(1.5) }
-
-    /**
-     * Where to tap a label: its middle, unless the map is at its edge and the label still sits
-     * against Expand (bottom right); then the end of the label away from that button.
-     */
-    private fun tapPoint(l: Ocr.Line): Point {
-        val b = l.box
-        if (!(l.center.x > 0.7 && l.center.y > 0.75)) return l.center
-        // the label's frame reaches a little past its text
-        val left = Point(b.x + b.w * 0.1, b.y + b.h * 0.3)
-        val right = Point(minOf(b.x + b.w + 0.03, 0.915), b.y + b.h * 0.3)
-        fun d(p: Point) = (p.x - EXPAND.x).let { it * it } + (p.y - EXPAND.y).let { it * it }
-        return if (d(right) > d(left)) right else left
-    }
-
-    private fun nearButtons(p: Point) = (p.x > 0.7 && p.y > 0.75) || p.x > 0.85 || p.y < 0.28 || (p.x < 0.25 && p.y > 0.8)
-
-    /** Pan around the visible map looking for [place]'s label; tap it and confirm the trip. */
-    private fun isYes(l: Ocr.Line) = Ocr.norm(l.text) == "yes" && l.center.y > 0.4
-
-    internal fun searchAndGo(ctx: Context, place: String, sub: String, region: String? = null): Boolean {
-        // look here first; then from the top-left corner, sweep the map row by row (snake order)
-        val pans = ArrayList<Pair<Double, Double>>()
-        pans += 0.0 to 0.0
-        // to the top-left corner (the drags stop at the edges): five drags, so the sweep starts at the edge
-        repeat(5) { pans += 0.6 to 0.4 }
-        // five rows, to cover a continent's map at the zoom a trip leaves it at; the drags stop at the edge
-        for (row in 0 until 5) {
-            val step = if (row % 2 == 0) -0.4 else 0.4
-            if (row > 0) pans += 0.0 to -0.35
-            repeat(6) { pans += step to 0.0 }   // six pans to reach a wide continent's east end
-        }
-        var seen: List<Ocr.Line> = emptyList()
-        for ((i, pan) in pans.withIndex()) {
-            val (dx, dy) = pan
-            val cornerDrag = i in 1..4              // no point reading while still on the way to the corner
-            if (dx != 0.0 || dy != 0.0) {
-                // a drag that starts on a label doesn't move the map: try the next free start until the view moves
-                if (cornerDrag || i == 5) seen = ctx.readText()
-                val before = ctx.refresh().gray.clone()
-                for ((k, from) in dragStarts(dx, dy, seen).take(3).withIndex()) {
-                    ctx.drag(from, Point(from.x + dx, from.y + dy), 700); ctx.wait(1.0)
-                    val change = Route.change(before, ctx.refresh().gray)
-                    if (change >= MAP_MOVED) break
-                    // at an edge the map stops too: one retry tells the two apart
-                    if (k == 0) MacroLog.i("world map drag (${"%.2f".format(dx)}, ${"%.2f".format(dy)}) from (${"%.2f".format(from.x)}, ${"%.2f".format(from.y)}) didn't move the view (change ${"%.1f".format(change)})")
-                    else break
-                }
-                before.release()
-            }
-            if (cornerDrag) continue
-            var read = ctx.readText()
-            seen = read
-            MacroLog.i("map labels: " + read.filter { it.center.y > 0.12 }.joinToString { it.text }.take(300))
-            fun placeLabel() = withWrapped(read).firstOrNull {
-                it.center.y > 0.12 && (Ocr.norm(it.text) == Ocr.norm(place) || Ocr.similarity(it.text, place) >= 0.85)
-            }
-            var label = placeLabel()
-            if (label == null && region != null) {
-                // an island is one label on the continent map: it opens a panel of its places
-                val island = read.firstOrNull {
-                    it.center.y > 0.12 && (Ocr.similarity(it.text, region) >= 0.8 ||
-                        (Ocr.norm(it.text).length >= 8 && Ocr.norm(region).startsWith(Ocr.norm(it.text))))
-                }
-                if (island != null) {
-                    MacroLog.i("opening $region")
-                    ctx.tap(island.center); ctx.wait(2.0)
-                    read = ctx.readText()
-                    label = placeLabel()
-                    if (label == null) { MacroLog.i("$place not in the $region panel: ${read.joinToString { it.text }.take(200)}"); ctx.tap(PANEL_CLOSE); ctx.wait(1.5) }
-                }
-            }
-            if (label == null) continue
-            if (nearButtons(label.center)) {
-                // too close to Expand / the era icons / the side buttons: drag it to the middle first
-                ctx.drag(label.center, Point(0.45, 0.55), 700); ctx.wait(1.2)
-                read = ctx.readText()
-                label = placeLabel() ?: continue
-            }
-            return goVia(ctx, label, place, sub)
-        }
-        return false
-    }
-
-    /**
-     * [lines] plus each label that wraps onto a second line, joined into one line ("Nazrik, City of"
-     * over "Shadows"): the second line starts right under the first and overlaps it across.
-     */
-    internal fun withWrapped(lines: List<Ocr.Line>): List<Ocr.Line> {
-        val joined = ArrayList<Ocr.Line>()
-        for (a in lines) for (b in lines) {
-            if (a === b) continue
-            val ab = a.box; val bb = b.box
-            val gap = bb.y - (ab.y + ab.h)
-            val overlap = minOf(ab.x + ab.w, bb.x + bb.w) - maxOf(ab.x, bb.x)
-            if (gap < -ab.h * 0.3 || gap > ab.h * 0.8 || overlap < minOf(ab.w, bb.w) * 0.5) continue
-            val x = minOf(ab.x, bb.x); val y = ab.y
-            joined += Ocr.Line("${a.text} ${b.text}", Region(x, y, maxOf(ab.x + ab.w, bb.x + bb.w) - x, bb.y + bb.h - y))
-        }
-        return lines + joined
-    }
-
-    /**
-     * Where a world-map drag of ([dx], [dy]) starts: the middle, unless a place label from the last
-     * read ([labels]) is there (a drag that starts on a label doesn't move the map).
-     */
-    internal fun dragStart(dx: Double, dy: Double, labels: List<Ocr.Line>): Point = dragStarts(dx, dy, labels).first()
-
-    /** Mean grey change (0-255) above which a world-map drag moved the view. */
-    private const val MAP_MOVED = 4.0
-
-    /**
-     * Where a world-map drag of ([dx], [dy]) can start, best first: off every place label from the
-     * last read ([labels]), with the whole drag on the map (below the era tabs, clear of the screen
-     * edges). Labels sit thick on some maps (Migleina's west), so starts across the width are tried.
-     */
-    internal fun dragStarts(dx: Double, dy: Double, labels: List<Ocr.Line>): List<Point> {
-        fun free(p: Point) = labels.none { l ->
-            val b = l.box
-            p.x in (b.x - 0.03)..(b.x + b.w + 0.03) && p.y in (b.y - 0.05)..(b.y + b.h + 0.05)
-        }
-        fun inside(p: Point) = p.x in 0.04..0.96 && p.y in 0.22..0.9
-        val all = ArrayList<Point>()
-        for (ox in listOf(0.0, -0.12, 0.12, -0.24, 0.24, -0.36, 0.36)) for (y in listOf(0.55, 0.42, 0.68, 0.35, 0.75)) {
-            val p = Point(0.5 - dx / 2 + ox, y - dy / 2)
-            if (inside(p) && inside(Point(p.x + dx, p.y + dy))) all += p
-        }
-        if (all.isEmpty()) all += Point(0.5 - dx / 2, 0.55 - dy / 2)
-        return all.filter { free(it) } + all.filterNot { free(it) }
-    }
-
-    /** Tap a place's [label] on the world map, pick [sub] in its destinations panel if one opens, confirm the trip. */
-    internal fun goVia(ctx: Context, label: Ocr.Line, place: String, sub: String): Boolean {
-        run {
-            ctx.tap(tapPoint(label)); ctx.wait(2.0)
-            var lines = ctx.readText()
-            if (lines.none { isYes(it) } && lines.none { it.text.startsWith("Moving to") }) {
-                // some places open a panel of destinations (e.g. Unigan / Royal Theater / ...)
-                val entries = lines.filter { it.center.x > 0.55 && it.center.y in 0.25..0.75 }
-                val entry = (if (sub.isNotEmpty()) entries.maxByOrNull { Ocr.similarity(it.text, sub) }?.takeIf { Ocr.similarity(it.text, sub) > 0.7 } else null)
-                    ?: entries.maxByOrNull { Ocr.similarity(it.text, place) }?.takeIf { Ocr.similarity(it.text, place) > 0.7 }
-                if (entry != null) { ctx.tap(entry.center); ctx.wait(2.0); lines = ctx.readText() }
-            }
-            val yes = lines.firstOrNull { isYes(it) }
-                ?: if (lines.any { it.text.startsWith("Moving to") }) Ocr.Line("Yes", Region(0.54, 0.53, 0.1, 0.08)) else null
-            if (yes == null) {
-                MacroLog.i("$place: no travel dialog (already here, or not a travel point)")
-                ctx.tap(CLOSE); ctx.wait(1.5)
-                // already here only if the area map says so (a place that isn't a travel point gives no dialog either)
-                waitForField(ctx, 10)
-                val title = mapTitle(ctx)
-                if (title.isNotEmpty() && !sameMap(title, place)) {
-                    MacroLog.i("$place: the party is on '$title', not $place: not travelling there this way")
-                    return false
-                }
-                return true
-            }
-            ctx.tap(yes.center)
-            ctx.count("trips")
-            step("travelling to $place${if (sub.isNotEmpty()) " ($sub)" else ""}")
-            return waitForField(ctx, 30).also { if (!it) MacroLog.i("the field didn't come back after the trip") }
-        }
-    }
+    internal fun closeMap(ctx: Context) = Teleport.closeMap(ctx)
 
     // --- 3. steer on the area map -------------------------------------------------
     private const val FEATHER_ICON = "templates/cat_scratchbook/map_feather_icon.png"
@@ -524,22 +216,10 @@ object CatDaily {
         Ocr.norm("Karek Swampland") to 1.0,   // its exit is at the east end
     )
 
-    /** The area map's title (the map the party is on), or "" if the map didn't open. */
-    private fun mapTitle(ctx: Context): String =
-        AreaNav.look(ctx, readText = true) { emptyList() }.text.filter { it.center.y < 0.12 }.joinToString(" ") { it.text }.trim()
+    private fun mapTitle(ctx: Context): String = Teleport.mapTitle(ctx)
 
     private fun names(title: String, map: String) =
         title.isNotEmpty() && (Ocr.similarity(title, map) >= 0.8 || Ocr.norm(title).contains(Ocr.norm(map)))
-
-    /**
-     * Whether an area map's [title] is [location]'s map: a clue's "(Enter from ...)" is left out,
-     * and either name may hold the other ("Zero Point" for "Zero Point - East").
-     */
-    internal fun sameMap(title: String, location: String): Boolean {
-        val t = Ocr.norm(title)
-        val l = Ocr.norm(location.substringBefore(" ("))
-        return t.isNotEmpty() && l.isNotEmpty() && (Ocr.similarity(t, l) >= 0.8 || t.contains(l) || l.contains(t))
-    }
 
     /**
      * From the travel point, walk off the map's side into [target] (a clue's "Enter from" map).

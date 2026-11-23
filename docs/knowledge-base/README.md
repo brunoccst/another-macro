@@ -39,6 +39,8 @@ page says what a source says; a learned page says what the project saw (and when
   walking and encounters
 - [dungeons/](learned/dungeons/README.md): what every dungeon shares, and one page per mapped
   dungeon
+- [world-map.md](learned/world-map.md): the World Map's era tabs, continents, panning and
+  islands (every trip)
 - [phantom-crystal.md](learned/phantom-crystal.md): the White Key dimension
-- [cat-scratchbook.md](learned/cat-scratchbook.md): reaching the cats, the world map, the
+- [cat-scratchbook.md](learned/cat-scratchbook.md): reaching the cats, the
   feather, measurements per spot

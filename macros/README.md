@@ -10,7 +10,7 @@ One folder per group, the same as the app's tabs (a macro's `group:` must match 
 
 | Folder | Tab | Macros |
 |---|---|---|
-| `basic/` | Basic | building blocks other macros run: `watch-ad`, `battle`, `grind-battles`, `open-menu`, `open-menu-page`, `back-to-field`, `pick-party` |
+| `basic/` | Basic | building blocks other macros run: `watch-ad`, `battle`, `grind-battles`, `open-menu`, `open-menu-page`, `back-to-field`, `pick-party`, `teleport` |
 | `daily/` | Daily | `daily-routine`, `daily-ads`, `shop-ad`, `cat-scratchbook`, `inbox` |
 | `dungeon/` | Another Dungeon | `dogma-tower`, `burning-beast-kings-castle`, `sea-of-ice`, `moonlight-forest`, `underworld` (Demon's Den), `phantom-crystal` |
 | `game/` | Game | `start-game`, `stop-game` |
@@ -43,6 +43,7 @@ A macro runs another one with `run:` and goes on when it ends:
 | `open-menu-page` | opens one page of the menu (`page`: `ads` = the commercials chest, `shop`, `inbox`) from wherever the game is: runs `start-game` if the game isn't open, `open-menu` on the field, then taps the page's button; ends with `<page> open` (or `no commercials left today` for `ads`) | `daily-ads`, `shop-ad`, `inbox` |
 | `pick-party` | runs `open-menu`, then Menu → Party: puts party `party` (1-10, its number in the game's list; never a name) in front, then runs `back-to-field`; ends with `party N picked` | every dungeon macro's `party` option |
 | `back-to-field` | presses Back until the field shows | `stop-game` |
+| `teleport` | travels by the World Map: `era` tab (another continent first when that tab is greyed out), Expand → `continent`, the `place`'s label (panning; else every Expand entry, remembering where it was found), the `destination` in its panel, Yes; ends on the field with `arrived at <place>` | the cat scratchbook's trips, every dungeon macro's way to the Spacetime Rift (`go_to_door`) |
 | `start-game` (Game) | opens the game, takes the login-bonus ad, stops on the field | `open-menu-page` when the game isn't open; the daily routine |
 
 **The caller takes over the basic macro's options.** A macro that runs a basic macro (with

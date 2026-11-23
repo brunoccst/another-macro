@@ -16,13 +16,15 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  * and systems is reached from here; the generic steps are in [FlowRun].
  */
 object AnotherEdenPlugin : GamePlugin {
-    override val actions = setOf("fight", "pick_party", "another_dungeon", "phantom_crystal", "cat_daily", "find_feather", "read_cat_clues")
+    override val actions = setOf("fight", "pick_party", "another_dungeon", "phantom_crystal", "cat_daily", "find_feather", "read_cat_clues", "teleport")
 
     /** Keep in step with the code: each step here runs these macros (ctx.runBasic / ctx.innerOptions). */
     override val stepUses = mapOf(
         // every fight: the battle macro's step with its skills; the party option: the basic macro pick-party
         "another_dungeon" to listOf("battle", "pick-party"),
         "cat_daily" to listOf("battle"),         // encounters on the way to a cat
+        // the trips (basic macro teleport, Teleport.via) are left out: the caller always gives all
+        // of teleport's options (era, place, continent, destination), so none would show
     )
 
     override fun explain(action: String, arg: Any?, env: MacroSteps.Env) = HowItWorks.explain(action, arg, env)
@@ -34,6 +36,7 @@ object AnotherEdenPlugin : GamePlugin {
         "cat_daily" -> "Read the clues, travel to each place and find what they describe, then stop"
         "another_dungeon" -> "Play the Another Dungeon run \"${arg.toString().replace('-', ' ')}\" (its steps are listed above), then stop"
         "phantom_crystal" -> "Play the Phantom Crystal Dimension world by world, then stop"
+        "teleport" -> "Travel by the World Map (era, continent, place, destination from the options)"
         "pick_party" -> "Open Menu → Party and put party $arg (its number in the list) in front"
         else -> null
     }
@@ -57,6 +60,7 @@ object AnotherEdenPlugin : GamePlugin {
                 }
                 "another_dungeon" -> ctx.stop(AnotherDungeon.run(ctx, step["another_dungeon"].toString()))
                 "phantom_crystal" -> ctx.stop(PhantomCrystal.run(ctx))
+                "teleport" -> macro.vars["result"] = Teleport.go(ctx, Teleport.Trip.of(ctx.params))
                 "pick_party" -> {
                     val v = Expr.str(macro.value(step["pick_party"]))
                     val n = Party.number(v) ?: throw IllegalArgumentException("${macro.name}: pick_party: '$v' is not a party number")

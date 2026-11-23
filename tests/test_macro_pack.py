@@ -222,3 +222,12 @@ def test_watch_ad_closes_commercials_once_they_are_over():
     assert not any("tap" in a or "tap_exact" in a for a in then)
     warn = [a for a in acts if a.get("if") == "ad_warning()"]
     assert warn and any("warned" in a.get("set", {}) for a in warn[0]["then"])
+
+
+def test_teleport_is_the_basic_macro_for_every_trip():
+    # one World Map trip for every macro (logic/Teleport.kt): its options are what callers pass
+    _, spec = macro_pack.macros()["teleport"]
+    assert spec["group"] == "basic"
+    assert set(spec["params"]) == {"era", "continent", "place", "destination"}
+    assert spec["params"]["era"]["choices"] == ["Antiquity", "Present", "Future", "???"]
+    assert "teleport" in yaml.safe_dump(spec["handlers"])

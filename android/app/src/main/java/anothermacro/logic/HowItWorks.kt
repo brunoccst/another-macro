@@ -14,6 +14,7 @@ object HowItWorks {
         "another_dungeon" -> dungeon(arg.toString(), env)
         "phantom_crystal" -> phantom(env)
         "cat_daily" -> catDaily(env)
+        "teleport" -> teleport(env.options)
         "fight" -> listOf(Step("Fight the battle on screen to its end: each party slot uses its skill from the options " +
             "(${skills(env.options, arg?.toString()?.takeIf { it != "true" } ?: "skill_")}); a defeat stops the macro"))
         "pick_party" -> listOf(Step("Tap Party; on the Party page tap the arrows until party ${env.options[arg.toString()]?.let { MacroSteps.shown(it) } ?: arg} " +
@@ -78,7 +79,7 @@ object HowItWorks {
         val o = env.options
         val out = ArrayList<Step>()
         val opt = { keys: List<String> -> MacroSteps.optionsIn(keys.joinToString(" "), o) }
-        out += toDoor(o, "inside ${spec.name}")
+        out += toDoor(env, "inside ${spec.name}")
         val era = if (spec.era == "???") "\"???\"" else spec.era
         out += Step("Tap the \"!\" over the door, pick the $era tab" + (spec.area?.let { ", open $it" } ?: "") +
             ", tap ${spec.name} and pick the difficulty of the key (green: Hard, red: Very Hard)")
@@ -168,19 +169,36 @@ object HowItWorks {
         })
     }
 
+    // --- World Map trips (Teleport.kt) --------------------------------------------------------
+
+    private fun teleport(o: Map<String, String>): List<Step> {
+        val t = Teleport.Trip.of(o)
+        val place = t.place.ifEmpty { "the place" }
+        return listOf(
+            Step("From the field: open the World Map and pick the ${t.era.ifEmpty { "era's" }} tab (when the tab doesn't open from the " +
+                "continent in view: another continent first, then the tab)", note = MacroSteps.optionsIn("era", o)),
+            Step((t.continent?.let { "Expand → $it, then look" } ?: "Look") + " for $place's label, panning the map; not there: the map the tab " +
+                "shows, then every entry of the Expand list (the continent found is remembered)", note = MacroSteps.optionsIn("continent place", o)),
+            Step("Tap the label" + (if (t.destination.isNotEmpty()) ", pick ${t.destination} in its panel" else "") +
+                ", Yes, and wait for the field", note = MacroSteps.optionsIn("destination", o)),
+        )
+    }
+
     // --- Phantom Crystal Dimension -------------------------------------------------------------
 
     /** The way to the Another Dungeon door (RiftDoor.kt), by the go_to_door option. */
-    private fun toDoor(o: Map<String, String>, inside: String): Step {
+    private fun toDoor(env: MacroSteps.Env, inside: String): Step {
+        val o = env.options
         val note = MacroSteps.optionsIn(RiftDoor.OPTION, o)
         return if (RiftDoor.enabled(o))
-            Step("If not next to the Another Dungeon door or $inside: open the World Map's \"???\" tab (Expand → Illusion World " +
-                "when it shows another continent), travel to the Spacetime Rift and walk to the door", note = note)
+            Step("If not next to the Another Dungeon door or $inside: travel to the Spacetime Rift (\"???\" tab, Illusion World) " +
+                "and walk left to the door", env.steps(Teleport.MACRO, RiftDoor.RIFT.params()).orEmpty(),
+                macro = Teleport.MACRO, note = note, label = "macro ${Teleport.MACRO}")
         else Step("Start next to the Another Dungeon door or $inside: the macro doesn't travel there by itself", note = note)
     }
 
     private fun phantom(env: MacroSteps.Env) = listOf(
-        toDoor(env.options, "inside the Phantom Crystal Dimension"),
+        toDoor(env, "inside the Phantom Crystal Dimension"),
         Step("Tap the \"!\" over the Another Dungeon door, the glowing \"???\" tab, Phantom Crystal Dimension, Hard (uses the White Key), Move"),
         Step("In every world: open every chest, tap the cats for their paw stamps, then take a portal (any \"!\" leading on)"),
         Step("World I has no chests: its king cat and notice board open the paw stamp menu, which is closed (claiming is left to you)"),
@@ -194,7 +212,7 @@ object HowItWorks {
     private fun catDaily(env: MacroSteps.Env) = listOf(
         Step("Open Diary → Cat Scratchbook and read today's clues"),
         Step("For each cat not found yet:", listOf(
-            Step("Travel to the clue's place on the World Map (a fixed way where the place is known, else by finding its name on the map)"),
+            Step("Travel to the clue's place on the World Map (the spot's era, continent and place where cat_spots has it, else the clue's place)", env.steps(Teleport.MACRO).orEmpty(), macro = Teleport.MACRO, label = "macro ${Teleport.MACRO}"),
             Step("Walk to the cat's spot (a fixed path where known, else toward the feather on the area map)"),
             Step("Walk in short steps and tap the cat's feather bubble"),
             Step("Battles met on the way: the battle macro with this macro's Battle options " +
