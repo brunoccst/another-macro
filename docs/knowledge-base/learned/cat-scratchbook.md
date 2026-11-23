@@ -6,9 +6,9 @@ clue table, levels, rewards): [knowledge base](../external/cat-scratchbook.md).
 
 ## Reaching places on the world map
 
-- Trips start at "point zero": the World Map on the Present era with Baruoki's label on screen
-  (the first map; every account has it). Each era tab opens where that era's last trip went, so
-  labels have no fixed screen spot and are found by OCR.
+- Every trip is the basic macro teleport ([world-map.md](world-map.md)). Until 2026-11-23 the fixed
+  routes started at "point zero" (the Present tab with Baruoki's label on screen); each era tab
+  opens where that era's last trip went, so labels have no fixed screen spot and are found by OCR.
 - **Hidden Village Itoise** (2026-11-08): Present > Expand > Garulea Continent, pan down once,
   then the label; no panel, straight to "Moving to Hidden Village Itoise" and Yes.
 - **Satellite Stadium** (2026-11-03): Future > Expand > Garulea Continent (north of the map), pan
@@ -28,26 +28,11 @@ clue table, levels, rewards): [knowledge base](../external/cat-scratchbook.md).
 - **Miglance Castle 2F**: the trip lands on 1F at the foot of the grand stairs; a flick up there
   is 2F (`enter: [U]`).
 
-## The world map (behind `CatDaily.kt` and `CatRoute.kt`)
+## The world map
 
-- Baruoki is the game's first map, so every account has it (other places, and even the Expand
-  button, only show once the story unlocks them). It sits by the Present map's west edge: the
-  Present tab opens with it at about (0.185, 0.509) and a drag doesn't move the map further
-  (2026-11-03).
-- Each era tab opens where that era's last trip went (2026-11-03). The tabs' lower edge
-  (y ~0.18) sits over the map: a place label under it takes the tap and opens "Moving to ..."
-  (seen with Moonlight Forest), so the tabs are tapped on their top half. "???" (Nazrik, Zero
-  Point: the Underworld) is the fourth tab, right of Future (2026-11-16).
-- A drag that starts on a place label doesn't move the map: a quest marker's "The Riftbreaker"
-  label sat where a sweep row's drags started, the row stood still and Zarbo was missed
-  (2026-11-17).
-- Continent maps are big at the zoom a trip leaves them at: three corner drags left the view
-  below Migleina's top edge and missed Zarbo (top right, 2026-11-16); an island's label sat below
-  a three-row sweep (2026-11-12); Migleina is wider than 4 pans (Zarbo at its east end,
-  2026-11-15).
-- Islands (Snake Bone Island, Astra Island, Remulia) are one label on a continent's map that
-  opens a panel of their places (the island list: anothereden.wiki/w/Map). Konium, on Snake Bone
-  Island, is on Migleina Continent's map (2026-11-03).
+How the World Map behaves (era tabs, Expand, panning, islands): [world-map.md](world-map.md),
+behind the basic macro teleport that makes every cat trip.
+
 - Karek Swampland (Enter from Baruoki) is reached from Baruoki's east end; the west end is a dead
   end (2026-11-12).
 - A cat's spot is fixed (the user): the data wins over the area map's icons.

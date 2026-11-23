@@ -7,8 +7,8 @@ import macroforge.*
  * the Another Dungeon door, tapped until the Another Dungeon map opens.
  *
  * With the `go_to_door` option on (the default, and when a macro doesn't declare it) a run
- * started anywhere on the field gets there by itself: World Map → "???" tab (Expand →
- * Illusion World when it opens on another continent) → Spacetime Rift → Yes, then a walk left
+ * started anywhere on the field gets there by itself: the basic macro teleport to the Spacetime
+ * Rift ("???" tab, Illusion World; Teleport.kt), then a walk left
  * from the arrival point until the door's "!" shows near the middle. It also travels when the
  * "!" in view opened something else and the field came back. Off: the run must start next to
  * the door. The places: docs/knowledge-base/learned/dungeons/README.md.
@@ -18,12 +18,6 @@ object RiftDoor {
     const val OPTION = "go_to_door"
 
     private const val BUBBLE = "field_interact_bubble"
-    private val AD_CLOSE = Point(0.88, 0.03)
-    private val MAP_BUTTON = Point(0.385, 0.917)
-    /** The World Map's "???" tab. */
-    private val ERA_OTHER = Point(0.379, 0.17)
-    /** The world map's Expand button (its icon, above the label). */
-    private val EXPAND_BUTTON = Point(0.844, 0.89)
     /** A "!" higher than this is over an NPC's head, not the door. */
     private const val DOOR_MIN_Y = 0.13
     private const val RIFT_STEP_MS = 350L
@@ -71,59 +65,17 @@ object RiftDoor {
         return false
     }
 
+    /** The trip to the Spacetime Rift, for the basic macro teleport. */
+    internal val RIFT = Teleport.Trip("???", "Spacetime Rift", "Illusion World")
+
     /**
-     * World Map → "???" → Spacetime Rift → Yes, then walk left from the arrival point until the
-     * door's "!" shows near the middle. The door's "!", or null if that didn't work.
+     * The basic macro teleport to the Spacetime Rift ([RIFT]), then a walk left from the arrival
+     * point until the door's "!" shows near the middle. The door's "!", or null if that didn't work.
      */
     internal fun travel(ctx: Context): Point? {
         MacroLog.status("Going to the Another Dungeon door (Spacetime Rift)")
-        var opened = false
-        for (attempt in 1..3) {
-            ctx.tap(MAP_BUTTON); ctx.wait(2.5)
-            if (ctx.readText().any { Ocr.norm(it.text) == "world map" }) { opened = true; break }
-            AnotherDungeon.waitForField(ctx, 5)
-        }
-        if (!opened) return null.also { MacroLog.i("the world map didn't open") }
-        // the "???" tab opens on the continent of its last trip: Expand and pick the Rift's continent
-        // when it isn't in view. Its continents list has Illusion World: without it the tap didn't
-        // reach the "???" tab (the map was still opening on another era's tab), so tap it again
-        for (attempt in 1..2) {
-            ctx.tap(ERA_OTHER); ctx.wait(2.0)
-            if (ctx.readText().any { Ocr.norm(it.text).contains("spacetime rift") }) break
-            MacroLog.i("no Spacetime Rift in view: Expand -> Illusion World")
-            // OCR can miss the button's label: then its place
-            if (AnotherDungeon.tapText(ctx, "Expand", exact = true, tries = 1) == null) {
-                MacroLog.i("no Expand label read: tapping its place")
-                ctx.tap(EXPAND_BUTTON)
-            }
-            ctx.wait(2.0)
-            if (ctx.readText().none { Ocr.norm(it.text) == "illusion world" }) {
-                MacroLog.i("no Illusion World among the continents (not the \"???\" tab): ${seen(ctx)}")
-                continue
-            }
-            AnotherDungeon.tapText(ctx, "Illusion World", exact = true)
-            ctx.wait(2.0)
-            break
-        }
-        if (AnotherDungeon.tapText(ctx, "Spacetime Rift") == null) {
-            MacroLog.i("no Spacetime Rift on the map: ${seen(ctx)}")
-            // a tap on the map may have asked to travel somewhere else ("Moving to ...?"): No first
-            if (ctx.readText().any { Ocr.norm(it.text).contains("moving to") }) {
-                ctx.readText().firstOrNull { Ocr.norm(it.text) == "no" && it.center.y > 0.4 }?.let { ctx.tapExact(it.center); ctx.wait(1.5) }
-            }
-            ctx.tap(AD_CLOSE); ctx.wait(1.5)
-            return null
-        }
-        ctx.wait(1.5)
-        val yes = ctx.readText().firstOrNull { Ocr.norm(it.text) == "yes" && it.center.y > 0.4 }
-        if (yes != null) {
-            ctx.tapExact(yes.center)
-            if (!AnotherDungeon.waitForField(ctx, 30)) return null.also { MacroLog.i("the field didn't come back after the trip") }
-        } else {
-            // already in the Rift: the map just closes
-            ctx.tap(AD_CLOSE); ctx.wait(1.5)
-            AnotherDungeon.waitForField(ctx, 5)
-        }
+        if (!Teleport.via(ctx, RIFT)) return null
+        AnotherDungeon.waitForField(ctx, 5)
         ctx.wait(1.0)
         // the door is a short walk left of the arrival point
         repeat(16) {

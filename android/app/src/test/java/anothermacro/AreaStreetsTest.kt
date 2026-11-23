@@ -2,6 +2,7 @@ package anothermacro
 
 import anothermacro.logic.AreaNav
 import anothermacro.logic.CatDaily
+import anothermacro.logic.Teleport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -50,10 +51,10 @@ class AreaStreetsTest {
     }
 
     @Test fun surveyOnlyOnTheCluesMap() {
-        assertTrue(CatDaily.sameMap("Nazrik, City of Shadows", "Nazrik, City of Shadows"))
-        assertTrue(CatDaily.sameMap("Karek Swampland", "Karek Swampland (Enter from Baruoki)"))
-        assertTrue(CatDaily.sameMap("Zero Point", "Zero Point - East"))
-        assertTrue(!CatDaily.sameMap("Konium", "Keruri Highroad"))
-        assertTrue(!CatDaily.sameMap("", "Keruri Highroad"))
+        assertTrue(Teleport.sameMap("Nazrik, City of Shadows", "Nazrik, City of Shadows"))
+        assertTrue(Teleport.sameMap("Karek Swampland", "Karek Swampland (Enter from Baruoki)"))
+        assertTrue(Teleport.sameMap("Zero Point", "Zero Point - East"))
+        assertTrue(!Teleport.sameMap("Konium", "Keruri Highroad"))
+        assertTrue(!Teleport.sameMap("", "Keruri Highroad"))
     }
 }

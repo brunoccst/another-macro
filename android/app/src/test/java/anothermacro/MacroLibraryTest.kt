@@ -145,8 +145,8 @@ class MacroLibraryTest {
     }
 
     @Test fun unknownStepsMarkAMacroUnsupported() {
-        val m = FlowScenario.parse("name: x\nscreens: [field]\nhandlers:\n  field:\n    - if: true\n      then: [{teleport: home}]\n    - run: {macro: watch-ad}\n", "x")
-        assertEquals(listOf("teleport"), m.unsupported)
+        val m = FlowScenario.parse("name: x\nscreens: [field]\nhandlers:\n  field:\n    - if: true\n      then: [{fly_away: home}]\n    - run: {macro: watch-ad}\n", "x")
+        assertEquals(listOf("fly_away"), m.unsupported)
         assertEquals(listOf("watch-ad"), m.uses)
     }
 

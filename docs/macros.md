@@ -31,6 +31,7 @@ A test checks that this table names every macro in `macros/`.
 | Basic | [open-menu-page](../macros/basic/open-menu-page.yaml) | Opens one page of the menu (commercials, shop, inbox), starting the game first if needed. |
 | Basic | [pick-party](../macros/basic/pick-party.yaml) | Puts party N (its number in the game's party list) in front. |
 | Basic | [back-to-field](../macros/basic/back-to-field.yaml) | Presses Back until the field shows. |
+| Basic | [teleport](../macros/basic/teleport.yaml) | Travels by the World Map to a place (era, continent, place, destination). Every trip of the other macros goes through it. |
 
 Every Another Dungeon run (except the Phantom Crystal Dimension) works the same way: it enters
 with the chosen key (or skips with a Cat Express Ticket), walks fixed routes to every chest
@@ -56,7 +57,7 @@ dungeon shares, so a fix to the shared flow reaches every dungeon at once:
 - **To the door** (`go_to_door`, on by default, on every dungeon macro including the Phantom
   Crystal Dimension): started anywhere on the field, the macro opens the World Map's "???" tab
   (Expand → Illusion World when it shows another continent), travels to the Spacetime Rift and
-  walks left to the Another Dungeon door (`logic/RiftDoor.kt`); a "!" in view that opens something
+  walks left to the Another Dungeon door (`logic/RiftDoor.kt`, the trip itself is the basic macro `teleport`); a "!" in view that opens something
   else sends it there too. Off: start it next to the door (or inside the dungeon).
 - **Entry**: Spacetime Rift door "!" → era tab → (optional `area:` sub-map such as
   "Parallel Time Layer") → the dungeon's label (`label:` when it wraps) → Hard/Very Hard

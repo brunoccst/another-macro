@@ -1,15 +1,128 @@
-# Where scratchbook places sit on the world map, learned by the daily cat routine.
-# continent: the entry to tap in the map's Expand view. The app adds what it learns to its
-# own copy.
-Unigan: {era: Present, continent: Migleina Continent}
-Konium: {era: Present, continent: Migleina Continent}
-Hidden Village Itoise: {era: Present, continent: Garulea Continent}
-Ratle: {era: Antiquity, continent: Migleina Continent}
-Satellite Stadium: {era: Future, continent: Garulea Continent}
+# Where each World Map place sits, for the basic macro teleport (logic/Teleport.kt, KnownPlaces):
+# <label>: {era, continent: the Expand entry, area: the label whose panel or mini map holds it},
+# or a list of those when the label is on more than one era's map. Mapped on the phone with
+# `teleport` mode map_places on 2026-11-23 (only the places that account has unlocked), plus
+# what trips learned before. The app adds what it learns to its own copy.
+
+Merlot Ward: {era: Antiquity, continent: Zerberiya Continent}
+Lightning Haven: {era: Antiquity, continent: Zerberiya Continent}
+"Winged People's Village": {era: Antiquity, continent: Zerberiya Continent}
+Davola Underground Caverns: {era: Antiquity, continent: Zerberiya Continent}
+Gewuerz Church HQ: {era: Antiquity, continent: Zerberiya Continent}
+Port Arinto: {era: Antiquity, continent: Zerberiya Continent}
+Lunar Ghost City: {era: Antiquity, continent: Zerberiya Continent}
+Schnaud Castle: {era: Antiquity, continent: Zerberiya Continent}
+Spirit Sanctuary: {era: Antiquity, continent: Zerberiya Continent}
+Atlantica: {era: Antiquity, continent: Zerberiya Continent}
+Tower of Stars: {era: Antiquity, continent: Migleina Continent}
+Corinda Plains: {era: Antiquity, continent: Migleina Continent}
+Keruri Highroad: {era: Antiquity, continent: Migleina Continent}
+Kira Beach: {era: Antiquity, continent: Migleina Continent}
+Palsifal Palace: {era: Antiquity, continent: Migleina Continent}
+Amatias Arena: {era: Antiquity, continent: Migleina Continent}
+Derismo Highroad: {era: Antiquity, continent: Migleina Continent}
+Man-eating Marsh: {era: Antiquity, continent: Migleina Continent}
+Cea Reef Caves: {era: Antiquity, continent: Migleina Continent}
 Acteul: {era: Antiquity, continent: Migleina Continent}
-Miglance Castle: {era: Present, continent: Migleina Continent}
-Elzion: {era: Future, continent: Migleina Continent}
-Zarbo: {era: Present, continent: Migleina Continent}
-Rucyana Sands: {era: Present, continent: Migleina Continent}
-Laula Dome: {era: Future, continent: Migleina Continent}
+Purgatory: {era: Antiquity, continent: Migleina Continent}
+Ratle: {era: Antiquity, continent: Migleina Continent}
+Lake Tiilen: {era: Antiquity, continent: Migleina Continent}
+Vasu Mountains: {era: Antiquity, continent: Migleina Continent}
+Nadara Volcano: {era: Antiquity, continent: Migleina Continent}
+Zol Plains: {era: Antiquity, continent: Migleina Continent}
+Glacial Place: {era: Antiquity, continent: Migleina Continent}
+Dragon Palace: {era: Antiquity, continent: Migleina Continent}
+Vega Forest: {era: Antiquity, continent: Migleina Continent}
+Charol Plains: {era: Antiquity, continent: Migleina Continent}
+Vulga Mountain Road: {era: Antiquity, continent: Migleina Continent}
 Sarupa: {era: Antiquity, continent: Migleina Continent}
+Citadel of Time Ruins: {era: Antiquity, continent: Migleina Continent}
+Tower of Time: {era: Antiquity, continent: Migleina Continent}
+"Demon's Den": {era: Antiquity, continent: Garulea Continent}
+Kuruchi Cove: {era: Antiquity, continent: Garulea Continent}
+Ship Graveyard: {era: Antiquity, continent: Garulea Continent}
+Zami: {era: Antiquity, continent: Garulea Continent}
+Gadaro: {era: Antiquity, continent: Garulea Continent}
+Talgana Mountain Trail: {era: Antiquity, continent: Garulea Continent}
+"Dragon God's Swamp": {era: Antiquity, continent: Garulea Continent}
+Pador: {era: Antiquity, continent: Garulea Continent}
+Hokishi Forest: {era: Antiquity, continent: Garulea Continent}
+Valley of the Ancients: {era: Antiquity, continent: Garulea Continent}
+Funeral Cavern: {era: Antiquity, continent: Garulea Continent}
+Snake Bone Island: {era: Present, continent: Migleina Continent}
+Moonlight Forest: {era: Present, continent: Migleina Continent}
+Nuaru Uplands: {era: Present, continent: Migleina Continent}
+Serena Coast: {era: Present, continent: Migleina Continent}
+Parallel Time Layer: {era: Present, continent: Migleina Continent}
+Miglance Castle: {era: Present, continent: Migleina Continent}
+Rinde: {era: Present, continent: Migleina Continent}
+"Beast King's Castle": {era: Present, continent: Migleina Continent}
+Wulfpack Manor: {era: Present, continent: Migleina Continent}
+Rucyana Sands: {era: Present, continent: Migleina Continent}
+Zarbo: {era: Present, continent: Migleina Continent}
+Ancient Battlefield: {era: Present, continent: Migleina Continent}
+Baruoki: {era: Present, continent: Migleina Continent}
+Karek Swampland: {era: Present, continent: Migleina Continent}
+Unigan: {era: Present, continent: Migleina Continent}
+Mining Village: {era: Present, continent: Migleina Continent}
+Lucniva: {era: Present, continent: Migleina Continent}
+Kurosagi Castle: {era: Present, continent: Garulea Continent}
+Jiraiya Fortress: {era: Present, continent: Garulea Continent}
+Vermilion Road: {era: Present, continent: Garulea Continent}
+Inanari Plateau: {era: Present, continent: Garulea Continent}
+Nagsham: {era: Present, continent: Garulea Continent}
+Cat Shrine: {era: Present, continent: Garulea Continent}
+Temple Ruins: {era: Present, continent: Garulea Continent}
+"Light's Fading": {era: Present, continent: Garulea Continent}
+Specter Citadel: {era: Present, continent: Garulea Continent}
+Demon Sea Caverns: {era: Present, continent: Garulea Continent}
+Kunlun Mountains: {era: Present, continent: Garulea Continent}
+Hidden Village Itoise: {era: Present, continent: Garulea Continent}
+Specter Palace: {era: Present, continent: Garulea Continent}
+Izana: {era: Present, continent: Garulea Continent}
+Mahora Lake: {era: Present, continent: Garulea Continent}
+Hot Springs: {era: Present, continent: Garulea Continent}
+Wicked Meadow: {era: Present, continent: Garulea Continent}
+"Land of Ro: Dungeon Ruins": {era: Present, continent: Garulea Continent}
+Ikarga: {era: Present, continent: Garulea Continent}
+Nilva: {era: Future, continent: Migleina Continent}
+Tree of Eternity: {era: Future, continent: Migleina Continent}
+Triglav Outpost: {era: Future, continent: Migleina Continent}
+Industrial Ruins: {era: Future, continent: Migleina Continent}
+Former KMS HQ: {era: Future, continent: Migleina Continent}
+Route 99: {era: Future, continent: Migleina Continent}
+IDA School: {era: Future, continent: Migleina Continent}
+Toto Dreamland: {era: Future, continent: Migleina Continent}
+Elzion: {era: Future, continent: Migleina Continent}
+"Aenard's Hideout": {era: Future, continent: Migleina Continent}
+Last Island: {era: Future, continent: Migleina Continent}
+"Sapient Complex: Twilight": {era: Future, continent: Migleina Continent}
+Xeno-Domain: {era: Future, continent: Migleina Continent}
+Laula Dome: {era: Future, continent: Migleina Continent}
+Elzion Airport: {era: Future, continent: Migleina Continent}
+Sky Fortress Eeza: {era: Future, continent: Garulea Continent}
+KMS Eastern Division: {era: Future, continent: Garulea Continent}
+Cat Shrine Remnants: {era: Future, continent: Garulea Continent}
+Wasteland: {era: Future, continent: Garulea Continent}
+Prison Ship Gulfagin: {era: Future, continent: Garulea Continent}
+Angal Settlement: {era: Future, continent: Garulea Continent}
+Satellite Stadium: {era: Future, continent: Garulea Continent}
+Contaminated Pit: {era: Future, continent: Garulea Continent}
+Spacetime Rift: {era: "???", continent: Illusion World}
+Nopaew Emporium: {era: "???", continent: Illusion World}
+Manifestation Chamber: {era: "???", continent: Illusion World}
+Temporal Surveillance Ship Kairos: {era: "???", continent: Illusion World}
+"Arat: Maze Village": {era: "???", continent: Illusion World}
+Zero Point: {era: "???", continent: Underworld}
+Dimensional Cathedral: {era: "???", continent: Underworld}
+Ark of the Underworld: {era: "???", continent: Underworld}
+Stairway to the Ark: {era: "???", continent: Underworld}
+"Nazrik, City of Shadows": {era: "???", continent: Underworld}
+Snake Tail Corabel: {era: Present, continent: Migleina Continent, area: Snake Bone Island}
+Snake Spine Gabaraki: {era: Present, continent: Migleina Continent, area: Snake Bone Island}
+Konium: {era: Present, continent: Migleina Continent, area: Snake Bone Island}
+Konium Bridge: {era: Present, continent: Migleina Continent, area: Snake Bone Island}
+Snake Liver Damaku: {era: Present, continent: Migleina Continent, area: Snake Bone Island}
+Snake Neck Igoma: {era: Present, continent: Migleina Continent, area: Snake Bone Island}
+Snake Dream: {era: Present, continent: Migleina Continent, area: Snake Bone Island}
+Snake Skull Mescita: {era: Present, continent: Migleina Continent, area: Snake Bone Island}

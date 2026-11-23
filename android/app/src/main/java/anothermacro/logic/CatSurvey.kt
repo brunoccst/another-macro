@@ -39,7 +39,7 @@ object CatSurvey {
      * measurement of another map (the trip hadn't arrived) doesn't count.
      */
     fun measured(ctx: Context, location: String): org.json.JSONObject? =
-        saved(ctx).optJSONObject(location)?.takeIf { m -> m.optString("map").let { it.isEmpty() || CatDaily.sameMap(it, location) } }
+        saved(ctx).optJSONObject(location)?.takeIf { m -> m.optString("map").let { it.isEmpty() || Teleport.sameMap(it, location) } }
 
     /** The log line a repo thread imports (`another-macro cat-routes --import`). */
     fun line(m: org.json.JSONObject) = "MEASURED cat spot: $m"
@@ -60,7 +60,7 @@ object CatSurvey {
         // 1. streets, arrival, cat
         val first = AreaNav.look(ctx, readText = true) { f -> AreaNav.findIcons(ctx, f, FEATHER_ICON) }
         val title = first.text.filter { it.center.y < 0.12 }.joinToString(" ") { it.text }.trim()
-        if (title.isNotEmpty() && !CatDaily.sameMap(title, location)) {
+        if (title.isNotEmpty() && !Teleport.sameMap(title, location)) {
             MacroLog.i("$location: survey stopped: the area map is '$title', not $location")
             return null
         }

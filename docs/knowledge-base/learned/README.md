@@ -27,5 +27,6 @@ and what the user told it. Facts taken from outside sources (the wiki, Altema) a
 | [dungeons/moonlight-forest.md](dungeons/moonlight-forest.md) | Moonlight Forest |
 | [dungeons/sea-of-ice.md](dungeons/sea-of-ice.md) | Sea of Ice |
 | [dungeons/underworld.md](dungeons/underworld.md) | Underworld (Demon's Den, Dimensional Cathedral, Mark of God's Tomb, Ark of the Underworld) |
+| [world-map.md](world-map.md) | The World Map: era tabs (greyed out by continent), Expand, panning, islands; behind the basic macro teleport |
 | [phantom-crystal.md](phantom-crystal.md) | The Phantom Crystal Dimension (White Key) |
 | [cat-scratchbook.md](cat-scratchbook.md) | The daily cats: reaching places, the world map, the feather bubble, measurements per spot |

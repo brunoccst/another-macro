@@ -9,10 +9,8 @@ import kotlin.math.abs
 /**
  * The fixed way to a Cat Scratchbook cat (cat_spots.yaml, paths from `another-macro cat-routes`).
  *
- *  1. point zero: World Map on the Present era, Baruoki's label dragged to the middle (CatDaily.pointZero);
- *     then the spot's era tab and Expand → continent where it's on another one;
- *  2. the place's label by OCR from the view the era tab opens (it's where that era's last trip
- *     went, so it isn't fixed), the sub-location, Yes;
+ *  1-2. the trip: the basic macro teleport (Teleport.kt) with the spot's era, continent, place
+ *     and sub-location;
  *  3. from the arrival spot, the fixed moves to where the cat starts (Route.hold / flicks, with the
  *     walk table scaled to this area map's zoom);
  *  4. the cat wanders along its street within `drift`: the hunt sweeps between those two ends.
@@ -30,7 +28,7 @@ object CatRoute {
         val layout: AreaNav.Layout?, val arrival: Point?, val cat: Point?,
         val driftLeft: Double, val driftRight: Double, val walkScale: Double, val path: List<Route.Step>?,
     ) {
-        /** continent null = reachable without Expand; a spot whose continent isn't known yet still starts at point zero */
+        /** continent null = learned or searched by the teleport */
         val fixedTravel get() = era.isNotEmpty()
         val fixedWalk get() = layout != null && arrival != null && cat != null && path != null
     }
@@ -84,26 +82,8 @@ object CatRoute {
     }
 
     // --- 1-2. the world map ---------------------------------------------------------------
-    /**
-     * Point zero, then the spot's era tab and (only if set) its continent, then the place's label
-     * by OCR: the view each era tab opens on is where that era's last trip went, so a label has no
-     * fixed screen spot; the search starts from that view.
-     */
-    fun travel(ctx: Context, s: Spot): Boolean {
-        if (!CatDaily.pointZero(ctx)) return false
-        if (!s.era.equals("Present", true)) CatDaily.tapEra(ctx, s.era)
-        // not in the data: maybe learned on the phone (or known for another place on the same island)
-        val continent = s.continent ?: CatDaily.continentFor(ctx, s.place, s.era)
-        val place = CatDaily.splitPlace(s.place).first
-        if (continent != null && !CatDaily.openContinent(ctx, continent)) {
-            // no Expand button yet (early story) or no such entry: look on the map the era tab shows
-            MacroLog.i("${s.place}: no '$continent' in the Expand list; looking on this map")
-            if (ctx.readText().none { Ocr.norm(it.text) == "world map" }) return false
-        }
-        MacroLog.i("$place: trip from point zero (${s.era}, ${continent ?: "no Expand"})")
-        // an island's places (Konium on Snake Bone Island) sit in the island label's panel
-        return CatDaily.searchAndGo(ctx, place, s.sub, CatDaily.regionOf(place))
-    }
+    /** The spot's trip for the basic macro teleport: its era, place, continent (when set) and sub-location. */
+    fun trip(s: Spot) = Teleport.Trip(s.era, s.place, s.continent, s.sub)
 
     // --- 3. the area map ------------------------------------------------------------------
     /** Where the party is and where the plan has it, while walking a spot's path. */
