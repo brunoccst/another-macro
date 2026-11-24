@@ -10,6 +10,8 @@ import org.opencv.core.Size
 import org.opencv.imgcodecs.Imgcodecs
 import org.opencv.imgproc.Imgproc
 import kotlin.math.abs
+import kotlin.math.hypot
+import kotlin.math.roundToLong
 
 /**
  * The Phantom Crystal Dimension, entered with a White Key:
@@ -19,7 +21,10 @@ import kotlin.math.abs
  *     Dimension" → Hard ("Using White Key×1") → Move;
  *  2. every world: open every chest (each shows a "!" when the party is close), tap the cats,
  *     then take a portal (any other "!"). A "!" that opens the paw stamp menu is cancelled
- *     (claiming is left to the user);
+ *     (claiming is left to the user). A world with a fixed route (the macro's `worlds:` data,
+ *     picked by the world's title) is walked by it; any other world, or a route that loses its
+ *     way, is swept: walked end to end in short steps, looking for "!"s. A swept world logs a
+ *     draft route ("route draft for world ...") to copy into the data;
  *  3. a world that moves on by itself once emptied is followed;
  *  4. the Cape or the final world: its chests, then the "!" on the stairs out; Congratulations;
  *  5. the Last World: the run stops after the chests, before talking to the Sensationalist, so
@@ -49,11 +54,65 @@ object PhantomCrystal {
         var catY: Double? = null
         /** "!" spots that open a menu (the stamp cat, the notice board): screen x in the current world. */
         val skip = ArrayList<Point>()
+        /** The fixed routes of the macro's `worlds:` data. */
+        val routes: List<WorldRoute> = loadRoutes(ctx)
+        /** The current world's title, as its banner was read on arrival ("" = not read). */
+        var title = ""
+        /** The current world is walked by its fixed route (not swept). */
+        var routed = false
+        // the draft route: how far the party walked from where it arrived (walk.yaml distance, + = right),
+        // and the steps so far
+        val walkTable by lazy { Route.table(ctx) }
+        var pos = 0.0
+        var mark = 0.0
+        val draft = ArrayList<String>()
+        fun newWorld() { skip.clear(); title = ""; routed = false; pos = 0.0; mark = 0.0; draft.clear() }
+    }
+
+    /** The macro file the `worlds:` routes are read from. */
+    private const val MACRO = "phantom-crystal"
+
+    /**
+     * A world's fixed route (the macro's `worlds:` list): [title] = words of the world's title
+     * banner; [steps] from where the party arrives:
+     * `L 1200` / `R 1200` hold left/right that many ms from rest, `U` / `D` flick up/down,
+     * `wait 1.5`, `chest [x y]` / `cat [x y]` tap the "!" there (the one nearest that screen spot,
+     * else the one nearest the middle) and take the item / stamp, `portal [x y]` take the way on,
+     * `stairs [x y]` take the stairs out of the dimension, `sensationalist` look for the
+     * Sensationalist's "!" here (the run stops for the user when it shows), `moves_on` wait for
+     * the world to move on by itself.
+     */
+    data class WorldRoute(val title: String, val steps: List<String>)
+
+    /** Every step word a route may use (also checked by the repository's tests). */
+    val STEP_WORDS = setOf("l", "r", "u", "d", "wait", "chest", "cat", "portal", "stairs", "sensationalist", "moves_on")
+
+    /** The `worlds:` routes of a parsed macro file. */
+    @Suppress("UNCHECKED_CAST")
+    internal fun routes(macroFile: Map<String, Any?>): List<WorldRoute> =
+        (macroFile["worlds"] as? List<*>).orEmpty().mapNotNull { w ->
+            val m = w as? Map<String, Any?> ?: return@mapNotNull null
+            val t = m["title"]?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
+            WorldRoute(t, (m["route"] as? List<*>).orEmpty().map { it.toString().trim() }.filter { it.isNotEmpty() })
+        }
+
+    private fun loadRoutes(ctx: Context): List<WorldRoute> =
+        runCatching { (ctx.findMacro(MACRO) as? FlowScenario)?.spec?.let { routes(it) } }.getOrNull() ?: emptyList()
+
+    /** The world's own name in its title banner: the words after "Phantom Crystal Dimension". */
+    internal fun worldName(title: String): String = Ocr.norm(title).replace(Regex("^.*?phantom crystal dimension"), "").trim()
+
+    /** The route for the world whose banner read [title]: its title words in the banner, else a close read. */
+    internal fun routeFor(routes: List<WorldRoute>, title: String): WorldRoute? {
+        val t = worldName(title)
+        if (t.isEmpty()) return null
+        return routes.firstOrNull { val w = worldName(it.title); w.isNotEmpty() && Regex("(^| )${Regex.escape(w)}( |$)").containsMatchIn(t) }
+            ?: routes.map { it to Ocr.similarity(worldName(it.title), t) }.filter { it.second >= 0.8 }.maxByOrNull { it.second }?.first
     }
 
     fun run(ctx: Context): String {
         val r = Run(ctx)
-        val outcome = try { inner(r) } catch (s: StopScenario) { s.message ?: "stopped" }
+        val outcome = try { inner(r) } catch (s: StopScenario) { logDraft(r); s.message ?: "stopped" }
         val secs = (System.currentTimeMillis() - r.start) / 1000
         val items = r.items.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val text = "$outcome — ${secs / 60}m ${secs % 60}s; worlds ${r.world}${if (r.cape) " (ended in the Cape)" else ""}; " +
@@ -84,8 +143,8 @@ object PhantomCrystal {
         while (true) {
             MacroLog.status("Phantom Crystal Dimension: world ${r.world}${if (r.cape) " (the Cape)" else ""}")
             when (clearWorld(r)) {
-                Next.WORLD -> { r.world++; r.skip.clear() }
-                Next.END -> return finish(r)
+                Next.WORLD -> { logDraft(r); r.world++; r.newWorld() }
+                Next.END -> { logDraft(r); return finish(r) }
             }
         }
     }
@@ -160,10 +219,24 @@ object PhantomCrystal {
         // the world's title banner ("Phantom Crystal Dimension <world>") shows for a few seconds on arrival
         repeat(4) {
             ctx.refresh()
-            val title = ctx.readText(Region(0.1, 0.0, 0.8, 0.3)).joinToString(" ") { Ocr.norm(it.text) }
-            if (!r.last && "last world" in title) { r.last = true; MacroLog.i("the Last World") }
-            if (!r.cape && "cape" in title) { r.cape = true; MacroLog.i("the World's Cape") }
+            val title = ctx.readText(Region(0.1, 0.0, 0.8, 0.3)).filter { Ocr.norm(it.text) != "am" }.joinToString(" ") { it.text.trim() }
+            if (Ocr.norm(title).length > Ocr.norm(r.title).length) r.title = title
+            if (!r.last && "last world" in Ocr.norm(title)) { r.last = true; MacroLog.i("the Last World") }
+            if (!r.cape && "cape" in Ocr.norm(title)) { r.cape = true; MacroLog.i("the World's Cape") }
             if (!r.last) ctx.wait(0.8)
+        }
+        MacroLog.i("World ${r.world}: title '${r.title}'")
+        val route = routeFor(r.routes, r.title)
+        if (route == null) MacroLog.i("World ${r.world}: no fixed route for '${worldName(r.title)}': looking around")
+        else {
+            r.routed = true
+            when (followRoute(r, route)) {
+                RouteOut.WORLD -> return Next.WORLD
+                RouteOut.END -> return Next.END
+                RouteOut.DONE -> return afterRoute(r, route)
+                // a "!" the route expected wasn't there: look around from here
+                RouteOut.LOST -> r.routed = false
+            }
         }
         var dir = -1.0
         var ends = 0
@@ -181,27 +254,146 @@ object PhantomCrystal {
             val chest = closedChests(ctx).minByOrNull { abs(it.x - 0.5) }
             if (steps % 5 == 1) MacroLog.i("World ${r.world}: looking around (step $steps, ends $ends${chest?.let { ", closed chest at x ${"%.2f".format(it.x)}" } ?: ""})")
             if (chest != null && abs(chest.x - 0.5) > 0.05) {
-                walk(ctx, if (chest.x < 0.5) -1.0 else 1.0, 350)
+                walk(r, if (chest.x < 0.5) -1.0 else 1.0, 350)
                 continue
             }
-            val before = view(ctx)
-            walk(ctx, dir, 700)
-            if (!moved(ctx, before)) { ends++; dir = -dir }
+            if (!stride(r, dir, 700)) { ends++; dir = -dir }
         }
         // the Last World: its chests are taken; the Sensationalist's reward is the user's choice
-        if (r.last) ctx.stop("Last World: chests taken; the Sensationalist is left for you (free Treatise/Codex/Opus of your choice, then the way out)")
+        if (r.last) ctx.stop(LAST_WORLD_STOP)
         // the Cape: never take the way out while the Sensationalist may be there; the user looks and
         // finishes the dimension
         if (r.cape) {
             capeCats(r)
             // stop only when the Sensationalist's "!" is seen, else take the stairs out
-            if (sensationalistInCape(r)) ctx.stop("World's Cape: the Sensationalist is here! Chests and cat taken; " +
-                "talk to him and choose your free Treatise/Codex/Opus, then take the stairs out")
+            if (sensationalistInCape(r)) ctx.stop(CAPE_STOP)
             return capeExit(r)
         }
         // nothing left to take: a portal (or, in the Cape / final world, the stairs out)
         return leave(r)
     }
+
+    private const val LAST_WORLD_STOP = "Last World: chests taken; the Sensationalist is left for you (free Treatise/Codex/Opus of your choice, then the way out)"
+    private const val CAPE_STOP = "World's Cape: the Sensationalist is here! Chests and cat taken; " +
+        "talk to him and choose your free Treatise/Codex/Opus, then take the stairs out"
+
+    private enum class RouteOut { WORLD, END, DONE, LOST }
+
+    /**
+     * Walk the world by its fixed route. LOST: a "!" the route expected didn't show (or the way on
+     * didn't take the party on): the sweep takes over from where the party stands.
+     */
+    private fun followRoute(r: Run, route: WorldRoute): RouteOut {
+        val ctx = r.ctx
+        MacroLog.status("Phantom Crystal Dimension: world ${r.world}${if (r.cape) " (the Cape)" else ""}, fixed route")
+        MacroLog.i("World ${r.world}: fixed route '${route.title}': ${route.steps.joinToString(", ")}")
+        // the unfolded floating buttons' label can sit over a "!" near the right edge
+        if (InputService.instance?.controls(true)?.first == true) Thread.sleep(400)
+        for ((i, step) in route.steps.withIndex()) {
+            val parts = step.split(Regex("\\s+"))
+            val word = parts[0].lowercase()
+            when (word) {
+                "l", "r" -> walk(r, if (word == "r") 1.0 else -1.0, parts.getOrNull(1)?.toDoubleOrNull()?.toLong() ?: 500)
+                "u", "d" -> AreaNav.flick(ctx, up = word == "u")
+                "wait" -> ctx.wait(parts.getOrNull(1)?.toDoubleOrNull() ?: 1.0)
+                "moves_on" -> when (afterLeaving(r)) {
+                    Taken.LEFT -> return RouteOut.WORLD
+                    Taken.END -> return RouteOut.END
+                    else -> { MacroLog.i("World ${r.world}: route step ${i + 1}: the world didn't move on"); return RouteOut.LOST }
+                }
+                "sensationalist" -> {
+                    MacroLog.status("World's Cape: is the Sensationalist here?")
+                    var seen = false
+                    for (look in 0 until 3) {
+                        seen = personSeen(r, notStairs(ctx, ctx.refresh()))
+                        if (seen) break
+                        ctx.wait(0.5)
+                    }
+                    if (seen) ctx.stop(CAPE_STOP)
+                    MacroLog.i("World's Cape: no Sensationalist")
+                }
+                "chest", "cat", "portal", "stairs" -> {
+                    val x = parts.getOrNull(1)?.toDoubleOrNull()
+                    val y = parts.getOrNull(2)?.toDoubleOrNull()
+                    val b = routeBubble(r, word, if (x != null && y != null) Point(x, y) else null)
+                    if (b == null) {
+                        MacroLog.i("World ${r.world}: route step ${i + 1} '$step': no \"!\" there: looking around instead")
+                        return RouteOut.LOST
+                    }
+                    val had = r.stamps
+                    when (tapBubble(r, b)) {
+                        Taken.LEFT -> return if (word == "stairs") RouteOut.END else RouteOut.WORLD
+                        Taken.END -> return RouteOut.END
+                        else -> {
+                            if (word == "cat" && r.cape && r.stamps > had) r.catY = b.y
+                            if (word == "portal" || word == "stairs") {
+                                MacroLog.i("World ${r.world}: route step ${i + 1} '$step': still in this world: looking around instead")
+                                return RouteOut.LOST
+                            }
+                        }
+                    }
+                }
+                else -> MacroLog.i("World ${r.world}: unknown route step '$step'")
+            }
+        }
+        return RouteOut.DONE
+    }
+
+    /** The route ended in its world without leaving it: what the world still needs. */
+    private fun afterRoute(r: Run, route: WorldRoute): Next {
+        if (r.last) r.ctx.stop(LAST_WORLD_STOP)
+        if (r.cape) {
+            val words = route.steps.map { it.substringBefore(' ').lowercase() }
+            if ("cat" !in words) capeCats(r)
+            if ("sensationalist" !in words && sensationalistInCape(r)) r.ctx.stop(CAPE_STOP)
+            return capeExit(r)
+        }
+        return leave(r)
+    }
+
+    /**
+     * The "!" a route step taps: the one nearest the step's spot [at] when it gives one, else the
+     * one nearest the middle (in the Cape, the stairs' "!" only for `stairs`, never for the
+     * others). When none shows, the party is nudged a little either way (the route's holds can
+     * end a little short or long).
+     */
+    private fun routeBubble(r: Run, kind: String, at: Point?): Point? {
+        val ctx = r.ctx
+        // a cat walks about: its "!" is looked for longer and further from the spot
+        val lookMs = if (kind == "cat") 6000L else 2500L
+        val near = if (kind == "cat") 0.25 else 0.12
+        fun pick(reach: Double): Point? {
+            val f = ctx.refresh()
+            val all = bubbles(ctx, f).filter { b -> r.skip.none { abs(it.x - b.x) < 0.03 && abs(it.y - b.y) < 0.05 } }
+            val ups = if (r.cape) stairsArrows(ctx, f) else emptyList()
+            val fit = when {
+                !r.cape -> all
+                kind == "stairs" -> all.filter { isStairs(it, ups) }
+                else -> all.filter { !isStairs(it, ups) }
+            }
+            if (at == null) return fit.minByOrNull { abs(it.x - 0.5) }
+            return fit.filter { hypot(it.x - at.x, it.y - at.y) < reach }.minByOrNull { hypot(it.x - at.x, it.y - at.y) }
+        }
+        fun look(ms: Long, reach: Double): Point? {
+            val until = System.currentTimeMillis() + ms
+            while (true) {
+                pick(reach)?.let { return it }
+                if (System.currentTimeMillis() > until) return null
+                ctx.wait(0.3)
+            }
+        }
+        look(lookMs, near)?.let { return it }
+        // right, back, left, back: after a nudge the "!" sits a little off its spot on screen
+        for (dir in listOf(1.0, -1.0, -1.0, 1.0)) {
+            MacroLog.i("World ${r.world}: no \"!\" for '$kind' yet: a nudge ${if (dir > 0) "right" else "left"}")
+            walk(r, dir, NUDGE_MS)
+            look(1000, near * 2)?.let { return it }
+        }
+        return null
+    }
+
+    /** A route step's nudge when its "!" doesn't show. */
+    private const val NUDGE_MS = 300L
 
     private enum class Taken { NONE, SOME, LEFT, END }
 
@@ -250,12 +442,13 @@ object PhantomCrystal {
             // is checked too
             "autosaving" in all -> { MacroLog.i("World ${r.world}: autosave: a new world"); ctx.wait(1.5); return Taken.LEFT }
             "stamp" in all && ("you got" in all || "filled out" in all) -> {
-                r.stamps++; MacroLog.i("paw stamp"); dismiss(ctx); return Taken.SOME
+                r.stamps++; MacroLog.i("paw stamp"); note(r, "cat", b); dismiss(ctx); return Taken.SOME
             }
             "obtained" in all -> {
-                noteItem(r, lines); r.chests++; ctx.count("chests"); dismiss(ctx); return Taken.SOME
+                noteItem(r, lines); r.chests++; ctx.count("chests"); note(r, "chest", b); dismiss(ctx); return Taken.SOME
             }
             "trained" in all -> {
+                note(r, "chest", b)
                 // a bonus world's straw dummy: "You trained using the straw dummy." on black, then the item
                 dismissBanner(ctx)
                 val got = ctx.readText()
@@ -271,7 +464,13 @@ object PhantomCrystal {
                 return Taken.SOME
             }
         }
-        return afterLeaving(r)
+        val out = afterLeaving(r)
+        when (out) {
+            Taken.LEFT -> note(r, if (r.cape) "stairs" else "portal", b)
+            Taken.END -> note(r, "stairs", b)
+            else -> {}
+        }
+        return out
     }
 
     /**
@@ -302,9 +501,7 @@ object PhantomCrystal {
                 }
                 if (r.stamps > had) { r.catY = b.y; MacroLog.i("World's Cape: the cat's \"!\" is at y ${"%.2f".format(b.y)}"); return }
             }
-            val before = view(ctx)
-            walk(ctx, dir, 500)
-            if (!moved(ctx, before)) { if (++ends > 1) break; dir = -dir }
+            if (!stride(r, dir, 500)) { if (++ends > 1) break; dir = -dir }
         }
     }
 
@@ -334,24 +531,30 @@ object PhantomCrystal {
         val ctx = r.ctx
         MacroLog.status("World's Cape: is the Sensationalist here?")
         if (InputService.instance?.controls(true)?.first == true) Thread.sleep(400)
-        // the cat's "!" height when known, else a little above where cats' "!"s sit (~0.29)
-        val personBelow = r.catY?.let { it - 0.015 } ?: CAT_MIN_Y
         var dir = 1.0
         var ends = 0
         for (step in 0 until 30) {
-            val still = notStairs(ctx, ctx.refresh())
-            val ys = still.joinToString { "%.2f".format(it.y) }
-            if (still.size >= 2) { MacroLog.i("World's Cape: two \"!\"s off the stairs (y $ys): the cat and the Sensationalist"); return true }
-            val b = still.firstOrNull()
-            if (b != null && b.y < personBelow) {
-                MacroLog.i("World's Cape: a \"!\" at (${"%.2f".format(b.x)}, ${"%.2f".format(b.y)}) above a cat's (${"%.2f".format(personBelow)}): the Sensationalist")
-                return true
-            }
-            val before = view(ctx)
-            walk(ctx, dir, 500)
-            if (!moved(ctx, before)) { if (++ends > 1) break; dir = -dir }
+            if (personSeen(r, notStairs(ctx, ctx.refresh()))) return true
+            if (!stride(r, dir, 500)) { if (++ends > 1) break; dir = -dir }
         }
         MacroLog.i("World's Cape: no Sensationalist")
+        return false
+    }
+
+    /**
+     * The Sensationalist's "!" among [still] (the "!"s off the stairs): two of them (the cat's and
+     * theirs), or one higher than a cat's.
+     */
+    private fun personSeen(r: Run, still: List<Point>): Boolean {
+        // the cat's "!" height when known, else a little above where cats' "!"s sit (~0.29)
+        val personBelow = r.catY?.let { it - 0.015 } ?: CAT_MIN_Y
+        val ys = still.joinToString { "%.2f".format(it.y) }
+        if (still.size >= 2) { MacroLog.i("World's Cape: two \"!\"s off the stairs (y $ys): the cat and the Sensationalist"); return true }
+        val b = still.firstOrNull() ?: return false
+        if (b.y < personBelow) {
+            MacroLog.i("World's Cape: a \"!\" at (${"%.2f".format(b.x)}, ${"%.2f".format(b.y)}) above a cat's (${"%.2f".format(personBelow)}): the Sensationalist")
+            return true
+        }
         return false
     }
 
@@ -374,9 +577,7 @@ object PhantomCrystal {
                     else -> {}
                 }
             }
-            val before = view(ctx)
-            walk(ctx, dir, 500)
-            if (!moved(ctx, before)) { if (++ends > 2) break; dir = -dir }
+            if (!stride(r, dir, 500)) { if (++ends > 2) break; dir = -dir }
         }
         ctx.stop("World's Cape: no Sensationalist here, but the stairs out weren't found: take them yourself")
     }
@@ -400,9 +601,7 @@ object PhantomCrystal {
                     else -> {}
                 }
             }
-            val before = view(ctx)
-            walk(ctx, dir, 500)
-            if (!moved(ctx, before)) { if (++ends > 2) break; dir = -dir }
+            if (!stride(r, dir, 500)) { if (++ends > 2) break; dir = -dir }
         }
         ctx.stop("no way out of world ${r.world} found")
     }
@@ -489,6 +688,35 @@ object PhantomCrystal {
     private fun walk(ctx: Context, dir: Double, ms: Long) {
         ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), ms)
         ctx.wait(0.5)
+    }
+
+    /** A hold of [ms] from rest, counted for the draft route. */
+    private fun walk(r: Run, dir: Double, ms: Long) {
+        walk(r.ctx, dir, ms)
+        r.pos += dir * r.walkTable.distance(ms.toDouble())
+    }
+
+    /** A short look-around step: false when the party didn't move (a wall); only a move counts for the draft route. */
+    private fun stride(r: Run, dir: Double, ms: Long): Boolean {
+        val before = view(r.ctx)
+        walk(r.ctx, dir, ms)
+        val moved = moved(r.ctx, before)
+        if (moved) r.pos += dir * r.walkTable.distance(ms.toDouble())
+        return moved
+    }
+
+    /** A draft route step: the walk since the last one (as one hold from rest), then [kind] at the "!" [b]. */
+    private fun note(r: Run, kind: String, b: Point) {
+        val d = r.pos - r.mark
+        if (abs(d) > r.walkTable.minWalk) r.draft += "${if (d > 0) "R" else "L"} ${(r.walkTable.holdMs(abs(d)) / 50).roundToLong() * 50}"
+        r.draft += "$kind ${"%.2f".format(java.util.Locale.US, b.x)} ${"%.2f".format(java.util.Locale.US, b.y)}"
+        r.mark = r.pos
+    }
+
+    /** A swept world's draft route, ready for the macro's `worlds:` data (walls make it approximate: check it on the phone). */
+    private fun logDraft(r: Run) {
+        if (r.routed || r.draft.isEmpty()) return
+        MacroLog.i("route draft for world ${r.world}: {title: \"${worldName(r.title)}\", route: [${r.draft.joinToString(", ")}]}")
     }
 
     private fun dark(ctx: Context): Boolean {
