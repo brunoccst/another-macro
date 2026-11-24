@@ -666,7 +666,7 @@ object AnotherDungeon {
      * (without the parts inside it) added up by its name, numbers left out ("fish 2" → "fish"; the
      * dungeon step's own time, between the timed parts, is "other").
      */
-    internal fun timeByKind(r: Run): List<Pair<String, Long>> = timeByKind(r.ctx.timings.since(r.timesBase))
+    private fun timeByKind(r: Run): List<Pair<String, Long>> = timeByKind(r.ctx.timings.since(r.timesBase))
 
     internal fun timeByKind(times: Map<String, Timings.Entry>): List<Pair<String, Long>> {
         val out = LinkedHashMap<String, Long>()
