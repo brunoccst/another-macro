@@ -86,6 +86,37 @@ object Route {
     fun segOf(l: AreaNav.Layout, p: Point): AreaNav.Seg? = l.segs.filter { abs(it.y - p.y) < AreaNav.ROW_TOL * 1.5 && p.x > it.x1 - 0.04 && p.x < it.x2 + 0.04 }
         .minByOrNull { abs(it.y - p.y) + maxOf(0.0, it.x1 - p.x, p.x - it.x2) }
 
+    /**
+     * Fixed steps from [from] to [to] worked out at run time (the same rules as the planner,
+     * dungeon_routes.py): holds by the hold-time table, flicks on the stairs, and a stop by a
+     * street's end held into the wall. Null when the layout has no way there.
+     */
+    fun plan(l: AreaNav.Layout, t: Table, from: Point, to: Point, target: String): Leg? {
+        val moves = AreaNav.moves(l, from, to) ?: return null
+        val steps = ArrayList<Step>()
+        var pos = from
+        for ((k, mv) in moves.withIndex()) {
+            val (up, x) = mv
+            if (up != null) {
+                steps += Step.Flick(up)
+                pos = climbed(l, Point(x, pos.y), up) ?: return null
+                continue
+            }
+            val s = segOf(l, pos)
+            var d = x - pos.x
+            if (k == moves.size - 1 && s != null) {
+                val end = if (d > 0) s.x2 else s.x1
+                if (abs(end - x) <= WALL_SNAP && abs(end - pos.x) > t.minWalk) d = end - pos.x + (if (d > 0) t.wallMargin else -t.wallMargin)
+            }
+            if (abs(d) < t.minWalk) continue
+            val ms = (Math.round(t.holdMs(abs(d)) / 10.0) * 10)
+            steps += Step.Hold(d > 0, ms)
+            pos = walked(l, pos, d > 0, t.distance(ms.toDouble()))
+        }
+        return Leg(target, null, steps)
+    }
+    private const val WALL_SNAP = 0.012
+
     /** Where a walk of [d] right/left from [p] ends: stopped by the street's end. */
     fun walked(l: AreaNav.Layout, p: Point, right: Boolean, d: Double): Point {
         val s = segOf(l, p) ?: return Point(p.x + (if (right) d else -d), p.y)

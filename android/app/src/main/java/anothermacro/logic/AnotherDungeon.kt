@@ -989,12 +989,15 @@ object AnotherDungeon {
         MacroLog.i("sparkles on the area map: ${order.joinToString { "(${"%.3f".format(it.x)}, ${"%.3f".format(it.y)})" }}" +
             " (party ${from?.let { "(${"%.3f".format(it.x)}, ${"%.3f".format(it.y)})" } ?: "not seen"})")
         r.live = order.toMutableList()
+        // the party's spot from this look: the legs to the sparkles and the exit are walked as fixed steps from it
+        view.party?.let { p -> Route.segOf(l, p)?.let { seg -> r.pos = Point(p.x.coerceIn(seg.x1, seg.x2), seg.y); r.planPos = r.pos; r.unsure = false } }
     }
 
     /** Walk to a sparkle read off the area map and pick it up. */
     private fun takeSparkleAt(r: Run, ms: MapSpec, at: Point) {
         task(r, "Map ${r.map + 1}: sparkle at (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
-        AreaNav.walkLayout(r.ctx, ms.layout!!, at, onStep(r))
+        val leg = plannedLeg(r, ms, at, "sparkle")
+        if (leg != null) walkLeg(r, ms, leg, at) else AreaNav.walkLayout(r.ctx, ms.layout!!, at, onStep(r))
         fight(r)
         pickSparkle(r, ms, at)
     }
@@ -1592,6 +1595,16 @@ object AnotherDungeon {
         return true
     }
 
+    /**
+     * Fixed steps to [goal] from the party's followed spot, for a map with no path of its own (its
+     * stops are read on arrival): null when the spot isn't known, so the walk goes by the area map.
+     */
+    private fun plannedLeg(r: Run, ms: MapSpec, goal: Point, target: String): Route.Leg? {
+        val l = ms.layout ?: return null
+        val from = r.pos ?: return null
+        return Route.plan(l, Route.table(r.ctx), from, goal, target)
+    }
+
     /** Walk to the map's exit and take its ground arrow (tap it); flick as a fallback. */
     private fun leave(r: Run, ms: MapSpec, idx: Int) {
         val ctx = r.ctx
@@ -1599,7 +1612,7 @@ object AnotherDungeon {
         task(r, "Map ${idx + 1}: to the stairs down")
         val exit = ms.exit!!
         MacroLog.i("to the exit at (${"%.3f".format(exit.x)}, ${"%.3f".format(exit.y)})")
-        val leg = ms.path?.firstOrNull { it.target == "exit" }
+        val leg = ms.path?.firstOrNull { it.target == "exit" } ?: plannedLeg(r, ms, exit, "exit")
         if (leg != null && r.pos != null) walkLeg(r, ms, leg, exit) else AreaNav.walkLayout(ctx, ms.layout!!, exit, onStep(r))
         if (ms.exitWalk) {
             // off the screen's edge: hold on that way until the next map shows

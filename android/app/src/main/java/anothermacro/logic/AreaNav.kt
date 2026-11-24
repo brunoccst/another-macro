@@ -480,6 +480,17 @@ object AreaNav {
         return moves
     }
 
+    /** The walk [a] → [b] over the layout's streets as (null, x) = walk to x, (true/false, x) = climb up/down at x; null when unreachable. */
+    fun moves(layout: Layout, a: Point, b: Point): List<Pair<Boolean?, Double>>? {
+        var x = a.x
+        return route(layout, a, b)?.map { m ->
+            when (m) {
+                is Move.Walk -> { x = m.x; null to m.x }
+                is Move.Climb -> m.up to x
+            }
+        }
+    }
+
     /** How far [a] → [b] is over the layout's streets (climbs count a little): for planning an order. */
     fun pathCost(layout: Layout, a: Point, b: Point): Double {
         val moves = route(layout, a, b) ?: return 9.0
