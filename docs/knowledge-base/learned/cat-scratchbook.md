@@ -56,6 +56,16 @@ behind the basic macro teleport that makes every cat trip.
   Is ..."), so `riddles.yaml`'s key and its screen template for that clue need a longer prefix
   before it can be added. Left for a phone thread.
 
+- Four spots the app's survey measured but couldn't route (read back with `cat-scratchbook`
+  `mode: measured`, 2026-11-24). The phone keeps these measurements and won't measure them
+  again, so each needs measuring by hand while its clue is up:
+  - Cat Shrine (survey 2026-11-24): neither the party marker nor the feather was on a street
+    the survey read (another floor?).
+  - Hot Springs (2026-11-17) and Snake Skull Mescita (2026-11-23): no feather on the area map
+    (a quest marker may hide it), and the party marker on no street.
+  - Izana (2026-11-19): the party marker was read at the area map's top-left corner, so the
+    arrival is wrong; the cat was read at (0.653, 0.449).
+
 ## Measurements per spot
 
 What was noted while each spot's data in `cat_spots.yaml` was measured (by hand or by the

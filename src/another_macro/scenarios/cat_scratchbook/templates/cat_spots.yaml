@@ -410,13 +410,7 @@ Snake Skull Mescita:
   continent: null
   place: Snake Skull Mescita
   sub: null
-  area:
-    # measured by the app's survey 2026-11-23: check it, then test it live
-    # survey note: the party marker is on no street read
-    # survey note: no feather on the area map (a quest marker may hide it)
-    segs: [[0.852, 0.12, 0.172], [0.869, 0.164, 0.404], [0.889, 0.178, 0.409]]
-    links: [[0.174, 0.852, 0.869]]
-    arrival: [0.735, 0.349]
+  area: null
 Beast King-s Castle, Throne Room:
   era: Present
   continent: null
@@ -452,16 +446,7 @@ Cat Shrine:
   continent: null
   place: Cat Shrine
   sub: null
-  area:
-    # measured by the app's survey 2026-11-24 (map 'Cat Shrine'): check it, then test it live
-    # survey note: the party marker is on no street read
-    # survey note: the feather is on no street read (another floor?)
-    # feather x reads: [0.443, 0.433, 0.431, 0.438]
-    segs: [[0.393, 0.475, 0.563], [0.5, 0.466, 0.563]]
-    links: [[0.525, 0.393, 0.5]]
-    arrival: [0.464, 0.619]
-    cat: [0.443, 0.591]
-    drift: [0.015, 0.015]
+  area: null
 Demon's Den Lv 1:
   era: Antiquity
   continent: null
@@ -691,13 +676,7 @@ Hot Springs:
   continent: null
   place: Hot Springs
   sub: null
-  area:
-    # measured by the app's survey 2026-11-17: check it, then test it live
-    # survey note: the party marker is on no street read
-    # survey note: no feather on the area map (a quest marker may hide it)
-    segs: [[0.868, 0.164, 0.403], [0.881, 0.12, 0.198]]
-    links: []
-    arrival: [0.851, 0.953]
+  area: null
 Nazrik, City of Shadows:
   # notes: docs/knowledge-base/learned/cat-scratchbook.md
   era: ???
@@ -730,15 +709,7 @@ Izana:
   continent: null
   place: Izana
   sub: null
-  area:
-    # measured by the app's survey 2026-11-19 (map 'Izana'): check it, then test it live
-    # survey note: the party marker is on no street read
-    # feather x reads: [0.653]
-    segs: [[0.319, 0.425, 0.51], [0.449, 0.436, 0.746], [0.566, 0.256, 0.431], [0.566, 0.575, 0.614], [0.685, 0.423, 0.47], [0.685, 0.553, 0.614], [0.803, 0.536, 0.793]]
-    links: [[0.446, 0.319, 0.449], [0.506, 0.319, 0.449], [0.414, 0.449, 0.566], [0.61, 0.566, 0.685], [0.574, 0.685, 0.803]]
-    arrival: [0.013, 0.01]
-    cat: [0.653, 0.449]
-    drift: [0.015, 0.015]
+  area: null
 Specter Palace:
   era: Present
   continent: null
