@@ -21,6 +21,7 @@ object HowItWorks {
             "(its number in the game's list, read from the dots under it) is in front, then close the page"))
         "find_feather" -> listOf(Step("Look for the cat's feather bubble around the party and tap it"))
         "read_cat_clues" -> listOf(Step("Read today's clues in the Cat Scratchbook (on-screen text)"))
+        "cat_measured" -> listOf(Step("Write every cat spot this phone measured to the log (one \"MEASURED cat spot\" line each), then stop; the game isn't needed"))
         else -> null
     }
 

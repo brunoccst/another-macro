@@ -55,7 +55,9 @@ base: [learned/playing-on-the-phone.md](knowledge-base/learned/playing-on-the-ph
   (`CatSurvey.kt`, before the hunt): streets and stairs read from the area map, the arrival,
   the feather, a 3000 ms hold for `walk_scale` and a few feather reads for the drift. It logs one
   `MEASURED cat spot: {...}` line (`macro_status` with `find: "MEASURED cat spot"`, `lines: 600`)
-  and the run's outcome names the spot. Save those lines to a file and run
+  and the run's outcome names the spot. The log is short, so the lines can scroll away: the
+  app keeps every measurement, and `cat-scratchbook` with `mode: measured` logs them all again
+  at any time (no game needed). Save those lines to a file and run
   `another-macro cat-routes --import <file>`: it adds the areas (hand-measured ones are kept
   unless `--force`) and writes their paths. Check the imported streets against a look at the
   area map; the street reading is approximate.
