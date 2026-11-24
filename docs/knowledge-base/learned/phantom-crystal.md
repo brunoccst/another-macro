@@ -17,6 +17,15 @@ only when close), one cat with a "!" (a paw stamp), and portals (a "!" on scener
 and a "!" on the stairs out → Congratulations → autosave → the Another Dungeon map. "!"
 bubbles are drawn at different sizes per world (scales 0.8-1.35 of the template).
 
+- **Fixed layouts** (the user, 2026-11-24): which worlds a run visits varies, but each world's
+  layout never changes: its chests and cats are always in the same places, so each world can have
+  a fixed route (no looking around). Run of 2026-11-24 (from a Sea of Ice White Key, 4m41s): world 1
+  had only the portal (its "!" at screen (0.64, 0.56) after ~30 s of looking around); world 2 the
+  jungle (chests at screen x 0.56 and 0.49 near the arrival, then the walking cat's stamp at 0.67
+  and a chest at 0.53 after a sweep, the portal at 0.44); world 3 the World's Cape (chests at
+  0.50, 0.63, 0.62 near the arrival, one more at 0.65 after a sweep, the cat at 0.54, no
+  Sensationalist, stairs "!" at y 0.24). Screen x only: where the party stood isn't logged yet.
+
 ## How a run goes
 
 - The White Key can drop from a finished Another Dungeon run (10%, also with Skip).
