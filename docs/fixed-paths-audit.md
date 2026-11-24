@@ -63,7 +63,10 @@ Bigger gaps this PR does not start. Each needs the phone.
    Phantom Crystal worlds fixed routes" owns it).
 2. **Underworld cathedral and ark areas**: give Nazrik (both maps) and Zero Point West an
    `arrival` and a generated `path` (`another-macro dungeon-routes --write`), like the den area.
-   Today every cathedral/ark run walks 2-3 maps by the area map.
+   Today every cathedral/ark run walks 2-3 maps by the area map. Progress 2026-11-24: Nazrik's
+   first map has its fixed path on both routes (the den run's arrival); the other maps need one
+   cathedral and one ark run (2 green keys each): each run now logs "ARRIVAL draft for map N"
+   for every map with a layout and no arrival, to copy into the data.
 3. **Dogma Tower boss map**: replace the sweep with `steps` (e.g. `chest L` / `boss L`, like
    Moonlight Forest's boss map), measured on the phone.
 4. **Cat scratchbook**: 56 of 74 spots still have no fixed walk. Each run measures the new ones

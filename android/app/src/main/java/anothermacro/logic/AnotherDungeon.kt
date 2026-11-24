@@ -412,6 +412,15 @@ object AnotherDungeon {
                 } else {
                     // line the layout up with where the party arrived (only when it just came in)
                     val party = arrival?.let { a -> AreaNav.look(ctx) { emptyList() }.candidates.minByOrNull { abs(it.x - a.x) + 3 * abs(it.y - a.y) } }
+                    // a map with a layout but no arrival yet: where the party came in, for its fixed path
+                    // (copy into the dungeon data as `arrival`, then `another-macro dungeon-routes --write`)
+                    if (arrival == null) spec.maps[idx].layout?.let { l ->
+                        val seen = AreaNav.look(ctx) { emptyList() }.party
+                        val seg = seen?.let { Route.segOf(l, it) }
+                        MacroLog.i("ARRIVAL draft for map ${idx + 1} (${spec.maps[idx].names.first()}): " +
+                            if (seen != null && seg != null) "arrival: [${"%.3f".format(seen.x.coerceIn(seg.x1, seg.x2))}, ${"%.3f".format(seg.y)}]"
+                            else "party not seen on a street (${seen ?: "no marker"})")
+                    }
                     r.shift = if (arrival != null && party != null && abs(party.y - arrival.y) < AreaNav.ROW_TOL && abs(party.x - arrival.x) < 0.025)
                         party.x - arrival.x else 0.0
                     MacroLog.i("layout offset ${"%.3f".format(r.shift)}")
