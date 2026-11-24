@@ -1092,6 +1092,7 @@ object AnotherDungeon {
                 // not in view: the walk can stop short of the spot (a false "stood still"): walk there by the
                 // area map once and look again
                 if (System.currentTimeMillis() + 200 >= end && !walked && ms.layout != null) {
+                    fishShadow(ctx, explain = true)
                     walked = true
                     MacroLog.i("no fish in view: walking to (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}) by the area map")
                     val there = AreaNav.walkLayout(ctx, ms.layout, at, onStep(r))
@@ -1152,6 +1153,7 @@ object AnotherDungeon {
             fieldAfterFish(r)
             return
         }
+        fishShadow(ctx, explain = true)
         MacroLog.i("no fish by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
     }
 
@@ -1247,7 +1249,7 @@ object AnotherDungeon {
      * half its box, area 900-1530 in 1024-wide units) in the upper middle of the screen, with a
      * coloured ring around it (mean saturation 140+). The best by area, or null.
      */
-    private fun fishShadow(ctx: Context): Point? {
+    private fun fishShadow(ctx: Context, explain: Boolean = false): Point? {
         val bgr = ctx.colorMat() ?: return null
         val hsv = org.opencv.core.Mat(); org.opencv.imgproc.Imgproc.cvtColor(bgr, hsv, org.opencv.imgproc.Imgproc.COLOR_BGR2HSV)
         val dark = org.opencv.core.Mat()
@@ -1260,14 +1262,20 @@ object AnotherDungeon {
         val labels = org.opencv.core.Mat(); val stats = org.opencv.core.Mat(); val cents = org.opencv.core.Mat()
         val n = org.opencv.imgproc.Imgproc.connectedComponentsWithStats(dark, labels, stats, cents)
         var best: Point? = null; var bestArea = 0.0
+        // (explain: every dark blob of a fish's rough size, with why it was turned down, for tuning)
+        val notes = mutableListOf<String>()
         for (k in 1 until n) {
             val area = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_AREA)[0] / (s * s)
             val bw = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_WIDTH)[0] / s
             val bh = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_HEIGHT)[0] / s
-            if (area < 600 || area > 3000 || bw < 45 || bw > 160 || bh < 15 || bh > 70 || bw / bh < 1.5) continue
-            if (area / (bw * bh) < 0.48) continue
             val cx = cents.get(k, 0)[0]; val cy = cents.get(k, 1)[0]
-            if (cy < h * 0.2 || cy > h * 0.55) continue
+            fun note(why: String) {
+                if (explain && area >= 300 && area <= 30000) notes += "(${"%.2f".format(cx / w)},${"%.2f".format(cy / h)} a${area.toInt()} ${bw.toInt()}x${bh.toInt()} " +
+                    "fill ${"%.2f".format(area / (bw * bh))}: $why)"
+            }
+            if (area < 600 || area > 3000 || bw < 45 || bw > 160 || bh < 15 || bh > 70 || bw / bh < 1.5) { note("size"); continue }
+            if (area / (bw * bh) < 0.48) { note("fill"); continue }
+            if (cy < h * 0.2 || cy > h * 0.55) { note("height"); continue }
             val m = (14 * s).toInt()
             val bx = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_LEFT)[0].toInt(); val by = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_TOP)[0].toInt()
             val x0 = (bx - m).coerceAtLeast(0); val y0 = (by - m).coerceAtLeast(0)
@@ -1277,9 +1285,11 @@ object AnotherDungeon {
             org.opencv.core.Core.compare(labSub, org.opencv.core.Scalar(k.toDouble()), ring, org.opencv.core.Core.CMP_NE)
             val glow = org.opencv.core.Core.mean(satSub, ring).`val`[0]
             listOf(ring, labSub, satSub).forEach { it.release() }
-            if (glow < 140 || area <= bestArea) continue
+            if (glow < 140) { note("glow ${glow.toInt()}"); continue }
+            if (area <= bestArea) continue
             bestArea = area; best = Point(cx / w, cy / h)
         }
+        if (explain && best == null) MacroLog.i("fish finder: ${if (notes.isEmpty()) "no dark blob of a fish's size" else notes.take(6).joinToString(" ")}")
         listOf(bgr, hsv, dark, keep, sat, labels, stats, cents).forEach { it.release() }
         return best
     }
