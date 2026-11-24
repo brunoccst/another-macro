@@ -64,6 +64,8 @@ class MapData:
     # fish to harpoon (fish icons on the area map) and bait jars to empty (jar icons): stops like the sparkles
     fish: list[tuple[float, float]] = field(default_factory=list)
     jars: list[tuple[float, float]] = field(default_factory=list)
+    # this area map's zoom against walk.yaml's: the same hold walks walk_scale times the table's distance on it
+    walk_scale: float = 1.0
 
 
 class WalkTable:
@@ -80,6 +82,15 @@ class WalkTable:
         self.min_walk = float(data.get("min_walk", 0.003))
         self.wall_snap = float(data.get("wall_snap", 0.012))
         self.wall_margin = float(data.get("wall_margin", 0.008))
+
+    def scaled(self, scale: float) -> "WalkTable":
+        """The table for an area map drawn [scale] times as large as walk.yaml's (same holds, other distances)."""
+        if scale == 1.0:
+            return self
+        return WalkTable({
+            "hold_ms": self.ms, "distance": [d * scale for d in self.dist], "beyond_per_s": self.beyond * scale,
+            "flick_ms": self.flick_ms, "min_walk": self.min_walk, "wall_snap": self.wall_snap, "wall_margin": self.wall_margin,
+        })
 
     @classmethod
     def load(cls, path: Path = WALK) -> "WalkTable":
@@ -136,6 +147,7 @@ def load_maps(path: Path | None = None) -> list[tuple[str, int, MapData | None, 
                         sparkles=[tuple(c) for c in m.get("sparkles", [])],
                         fish=[tuple(c) for c in m.get("fish", [])],
                         jars=[tuple(c) for c in m.get("jars", [])],
+                        walk_scale=float(m.get("walk_scale") or 1.0),
                     )
                 out.append((did, i, layout, m))
     return out
@@ -343,7 +355,7 @@ def render(path: Path, table: WalkTable | None = None) -> str:
             skipping = False
             kept.append(ln)
         if m is not None:
-            kept += _format_path(plan(m, t), t, m, pad)
+            kept += _format_path(plan(m, t.scaled(m.walk_scale)), t.scaled(m.walk_scale), m, pad)
         nxt = starts[k + 1] if k + 1 < len(starts) else len(lines)
         out += kept + lines[end:nxt]
     return "".join(out)
@@ -358,8 +370,9 @@ def main(write: bool = False, check: bool = False) -> int:
             if m is None:
                 print(f"{did} map {idx + 1}: no layout (swept at run time)")
                 continue
-            legs = plan(m, t)
-            print(f"{did} map {idx + 1} ({m.name}), ~{path_time_s(m, t, legs):.1f}s of walking:")
+            mt = t.scaled(m.walk_scale)
+            legs = plan(m, mt)
+            print(f"{did} map {idx + 1} ({m.name}), ~{path_time_s(m, mt, legs):.1f}s of walking:")
             for leg in legs:
                 print(f"  {leg[0]}: {', '.join(leg[1:]) or '(already there)'}")
         if new != f.read_text(encoding="utf-8"):

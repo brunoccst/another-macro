@@ -1,5 +1,7 @@
 # Another Dungeon templates (captured on a 2400x1080 phone).
 # closed_chest.png (PNG only, used by PhantomCrystal.kt): an unopened red-and-gold chest.
+# area_map_bag.png / area_map_door.png (PNG only, used by AnotherDungeon.kt on the area map): the bag icon
+# and the two-arrow door icon (upscaled from a 1024-wide screenshot).
 # The maps' layouts are in each dungeon macro's `dungeon:` block (docs/dungeon-data.md).
 templates:
   field_interact_bubble:

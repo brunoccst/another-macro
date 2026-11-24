@@ -10,7 +10,7 @@ ROOT = Path(__file__).resolve().parents[1]
 MACROS = ROOT / "macros/dungeon"
 KEYS = {"name", "era", "area", "label", "requires", "boss", "maps", "area_map_scrolls", "camera_lags", "key_cost", "areas"}
 MAP_KEYS = {"names", "segs", "links", "chests", "arrival", "exit", "path", "boss", "enemies", "steps", "chests_count",
-            "sparkles", "fish", "jars", "sparkle_icons", "exit_walk", "exit_sign", "area_map_scrolls"}
+            "sparkles", "fish", "jars", "sparkle_icons", "exit_walk", "exit_sign", "area_map_scrolls", "walk_scale", "portal"}
 
 
 def specs():

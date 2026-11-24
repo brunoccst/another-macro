@@ -50,12 +50,17 @@ object AnotherDungeon {
                        /** This map's area map scrolls up and down with the party (see [Spec.areaMapScrolls]). */
                        val scrolls: Boolean = false,
                        /** Only this sign template counts as the exit (another sign may sit nearer). */
-                       val exitSign: String? = null) {
+                       val exitSign: String? = null,
+                       /** This area map's zoom against walk.yaml's: the same hold walks this many times the table's distance on it. */
+                       val walkScale: Double = 1.0,
+                       /** A side trip that shows only some runs: a door icon on the area map near [Portal.sign] (read with the sparkles). */
+                       val portal: Portal? = null) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
             chests = chests.map { Point(it.x + dx, it.y) }, exit = exit?.let { Point(it.x + dx, it.y) },
             sparkles = sparkles.map { Point(it.x + dx, it.y) },
+            portal = portal?.let { it.copy(sign = Point(it.sign.x + dx, it.sign.y), at = Point(it.at.x + dx, it.at.y)) },
             fish = fish.map { Point(it.x + dx, it.y) }, jars = jars.map { Point(it.x + dx, it.y) },
         )
     }
@@ -78,6 +83,8 @@ object AnotherDungeon {
     private const val BUBBLE = "field_interact_bubble"
     /** A sparkle's bag icon on the area map. */
     private const val BAG_ICON = "templates/another_dungeon/area_map_bag.png"
+    /** The area map's door icon (two arrows), a way to another map. */
+    private const val DOOR_ICON = "templates/another_dungeon/area_map_door.png"
     /** How far above its spot on the street the bag icon is drawn (area-map fraction). */
     private const val BAG_ABOVE = 0.027
     /** The bubble's inside only, for bright or busy backgrounds. */
@@ -154,12 +161,25 @@ object AnotherDungeon {
                 m["exit_walk"] == true,
                 m["area_map_scrolls"] == true,
                 m["exit_sign"]?.toString(),
+                (m["walk_scale"] as? Number)?.toDouble() ?: 1.0,
+                (m["portal"] as? Map<String, Any?>)?.let { p ->
+                    val sign = nums(p["sign"]) ?: return@let null
+                    val at = nums(p["at"]) ?: return@let null
+                    Portal(Point(sign[0], sign[1]), Point(at[0], at[1]), p["what"]?.toString() ?: "portal")
+                },
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
             d["area_map_scrolls"] == true, d["camera_lags"] == true, (d["key_cost"] as? Number)?.toInt()?.coerceAtLeast(1) ?: 1,
             (d["requires"] as? List<*>)?.map { it.toString() } ?: emptyList())
     }
+
+    /**
+     * A map's side trip that is open only some runs: its door icon shows on the area map near [sign];
+     * [at] is the street spot under it, where the field's door sign is tapped. The trip's own map:
+     * tap the "!" there, tap through, then the door sign back. [what] names it in the report.
+     */
+    data class Portal(val sign: Point, val at: Point, val what: String)
 
     private class Run(val ctx: Context, val spec: Spec, /** The key this run enters with: "green" (Hard) or "red" (Very Hard). */ val key: String) {
         // every fight is the basic macro battle's step with its skills as this dungeon macro has them
@@ -197,6 +217,8 @@ object AnotherDungeon {
         var chestsTotal = 0
         /** Chests the search gave up on, with where the map showed the party (the report names them: the log rolls over). */
         val missed = mutableListOf<String>()
+        /** Where the run left its fixed path and looked its way by the area map or a sweep (told to the user). */
+        val searched = mutableListOf<String>()
         var skipped = false
         /** What the run is doing (the live log shows it again after a battle). */
         var task = ""
@@ -223,6 +245,10 @@ object AnotherDungeon {
         var watching = false
         /** The direction of the last walk on the path (+1 right, -1 left): a chest is looked for that way first. */
         var lastDir = 0.0
+        /** This map's open portal's spot, planned with the sparkles (null: none open). */
+        var portalAt: Point? = null
+        /** Side trips taken (or missed) this run, for the report. */
+        val trips = mutableListOf<String>()
     }
 
     private fun task(r: Run, text: String) { r.task = text; MacroLog.status(text) }
@@ -374,7 +400,7 @@ object AnotherDungeon {
             r.notOnAMap = 0
             if (idx != r.map) {
                 AreaNav.align = if (spec.areaMapScrolls || spec.maps[idx].scrolls) spec.maps[idx].layout else null
-                r.live = null; r.expect = null
+                r.live = null; r.expect = null; r.portalAt = null
                 val path = spec.maps[idx].path
                 val arrival = spec.maps[idx].arrival
                 if (path != null && arrival != null) {
@@ -406,7 +432,7 @@ object AnotherDungeon {
                 ms.steps != null -> runSteps(r, ms)
                 ms.layout == null -> sweep(r)
                 // sparkles that move every run: read where they are on arrival, then each in turn
-                ms.sparkleIcons && ms.layout != null && r.live == null && !collects(ctx, "sparkles") -> r.live = mutableListOf()
+                ms.sparkleIcons && ms.layout != null && r.live == null && !collects(ctx, "sparkles") && ms.portal == null -> r.live = mutableListOf()
                 ms.sparkleIcons && ms.layout != null && r.live == null -> readSparkles(r, ms)
                 ms.sparkleIcons && ms.layout != null && r.live!!.isNotEmpty() -> takeSparkleAt(r, ms, r.live!!.removeAt(0))
                 // on a path: its legs in order (chests, sparkles), then the exit
@@ -613,12 +639,14 @@ object AnotherDungeon {
         val text = "$outcome — ${secs / 60}m ${secs % 60}s; " +
             (if (r.skipped) "skipped with a Cat Express Ticket; " else "chests ${st["chests"] ?: 0}/${r.chestsTotal}" +
                 (if (r.missed.isNotEmpty()) " (missed: ${r.missed.joinToString("; ")})" else "") + ", battles ${st["battles"] ?: 0}; ") +
+            (if (r.trips.isNotEmpty()) "${r.trips.joinToString("; ")}; " else "") +
+            (if (r.searched.isNotEmpty()) "off the fixed path (walked by the area map): ${r.searched.distinct().joinToString("; ")}; " else "") +
             (if (r.skipped) "" else "chest items: $items; ") + "rewards: $rewards; White Key: ${if (r.phantom) "yes" else "no"}"
         runCatching {
             val o = org.json.JSONObject().put("when", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(r.start)))
                 .put("dungeon", r.spec.name).put("key", r.key).put("seconds", secs).put("outcome", outcome)
                 .put("skipped", r.skipped).put("chests", st["chests"] ?: 0).put("chests_total", r.chestsTotal)
-                .put("missed", org.json.JSONArray(r.missed)).put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
+                .put("missed", org.json.JSONArray(r.missed)).put("searched", org.json.JSONArray(r.searched.distinct())).put("trips", org.json.JSONArray(r.trips)).put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
             java.io.File(r.ctx.debugDir.parentFile, "runs.log").appendText(o.toString() + "\n")
         }.onFailure { MacroLog.e("could not save the run report", it) }
         MacroLog.status(text)
@@ -815,6 +843,16 @@ object AnotherDungeon {
     /** Fight what interrupted a walk; true if there was a battle. */
     private fun onStep(r: Run): () -> Boolean = { fight(r) }
 
+    /** The walk table for [ms] (walk.yaml scaled by the map's walk_scale). */
+    private fun table(ctx: Context, ms: MapSpec): Route.Table = if (ms.walkScale == 1.0) Route.table(ctx) else CatRoute.table(ctx, ms.walkScale)
+
+    /** A walk by the area map (a look after every move) instead of fixed steps: noted for the run's report. */
+    private fun searchWalk(r: Run, l: AreaNav.Layout, goal: Point, what: String): Boolean {
+        r.searched += "map ${r.map + 1}: $what"
+        r.ctx.count("area_map_walks")
+        return AreaNav.walkLayout(r.ctx, l, goal, onStep(r))
+    }
+
     /**
      * The party's spot on the area map: the marker-like blob on a street nearest to [near] (the
      * followed position). Gold chest icons look like the marker too, so the most marker-like blob
@@ -836,7 +874,7 @@ object AnotherDungeon {
             walkLeg(r, ms, leg, chest)
             r.pos
         } else {
-            AreaNav.walkLayout(ctx, ms.layout!!, chest, onStep(r))
+            searchWalk(r, ms.layout!!, chest, "chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}) (no fixed path)")
             AreaNav.look(ctx) { emptyList() }.party
         }
         // test hook (never in a macro's options): param test_miss_chest = "map.chest" (1-based, in the
@@ -858,7 +896,7 @@ object AnotherDungeon {
         val l0 = ms.layout
         val p0 = r.pos
         if (l0 != null && p0 != null) {
-            val t = Route.table(ctx)
+            val t = table(ctx, ms)
             repeat(4) {
                 // a battle can start just as the party stops by the chest (no "!" then, and no area
                 // map to read): fight it first, then look for the "!" again
@@ -870,7 +908,7 @@ object AnotherDungeon {
                 if (Route.segOf(l0, at) != Route.segOf(l0, chest)) {
                     // on another street (stairs missed): walk there by the area map, then look again
                     MacroLog.i("not on the chest's street: walking there by the area map")
-                    AreaNav.walkLayout(ctx, l0, chest, onStep(r))
+                    searchWalk(r, l0, chest, "chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}) (off its street)")
                     r.pos = Point(chest.x, Route.segOf(l0, chest)?.y ?: chest.y)
                     if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); r.unsure = true; return }
                     return@repeat
@@ -892,7 +930,7 @@ object AnotherDungeon {
             val p = r.pos
             if (p != null && ms.layout != null) {
                 // (on a path the position is followed through the search too)
-                val t = Route.table(ctx)
+                val t = table(ctx, ms)
                 r.pos = Route.hold(ctx, ms.layout, t, p, side > 0, t.holdMs(0.006).toLong()) { fight(r) }
             } else AreaNav.hold(ctx, side, 0.006)
             fight(r)
@@ -934,7 +972,7 @@ object AnotherDungeon {
         task(r, "Map ${r.map + 1}: second try at a missed chest")
         MacroLog.i("second try at the chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}): by the area map")
         val l = ms.layout!!
-        AreaNav.walkLayout(ctx, l, chest, onStep(r))
+        searchWalk(r, l, chest, "second try at the chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)})")
         val seg = Route.segOf(l, chest)
         if (r.pos != null) { r.pos = Point(chest.x, seg?.y ?: chest.y); r.planPos = r.pos; r.lastDir = 0.0 }
         // the path's fixed steps start at the stop before them, not here: the next leg (the exit) goes by the area map
@@ -971,12 +1009,22 @@ object AnotherDungeon {
     private fun readSparkles(r: Run, ms: MapSpec) {
         val ctx = r.ctx
         val l = ms.layout!!
-        val view = AreaNav.look(ctx) { f -> AreaNav.findIcons(ctx, f, BAG_ICON) }
-        val spots = view.targets.mapNotNull { p ->
+        var doors: List<Point> = emptyList()
+        val view = AreaNav.look(ctx) { f ->
+            if (ms.portal != null) doors = AreaNav.findIcons(ctx, f, DOOR_ICON)
+            if (collects(ctx, "sparkles")) AreaNav.findIcons(ctx, f, BAG_ICON) else emptyList()
+        }
+        val portal = ms.portal?.takeIf { p -> doors.any { abs(it.x - p.sign.x) < 0.03 && abs(it.y - p.sign.y) < 0.04 } }
+        if (ms.portal != null) MacroLog.i("${ms.portal.what} portal: ${if (portal != null) "open (its door icon is on the area map)" else "not open"}" +
+            " (door icons: ${doors.joinToString { "(${"%.3f".format(it.x)}, ${"%.3f".format(it.y)})" }})")
+        val bags = view.targets.mapNotNull { p ->
             val y = p.y + BAG_ABOVE
             val seg = l.segs.filter { abs(it.y - y) < 0.05 && p.x >= it.x1 - 0.02 && p.x <= it.x2 + 0.02 }.minByOrNull { abs(it.y - y) }
             seg?.let { Point(p.x.coerceIn(it.x1, it.x2), it.y) }
         }
+        // the portal's spot is one more stop, planned with the sparkles
+        val spots = bags.filter { b -> portal == null || abs(b.x - portal.at.x) > 0.01 || abs(b.y - portal.at.y) > 0.01 } + listOfNotNull(portal?.at)
+        r.portalAt = portal?.at
         val from: Point? = view.party ?: r.pos ?: ms.arrival
         fun perms(xs: List<Point>): List<List<Point>> = if (xs.size <= 1) listOf(xs) else xs.flatMap { x -> perms(xs - x).map { listOf(x) + it } }
         val start = from
@@ -989,12 +1037,16 @@ object AnotherDungeon {
         MacroLog.i("sparkles on the area map: ${order.joinToString { "(${"%.3f".format(it.x)}, ${"%.3f".format(it.y)})" }}" +
             " (party ${from?.let { "(${"%.3f".format(it.x)}, ${"%.3f".format(it.y)})" } ?: "not seen"})")
         r.live = order.toMutableList()
+        // the party's spot from this look: the legs to the sparkles and the exit are walked as fixed steps from it
+        view.party?.let { p -> Route.segOf(l, p)?.let { seg -> r.pos = Point(p.x.coerceIn(seg.x1, seg.x2), seg.y); r.planPos = r.pos; r.unsure = false } }
     }
 
-    /** Walk to a sparkle read off the area map and pick it up. */
+    /** Walk to a sparkle read off the area map and pick it up (or, at the open portal's spot, take its trip). */
     private fun takeSparkleAt(r: Run, ms: MapSpec, at: Point) {
+        if (at == r.portalAt && ms.portal != null) { takePortal(r, ms, ms.portal); return }
         task(r, "Map ${r.map + 1}: sparkle at (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
-        AreaNav.walkLayout(r.ctx, ms.layout!!, at, onStep(r))
+        val leg = plannedLeg(r, ms, at, "sparkle")
+        if (leg != null) walkLeg(r, ms, leg, at) else searchWalk(r, ms.layout!!, at, "sparkle (party not seen on the map)")
         fight(r)
         pickSparkle(r, ms, at)
     }
@@ -1092,11 +1144,17 @@ object AnotherDungeon {
                 // not in view: the walk can stop short of the spot (a false "stood still"): walk there by the
                 // area map once and look again
                 if (System.currentTimeMillis() + 200 >= end && !walked && ms.layout != null) {
+                    fishShadow(ctx, explain = true)
                     walked = true
                     MacroLog.i("no fish in view: walking to (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}) by the area map")
-                    AreaNav.walkLayout(ctx, ms.layout, at, onStep(r))
-                    fight(r)
-                    r.unsure = true
+                    val there = searchWalk(r, ms.layout, at, "${leg.target} (none in view)")
+                    // the walk ends on the spot by the map's own reads: no second look before the next leg
+                    // unless a battle came after it
+                    val fought = fight(r)
+                    val seg = Route.segOf(ms.layout, at)
+                    if (there && !fought && seg != null) {
+                        r.pos = Point(at.x.coerceIn(seg.x1, seg.x2), seg.y); r.planPos = r.pos; r.unsure = false; r.lastDir = 0.0
+                    } else r.unsure = true
                     end = System.currentTimeMillis() + 3000
                 }
                 ctx.wait(0.2); continue
@@ -1147,6 +1205,7 @@ object AnotherDungeon {
             fieldAfterFish(r)
             return
         }
+        fishShadow(ctx, explain = true)
         MacroLog.i("no fish by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
     }
 
@@ -1240,9 +1299,9 @@ object AnotherDungeon {
     /**
      * A fish over the water: an all-black fish-shaped blob (V <= 24; wider than tall, filling over
      * half its box, area 900-1530 in 1024-wide units) in the upper middle of the screen, with a
-     * coloured ring around it (mean saturation 140+). The best by area, or null.
+     * coloured ring around it (mean saturation 140+, or 70+ for a blob filling 0.53+ of its box). The best by area, or null.
      */
-    private fun fishShadow(ctx: Context): Point? {
+    private fun fishShadow(ctx: Context, explain: Boolean = false): Point? {
         val bgr = ctx.colorMat() ?: return null
         val hsv = org.opencv.core.Mat(); org.opencv.imgproc.Imgproc.cvtColor(bgr, hsv, org.opencv.imgproc.Imgproc.COLOR_BGR2HSV)
         val dark = org.opencv.core.Mat()
@@ -1255,14 +1314,20 @@ object AnotherDungeon {
         val labels = org.opencv.core.Mat(); val stats = org.opencv.core.Mat(); val cents = org.opencv.core.Mat()
         val n = org.opencv.imgproc.Imgproc.connectedComponentsWithStats(dark, labels, stats, cents)
         var best: Point? = null; var bestArea = 0.0
+        // (explain: every dark blob of a fish's rough size, with why it was turned down, for tuning)
+        val notes = mutableListOf<String>()
         for (k in 1 until n) {
             val area = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_AREA)[0] / (s * s)
             val bw = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_WIDTH)[0] / s
             val bh = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_HEIGHT)[0] / s
-            if (area < 600 || area > 3000 || bw < 45 || bw > 160 || bh < 15 || bh > 70 || bw / bh < 1.5) continue
-            if (area / (bw * bh) < 0.48) continue
             val cx = cents.get(k, 0)[0]; val cy = cents.get(k, 1)[0]
-            if (cy < h * 0.2 || cy > h * 0.55) continue
+            fun note(why: String) {
+                if (explain && area >= 300 && area <= 30000) notes += "(${"%.2f".format(cx / w)},${"%.2f".format(cy / h)} a${area.toInt()} ${bw.toInt()}x${bh.toInt()} " +
+                    "fill ${"%.2f".format(area / (bw * bh))}: $why)"
+            }
+            if (area < 600 || area > 3000 || bw < 45 || bw > 160 || bh < 15 || bh > 70 || bw / bh < 1.5) { note("size"); continue }
+            if (area / (bw * bh) < 0.48) { note("fill"); continue }
+            if (cy < h * 0.2 || cy > h * 0.55) { note("height"); continue }
             val m = (14 * s).toInt()
             val bx = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_LEFT)[0].toInt(); val by = stats.get(k, org.opencv.imgproc.Imgproc.CC_STAT_TOP)[0].toInt()
             val x0 = (bx - m).coerceAtLeast(0); val y0 = (by - m).coerceAtLeast(0)
@@ -1272,9 +1337,13 @@ object AnotherDungeon {
             org.opencv.core.Core.compare(labSub, org.opencv.core.Scalar(k.toDouble()), ring, org.opencv.core.Core.CMP_NE)
             val glow = org.opencv.core.Core.mean(satSub, ring).`val`[0]
             listOf(ring, labSub, satSub).forEach { it.release() }
-            if (glow < 140 || area <= bestArea) continue
+            // a fish over the blue water has a weaker ring (84-85, 2026-11-24): taken there when its shape is
+            // a full one (scenery fills under 0.4)
+            if (glow < 140 && (glow < 70 || area / (bw * bh) < 0.53)) { note("glow ${glow.toInt()}"); continue }
+            if (area <= bestArea) continue
             bestArea = area; best = Point(cx / w, cy / h)
         }
+        if (explain && best == null) MacroLog.i("fish finder: ${if (notes.isEmpty()) "no dark blob of a fish's size" else notes.take(6).joinToString(" ")}")
         listOf(bgr, hsv, dark, keep, sat, labels, stats, cents).forEach { it.release() }
         return best
     }
@@ -1354,13 +1423,13 @@ object AnotherDungeon {
     private fun walkLeg(r: Run, ms: MapSpec, leg: Route.Leg, goal: Point) {
         val ctx = r.ctx
         val l = ms.layout!!
-        val t = Route.table(ctx)
+        val t = table(ctx, ms)
         var p = r.pos!!
         var plan = r.planPos ?: p
         MacroLog.i("path to ${leg.target}: ${leg.steps.joinToString(", ")}")
         fun offPath(why: String) {
             MacroLog.i("$why: walking to ${leg.target} by the area map instead")
-            AreaNav.walkLayout(ctx, l, goal, onStep(r))
+            searchWalk(r, l, goal, "${leg.target} ($why)")
             r.pos = Point(goal.x, Route.segOf(l, goal)?.y ?: goal.y)
             r.planPos = r.pos
         }
@@ -1498,6 +1567,13 @@ object AnotherDungeon {
         // reads the map only when it doesn't (saves a look at the area map, ~3 s, per battle)
         for (again in 1..4) {
             if (!Route.disturbed || leg.chest != null) break
+            if (Route.readAtEnd) {
+                // the last hold stood still and read the spot on the map after the battle: no second look
+                Route.disturbed = false; r.unsure = false
+                if (Route.segOf(l, p) != Route.segOf(l, plan) || abs(p.x - plan.x) < t.minWalk) break
+                walkTo(plan.x)
+                continue
+            }
             if (!resync("at the end of the leg after a battle") || abs(p.x - plan.x) < t.minWalk) break
             walkTo(plan.x)
         }
@@ -1568,6 +1644,73 @@ object AnotherDungeon {
         return true
     }
 
+    /**
+     * Fixed steps to [goal] from the party's followed spot, for a map with no path of its own (its
+     * stops are read on arrival): null when the spot isn't known, so the walk goes by the area map.
+     */
+    /**
+     * The open portal's trip ([MapSpec.portal]): walk to its spot, tap the door sign, on its map
+     * tap the "!" and tap through, then the door sign back. The report names the outcome.
+     */
+    private fun takePortal(r: Run, ms: MapSpec, p: Portal) {
+        val ctx = r.ctx
+        task(r, "Map ${r.map + 1}: ${p.what} (portal open)")
+        val leg = plannedLeg(r, ms, p.at, "portal")
+        if (leg != null) walkLeg(r, ms, leg, p.at) else searchWalk(r, ms.layout!!, p.at, "${p.what} portal (party not seen on the map)")
+        fight(r)
+        fun sign(seconds: Double): Match? {
+            val until = System.currentTimeMillis() + (seconds * 1000).toLong()
+            while (System.currentTimeMillis() < until) {
+                ctx.refresh()
+                ARROWS.mapNotNull { ctx.find(it) }.minByOrNull { abs(it.center.x - 0.5) }?.let { return it }
+                ctx.wait(0.25)
+            }
+            return null
+        }
+        // the sign shows once the party stands at the portal: up onto it if it isn't there yet
+        var door = sign(2.5)
+        if (door == null) { AreaNav.flick(ctx, up = true); ctx.wait(1.0); fight(r); door = sign(2.0) }
+        if (door == null) {
+            r.trips += "${p.what}: portal open but its sign wasn't found"
+            MacroLog.i("${p.what}: no door sign at the portal"); r.unsure = true; return
+        }
+        MacroLog.i("${p.what}: taking the portal at (${"%.2f".format(door.center.x)}, ${"%.2f".format(door.center.y)})")
+        ctx.tap(door); ctx.wait(2.0)
+        answerExitQuestion(r)
+        if (!waitForField(ctx, 15)) { fight(r); waitForField(ctx, 10) }
+        ctx.wait(1.0)
+        // the "!" on the trip's map, right by the arrival
+        var bubble: Match? = null
+        val until = System.currentTimeMillis() + 4000
+        while (bubble == null && System.currentTimeMillis() < until) { ctx.refresh(); bubble = ctx.find(BUBBLE) ?: ctx.find(BUBBLE_CORE); if (bubble == null) ctx.wait(0.3) }
+        if (bubble != null) {
+            ctx.tap(bubble); ctx.wait(2.0)
+            talkThrough(r)
+            waitForField(ctx, 10)
+            r.trips += "${p.what}: taken"
+            ctx.count("portal_trips")
+            MacroLog.i("${p.what}: taken")
+        } else {
+            r.trips += "${p.what}: portal taken but no \"!\" on its map"
+            MacroLog.i("${p.what}: no \"!\" on the portal's map")
+        }
+        // back: the door sign by the party
+        ctx.wait(1.0)
+        val back = sign(4.0)
+        if (back == null) { r.trips += "${p.what}: no way back found"; MacroLog.i("${p.what}: no door sign back"); r.moved = true; return }
+        ctx.tap(back); ctx.wait(2.0)
+        answerExitQuestion(r)
+        waitForField(ctx, 15); ctx.wait(1.0)
+        // back at the portal: the walk goes on from its spot
+        r.pos = p.at; r.planPos = p.at; r.unsure = false
+    }
+
+    private fun plannedLeg(r: Run, ms: MapSpec, goal: Point, target: String): Route.Leg? {
+        val l = ms.layout ?: return null
+        val from = r.pos ?: return null
+        return Route.plan(l, table(r.ctx, ms), from, goal, target)
+    }
+
     /** Walk to the map's exit and take its ground arrow (tap it); flick as a fallback. */
     private fun leave(r: Run, ms: MapSpec, idx: Int) {
         val ctx = r.ctx
@@ -1575,8 +1718,8 @@ object AnotherDungeon {
         task(r, "Map ${idx + 1}: to the stairs down")
         val exit = ms.exit!!
         MacroLog.i("to the exit at (${"%.3f".format(exit.x)}, ${"%.3f".format(exit.y)})")
-        val leg = ms.path?.firstOrNull { it.target == "exit" }
-        if (leg != null && r.pos != null) walkLeg(r, ms, leg, exit) else AreaNav.walkLayout(ctx, ms.layout!!, exit, onStep(r))
+        val leg = ms.path?.firstOrNull { it.target == "exit" } ?: plannedLeg(r, ms, exit, "exit")
+        if (leg != null && r.pos != null) walkLeg(r, ms, leg, exit) else searchWalk(r, ms.layout!!, exit, "exit (no fixed path)")
         if (ms.exitWalk) {
             // off the screen's edge: hold on that way until the next map shows
             val dir = if (exit.x > 0.5) 1.0 else -1.0
@@ -1714,7 +1857,7 @@ object AnotherDungeon {
                 val p = r.pos
                 var fought = false
                 if (l != null && p != null && span != null) {
-                    val t = Route.table(ctx)
+                    val t = table(ctx, ms)
                     val to = if (abs(p.x - span.first) < abs(p.x - span.second)) span.second else span.first
                     if (abs(to - p.x) >= t.minWalk) r.pos = Route.hold(ctx, l, t, p, to > p.x, t.holdMs(abs(to - p.x)).toLong()) { fight(r).also { if (it) fought = true } }
                 } else AreaNav.hold(ctx, dir, 0.05)
@@ -1793,6 +1936,7 @@ object AnotherDungeon {
         val ctx = r.ctx
         if (!r.cleared && !r.onBossMap && defeatAll(ctx)) { grind(r, r.spec.maps[r.map]); return }
         task(r, "Map ${r.map + 1}: looking around (chest, boss)")
+        if (!r.onBossMap && r.searched.none { it.startsWith("map ${r.map + 1}: looked around") }) r.searched += "map ${r.map + 1}: looked around (no layout)"
         val ms = r.spec.maps[r.map]
         val hasChests = ms.chests.isNotEmpty() || ms.chestsCount > 0
         for (vertical in listOf(null, true, false)) {

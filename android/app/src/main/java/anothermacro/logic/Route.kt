@@ -86,6 +86,37 @@ object Route {
     fun segOf(l: AreaNav.Layout, p: Point): AreaNav.Seg? = l.segs.filter { abs(it.y - p.y) < AreaNav.ROW_TOL * 1.5 && p.x > it.x1 - 0.04 && p.x < it.x2 + 0.04 }
         .minByOrNull { abs(it.y - p.y) + maxOf(0.0, it.x1 - p.x, p.x - it.x2) }
 
+    /**
+     * Fixed steps from [from] to [to] worked out at run time (the same rules as the planner,
+     * dungeon_routes.py): holds by the hold-time table, flicks on the stairs, and a stop by a
+     * street's end held into the wall. Null when the layout has no way there.
+     */
+    fun plan(l: AreaNav.Layout, t: Table, from: Point, to: Point, target: String): Leg? {
+        val moves = AreaNav.moves(l, from, to) ?: return null
+        val steps = ArrayList<Step>()
+        var pos = from
+        for ((k, mv) in moves.withIndex()) {
+            val (up, x) = mv
+            if (up != null) {
+                steps += Step.Flick(up)
+                pos = climbed(l, Point(x, pos.y), up) ?: return null
+                continue
+            }
+            val s = segOf(l, pos)
+            var d = x - pos.x
+            if (k == moves.size - 1 && s != null) {
+                val end = if (d > 0) s.x2 else s.x1
+                if (abs(end - x) <= WALL_SNAP && abs(end - pos.x) > t.minWalk) d = end - pos.x + (if (d > 0) t.wallMargin else -t.wallMargin)
+            }
+            if (abs(d) < t.minWalk) continue
+            val ms = (Math.round(t.holdMs(abs(d)) / 10.0) * 10)
+            steps += Step.Hold(d > 0, ms)
+            pos = walked(l, pos, d > 0, t.distance(ms.toDouble()))
+        }
+        return Leg(target, null, steps)
+    }
+    private const val WALL_SNAP = 0.012
+
     /** Where a walk of [d] right/left from [p] ends: stopped by the street's end. */
     fun walked(l: AreaNav.Layout, p: Point, right: Boolean, d: Double): Point {
         val s = segOf(l, p) ?: return Point(p.x + (if (right) d else -d), p.y)
@@ -173,6 +204,8 @@ object Route {
     @Volatile var disturbed = false
     /** The last hold ran its full time, but a battle was there right after it (not seen during it). */
     @Volatile var unseen = false
+    /** The last hold ended with a read of the area map where it stopped (stood still): its spot is fresh. */
+    @Volatile var readAtEnd = false
 
     /**
      * Hold right/left for [ms] from [from], watching for a battle. A battle that interrupts
@@ -180,6 +213,7 @@ object Route {
      * Returns where the party is now, by the table.
      */
     fun hold(ctx: Context, l: AreaNav.Layout, t: Table, from: Point, right: Boolean, ms: Long, fight: () -> Boolean): Point {
+        readAtEnd = false
         var p = from
         var left = t.distance(ms.toDouble())
         var holdMs = ms
@@ -355,10 +389,10 @@ object Route {
                 val s = segOf(l, seen)!!
                 p = Point(seen.x.coerceIn(s.x1, s.x2), s.y)
                 val atEnd = if (right) p.x >= s.x2 - t.minWalk else p.x <= s.x1 + t.minWalk
-                if (atEnd) return p
+                if (atEnd) { readAtEnd = true; return p }
                 // not at the street's end: the camera stopped, the party didn't; hold the rest unwatched for stillness
                 val rest = t.distance(ms.toDouble()) - abs(p.x - from.x)
-                if (rest < t.minWalk) return p
+                if (rest < t.minWalk) { readAtEnd = true; return p }
                 ctx.drag(PRESS, Point(PRESS.x + if (right) 0.1 else -0.1, PRESS.y), t.holdMs(rest).toLong())
                 ctx.wait(0.4)
                 if (fight()) { disturbed = true; unseen = true; return p }
