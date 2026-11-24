@@ -51,6 +51,8 @@ Positions are fractions of the screen as the opened area map shows them.
 | `exit_walk` | the way on is walking off the screen's edge at `exit` (no sign) |
 | `exit_sign` | only this sign template counts as the exit |
 | `area_map_scrolls` | this map's area map scrolls with the party |
+| `walk_scale` | this area map's zoom against `walk.yaml`'s (default 1): the same hold walks this many times the table's distance on it; the path and the run's walk both use it |
+| | **Every map with a layout gets an `arrival` and a generated `path`** (the user's rule, 2026-11-24): the run walks fixed steps and never looks its way around, except as a fallback that the run's report lists ("off the fixed path"). Stops that move every run (`sparkle_icons`) are read once on arrival, then walked by steps worked out from that read |
 
 ## Routes
 

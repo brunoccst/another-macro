@@ -46,18 +46,7 @@ def scaled(t: dr.WalkTable, scale: float) -> dr.WalkTable:
     the distance in area-map units differs by map (measured once per map: hold R 3000 from rest
     and compare with walk.yaml's 0.0709).
     """
-    if scale == 1.0:
-        return t
-    data = {
-        "hold_ms": t.ms,
-        "distance": [d * scale for d in t.dist],
-        "beyond_per_s": t.beyond * scale,
-        "flick_ms": t.flick_ms,
-        "min_walk": t.min_walk,
-        "wall_snap": t.wall_snap,
-        "wall_margin": t.wall_margin,
-    }
-    return dr.WalkTable(data)
+    return t.scaled(scale)
 
 
 def area_map(name: str, spot: dict) -> dr.MapData | None:

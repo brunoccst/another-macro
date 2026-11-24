@@ -38,7 +38,7 @@ def test_path_takes_every_chest_then_the_exit(did, idx, m, raw, table):
     assert targets[-1] == "exit"
     pos = m.arrival
     for leg in legs:
-        pos = dr.run_steps(m, table, pos, leg[1:])  # raises if a flick isn't at stairs
+        pos = dr.run_steps(m, table.scaled(m.walk_scale), pos, leg[1:])  # raises if a flick isn't at stairs
         kind, _, n = leg[0].partition(" ")
         stops = {"chest": m.chests, "sparkle": m.sparkles, "fish": m.fish, "jar": m.jars}
         goal = m.exit if kind == "exit" else stops[kind][int(n) - 1]

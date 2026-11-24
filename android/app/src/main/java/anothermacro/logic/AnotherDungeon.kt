@@ -50,7 +50,9 @@ object AnotherDungeon {
                        /** This map's area map scrolls up and down with the party (see [Spec.areaMapScrolls]). */
                        val scrolls: Boolean = false,
                        /** Only this sign template counts as the exit (another sign may sit nearer). */
-                       val exitSign: String? = null) {
+                       val exitSign: String? = null,
+                       /** This area map's zoom against walk.yaml's: the same hold walks this many times the table's distance on it. */
+                       val walkScale: Double = 1.0) {
         /** The same map drawn [dx] further right. */
         fun shifted(dx: Double) = copy(
             layout = layout?.let { l -> AreaNav.Layout(l.segs.map { it.copy(x1 = it.x1 + dx, x2 = it.x2 + dx) }, l.links.map { it.copy(x = it.x + dx) }) },
@@ -154,6 +156,7 @@ object AnotherDungeon {
                 m["exit_walk"] == true,
                 m["area_map_scrolls"] == true,
                 m["exit_sign"]?.toString(),
+                (m["walk_scale"] as? Number)?.toDouble() ?: 1.0,
             )
         }
         return Spec(id, d["name"].toString(), d["era"].toString(), d["boss"]?.toString() ?: "", maps, d["area"]?.toString(), d["label"]?.toString(),
@@ -818,6 +821,9 @@ object AnotherDungeon {
     /** Fight what interrupted a walk; true if there was a battle. */
     private fun onStep(r: Run): () -> Boolean = { fight(r) }
 
+    /** The walk table for [ms] (walk.yaml scaled by the map's walk_scale). */
+    private fun table(ctx: Context, ms: MapSpec): Route.Table = if (ms.walkScale == 1.0) Route.table(ctx) else CatRoute.table(ctx, ms.walkScale)
+
     /** A walk by the area map (a look after every move) instead of fixed steps: noted for the run's report. */
     private fun searchWalk(r: Run, l: AreaNav.Layout, goal: Point, what: String): Boolean {
         r.searched += "map ${r.map + 1}: $what"
@@ -868,7 +874,7 @@ object AnotherDungeon {
         val l0 = ms.layout
         val p0 = r.pos
         if (l0 != null && p0 != null) {
-            val t = Route.table(ctx)
+            val t = table(ctx, ms)
             repeat(4) {
                 // a battle can start just as the party stops by the chest (no "!" then, and no area
                 // map to read): fight it first, then look for the "!" again
@@ -902,7 +908,7 @@ object AnotherDungeon {
             val p = r.pos
             if (p != null && ms.layout != null) {
                 // (on a path the position is followed through the search too)
-                val t = Route.table(ctx)
+                val t = table(ctx, ms)
                 r.pos = Route.hold(ctx, ms.layout, t, p, side > 0, t.holdMs(0.006).toLong()) { fight(r) }
             } else AreaNav.hold(ctx, side, 0.006)
             fight(r)
@@ -1384,7 +1390,7 @@ object AnotherDungeon {
     private fun walkLeg(r: Run, ms: MapSpec, leg: Route.Leg, goal: Point) {
         val ctx = r.ctx
         val l = ms.layout!!
-        val t = Route.table(ctx)
+        val t = table(ctx, ms)
         var p = r.pos!!
         var plan = r.planPos ?: p
         MacroLog.i("path to ${leg.target}: ${leg.steps.joinToString(", ")}")
@@ -1612,7 +1618,7 @@ object AnotherDungeon {
     private fun plannedLeg(r: Run, ms: MapSpec, goal: Point, target: String): Route.Leg? {
         val l = ms.layout ?: return null
         val from = r.pos ?: return null
-        return Route.plan(l, Route.table(r.ctx), from, goal, target)
+        return Route.plan(l, table(r.ctx, ms), from, goal, target)
     }
 
     /** Walk to the map's exit and take its ground arrow (tap it); flick as a fallback. */
@@ -1761,7 +1767,7 @@ object AnotherDungeon {
                 val p = r.pos
                 var fought = false
                 if (l != null && p != null && span != null) {
-                    val t = Route.table(ctx)
+                    val t = table(ctx, ms)
                     val to = if (abs(p.x - span.first) < abs(p.x - span.second)) span.second else span.first
                     if (abs(to - p.x) >= t.minWalk) r.pos = Route.hold(ctx, l, t, p, to > p.x, t.holdMs(abs(to - p.x)).toLong()) { fight(r).also { if (it) fought = true } }
                 } else AreaNav.hold(ctx, dir, 0.05)
