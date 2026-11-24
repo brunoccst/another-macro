@@ -50,7 +50,7 @@ object CatSurvey {
         val names = all.keys().asSequence().toList().sorted()
         if (names.isEmpty()) return "no measured cat spots on this phone"
         for (n in names) all.optJSONObject(n)?.let { MacroLog.i(line(it)) }
-        return "${names.size} measured cat spots logged (find \"MEASURED cat spot\"): " + names.joinToString()
+        return "${names.size} measured cat spots logged (find \"MEASURED cat spot\"): " + names.joinToString("; ")
     }
 
     /** The log line a repo thread imports (`another-macro cat-routes --import`). */
