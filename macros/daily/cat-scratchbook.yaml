@@ -2,13 +2,14 @@
 #  read: open Diary → Cat Scratchbook, report today's clues and where each cat is.
 #  hunt: on the map where today's cat is, walk in short steps, tap its feather bubble.
 #  daily: the whole thing unattended: read the clues (OCR), travel to each cat, find it.
+#  measured: log every cat spot this phone measured, to import as fixed routes.
 name: cat-scratchbook
 group: daily
 icon: paw
-description: "daily: find all of today's cats; read: report today's clues; hunt: find the cat on this map."
+description: "daily: find all of today's cats; read: report today's clues; hunt: find the cat on this map; measured: log measured spots."
 templates: [cat_scratchbook]
 params:
-  mode: {default: daily, help: "daily = travel to and find every cat; read = report today's clues; hunt = find the cat on this map"}
+  mode: {default: daily, help: "daily = travel to and find every cat; read = report today's clues; hunt = find the cat on this map; measured = log the spots this phone measured"}
   first_walk: {default: -1, help: "hunt: direction of the first walk, -1 = left, 1 = right"}
   pulse_ms: {default: 300, help: "hunt: length of each short walk"}
   max_walks: {default: 120, help: "hunt: give up after this many walks"}
@@ -17,6 +18,8 @@ params:
 how:
   - if: mode == 'daily'
     then: [{cat_daily: true}]
+  - if: mode == 'measured'
+    then: [{cat_measured: true}]
   - if: mode == 'read'
     then:
       - "Open Diary → Cat Scratchbook"
@@ -34,6 +37,8 @@ unknown_timeout_s: 20
 setup:
   - if: mode == 'daily'
     then: [{cat_daily: true}]
+  - if: mode == 'measured'
+    then: [{cat_measured: true}]
   - set: {opened: false, report: "''", dir: first_walk, walks: 0, still: 0, pos: 0, found_cat: false}
 
 handlers:

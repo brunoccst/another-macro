@@ -16,7 +16,7 @@ import org.snakeyaml.engine.v2.api.LoadSettings
  * and systems is reached from here; the generic steps are in [FlowRun].
  */
 object AnotherEdenPlugin : GamePlugin {
-    override val actions = setOf("fight", "pick_party", "another_dungeon", "phantom_crystal", "cat_daily", "find_feather", "read_cat_clues", "teleport")
+    override val actions = setOf("fight", "pick_party", "another_dungeon", "phantom_crystal", "cat_daily", "cat_measured", "find_feather", "read_cat_clues", "teleport")
 
     /** Keep in step with the code: each step here runs these macros (ctx.runBasic / ctx.innerOptions). */
     override val stepUses = mapOf(
@@ -33,6 +33,7 @@ object AnotherEdenPlugin : GamePlugin {
         "fight" -> "Fight the battle to its end with the skills from the options"
         "find_feather" -> "Look for the feather bubble and tap it"
         "read_cat_clues" -> "Read today's clues"
+        "cat_measured" -> "Log every cat spot this phone has measured, then stop"
         "cat_daily" -> "Read the clues, travel to each place and find what they describe, then stop"
         "another_dungeon" -> "Play the Another Dungeon run \"${arg.toString().replace('-', ' ')}\" (its steps are listed above), then stop"
         "phantom_crystal" -> "Play the Phantom Crystal Dimension world by world, then stop"
@@ -52,6 +53,7 @@ object AnotherEdenPlugin : GamePlugin {
                 "find_feather" -> findFeather(ctx, macro.vars)
                 "read_cat_clues" -> macro.vars["report"] = readCatClues(ctx)
                 "cat_daily" -> ctx.stop(CatDaily.run(ctx))
+                "cat_measured" -> ctx.stop(CatSurvey.logSaved(ctx))
                 "fight" -> {
                     val prefix = step["fight"]?.toString()?.takeIf { it != "true" } ?: "skill_"
                     val outcome = Battle.fight(ctx) { Battle.Setup.from(ctx.params, prefix) }
