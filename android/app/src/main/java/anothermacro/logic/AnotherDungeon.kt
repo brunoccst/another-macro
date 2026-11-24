@@ -1094,9 +1094,14 @@ object AnotherDungeon {
                 if (System.currentTimeMillis() + 200 >= end && !walked && ms.layout != null) {
                     walked = true
                     MacroLog.i("no fish in view: walking to (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}) by the area map")
-                    AreaNav.walkLayout(ctx, ms.layout, at, onStep(r))
-                    fight(r)
-                    r.unsure = true
+                    val there = AreaNav.walkLayout(ctx, ms.layout, at, onStep(r))
+                    // the walk ends on the spot by the map's own reads: no second look before the next leg
+                    // unless a battle came after it
+                    val fought = fight(r)
+                    val seg = Route.segOf(ms.layout, at)
+                    if (there && !fought && seg != null) {
+                        r.pos = Point(at.x.coerceIn(seg.x1, seg.x2), seg.y); r.planPos = r.pos; r.unsure = false; r.lastDir = 0.0
+                    } else r.unsure = true
                     end = System.currentTimeMillis() + 3000
                 }
                 ctx.wait(0.2); continue
@@ -1498,6 +1503,13 @@ object AnotherDungeon {
         // reads the map only when it doesn't (saves a look at the area map, ~3 s, per battle)
         for (again in 1..4) {
             if (!Route.disturbed || leg.chest != null) break
+            if (Route.readAtEnd) {
+                // the last hold stood still and read the spot on the map after the battle: no second look
+                Route.disturbed = false; r.unsure = false
+                if (Route.segOf(l, p) != Route.segOf(l, plan) || abs(p.x - plan.x) < t.minWalk) break
+                walkTo(plan.x)
+                continue
+            }
             if (!resync("at the end of the leg after a battle") || abs(p.x - plan.x) < t.minWalk) break
             walkTo(plan.x)
         }
