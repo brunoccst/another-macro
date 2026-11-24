@@ -66,6 +66,8 @@ object PhantomCrystal {
         var pos = 0.0
         var mark = 0.0
         val draft = ArrayList<String>()
+        /** Every world that had to be looked around (no fixed route, or the route lost its way): told to the user at the end. */
+        val swept = ArrayList<String>()
         fun newWorld() { skip.clear(); title = ""; routed = false; pos = 0.0; mark = 0.0; draft.clear() }
     }
 
@@ -116,11 +118,13 @@ object PhantomCrystal {
         val secs = (System.currentTimeMillis() - r.start) / 1000
         val items = r.items.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val text = "$outcome — ${secs / 60}m ${secs % 60}s; worlds ${r.world}${if (r.cape) " (ended in the Cape)" else ""}; " +
-            "chests ${r.chests}, stamps ${r.stamps}; items: $items"
+            "chests ${r.chests}, stamps ${r.stamps}; items: $items" +
+            if (r.swept.isEmpty()) "" else "; LOOKED AROUND (no fixed path) in: ${r.swept.joinToString("; ")} (draft routes in the log)"
         runCatching {
             val o = org.json.JSONObject().put("when", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(r.start)))
                 .put("dungeon", "Phantom Crystal Dimension").put("seconds", secs).put("outcome", outcome).put("worlds", r.world)
                 .put("cape", r.cape).put("chests", r.chests).put("stamps", r.stamps).put("items", org.json.JSONObject(r.items as Map<*, *>))
+                .put("looked_around", org.json.JSONArray(r.swept))
             java.io.File(ctx.debugDir.parentFile, "runs.log").appendText(o.toString() + "\n")
         }.onFailure { MacroLog.e("could not save the run report", it) }
         MacroLog.status(text)
@@ -227,7 +231,7 @@ object PhantomCrystal {
         }
         MacroLog.i("World ${r.world}: title '${r.title}'")
         val route = routeFor(r.routes, r.title)
-        if (route == null) MacroLog.i("World ${r.world}: no fixed route for '${worldName(r.title)}': looking around")
+        if (route == null) sweptNote(r, "no fixed route")
         else {
             r.routed = true
             when (followRoute(r, route)) {
@@ -235,7 +239,7 @@ object PhantomCrystal {
                 RouteOut.END -> return Next.END
                 RouteOut.DONE -> return afterRoute(r, route)
                 // a "!" the route expected wasn't there: look around from here
-                RouteOut.LOST -> r.routed = false
+                RouteOut.LOST -> { r.routed = false; sweptNote(r, "the route lost its way") }
             }
         }
         var dir = -1.0
@@ -390,6 +394,14 @@ object PhantomCrystal {
             look(1000, near * 2)?.let { return it }
         }
         return null
+    }
+
+    /** The world is looked around instead of walked by a fixed route: logged, shown and told at the run's end. */
+    private fun sweptNote(r: Run, why: String) {
+        val name = worldName(r.title).ifEmpty { "title not read" }
+        r.swept += "world ${r.world} '$name' ($why)"
+        MacroLog.i("LOOKING AROUND: world ${r.world} '$name': $why")
+        MacroLog.status("World ${r.world}: $why, looking around (you'll be told at the end)")
     }
 
     /** A route step's nudge when its "!" doesn't show. */

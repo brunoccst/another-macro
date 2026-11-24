@@ -24,6 +24,6 @@ unknown:
 # "!" nearest the middle), `portal x y` the way on, `stairs x y` the stairs out of the dimension,
 # `sensationalist` look for the Sensationalist's "!" here (the run stops for you if it shows),
 # `moves_on` wait for the world to move on by itself. A world with no route here, or a route
-# whose "!" doesn't show, is looked around in short steps instead; the log then has a
-# "route draft for world ..." line to check and copy here.
+# whose "!" doesn't show, is looked around in short steps instead (the run's outcome then says
+# so: LOOKED AROUND ...); the log has a "route draft for world ..." line to check and copy here.
 worlds: []
