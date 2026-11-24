@@ -72,10 +72,6 @@ banner, each walked from where the party arrives (no area map there).
 A world with no route, or whose route's "!" doesn't show after a small nudge either way, is
 swept (walked end to end in short steps); the app log then has a `route draft for world N:
 {title: ..., route: [...]}` line built from that sweep (walls make its holds approximate), to
-<<<<<<< HEAD
 check on the phone and copy into `worlds:`. Every looked-around world is also named in the run's
 outcome ("LOOKED AROUND (no fixed path) in: ...") and in `runs.log` (`looked_around`), so the user
 always learns when the run fell back to looking around. Tests: `tests/test_phantom_worlds.py`.
-=======
-check on the phone and copy into `worlds:`. Tests: `tests/test_phantom_worlds.py`.
->>>>>>> a9e4171b63b82c2e9faa28196bdcc2e06f8f6439
