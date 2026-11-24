@@ -66,11 +66,8 @@ object PhantomCrystal {
         var pos = 0.0
         var mark = 0.0
         val draft = ArrayList<String>()
-<<<<<<< HEAD
         /** Every world that had to be looked around (no fixed route, or the route lost its way): told to the user at the end. */
         val swept = ArrayList<String>()
-=======
->>>>>>> a9e4171b63b82c2e9faa28196bdcc2e06f8f6439
         fun newWorld() { skip.clear(); title = ""; routed = false; pos = 0.0; mark = 0.0; draft.clear() }
     }
 
@@ -234,11 +231,7 @@ object PhantomCrystal {
         }
         MacroLog.i("World ${r.world}: title '${r.title}'")
         val route = routeFor(r.routes, r.title)
-<<<<<<< HEAD
         if (route == null) sweptNote(r, "no fixed route")
-=======
-        if (route == null) MacroLog.i("World ${r.world}: no fixed route for '${worldName(r.title)}': looking around")
->>>>>>> a9e4171b63b82c2e9faa28196bdcc2e06f8f6439
         else {
             r.routed = true
             when (followRoute(r, route)) {
@@ -246,11 +239,7 @@ object PhantomCrystal {
                 RouteOut.END -> return Next.END
                 RouteOut.DONE -> return afterRoute(r, route)
                 // a "!" the route expected wasn't there: look around from here
-<<<<<<< HEAD
                 RouteOut.LOST -> { r.routed = false; sweptNote(r, "the route lost its way") }
-=======
-                RouteOut.LOST -> r.routed = false
->>>>>>> a9e4171b63b82c2e9faa28196bdcc2e06f8f6439
             }
         }
         var dir = -1.0
@@ -407,7 +396,6 @@ object PhantomCrystal {
         return null
     }
 
-<<<<<<< HEAD
     /** The world is looked around instead of walked by a fixed route: logged, shown and told at the run's end. */
     private fun sweptNote(r: Run, why: String) {
         val name = worldName(r.title).ifEmpty { "title not read" }
@@ -416,8 +404,6 @@ object PhantomCrystal {
         MacroLog.status("World ${r.world}: $why, looking around (you'll be told at the end)")
     }
 
-=======
->>>>>>> a9e4171b63b82c2e9faa28196bdcc2e06f8f6439
     /** A route step's nudge when its "!" doesn't show. */
     private const val NUDGE_MS = 300L
 
