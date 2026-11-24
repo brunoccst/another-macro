@@ -89,6 +89,24 @@ ladder the Present Man installs (Embedded Ladder, a path item kept for good).
 - Boss area "Ark of the Underworld - Depths": its chest right of the arrival, the boss's
   question left. Its title holds the dungeon's name, so the map is matched by "Depths".
 
+## Snow in Nazrik: the Cat Shrine (2026-11-24)
+
+The user (from a wiki screenshot, 2026-11-24): some runs it snows in Nazrik (about 5% of runs);
+then the glowing blue portal on Zero Point's north side leads to a Cat Shrine that gives a Cat
+Dogu. Taken by hand on the phone on 2026-11-24, in a Demon's Den run:
+
+- The portal is at the top of the short stub above Zero Point's top street (about x 0.48 on the
+  area map, the stub drawn with a "!" and a two-arrow sign at its top, y ~0.25). The party went
+  up a stairs from the row below onto the top street's left part, walked right to ~0.48 and
+  flicked up onto the stub. A door bubble then shows over the portal on the field; tapping it
+  travels at once (no question, short black loading screen).
+- Cat Shrine: a small floating island. The party arrives under the shrine; its "!" is right
+  above. Tapping it plays a short scene with a cat and the Cat Dogu (a golden cat figure, x1)
+  shows in the run's reward strip at the top. No question, no cost.
+- The way back: the door bubble below the party, back to the portal in Zero Point. The run then
+  goes on as usual (a macro started inside picked it up).
+- Without snow the portal isn't there (not checked on the phone yet).
+
 ## What the macro's checks are based on
 
 - **Shared titles**: Demon's Den and its boss area share a title, as do Nazrik and its upper
