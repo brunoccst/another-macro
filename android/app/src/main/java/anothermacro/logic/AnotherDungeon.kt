@@ -197,6 +197,8 @@ object AnotherDungeon {
         var chestsTotal = 0
         /** Chests the search gave up on, with where the map showed the party (the report names them: the log rolls over). */
         val missed = mutableListOf<String>()
+        /** Where the run left its fixed path and looked its way by the area map or a sweep (told to the user). */
+        val searched = mutableListOf<String>()
         var skipped = false
         /** What the run is doing (the live log shows it again after a battle). */
         var task = ""
@@ -613,12 +615,13 @@ object AnotherDungeon {
         val text = "$outcome — ${secs / 60}m ${secs % 60}s; " +
             (if (r.skipped) "skipped with a Cat Express Ticket; " else "chests ${st["chests"] ?: 0}/${r.chestsTotal}" +
                 (if (r.missed.isNotEmpty()) " (missed: ${r.missed.joinToString("; ")})" else "") + ", battles ${st["battles"] ?: 0}; ") +
+            (if (r.searched.isNotEmpty()) "off the fixed path (walked by the area map): ${r.searched.distinct().joinToString("; ")}; " else "") +
             (if (r.skipped) "" else "chest items: $items; ") + "rewards: $rewards; White Key: ${if (r.phantom) "yes" else "no"}"
         runCatching {
             val o = org.json.JSONObject().put("when", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(r.start)))
                 .put("dungeon", r.spec.name).put("key", r.key).put("seconds", secs).put("outcome", outcome)
                 .put("skipped", r.skipped).put("chests", st["chests"] ?: 0).put("chests_total", r.chestsTotal)
-                .put("missed", org.json.JSONArray(r.missed)).put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
+                .put("missed", org.json.JSONArray(r.missed)).put("searched", org.json.JSONArray(r.searched.distinct())).put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
             java.io.File(r.ctx.debugDir.parentFile, "runs.log").appendText(o.toString() + "\n")
         }.onFailure { MacroLog.e("could not save the run report", it) }
         MacroLog.status(text)
@@ -815,6 +818,13 @@ object AnotherDungeon {
     /** Fight what interrupted a walk; true if there was a battle. */
     private fun onStep(r: Run): () -> Boolean = { fight(r) }
 
+    /** A walk by the area map (a look after every move) instead of fixed steps: noted for the run's report. */
+    private fun searchWalk(r: Run, l: AreaNav.Layout, goal: Point, what: String): Boolean {
+        r.searched += "map ${r.map + 1}: $what"
+        r.ctx.count("area_map_walks")
+        return AreaNav.walkLayout(r.ctx, l, goal, onStep(r))
+    }
+
     /**
      * The party's spot on the area map: the marker-like blob on a street nearest to [near] (the
      * followed position). Gold chest icons look like the marker too, so the most marker-like blob
@@ -836,7 +846,7 @@ object AnotherDungeon {
             walkLeg(r, ms, leg, chest)
             r.pos
         } else {
-            AreaNav.walkLayout(ctx, ms.layout!!, chest, onStep(r))
+            searchWalk(r, ms.layout!!, chest, "chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}) (no fixed path)")
             AreaNav.look(ctx) { emptyList() }.party
         }
         // test hook (never in a macro's options): param test_miss_chest = "map.chest" (1-based, in the
@@ -870,7 +880,7 @@ object AnotherDungeon {
                 if (Route.segOf(l0, at) != Route.segOf(l0, chest)) {
                     // on another street (stairs missed): walk there by the area map, then look again
                     MacroLog.i("not on the chest's street: walking there by the area map")
-                    AreaNav.walkLayout(ctx, l0, chest, onStep(r))
+                    searchWalk(r, l0, chest, "chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}) (off its street)")
                     r.pos = Point(chest.x, Route.segOf(l0, chest)?.y ?: chest.y)
                     if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); r.unsure = true; return }
                     return@repeat
@@ -934,7 +944,7 @@ object AnotherDungeon {
         task(r, "Map ${r.map + 1}: second try at a missed chest")
         MacroLog.i("second try at the chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}): by the area map")
         val l = ms.layout!!
-        AreaNav.walkLayout(ctx, l, chest, onStep(r))
+        searchWalk(r, l, chest, "second try at the chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)})")
         val seg = Route.segOf(l, chest)
         if (r.pos != null) { r.pos = Point(chest.x, seg?.y ?: chest.y); r.planPos = r.pos; r.lastDir = 0.0 }
         // the path's fixed steps start at the stop before them, not here: the next leg (the exit) goes by the area map
@@ -997,7 +1007,7 @@ object AnotherDungeon {
     private fun takeSparkleAt(r: Run, ms: MapSpec, at: Point) {
         task(r, "Map ${r.map + 1}: sparkle at (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
         val leg = plannedLeg(r, ms, at, "sparkle")
-        if (leg != null) walkLeg(r, ms, leg, at) else AreaNav.walkLayout(r.ctx, ms.layout!!, at, onStep(r))
+        if (leg != null) walkLeg(r, ms, leg, at) else searchWalk(r, ms.layout!!, at, "sparkle (party not seen on the map)")
         fight(r)
         pickSparkle(r, ms, at)
     }
@@ -1098,7 +1108,7 @@ object AnotherDungeon {
                     fishShadow(ctx, explain = true)
                     walked = true
                     MacroLog.i("no fish in view: walking to (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)}) by the area map")
-                    val there = AreaNav.walkLayout(ctx, ms.layout, at, onStep(r))
+                    val there = searchWalk(r, ms.layout, at, "${leg.target} (none in view)")
                     // the walk ends on the spot by the map's own reads: no second look before the next leg
                     // unless a battle came after it
                     val fought = fight(r)
@@ -1380,7 +1390,7 @@ object AnotherDungeon {
         MacroLog.i("path to ${leg.target}: ${leg.steps.joinToString(", ")}")
         fun offPath(why: String) {
             MacroLog.i("$why: walking to ${leg.target} by the area map instead")
-            AreaNav.walkLayout(ctx, l, goal, onStep(r))
+            searchWalk(r, l, goal, "${leg.target} ($why)")
             r.pos = Point(goal.x, Route.segOf(l, goal)?.y ?: goal.y)
             r.planPos = r.pos
         }
@@ -1613,7 +1623,7 @@ object AnotherDungeon {
         val exit = ms.exit!!
         MacroLog.i("to the exit at (${"%.3f".format(exit.x)}, ${"%.3f".format(exit.y)})")
         val leg = ms.path?.firstOrNull { it.target == "exit" } ?: plannedLeg(r, ms, exit, "exit")
-        if (leg != null && r.pos != null) walkLeg(r, ms, leg, exit) else AreaNav.walkLayout(ctx, ms.layout!!, exit, onStep(r))
+        if (leg != null && r.pos != null) walkLeg(r, ms, leg, exit) else searchWalk(r, ms.layout!!, exit, "exit (no fixed path)")
         if (ms.exitWalk) {
             // off the screen's edge: hold on that way until the next map shows
             val dir = if (exit.x > 0.5) 1.0 else -1.0
@@ -1830,6 +1840,7 @@ object AnotherDungeon {
         val ctx = r.ctx
         if (!r.cleared && !r.onBossMap && defeatAll(ctx)) { grind(r, r.spec.maps[r.map]); return }
         task(r, "Map ${r.map + 1}: looking around (chest, boss)")
+        if (!r.onBossMap && r.searched.none { it.startsWith("map ${r.map + 1}: looked around") }) r.searched += "map ${r.map + 1}: looked around (no layout)"
         val ms = r.spec.maps[r.map]
         val hasChests = ms.chests.isNotEmpty() || ms.chestsCount > 0
         for (vertical in listOf(null, true, false)) {
