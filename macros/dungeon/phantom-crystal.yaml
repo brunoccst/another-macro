@@ -17,3 +17,13 @@ handlers:
   field: [{phantom_crystal: true}]
 unknown:
   - wait: 2
+# Fixed routes, one per world, picked by the world's title banner (`title`: its words after
+# "Phantom Crystal Dimension"); each `route` starts where the party arrives. Steps: `L 1200` /
+# `R 1200` hold left/right that many ms from rest, `U` / `D` flick up/down, `wait 1.5`,
+# `chest x y` / `cat x y` tap the "!" nearest that screen spot (x, y fractions; without them the
+# "!" nearest the middle), `portal x y` the way on, `stairs x y` the stairs out of the dimension,
+# `sensationalist` look for the Sensationalist's "!" here (the run stops for you if it shows),
+# `moves_on` wait for the world to move on by itself. A world with no route here, or a route
+# whose "!" doesn't show, is looked around in short steps instead; the log then has a
+# "route draft for world ..." line to check and copy here.
+worlds: []

@@ -57,3 +57,19 @@ Positions are fractions of the screen as the opened area map shows them.
 `another-macro dungeon-routes` prints every map's planned route; `--write` writes each map's
 `path:` into its macro file (any indent, so an area's maps too), and `--check` fails when one
 is out of date (a test runs it).
+
+## The Phantom Crystal Dimension's worlds
+
+The `phantom-crystal` macro has no `dungeon:` block (it isn't an `another_dungeon` run): its
+fixed routes are a top-level `worlds:` list, one entry per world, picked by the world's title
+banner, each walked from where the party arrives (no area map there).
+
+| Key | Meaning |
+|---|---|
+| `title` | the world's own words in its title banner, after "Phantom Crystal Dimension" |
+| `route` | the steps from the arrival: `L 1200` / `R 1200` (hold from rest, ms), `U` / `D` (flick), `wait 1.5`, `chest x y` / `cat x y` (tap the "!" nearest that screen spot), `portal x y` (the way on), `stairs x y` (the stairs out of the dimension), `sensationalist` (look for their "!" here: the run stops for the user if it shows), `moves_on` (the world moves on by itself) |
+
+A world with no route, or whose route's "!" doesn't show after a small nudge either way, is
+swept (walked end to end in short steps); the app log then has a `route draft for world N:
+{title: ..., route: [...]}` line built from that sweep (walls make its holds approximate), to
+check on the phone and copy into `worlds:`. Tests: `tests/test_phantom_worlds.py`.

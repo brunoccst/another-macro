@@ -54,3 +54,7 @@ bubbles are drawn at different sizes per world (scales 0.8-1.35 of the template)
 - The teal pipe world uses blue-grey metal chests that never matched the red chest template, so
   its chests were walked past (2026-11-12): a second template.
 - Full-size template search took a world step ~20 s (2026-11-12): searched at half size.
+- Which worlds a run meets varies, but each world's layout never changes: its chests and cat
+  are always in the same spots (the user, 2026-11-24). So each world gets a fixed route, picked
+  by its title banner (the macro's `worlds:` data); looking around is only the fallback for a
+  world with no route yet.
