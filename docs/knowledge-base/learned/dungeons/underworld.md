@@ -66,8 +66,9 @@ ladder the Present Man installs (Embedded Ladder, a path item kept for good).
   from the arrival) to the third street, its left end (wall) and 600 ms back right, the stairs
   down to a short fourth street, its right end (wall) and 700 ms back left to the manhole
   (basement stairs, up). Measured by hand 2026-11-18.
-  The Den run's fixed path out of Nazrik (2026-11-24): walk_scale 0.68 (R 4700 walks the 0.078
-  from the arrival to the stairs, where walk.yaml's table gives 0.115).
+  The Den run's fixed path out of Nazrik (2026-11-24): a first try with walk_scale 0.68 (from the
+  R 4700 above) overshot: R 4680 took the party from 0.476 to 0.602, about what walk.yaml's table
+  gives (the party started walking ~1 s late). Walking in Nazrik is at the table's speed.
 - Nazrik's basement (same title): a street with the seal's "!" behind an opening near its left end.
 - The Tomb: three streets; no chest icons on the area map. A Horror (red star) at the middle
   street's left end. The way on: the door above the top street's middle.
