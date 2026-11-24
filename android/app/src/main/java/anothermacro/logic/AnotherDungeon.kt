@@ -891,6 +891,9 @@ object AnotherDungeon {
         val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
         // the "!" pops up a while after the party stops: watch for it before looking around
         if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
+        // from here on the chest is looked for around its spot (a fallback): the run's report says so
+        r.searched += "map ${r.map + 1}: looked for the chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}) around its spot (no \"!\" there)"
+        ctx.count("chest_lookarounds")
         // not there: read the real spot on the map and walk to the chest's x from it (a hold can
         // come up short, a battle can cut it), then look again
         val l0 = ms.layout
@@ -1759,6 +1762,8 @@ object AnotherDungeon {
                 // (the next map is known now: no second look at the area map for it)
                 if (now != idx) { if (now != null) r.nextMap = now; return }
             }
+            // the sign didn't show (or didn't take the party on) where the path ends: looking for it nearby
+            if (attempt == 0) r.searched += "map ${idx + 1}: looked for the exit's sign around (${"%.3f".format(exit.x)}, ${"%.3f".format(exit.y)})"
             when (attempt) {
                 3 -> AreaNav.flick(ctx, up = false)
                 5 -> AreaNav.flick(ctx, up = true)
@@ -1936,7 +1941,8 @@ object AnotherDungeon {
         val ctx = r.ctx
         if (!r.cleared && !r.onBossMap && defeatAll(ctx)) { grind(r, r.spec.maps[r.map]); return }
         task(r, "Map ${r.map + 1}: looking around (chest, boss)")
-        if (!r.onBossMap && r.searched.none { it.startsWith("map ${r.map + 1}: looked around") }) r.searched += "map ${r.map + 1}: looked around (no layout)"
+        if (r.searched.none { it.startsWith("map ${r.map + 1}: looked around") })
+            r.searched += "map ${r.map + 1}: looked around (no layout${if (r.onBossMap) ", boss map" else ""})"
         val ms = r.spec.maps[r.map]
         val hasChests = ms.chests.isNotEmpty() || ms.chestsCount > 0
         for (vertical in listOf(null, true, false)) {
@@ -2014,6 +2020,7 @@ object AnotherDungeon {
                             lines.firstOrNull { Ocr.norm(it.text) == "no" }?.let { ctx.tapExact(it.center); ctx.wait(1.5) }
                             if (turned) break
                             MacroLog.i("step chest: at the boss's question, no \"!\" on the way: back the other way")
+                            r.searched += "map ${r.map + 1}: step '$step' passed the chest: looked for it on the way back"
                             dir = -dir; turned = true
                             continue
                         }

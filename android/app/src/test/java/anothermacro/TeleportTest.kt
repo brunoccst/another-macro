@@ -35,4 +35,11 @@ class TeleportTest {
         assertEquals("Snake Bone Island", m.values.first { it.area != null }.area)
         assertEquals(setOf("Present", "Antiquity"), m.filterKeys { it.startsWith("konium") }.values.map { it.era }.toSet())
     }
+
+    @Test fun anArrivalTellsWhenThePlaceWasSearchedFor() {
+        assertEquals(null, Teleport.searchOf(Teleport.ARRIVED + "Baruoki"))
+        assertEquals(null, Teleport.searchOf("couldn't travel to Baruoki" + Teleport.SEARCHED + "x)"))
+        assertEquals("not on Garulea Continent; found on Migleina Continent, remembered",
+            Teleport.searchOf(Teleport.ARRIVED + "Zarbo" + Teleport.SEARCHED + "not on Garulea Continent; found on Migleina Continent, remembered)"))
+    }
 }
