@@ -91,7 +91,10 @@ object AreaNav {
      * Open the area map, find the [targets] (given the grey frame) and the party marker, close it.
      * [readText] also OCRs the map (its title names the area).
      */
-    fun look(ctx: Context, readText: Boolean = false, targets: (Frame) -> List<Point>): View {
+    fun look(ctx: Context, readText: Boolean = false, targets: (Frame) -> List<Point>): View =
+        ctx.timed("area map look") { lookInner(ctx, readText, targets) }
+
+    private fun lookInner(ctx: Context, readText: Boolean, targets: (Frame) -> List<Point>): View {
         last?.release(); last = null
         // only from the field: a battle that just started would take these taps (the close tap at
         // the bottom middle lands on the 4th character's portrait)
