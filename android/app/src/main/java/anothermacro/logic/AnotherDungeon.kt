@@ -226,6 +226,10 @@ object AnotherDungeon {
         var outOfKeys = false
         /** The macro's counters when this run started. */
         val base: Map<String, Int> = HashMap(ctx.stats)
+        /** The run's timed parts when it started ([Timings]): the report says where this run's time went. */
+        val timesBase: Map<String, Timings.Entry> = ctx.timings.snapshot()
+        /** Sparkle stops in a row that had none, with none picked up yet this run: the rest get only a glance. */
+        var emptySparkles = 0
         /** A White Key was already held before entering. */
         var heldKey = false
         /** Enter even though a White Key is held (the loop was told to keep going). */
@@ -643,16 +647,41 @@ object AnotherDungeon {
                 (if (r.missed.isNotEmpty()) " (missed: ${r.missed.joinToString("; ")})" else "") + ", battles ${st["battles"] ?: 0}; ") +
             (if (r.trips.isNotEmpty()) "${r.trips.joinToString("; ")}; " else "") +
             (if (r.searched.isNotEmpty()) "off the fixed path (walked by the area map): ${r.searched.distinct().joinToString("; ")}; " else "") +
-            (if (r.skipped) "" else "chest items: $items; ") + "rewards: $rewards; White Key: ${if (r.phantom) "yes" else "no"}"
+            (if (r.skipped) "" else "chest items: $items; ") + "rewards: $rewards; White Key: ${if (r.phantom) "yes" else "no"}" +
+            timeByKind(r).takeIf { it.isNotEmpty() }?.let { k -> "; time: " + k.take(8).joinToString(", ") { "${it.first} ${it.second / 1000}s" } }.orEmpty()
         runCatching {
             val o = org.json.JSONObject().put("when", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(r.start)))
                 .put("dungeon", r.spec.name).put("key", r.key).put("seconds", secs).put("outcome", outcome)
                 .put("skipped", r.skipped).put("chests", st["chests"] ?: 0).put("chests_total", r.chestsTotal)
-                .put("missed", org.json.JSONArray(r.missed)).put("searched", org.json.JSONArray(r.searched.distinct())).put("trips", org.json.JSONArray(r.trips)).put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
+                .put("missed", org.json.JSONArray(r.missed)).put("searched", org.json.JSONArray(r.searched.distinct())).put("trips", org.json.JSONArray(r.trips)).put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>))
+                .put("time_s", org.json.JSONObject(timeByKind(r).associate { it.first to it.second / 1000 } as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
             java.io.File(r.ctx.debugDir.parentFile, "runs.log").appendText(o.toString() + "\n")
         }.onFailure { MacroLog.e("could not save the run report", it) }
         MacroLog.status(text)
         return text
+    }
+
+    /**
+     * Where this run's time went by kind of part, longest first, in ms: every timed part's own time
+     * (without the parts inside it) added up by its name, numbers left out ("fish 2" → "fish"; the
+     * dungeon step's own time, between the timed parts, is "other").
+     */
+    internal fun timeByKind(r: Run): List<Pair<String, Long>> = timeByKind(r.ctx.timings.since(r.timesBase))
+
+    internal fun timeByKind(times: Map<String, Timings.Entry>): List<Pair<String, Long>> {
+        val out = LinkedHashMap<String, Long>()
+        for (path in times.keys) {
+            val name = path.substringAfterLast(Timings.SEP)
+            // the parts above the dungeon step (the screen handler) hold no time of their own here
+            if (name.startsWith("on ") || name == "map") continue
+            val kind = when {
+                Regex("^map \\d+$").matches(name) || name == "another_dungeon" -> "other"
+                else -> name.replace(Regex("\\s*\\d+$"), "")
+            }
+            val own = Timings.own(times, path)
+            if (own > 0) out[kind] = (out[kind] ?: 0L) + own
+        }
+        return out.entries.sortedByDescending { it.value }.map { it.key to it.value }
     }
 
     private fun phantomDone(r: Run) = "${r.spec.name} done: the Phantom Crystal Dimension is open (White Key)"
@@ -1067,8 +1096,13 @@ object AnotherDungeon {
         // scenery and the party for sparkles, and the party isn't always in the middle near a street's end
         val star = ms.sparkleIcons
         var steps = 0
-        // none seen by the spot: the party (or the camera) can hide it, so a short step each way and a look again
-        val looks = mutableListOf(-1.0, 1.0, 1.0)
+        // none seen by the spot: the party (or the camera) can hide it, so a short step each way and a look again.
+        // After [GLANCE_AFTER] empty stops in a row with none picked up this run, a stop gets a glance only
+        // (no steps): the map then has none to give (see the knowledge base), and each look-around costs ~9 s
+        val picked = (ctx.stats["sparkles"] ?: 0) - (r.base["sparkles"] ?: 0)
+        val glance = !star && picked == 0 && r.emptySparkles >= GLANCE_AFTER
+        if (glance) { end = System.currentTimeMillis() + 1500; MacroLog.i("sparkle: ${r.emptySparkles} stops in a row had none: a glance only") }
+        val looks = if (glance) mutableListOf() else mutableListOf(-1.0, 1.0, 1.0)
         while (taps < 3) {
             if (System.currentTimeMillis() >= end) {
                 if (taps > 0 || looks.isEmpty()) break
@@ -1125,7 +1159,8 @@ object AnotherDungeon {
             }
             waitForField(ctx, 4)
         }
-        if (taps > 0) return
+        if (taps > 0) { r.emptySparkles = 0; return }
+        r.emptySparkles++
         MacroLog.i("no sparkle by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
     }
 
@@ -1785,6 +1820,8 @@ object AnotherDungeon {
     private const val SPARKLE_NEAR = 0.06
     /** That step: a short walk. */
     private const val SPARKLE_STEP_MS = 350L
+    /** Empty sparkle stops in a row (none picked up yet in the run) after which a stop gets a glance only. */
+    private const val GLANCE_AFTER = 2
 
     /**
      * A Yes/No question right after taking an exit ("Go to <map>? ..."): Yes. Never when the box
