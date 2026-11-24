@@ -59,6 +59,11 @@ Measurements and sightings behind thresholds in the code (`AnotherDungeon.kt`, `
   second card. The throw doesn't move the party (within ~0.009, 2026-11-17). The fish finder was
   measured on 6 screenshots with a fish and 16 without (2026-11-17): fish blobs had area 900-1530
   (1024-wide units), fill 0.53-0.57, ring saturation 157-197; dark scenery filled under 0.4.
+  On 2026-11-24 the map 2 fish by (0.524, 0.586) was on screen (the user saw it) but turned down:
+  area 820-1558, fill 0.58-0.62, ring saturation only 84-85 (a dimmer glow over that water). The
+  finder now also takes a ring of 70+ when the blob fills 0.53+ of its box. The area map also has a
+  fish icon on map 1 by (0.436, 0.334) that is often empty when the party gets there (a fish can
+  swim off).
 - **Proof level-up**: fishing in this dungeon levels up an item the game calls "the proof" (the
   user, 2026-11-23). After a catch the game can show a line of talk such as "Leveled the proof
   14 -> 15!" over the field, which waits for a tap. In the scheduled run of 2026-11-23 it came

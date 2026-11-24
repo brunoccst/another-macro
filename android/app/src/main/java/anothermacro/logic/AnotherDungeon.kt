@@ -1247,7 +1247,7 @@ object AnotherDungeon {
     /**
      * A fish over the water: an all-black fish-shaped blob (V <= 24; wider than tall, filling over
      * half its box, area 900-1530 in 1024-wide units) in the upper middle of the screen, with a
-     * coloured ring around it (mean saturation 140+). The best by area, or null.
+     * coloured ring around it (mean saturation 140+, or 70+ for a blob filling 0.53+ of its box). The best by area, or null.
      */
     private fun fishShadow(ctx: Context, explain: Boolean = false): Point? {
         val bgr = ctx.colorMat() ?: return null
@@ -1285,7 +1285,9 @@ object AnotherDungeon {
             org.opencv.core.Core.compare(labSub, org.opencv.core.Scalar(k.toDouble()), ring, org.opencv.core.Core.CMP_NE)
             val glow = org.opencv.core.Core.mean(satSub, ring).`val`[0]
             listOf(ring, labSub, satSub).forEach { it.release() }
-            if (glow < 140) { note("glow ${glow.toInt()}"); continue }
+            // a fish over the blue water has a weaker ring (84-85, 2026-11-24): taken there when its shape is
+            // a full one (scenery fills under 0.4)
+            if (glow < 140 && (glow < 70 || area / (bw * bh) < 0.53)) { note("glow ${glow.toInt()}"); continue }
             if (area <= bestArea) continue
             bestArea = area; best = Point(cx / w, cy / h)
         }
