@@ -72,6 +72,14 @@ in [the knowledge base](../../README.md) instead
   a flick before it's taken as a street change) are tuned live from the log lines
   "walk ... stopped after" and "flick U: screen change N".
 
+- **Sparkle stops (all dungeons with sparkles)**: Sea of Ice's sparkles were there on 2026-11-15 and
+  absent in every run from 2026-11-17 to 2026-11-25. The user suspects a pickup cooldown (a sparkle
+  can be taken once every so many hours), which would fit; not confirmed. The shared run code
+  therefore looks fully once per run, then a 1.5 s glance only while none has been picked up, and
+  any sparkle in view is still taken. Check whether sparkles are back after a long break (a day or more).
+- **Unsure spot**: any step off the followed path (a sparkle look-around, a fish step, a chest
+  look-around) makes the followed spot unsure, so the next leg reads it on the area map first.
+
 ## Test
 
 Build (CI `android.yml`), install, re-allow screen capture, and run from next to the
