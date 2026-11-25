@@ -226,6 +226,10 @@ object AnotherDungeon {
         var outOfKeys = false
         /** The macro's counters when this run started. */
         val base: Map<String, Int> = HashMap(ctx.stats)
+        /** The run's timed parts when it started ([Timings]): the report says where this run's time went. */
+        val timesBase: Map<String, Timings.Entry> = ctx.timings.snapshot()
+        /** Sparkle stops in a row that had none, with none picked up yet this run: the rest get only a glance. */
+        var emptySparkles = 0
         /** A White Key was already held before entering. */
         var heldKey = false
         /** Enter even though a White Key is held (the loop was told to keep going). */
@@ -437,43 +441,45 @@ object AnotherDungeon {
                 ctx.count("maps")
             }
             val ms = spec.maps[idx].shifted(r.shift)
-            when {
-                ms.steps != null -> runSteps(r, ms)
-                ms.layout == null -> sweep(r)
+            // where the time goes (the app's Statistics): each map, and each stop on it
+            val mapPart = ctx.timings.begin("map ${idx + 1}")
+            try { when {
+                ms.steps != null -> ctx.timed("steps") { runSteps(r, ms) }
+                ms.layout == null -> ctx.timed("sweep") { sweep(r) }
                 // sparkles that move every run: read where they are on arrival, then each in turn
                 ms.sparkleIcons && ms.layout != null && r.live == null && !collects(ctx, "sparkles") && ms.portal == null -> r.live = mutableListOf()
-                ms.sparkleIcons && ms.layout != null && r.live == null -> readSparkles(r, ms)
-                ms.sparkleIcons && ms.layout != null && r.live!!.isNotEmpty() -> takeSparkleAt(r, ms, r.live!!.removeAt(0))
+                ms.sparkleIcons && ms.layout != null && r.live == null -> ctx.timed("read sparkles") { readSparkles(r, ms) }
+                ms.sparkleIcons && ms.layout != null && r.live!!.isNotEmpty() -> ctx.timed("sparkle") { takeSparkleAt(r, ms, r.live!!.removeAt(0)) }
                 // on a path: its legs in order (chests, sparkles), then the exit
                 ms.path != null && r.pos != null && r.legsDone < ms.path.size && ms.path[r.legsDone].target != "exit" -> {
                     val leg = ms.path[r.legsDone]
                     val off = (leg.sparkle != null && !collects(ctx, "sparkles")) || (leg.fish != null && !collects(ctx, "fish")) ||
                         (leg.jar != null && !collects(ctx, "jars"))
-                    when {
+                    ctx.timed(leg.target) { when {
                         off -> { MacroLog.i("${leg.target}: left out (its option is off)"); r.offPlan = true }
                         leg.chest != null && leg.chest < ms.chests.size -> takeChest(r, ms, ms.chests[leg.chest])
                         leg.sparkle != null && leg.sparkle < ms.sparkles.size -> takeSparkle(r, ms, leg, ms.sparkles[leg.sparkle])
                         leg.fish != null && leg.fish < ms.fish.size -> takeFish(r, ms, leg, ms.fish[leg.fish])
                         leg.jar != null && leg.jar < ms.jars.size -> takeJar(r, ms, leg, ms.jars[leg.jar])
                         else -> MacroLog.i("path leg ${leg.target}: nothing to do")
-                    }
+                    } }
                     r.legsDone++
                 }
-                r.chestsDone < ms.chests.size -> takeChest(r, ms, ms.chests[r.order.getOrElse(r.chestsDone) { r.chestsDone }])
+                r.chestsDone < ms.chests.size -> ctx.timed("chest ${r.chestsDone + 1}") { takeChest(r, ms, ms.chests[r.order.getOrElse(r.chestsDone) { r.chestsDone }]) }
                 // the rewards first: a chest missed on the way gets a second, slower try by the area map
-                r.retryLater.isNotEmpty() && ms.layout != null -> retryChest(r, ms, r.retryLater.removeAt(0))
+                r.retryLater.isNotEmpty() && ms.layout != null -> ctx.timed("chest second try") { retryChest(r, ms, r.retryLater.removeAt(0)) }
                 // every stop done: the enemies still left, when the map's can run out and the user wants them all
                 !r.cleared && !r.onBossMap && ms.exit != null && defeatAll(ctx) -> {
                     // a chest search or a battle can have moved the party: its spot first (the back and forth stays on its street)
                     val l = ms.layout
                     if (r.unsure && l != null) r.pos?.let { p -> readSpot(r, l, p)?.let { r.pos = it; r.planPos = it } }
-                    grind(r, ms)
+                    ctx.timed("defeat all") { grind(r, ms) }
                     // the fights moved the party a little: read its spot once before the exit
                     if (r.pos != null) { r.unsure = true; r.lastDir = 0.0 }
                 }
-                ms.exit != null -> leave(r, ms, idx)
-                else -> sweep(r)
-            }
+                ms.exit != null -> ctx.timed("exit") { leave(r, ms, idx) }
+                else -> ctx.timed("sweep") { sweep(r) }
+            } } finally { ctx.timings.end(mapPart) }
             if (r.bossBeaten) return finish(r)
         }
         return "${spec.name}: gave up after 300 steps"
@@ -650,23 +656,50 @@ object AnotherDungeon {
                 (if (r.missed.isNotEmpty()) " (missed: ${r.missed.joinToString("; ")})" else "") + ", battles ${st["battles"] ?: 0}; ") +
             (if (r.trips.isNotEmpty()) "${r.trips.joinToString("; ")}; " else "") +
             (if (r.searched.isNotEmpty()) "off the fixed path (walked by the area map): ${r.searched.distinct().joinToString("; ")}; " else "") +
-            (if (r.skipped) "" else "chest items: $items; ") + "rewards: $rewards; White Key: ${if (r.phantom) "yes" else "no"}"
+            (if (r.skipped) "" else "chest items: $items; ") + "rewards: $rewards; White Key: ${if (r.phantom) "yes" else "no"}" +
+            timeByKind(r).takeIf { it.isNotEmpty() }?.let { k -> "; time: " + k.take(8).joinToString(", ") { "${it.first} ${it.second / 1000}s" } }.orEmpty()
         runCatching {
             val o = org.json.JSONObject().put("when", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(r.start)))
                 .put("dungeon", r.spec.name).put("key", r.key).put("seconds", secs).put("outcome", outcome)
                 .put("skipped", r.skipped).put("chests", st["chests"] ?: 0).put("chests_total", r.chestsTotal)
-                .put("missed", org.json.JSONArray(r.missed)).put("searched", org.json.JSONArray(r.searched.distinct())).put("trips", org.json.JSONArray(r.trips)).put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
+                .put("missed", org.json.JSONArray(r.missed)).put("searched", org.json.JSONArray(r.searched.distinct())).put("trips", org.json.JSONArray(r.trips)).put("battles", st["battles"] ?: 0).put("white_key", r.phantom).put("items", org.json.JSONObject(r.items as Map<*, *>))
+                .put("time_s", org.json.JSONObject(timeByKind(r).associate { it.first to it.second / 1000 } as Map<*, *>)).put("rewards", org.json.JSONObject(r.rewards as Map<*, *>))
             java.io.File(r.ctx.debugDir.parentFile, "runs.log").appendText(o.toString() + "\n")
         }.onFailure { MacroLog.e("could not save the run report", it) }
         MacroLog.status(text)
         return text
     }
 
+    /**
+     * Where this run's time went by kind of part, longest first, in ms: every timed part's own time
+     * (without the parts inside it) added up by its name, numbers left out ("fish 2" → "fish"; the
+     * dungeon step's own time, between the timed parts, is "other").
+     */
+    private fun timeByKind(r: Run): List<Pair<String, Long>> = timeByKind(r.ctx.timings.since(r.timesBase))
+
+    internal fun timeByKind(times: Map<String, Timings.Entry>): List<Pair<String, Long>> {
+        val out = LinkedHashMap<String, Long>()
+        for (path in times.keys) {
+            val name = path.substringAfterLast(Timings.SEP)
+            // the parts above the dungeon step (the screen handler) hold no time of their own here
+            if (name.startsWith("on ") || name == "map") continue
+            val kind = when {
+                Regex("^map \\d+$").matches(name) || name == "another_dungeon" -> "other"
+                else -> name.replace(Regex("\\s*\\d+$"), "")
+            }
+            val own = Timings.own(times, path)
+            if (own > 0) out[kind] = (out[kind] ?: 0L) + own
+        }
+        return out.entries.sortedByDescending { it.value }.map { it.key to it.value }
+    }
+
     private fun phantomDone(r: Run) = "${r.spec.name} done: the Phantom Crystal Dimension is open (White Key)"
 
     // --- 1. entering ------------------------------------------------------------------
     /** Through the Another Dungeon door. A message when the run ends here (skipped), else null. */
-    private fun enter(r: Run): String? {
+    private fun enter(r: Run): String? = r.ctx.timed("enter") { enterInner(r) }
+
+    private fun enterInner(r: Run): String? {
         val ctx = r.ctx
         val red = r.key == "red"
         val difficulty = if (red) "Very Hard" else "Hard"
@@ -859,7 +892,7 @@ object AnotherDungeon {
     private fun searchWalk(r: Run, l: AreaNav.Layout, goal: Point, what: String): Boolean {
         r.searched += "map ${r.map + 1}: $what"
         r.ctx.count("area_map_walks")
-        return AreaNav.walkLayout(r.ctx, l, goal, onStep(r))
+        return r.ctx.timed("off path: walk by the area map") { AreaNav.walkLayout(r.ctx, l, goal, onStep(r)) }
     }
 
     /**
@@ -1075,8 +1108,13 @@ object AnotherDungeon {
         // scenery and the party for sparkles, and the party isn't always in the middle near a street's end
         val star = ms.sparkleIcons
         var steps = 0
-        // none seen by the spot: the party (or the camera) can hide it, so a short step each way and a look again
-        val looks = mutableListOf(-1.0, 1.0, 1.0)
+        // none seen by the spot: the party (or the camera) can hide it, so a short step each way and a look again.
+        // After [GLANCE_AFTER] empty stops in a row with none picked up this run, a stop gets a glance only
+        // (no steps): the map then has none to give (see the knowledge base), and each look-around costs ~9 s
+        val picked = (ctx.stats["sparkles"] ?: 0) - (r.base["sparkles"] ?: 0)
+        val glance = !star && picked == 0 && r.emptySparkles >= GLANCE_AFTER
+        if (glance) { end = System.currentTimeMillis() + 1500; MacroLog.i("sparkle: ${r.emptySparkles} stops in a row had none: a glance only") }
+        val looks = if (glance) mutableListOf() else mutableListOf(-1.0, 1.0, 1.0)
         while (taps < 3) {
             if (System.currentTimeMillis() >= end) {
                 if (taps > 0 || looks.isEmpty()) break
@@ -1133,7 +1171,8 @@ object AnotherDungeon {
             }
             waitForField(ctx, 4)
         }
-        if (taps > 0) return
+        if (taps > 0) { r.emptySparkles = 0; return }
+        r.emptySparkles++
         MacroLog.i("no sparkle by (${"%.3f".format(at.x)}, ${"%.3f".format(at.y)})")
     }
 
@@ -1432,7 +1471,9 @@ object AnotherDungeon {
      * barely changed) is checked on the area map; when the party isn't where the plan has it,
      * the rest of the leg is walked the old way (looking at the area map).
      */
-    private fun walkLeg(r: Run, ms: MapSpec, leg: Route.Leg, goal: Point) {
+    private fun walkLeg(r: Run, ms: MapSpec, leg: Route.Leg, goal: Point) = r.ctx.timed("walk") { walkLegInner(r, ms, leg, goal) }
+
+    private fun walkLegInner(r: Run, ms: MapSpec, leg: Route.Leg, goal: Point) {
         val ctx = r.ctx
         val l = ms.layout!!
         val t = table(ctx, ms)
@@ -1519,52 +1560,55 @@ object AnotherDungeon {
                     // the stairs can be a little off in the data: from the 2nd try, flick a little either side
                     val offsets = listOf(0.0, -0.006, 0.006, -0.012, 0.012)
                     for (attempt in 1..offsets.size) {
-                        // stairs only take the party standing on them
-                        val at = plan.x + offsets[attempt - 1]
-                        if (abs(p.x - at) >= t.minWalk) walkTo(at)
-                        // a battle on the walk to the stairs: read where it left the party and walk on to them
-                        // before flicking (a flick from the wrong spot is a wasted try). A hold's last moment often
-                        // starts one: stand still a moment, fight it first, then flick from the real spot
-                        for (again in 1..4) {
-                            ctx.wait(0.2) // standing still on the stairs before the flick (the hold already stood 0.4 s)
-                            if (fight(r)) Route.disturbed = true
-                            if (!Route.disturbed) break
-                            if (!resync("on the way to the stairs after a battle", at)) { r.pos = p; offPath("not on the street the path expects"); return }
+                        val stairsPart = ctx.timings.begin(if (attempt == 1) "stairs" else "stairs again")
+                        try {
+                            // stairs only take the party standing on them
+                            val at = plan.x + offsets[attempt - 1]
                             if (abs(p.x - at) >= t.minWalk) walkTo(at)
-                        }
-                        val flickAt = System.currentTimeMillis()
-                        val before = ctx.refresh().gray.clone()
-                        AreaNav.flickSettled(ctx, st.up)
-                        val settledMs = System.currentTimeMillis() - flickAt
-                        val after = ctx.refresh().gray.clone()
-                        val change = Route.change(before, after)
-                        before.release(); after.release()
-                        val battle = fight(r)
-                        MacroLog.i("flick ${st} (try $attempt) at ${Battle.clock(flickAt)}: settled in ${settledMs}ms, screen change ${"%.1f".format(change)}${if (battle) " (a battle came)" else ""}")
-                        if (!battle && change >= t.flickChange) {
-                            took = true
-                            if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in the dungeon data")
-                            break
-                        }
-                        // check on the map: on the far end of the stairs, or still at their foot?
-                        val seen = Route.seen(ctx, l, listOf(next, Point(p.x, plan.y)), "after the flick ${st}") { AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
-                            .minByOrNull { minOf(abs(it.x - next.x) + 2 * abs(it.y - next.y), abs(it.x - plan.x) + 2 * abs(it.y - plan.y)) } }
-                        Route.disturbed = false
-                        if (seen != null && abs(seen.y - next.y) < AreaNav.ROW_TOL) {
-                            took = true
-                            if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in the dungeon data")
-                            break
-                        }
-                        if (seen != null && Route.segOf(l, seen) == Route.segOf(l, plan)) {
-                            // still at the stairs (a battle came first, or the flick missed them): flick again from here
-                            MacroLog.i("still at the stairs (map shows x=${"%.3f".format(seen.x)}, stairs ${"%.3f".format(plan.x)}): again, a little to the side")
-                            p = Point(seen.x, plan.y)
-                            Route.unseen = false
-                            continue
-                        }
-                        r.pos = seen?.let { Point(it.x, Route.segOf(l, it)!!.y) } ?: p
-                        offPath("the flick ${st} didn't take the stairs (map shows ${seen ?: "no marker"})")
-                        return
+                            // a battle on the walk to the stairs: read where it left the party and walk on to them
+                            // before flicking (a flick from the wrong spot is a wasted try). A hold's last moment often
+                            // starts one: stand still a moment, fight it first, then flick from the real spot
+                            for (again in 1..4) {
+                                ctx.wait(0.2) // standing still on the stairs before the flick (the hold already stood 0.4 s)
+                                if (fight(r)) Route.disturbed = true
+                                if (!Route.disturbed) break
+                                if (!resync("on the way to the stairs after a battle", at)) { r.pos = p; offPath("not on the street the path expects"); return }
+                                if (abs(p.x - at) >= t.minWalk) walkTo(at)
+                            }
+                            val flickAt = System.currentTimeMillis()
+                            val before = ctx.refresh().gray.clone()
+                            AreaNav.flickSettled(ctx, st.up)
+                            val settledMs = System.currentTimeMillis() - flickAt
+                            val after = ctx.refresh().gray.clone()
+                            val change = Route.change(before, after)
+                            before.release(); after.release()
+                            val battle = fight(r)
+                            MacroLog.i("flick ${st} (try $attempt) at ${Battle.clock(flickAt)}: settled in ${settledMs}ms, screen change ${"%.1f".format(change)}${if (battle) " (a battle came)" else ""}")
+                            if (!battle && change >= t.flickChange) {
+                                took = true
+                                if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in the dungeon data")
+                                break
+                            }
+                            // check on the map: on the far end of the stairs, or still at their foot?
+                            val seen = Route.seen(ctx, l, listOf(next, Point(p.x, plan.y)), "after the flick ${st}") { AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
+                                .minByOrNull { minOf(abs(it.x - next.x) + 2 * abs(it.y - next.y), abs(it.x - plan.x) + 2 * abs(it.y - plan.y)) } }
+                            Route.disturbed = false
+                            if (seen != null && abs(seen.y - next.y) < AreaNav.ROW_TOL) {
+                                took = true
+                                if (attempt > 1) MacroLog.i("stairs ${st} taken at x≈${"%.3f".format(p.x)} (data ${"%.3f".format(plan.x)}): fix the link in the dungeon data")
+                                break
+                            }
+                            if (seen != null && Route.segOf(l, seen) == Route.segOf(l, plan)) {
+                                // still at the stairs (a battle came first, or the flick missed them): flick again from here
+                                MacroLog.i("still at the stairs (map shows x=${"%.3f".format(seen.x)}, stairs ${"%.3f".format(plan.x)}): again, a little to the side")
+                                p = Point(seen.x, plan.y)
+                                Route.unseen = false
+                                continue
+                            }
+                            r.pos = seen?.let { Point(it.x, Route.segOf(l, it)!!.y) } ?: p
+                            offPath("the flick ${st} didn't take the stairs (map shows ${seen ?: "no marker"})")
+                            return
+                        } finally { ctx.timings.end(stairsPart) }
                     }
                     if (!took) { r.pos = p; offPath("the flick ${st} didn't take the stairs in ${offsets.size} tries"); return }
                     plan = next
@@ -1790,6 +1834,8 @@ object AnotherDungeon {
     private const val SPARKLE_NEAR = 0.06
     /** That step: a short walk. */
     private const val SPARKLE_STEP_MS = 350L
+    /** Empty sparkle stops in a row (none picked up yet in the run) after which a stop gets a glance only. */
+    private const val GLANCE_AFTER = 2
 
     /**
      * A Yes/No question right after taking an exit ("Go to <map>? ..."): Yes. Never when the box
@@ -2086,9 +2132,13 @@ object AnotherDungeon {
     private fun fight(r: Run): Boolean {
         val ctx = r.ctx
         var wasBoss = false
+        val t0 = System.currentTimeMillis()
+        var resultsMs = 0L
         // the run's end follows the boss battle's results: read every screen for the White Key
         val out = Battle.fight(ctx, afterWin = {
+            val r0 = System.currentTimeMillis()
             val seen = readAfterWin(r)
+            resultsMs += System.currentTimeMillis() - r0
             // (for tuning how long the boss's result screens take)
             if (wasBoss) MacroLog.i("boss results ${Battle.clock()}: ${seen.take(70)}")
         }) { c ->
@@ -2120,6 +2170,10 @@ object AnotherDungeon {
                 // for tuning the banner's spot and timing: what the top of the screen said meanwhile
                 if (!r.cleared && !r.onBossMap && seen.isNotEmpty()) MacroLog.i("top after the win: ${seen.joinToString(" | ").take(160)}")
                 if (r.bossBeaten) checkPhantom(r)
+                // where the time goes: the fight, and its result screens apart
+                val kind = if (wasBoss) "boss battle" else "battle"
+                ctx.timings.add(kind, System.currentTimeMillis() - t0 - resultsMs)
+                if (resultsMs > 0) ctx.timings.add("$kind results", resultsMs)
             }
         }
         return true
@@ -2142,7 +2196,9 @@ object AnotherDungeon {
 
     // --- 6. the end ------------------------------------------------------------------
     /** Tap through the completion screens, noting a White Key / Phantom Crystal Dimension. */
-    private fun finish(r: Run): String {
+    private fun finish(r: Run): String = r.ctx.timed("after the boss") { finishInner(r) }
+
+    private fun finishInner(r: Run): String {
         val ctx = r.ctx
         var rewardWaits = 0
         repeat(25) {

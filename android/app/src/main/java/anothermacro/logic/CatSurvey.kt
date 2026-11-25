@@ -41,6 +41,18 @@ object CatSurvey {
     fun measured(ctx: Context, location: String): org.json.JSONObject? =
         saved(ctx).optJSONObject(location)?.takeIf { m -> m.optString("map").let { it.isEmpty() || Teleport.sameMap(it, location) } }
 
+    /**
+     * Log every measurement this phone keeps (one MEASURED line each) and say which spots they
+     * are, so a repo thread can import them any time with no cat clue and no game.
+     */
+    fun logSaved(ctx: Context): String {
+        val all = saved(ctx)
+        val names = all.keys().asSequence().toList().sorted()
+        if (names.isEmpty()) return "no measured cat spots on this phone"
+        for (n in names) all.optJSONObject(n)?.let { MacroLog.i(line(it)) }
+        return "${names.size} measured cat spots logged (find \"MEASURED cat spot\"): " + names.joinToString("; ")
+    }
+
     /** The log line a repo thread imports (`another-macro cat-routes --import`). */
     fun line(m: org.json.JSONObject) = "MEASURED cat spot: $m"
 
