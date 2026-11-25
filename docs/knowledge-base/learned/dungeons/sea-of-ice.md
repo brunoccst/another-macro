@@ -74,6 +74,9 @@ Measurements and sightings behind thresholds in the code (`AnotherDungeon.kt`, `
 - **Bait jars**: the user sets bait at a shrimp icon and the jar fills in about a day. Standing
   by the jar shows a round bubble with a jar icon (2026-11-18); the party pulls it up (~2 s),
   then "You've caught a total of N fish." (maybe a catch card first).
+- **Hold error** (2026-11-25 run): after a sparkle stop's look-around (a step left, two right) the party stood ~0.02 right of where the path
+  followed it, so the next stairs' first flick missed and the chest after them was ~0.013 out of range of its "!". Holds also
+  end 0.01-0.02 short or long of their target on their own (map 1 stairs 0.383, map 2 stairs 0.556 took 2 tries).
 - **Misses seen**: a missed flick left the party a street above a chest (2026-11-15); the exit
   sign showed only a moment after the party stopped and was lost by the holds into the street's
   end (2026-11-15).

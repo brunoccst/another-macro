@@ -1120,6 +1120,8 @@ object AnotherDungeon {
                 if (taps > 0 || looks.isEmpty()) break
                 val dir = looks.removeAt(0)
                 MacroLog.i("no sparkle in sight: a step ${if (dir < 0) "left" else "right"} and a look again")
+                // the steps move the party off its followed spot: the next leg reads it on the map first
+                r.unsure = true
                 ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * dir, 0.65), SPARKLE_STEP_MS); ctx.wait(0.6)
                 fight(r)
                 end = System.currentTimeMillis() + 1500
@@ -1130,6 +1132,7 @@ object AnotherDungeon {
             if (taps > 0 && steps < 2 && abs(p.x - 0.5) < SPARKLE_NEAR) {
                 MacroLog.i("sparkle at (${"%.2f".format(p.x)}, ${"%.2f".format(p.y)}) right by the party: a step away first")
                 val away = if (p.x < 0.5) 1.0 else -1.0
+                r.unsure = true
                 ctx.drag(Point(0.5, 0.65), Point(0.5 + 0.1 * away, 0.65), SPARKLE_STEP_MS); ctx.wait(0.6)
                 fight(r)
                 steps++
