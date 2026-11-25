@@ -56,7 +56,8 @@ Measurements and sightings behind thresholds in the code (`AnotherDungeon.kt`, `
   After all 5 pickups of a run the map showed the party within ~0.01 of the data (2026-11-15).
   From 2026-11-17 on, runs found none at all: on 2026-11-24 every one of the 6 sparkle stops had
   none after its full look (3 s, then a step left and two right: ~9-12 s a stop, ~1 min a run).
-  So after 2 empty stops in a row with none picked up, a stop gets a 1.5 s glance only.
+  So after 1 empty stop with none picked up (changed from 2 on 2026-11-25: the 2026-11-25 run had
+  none either, 31 s of sparkle time), a stop gets a 1.5 s glance only.
 - **Fish**: a tap from far off threw nothing (2026-11-17). A miss says "It nimbly dodged the
   harpoon!", a catch shows a card with the fish's name over "Size ... cm"; a "Double Get" shows a
   second card. The throw doesn't move the party (within ~0.009, 2026-11-17). The fish finder was

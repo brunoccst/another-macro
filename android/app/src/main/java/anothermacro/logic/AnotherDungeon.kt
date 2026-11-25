@@ -1838,7 +1838,7 @@ object AnotherDungeon {
     /** That step: a short walk. */
     private const val SPARKLE_STEP_MS = 350L
     /** Empty sparkle stops in a row (none picked up yet in the run) after which a stop gets a glance only. */
-    private const val GLANCE_AFTER = 2
+    private const val GLANCE_AFTER = 1
 
     /**
      * A Yes/No question right after taking an exit ("Go to <map>? ..."): Yes. Never when the box
