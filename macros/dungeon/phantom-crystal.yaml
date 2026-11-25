@@ -26,4 +26,18 @@ unknown:
 # `moves_on` wait for the world to move on by itself. A world with no route here, or a route
 # whose "!" doesn't show, is looked around in short steps instead (the run's outcome then says
 # so: LOOKED AROUND ...); the log has a "route draft for world ..." line to check and copy here.
-worlds: []
+# `world` (optional): the world's place in the run, used only when its title wasn't read.
+# These routes are the swept runs' drafts of 2026-11-25 (both runs gave the same worlds 1-3):
+# not yet walked as fixed routes on the phone.
+worlds:
+  - title: "World I"
+    world: 1
+    route: [R 1450, portal 0.64 0.56]
+  - title: "World II"
+    world: 2
+    route: [chest 0.56 0.34, L 350, chest 0.49 0.34, R 700, cat 0.67 0.37, L 500, chest 0.55 0.36, L 500, portal 0.44 0.37]
+  - title: "World III"
+    world: 3
+    route: [L 350, chest 0.33 0.32, L 350, chest 0.31 0.32, chest 0.42 0.32, R 550, cat 0.48 0.32, L 500, portal 0.26 0.33]
+  - title: "World's Cape"
+    route: [chest 0.50 0.28, chest 0.63 0.26, R 350, chest 0.64 0.28, R 1100, chest 0.64 0.28, R 550, cat 0.32 0.30, sensationalist, stairs 0.53 0.24]

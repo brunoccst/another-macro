@@ -25,6 +25,17 @@ bubbles are drawn at different sizes per world (scales 0.8-1.35 of the template)
   and a chest at 0.53 after a sweep, the portal at 0.44); world 3 the World's Cape (chests at
   0.50, 0.63, 0.62 near the arrival, one more at 0.65 after a sweep, the cat at 0.54, no
   Sensationalist, stairs "!" at y 0.24). Screen x only: where the party stood isn't logged yet.
+- **Two runs on 2026-11-25** (two White Keys from the daily routine's Sea of Ice runs): both
+  visited the same first worlds. World 1 (title read "World I", OCR also gave "World!I" and
+  "world r") had only the portal; world 2 was the jungle (3 chests, the walking cat, the
+  portal) and world 3 the blue-grey chest world (3 chests, the cat, the portal at the left);
+  run 1 then ended in the World's Cape (4 chests, the cat, no Sensationalist, the stairs).
+  Run 2 stopped in world 3 with "no way out" 14 s after the cat's stamp: the party didn't move
+  for three steps in a row (most likely the stamp banner still open). The titles of worlds 2 and
+  later were never read: the run read them only once the field's buttons were back, and the
+  title banner hides those buttons, so it was gone by then.
+- A run that stops inside the dimension leaves the game there: on 2026-11-25 every later step of
+  the daily routine (Underworld, ads, shop ad, inbox, cats) failed on the dimension's screen.
 
 ## How a run goes
 
