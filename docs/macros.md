@@ -4,6 +4,7 @@ Every macro in the app's library, by group (the app's tabs; the README explains 
 then the plan for an Another Dungeon macro per dungeon, with
 [the list of all dungeons](#all-dungeons) and which macro runs each. How the library is packed
 and how macros reuse each other: [macros/README.md](../macros/README.md).
+Where each macro still relies on discovery, and how it tells the user: [fixed-paths-audit.md](fixed-paths-audit.md).
 
 ## All macros
 

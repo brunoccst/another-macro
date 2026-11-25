@@ -36,6 +36,9 @@ object CatDaily {
     /** Spots measured this run for a fixed route (CatSurvey): the outcome names them. */
     private val surveyed = ArrayList<String>()
 
+    /** Cats walked to by the area map instead of a fixed route (with why): the outcome names them. */
+    private val looked = ArrayList<String>()
+
     /** Log a step and show it on the live log. */
     private fun step(text: String) = MacroLog.status("cat-scratchbook: " + (if (cat.isEmpty()) "" else "$cat: ") + text)
 
@@ -45,6 +48,7 @@ object CatDaily {
     fun run(ctx: Context): String {
         cat = ""
         surveyed.clear()
+        looked.clear()
         val riddles = loadRiddles(ctx)
         val failed = HashSet<String>()
         // why each missed cat was missed, in the order missed: the stop reason lists them, so a
@@ -76,7 +80,7 @@ object CatDaily {
                 return (if (left.isEmpty() && unknown.isEmpty()) "all cats found today (${done.size} this run)"
                 else "found ${done.size}" + missedText(missed) +
                     (if (open.isNotEmpty()) "; still open: ${open.joinToString { "${it.location} (${why(it)})" }}" else "") +
-                    (if (unknown.isNotEmpty()) "; unread clues: ${unknown.size}" else "")) + surveyText(surveyed)
+                    (if (unknown.isNotEmpty()) "; unread clues: ${unknown.size}" else "")) + surveyText(surveyed) + lookedText(looked)
             }
             cat = "cat ${done.size + failed.size + 1} · ${next.location} (${next.era})"
             step("going there (clue: \"${next.text.take(60)}\")")
@@ -92,12 +96,16 @@ object CatDaily {
             }
         }
         cat = ""
-        return "stopped after 8 rounds; found ${done.size}" + missedText(missed) + surveyText(surveyed)
+        return "stopped after 8 rounds; found ${done.size}" + missedText(missed) + surveyText(surveyed) + lookedText(looked)
     }
 
     /** "; measured for a fixed route: Konium" or "" (the log has each spot's MEASURED line to import). */
     internal fun surveyText(spots: List<String>) =
         if (spots.isEmpty()) "" else "; measured for a fixed route: " + spots.joinToString()
+
+    /** "; LOOKED AROUND (no fixed path) for: Konium (no fixed route)" or "" (every cat came by its fixed route). */
+    internal fun lookedText(spots: List<String>) =
+        if (spots.isEmpty()) "" else "; LOOKED AROUND (no fixed path) for: " + spots.joinToString()
 
     /** "; missed: Zarbo (Present): couldn't travel there, ..." or "" when none was missed. */
     internal fun missedText(missed: Map<String, String>) =
@@ -126,6 +134,7 @@ object CatDaily {
         // the spot's own trip where cat_spots.yaml has it, else the clue's place (basic macro teleport)
         val arrived = Teleport.via(ctx, if (spot != null && spot.fixedTravel) CatRoute.trip(spot) else trip(tripClue))
         if (!arrived) return "couldn't travel there"
+        Teleport.lastSearch?.let { looked += "${clue.location} (world map: $it)" }
         if (spot != null && spot.enter.isNotEmpty() && !spot.fixedWalk) {
             // a door or stairs right at the arrival (the fixed route flicks these itself)
             for (up in spot.enter) {
@@ -145,8 +154,10 @@ object CatDaily {
             if (range != null && hunt(ctx, walks = 16, walk = CatRoute.sweeper(ctx, spot, range, fight))) return null
             MacroLog.i("${clue.location}: no cat on the fixed route${if (range == null) " (left the path)" else " after sweeping its range"}: steering by the map")
             ctx.count("fixed_route_fallbacks")
+            looked += "${clue.location} (${if (range == null) "left the fixed route" else "no cat along the fixed route"})"
         } else {
             MacroLog.i("${clue.location}: no fixed route yet (`another-macro cat-routes --todo`)")
+            looked += "${clue.location} (no fixed route)"
             // measure it now, before the hunt moves the party: the next import makes it a fixed route
             if (spot?.fixedWalk != true && CatSurvey.measure(ctx, clue.location, fight) != null) surveyed += clue.location
         }

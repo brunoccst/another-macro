@@ -37,11 +37,24 @@ object Teleport {
         }
     }
 
+    /** How an arrival's stop reason ends when the place wasn't where it was remembered and was searched for. */
+    const val SEARCHED = " (searched the World Map: "
+
+    /** Why the last trip by [via] had to search the World Map ([SEARCHED]), or null: the caller's outcome names it. */
+    var lastSearch: String? = null
+        private set
+
     /** Run the basic macro teleport for [trip] inside the calling macro: true when it got there. */
     fun via(ctx: Context, trip: Trip): Boolean {
         val why = ctx.runBasic(MACRO, trip.params())
+        lastSearch = searchOf(why)
+        lastSearch?.let { MacroLog.status("teleport to ${trip.place}: searched the World Map ($it)") }
         return why.startsWith(ARRIVED).also { if (!it) MacroLog.i("teleport to ${trip.place}: $why") }
     }
+
+    /** The search note of an arrival's stop reason ("not on Garulea Continent; found on ..."), or null. */
+    internal fun searchOf(why: String): String? =
+        if (why.startsWith(ARRIVED) && SEARCHED in why) why.substringAfter(SEARCHED).removeSuffix(")") else null
 
     private val MAP_BUTTON = Point(0.385, 0.917)
     private val CLOSE = Point(0.88, 0.03)
@@ -127,9 +140,12 @@ object Teleport {
                 closeExpand(ctx)
             }
         }
+        // a place with no continent is looked for on the map the tab shows (its usual way); one that
+        // isn't where it was remembered, or isn't there, is searched for: the stop reason says so
+        val why = if (known != null) "not on $known" else "not on the map the ${trip.era} tab shows"
         step("looking for $place on the map shown")
         if (ctx.readText().none { Ocr.norm(it.text) == "world map" }) return "the world map closed"
-        if (searchAndGo(ctx, place, sub, region)) return ARRIVED + where
+        if (searchAndGo(ctx, place, sub, region)) return ARRIVED + where + if (known != null) SEARCHED + "$why; found on the map the tab shows)" else ""
         // not on this map: each entry of the Expand list
         ctx.tap(EXPAND); ctx.wait(2.0)
         val expandText = ctx.readText()
@@ -143,7 +159,7 @@ object Teleport {
             ctx.tap(line.center); ctx.wait(2.0)
             if (searchAndGo(ctx, place, sub, region)) {
                 KnownPlaces.learn(ctx, place, trip.era, name)
-                return ARRIVED + where
+                return ARRIVED + where + SEARCHED + "$why; found on $name, remembered)"
             }
         }
         closeMap(ctx)

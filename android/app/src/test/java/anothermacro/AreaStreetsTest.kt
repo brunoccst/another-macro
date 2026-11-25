@@ -50,6 +50,11 @@ class AreaStreetsTest {
         assertEquals("; measured for a fixed route: Konium, Last Island", CatDaily.surveyText(listOf("Konium", "Last Island")))
     }
 
+    @Test fun outcomeNamesCatsLookedFor() {
+        assertEquals("", CatDaily.lookedText(emptyList()))
+        assertEquals("; LOOKED AROUND (no fixed path) for: Konium (no fixed route)", CatDaily.lookedText(listOf("Konium (no fixed route)")))
+    }
+
     @Test fun surveyOnlyOnTheCluesMap() {
         assertTrue(Teleport.sameMap("Nazrik, City of Shadows", "Nazrik, City of Shadows"))
         assertTrue(Teleport.sameMap("Karek Swampland", "Karek Swampland (Enter from Baruoki)"))

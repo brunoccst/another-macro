@@ -74,6 +74,13 @@ ladder the Present Man installs (Embedded Ladder, a path item kept for good).
   street's left end. The way on: the door above the top street's middle.
 - Boss area: its chest's "!" right by the arrival (a Jadeite once), the boss's question to the left.
 
+## Nazrik from the World Map (2026-11-24)
+
+A World Map trip to Nazrik, City of Shadows (no key) lands in a different part of the town than a
+dungeon run (a room with a door sign), and its area map shows the whole town (six rows of
+streets) instead of the dungeon's three. The dungeon's Nazrik maps can't be measured from it: their
+arrivals come from a dungeon run.
+
 ## Ark of the Underworld (mapped by hand 2026-11-18, 1 run; not yet run by the macro)
 
 - The portal at the right end of Nazrik's upper floor (Nazrik's top street, the ladder near its
