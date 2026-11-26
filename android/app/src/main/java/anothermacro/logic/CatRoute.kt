@@ -11,6 +11,7 @@ import kotlin.math.abs
  *
  *  1-2. the trip: the basic macro teleport (Teleport.kt) with the spot's era, continent, place
  *     and sub-location;
+ *  2b. the spot's `approach` (maps with no area map between the travel point and the cat's map);
  *  3. from the arrival spot, the fixed moves to where the cat starts (Route.hold / flicks, with the
  *     walk table scaled to this area map's zoom);
  *  4. the cat wanders along its street within `drift`: the hunt sweeps between those two ends.
@@ -25,6 +26,8 @@ object CatRoute {
         val walkTo: String?,
         /** flicks right after the trip, before [layout] (true = up): the cat is on another floor */
         val enter: List<Boolean>,
+        /** fixed moves (holds in ms, flicks) across maps without an area map, after [enter], before [layout] */
+        val approach: List<Route.Step>,
         val layout: AreaNav.Layout?, val arrival: Point?, val cat: Point?,
         val driftLeft: Double, val driftRight: Double, val walkScale: Double, val path: List<Route.Step>?,
     ) {
@@ -58,6 +61,7 @@ object CatRoute {
             sub = v["sub"]?.toString() ?: "",
             walkTo = v["walk_to"]?.toString(),
             enter = (v["enter"] as? List<*>)?.mapNotNull { when (it?.toString()?.trim()) { "U" -> true; "D" -> false; else -> null } }.orEmpty(),
+            approach = (v["approach"] as? List<*>)?.let { Route.parseLeg(listOf("approach") + it).steps }.orEmpty(),
             layout = segs?.let { AreaNav.Layout(it, links) },
             arrival = pt(area?.get("arrival")),
             cat = pt(area?.get("cat")),
@@ -84,6 +88,36 @@ object CatRoute {
     // --- 1-2. the world map ---------------------------------------------------------------
     /** The spot's trip for the basic macro teleport: its era, place, continent (when set) and sub-location. */
     fun trip(s: Spot) = Teleport.Trip(s.era, s.place, s.continent, s.sub)
+
+    // --- 2b. maps without an area map ------------------------------------------------------
+    /**
+     * Walk the spot's `approach`: plain holds and flicks across the maps between the travel point
+     * and the cat's map (no area map to walk by, so no position is read). A battle during a hold is
+     * fought and that hold made again. True when the screen shows the field after the last move.
+     */
+    fun approach(ctx: Context, s: Spot, fight: () -> Boolean): Boolean {
+        if (s.approach.isEmpty()) return true
+        settle(ctx)
+        MacroLog.i("${s.location}: approach ${s.approach.joinToString(", ")}")
+        for (st in s.approach) {
+            when (st) {
+                is Route.Step.Flick -> { AreaNav.flick(ctx, st.up); settle(ctx) }
+                is Route.Step.Hold -> {
+                    for (attempt in 1..3) {
+                        ctx.drag(Point(0.5, 0.65), Point(0.5 + if (st.right) 0.1 else -0.1, 0.65), st.ms)
+                        ctx.wait(0.5)
+                        ctx.refresh()
+                        if (!Battle.inBattle(ctx)) break
+                        MacroLog.i("${s.location}: a battle came during $st (try $attempt): fighting, then again")
+                        fight()
+                        settle(ctx)
+                    }
+                }
+            }
+        }
+        settle(ctx)
+        return ctx.find("field_menu_button") != null
+    }
 
     // --- 3. the area map ------------------------------------------------------------------
     /** Where the party is and where the plan has it, while walking a spot's path. */

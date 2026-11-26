@@ -162,3 +162,20 @@ def test_import_bridges_the_icon_gaps(tmp_path, table):
     assert [0.6, 0.34, 0.7] in a["segs"]         # stretched to the arrival at x 0.35
     assert "import: cat: joined" in text
     assert cr.plan("Testplace", cr.load_spots(p)["Testplace"], table)
+
+
+def test_approach_steps_are_holds_and_flicks():
+    # the app's Route.parseLeg reads these: "R 2000" / "L 1000" (ms) and "U" / "D"
+    for name, s in cr.load_spots().items():
+        for step in s.get("approach") or []:
+            assert step in ("U", "D") or (step.split()[0] in ("R", "L") and step.split()[1].isdigit()), (name, step)
+
+
+def test_approach_leaves_the_area_and_path_alone(table):
+    assert cr.plan("x", {**SPOT, "approach": ["R 2000", "D"]}, table) == cr.plan("x", SPOT, table)
+
+
+def test_valley_of_the_ancients_travels_to_pador_then_approaches():
+    s = cr.load_spots()["Valley of the Ancients"]
+    assert (s["era"], s["place"]) == ("Antiquity", "Pador")
+    assert s["approach"] and s["area"] is None

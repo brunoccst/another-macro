@@ -128,7 +128,7 @@ object CatDaily {
         val tripClue = when {
             via != null -> clue.copy(location = via.groupValues[2].trim())
             // the spot's travel point when the cat's map isn't one (walk_to, or a door: enter)
-            spot != null && (spot.walkTo != null || spot.enter.isNotEmpty()) -> clue.copy(location = spot.place)
+            spot != null && (spot.walkTo != null || spot.enter.isNotEmpty() || spot.approach.isNotEmpty()) -> clue.copy(location = spot.place)
             else -> clue
         }
         // the spot's own trip where cat_spots.yaml has it, else the clue's place (basic macro teleport)
@@ -142,6 +142,16 @@ object CatDaily {
                 AreaNav.flick(ctx, up)
                 ctx.wait(2.5)
                 waitForField(ctx, 15)
+            }
+        }
+        if (spot != null && spot.approach.isNotEmpty()) {
+            // the fixed way across maps that have no area map (their own moves, not the cat's path)
+            step("walking the approach to ${clue.location}")
+            if (!CatRoute.approach(ctx, spot, fight)) MacroLog.i("${clue.location}: the field isn't showing after the approach")
+            val title = mapTitle(ctx)
+            MacroLog.i("${clue.location}: after the approach on '${title.ifEmpty { "?" }}'")
+            if (title.isNotEmpty() && !names(title, clue.location)) {
+                looked += "${clue.location} (approach ended on '$title')"
             }
         }
         if (walkTo != null && !walkAcross(ctx, walkTo)) return "couldn't walk across to $walkTo"

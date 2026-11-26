@@ -51,6 +51,10 @@ base: [learned/playing-on-the-phone.md](knowledge-base/learned/playing-on-the-ph
   needed, and the label by OCR. `another-macro cat-routes --write` turns the area data into each
   spot's fixed `path`; `--todo` lists what each spot still needs measured. The app
   (`CatRoute.kt`) falls back to the feather steering for any spot or step that doesn't match.
+  A cat on a map that isn't a travel point can have `enter` (flicks right after the trip) and
+  `approach` (holds in ms and flicks, e.g. `[R 2000, D, R 10000, L 1000, D]`) for the maps in
+  between that have no area map to walk by; both run before the spot's own `area`. Its `area`
+  is then measured on the cat's map, from where the approach ends.
   A spot with no route yet is measured by the app itself the first time its cat shows up
   (`CatSurvey.kt`, before the hunt): streets and stairs read from the area map, the arrival,
   the feather, a 3000 ms hold for `walk_scale` and a few feather reads for the drift. It logs one
