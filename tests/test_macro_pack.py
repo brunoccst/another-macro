@@ -176,6 +176,22 @@ def test_watch_ad_leaves_commercials_that_wont_close():
         assert not any("tap" in a for a in _flat(guards[0]["then"])), name
 
 
+def test_start_game_always_watches_the_login_ad():
+    # Don't Watch is tapped only when watch_ad is off; with it on a commercial that won't close
+    # is retried a limited number of times, then the run fails (never an unlimited wait)
+    _, spec = macro_pack.macros()["start-game"]
+    assert spec["params"]["watch_ad"]["default"] is True
+    assert "skip_ad" not in yaml.safe_dump(spec)
+    offer = spec["handlers"]["ad_offer"]
+    off = [a for a in offer if a.get("if") == "not watch_ad"]
+    assert off
+    on_branch = off[0]["else"]
+    assert not any(a.get("tap") == "ad_dont_watch_button" for a in _flat(on_branch))
+    assert any(a.get("tap") == "ad_dont_watch_button" for a in _flat(off[0]["then"]))
+    stops = [str(a["stop"]) for a in _flat(on_branch) if "stop" in a]
+    assert stops and all(s.startswith("failed: login ad not watched") for s in stops)
+
+
 def test_check_wants_how_steps(tmp_path):
     (tmp_path / "macros" / "daily").mkdir(parents=True)
     f = tmp_path / "macros" / "daily" / "x.yaml"

@@ -20,7 +20,10 @@ testing macros. Per-dungeon notes: [dungeons/](dungeons/README.md); the cat rout
   can play 1-3 commercials before the reward. Some end with "Reward granted", others only with a
   progress bar; `watch-ad` closes them with Back (also a Google Play sheet a commercial opens)
   and takes the reward dialog. With the premium subscription a "Thank you for subscribing"
-  dialog replaces the ad (Close).
+  dialog replaces the ad (Close). Skipping the login ad (Don't Watch) loses that day's ad (20
+  Chronos Stones to the inbox), and restarting the game while its popup is up does too (the
+  user, 2026-11-26): the popup comes back after a restart, so a commercial that won't close is
+  retried (force-close, start, Watch Video again).
 - **Battles (`Battle.kt`):** each front-row character's skill row is 5 boxes: normal attack,
   then skills 1-4 (x 0.177 / 0.346 / 0.499 / 0.653 / 0.807, y 0.759 on a 20:9 screen). Not every
   character has 4 skills; a missing or unusable one leaves the list open, and the normal attack
