@@ -164,6 +164,17 @@ app's survey); the data itself stays in the YAML.
 - `drift`: x 0.386-0.401 over ~2 min
 - `walk_scale`: R 3000 from rest walked 0.0713
 
+### Palsifal Palace
+
+- the trip lands on Palsifal Palace 1F, on the bottom street of its area map, by the main door
+- the cat walks on 1F's middle street, just above the stairs left of the arrival (checked by
+  hand 2026-11-26: the feather icon on the area map at x ~0.45, the cat in the flower garden
+  behind the arches). The app's survey of 2026-11-21 had read the same spot
+- the stairs up take a flick (a held up does nothing)
+- `walk_scale`: R 3000 from rest on the middle street walked 0.065 (0.92), measured by hand
+  2026-11-26. The survey's 1.02 made the walk left stop short of the stairs, so the flick missed
+  and the 2026-11-26 run missed the cat; a hold of about 2400 ms by hand reached the stairs
+
 ### Unigan
 
 - `continent`: learned on the phone (known_places.yaml)
