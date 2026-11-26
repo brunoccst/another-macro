@@ -164,6 +164,15 @@ These hold for macros you write and for any phone work you do.
 9. **New dungeon** → use the `map-dungeon` procedure (section 8). Maps and routes go in the
    macro's `dungeon:` block (`docs/dungeon-data.md`).
 
+10. **The login ad is always watched.** `start-game` takes the daily login-bonus ad (Watch
+    Video) unless its option `watch_ad` is off, and never taps Don't Watch otherwise: skipping
+    loses the day's ad. A commercial that won't close is retried (up to 3 tries), then the run
+    fails with "login ad not watched". It never waits without a time limit.
+11. **Routine steps can be switched off.** Every step of a routine (`daily-routine`, ...) has an
+    "Include <step>" option, made by the app from the routine's `steps:` (default on). A step
+    that is off is skipped and listed as "skipped (off)". Never hard-wire a step into a routine
+    without it.
+
 ## 7. Phone work and testing on the phone
 
 - Work that needs the phone (live tests, exploring the game, mapping dungeons, capturing

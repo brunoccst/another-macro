@@ -1,5 +1,7 @@
 # Turn the game on, always watch the daily login-bonus ad, stop on the field.
-# The ad itself is the basic macro watch-ad (watch it, close it, take the reward).
+# The ad itself is the basic macro watch-ad (watch it, close it, take the reward). With watch_ad on
+# this macro never taps Don't Watch (skipping loses the day's ad) and never waits without a limit:
+# a commercial that won't close is retried (up to 3 tries), then the run fails as "login ad not watched".
 name: start-game
 group: game
 description: Turn the game on, always watch the daily login-bonus ad, stop on the field.
@@ -20,9 +22,9 @@ how:
     then:
       - "The daily login-bonus ad: tap Watch Video"
       - {run: watch-ad, text: "Watch the commercial, close it and take the reward"}
-      - "A commercial that won't close: leave it once, then force-close the game and start it again without the ad"
+      - "A commercial that won't close: leave it, then force-close the game and start it again and tap Watch Video again (up to 3 tries, then fail: login ad not watched)"
     else:
-      - "Don't watch the login-bonus ad: stop as soon as the game is open"
+      - "Don't watch the login-bonus ad: tap Don't Watch and stop as soon as the game is open"
   - "Stop on the field"
 screens: [ad_reward, premium_thanks, ad_offer, close_app, field, game_data_update, title]
 unknown_timeout_s: 180
@@ -30,7 +32,7 @@ unknown_timeout_s: 180
 max_visits: {title: 4}
 
 setup:
-  - set: {continued: false, skip_ad: false, taps: 0}
+  - set: {continued: false, left_once: false, ad_tries: 0, ad_waits: 0, taps: 0}
   - status: opening the game
   - launch: "'games.wfs.anothereden'"
   - count: launches
@@ -56,32 +58,43 @@ handlers:
 
   ad_offer:
     - if: not watch_ad
-      then: [{stop: "the game is open (daily ad not checked)"}]
-    # the popup fades in: its header shows before its buttons, so wait for the button to tap
-    - if: skip_ad
       then:
+        # watch_ad off: Don't Watch, then on to the field; if its button isn't found, stop with the game open
         - if: found('ad_dont_watch_button')
           then:
-            - status: "login-bonus ad skipped (its commercial did not close)"
+            - count: ads_declined
+            - status: "login-bonus ad: Don't Watch (option watch_ad is off)"
             - tap: ad_dont_watch_button
             - wait: 2
           else:
-            - status: "login-bonus ad: waiting for its buttons"
+            - set: {ad_waits: ad_waits + 1}
+            - if: ad_waits >= 10
+              then: [{stop: "the game is open (daily ad not checked)"}]
             - wait: 1
       else:
+        # the popup fades in: its header shows before its buttons, so wait (a limited time) for the button to tap
         - if: found('watch_video_button')
           then:
             - count: ads_accepted
+            - set: {ad_waits: 0}
             - status: "login-bonus ad"
             - tap: watch_video_button
             - wait: 3
             - run: {macro: watch-ad, until: [field, ad_offer]}
             - log: "login-bonus ad: {result}"
-            # watch-ad closed the game to get out of a commercial: start it again, without the ad this time
+            # watch-ad closed the game to get out of a commercial: start it again and take the ad again
             - if: result == 'force-closed the game, a commercial did not close'
-              then: [{set: {skip_ad: true}}, {launch: "'games.wfs.anothereden'"}, {wait: 3}]
+              then:
+                - set: {ad_tries: ad_tries + 1}
+                - if: ad_tries >= 3
+                  then: [{stop: "failed: login ad not watched (a commercial did not close, {ad_tries} tries)"}]
+                - launch: "'games.wfs.anothereden'"
+                - wait: 3
           else:
+            - set: {ad_waits: ad_waits + 1}
             - status: "login-bonus ad: waiting for its buttons"
+            - if: ad_waits >= 60
+              then: [{stop: "failed: login ad not watched (its Watch Video button never showed)"}]
             - wait: 1
 
   premium_thanks:   # premium subscribers get this instead of an ad
@@ -109,19 +122,22 @@ handlers:
 unknown:
   # a commercial still in front (watch-ad gave up on it, or it came back; portrait ones too): never
   # tap it (that plays it). Leave it once (Home, then the game); still there the next time: close
-  # the game from recent apps (the game is then started again)
+  # the game from recent apps (the game is then started again and Watch Video is tapped again).
+  # Up to 3 tries, then fail: the ad must be watched, never skipped
   - if: ad_in_front()
     then:
-      - if: stats.ads_left_here >= 2
-        then: [{stop: "failed: a commercial did not close, even after force-closing the game"}]
+      - if: ad_tries >= 3
+        then: [{stop: "failed: login ad not watched (a commercial did not close, even after force-closing the game)"}]
       - count: ads_left_here
-      - if: stats.ads_left_here == 1
+      - if: left_once
         then:
-          - status: "leaving a commercial that won't close"
-          - leave_ad: true
-        else:
+          - set: {ad_tries: ad_tries + 1, left_once: false}
           - status: "force-closing the game: a commercial won't close"
           - force_close: true
+        else:
+          - set: {left_once: true}
+          - status: "leaving a commercial that won't close"
+          - leave_ad: true
     else:
       # "Confirming Downloaded Data: Do you wish to download the required data? ... Download Size:
       # ..." (a game update): Yes on Wi-Fi (or always, wifi_only off), else stop and say so.
