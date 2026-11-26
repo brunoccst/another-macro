@@ -58,6 +58,8 @@ object PhantomCrystal {
         val routes: List<WorldRoute> = loadRoutes(ctx)
         /** The current world's title, as its banner was read on arrival ("" = not read). */
         var title = ""
+        /** The next world's title, read during the fade into it (its banner hides the field's buttons, so it is gone once they show). */
+        var nextTitle = ""
         /** The current world is walked by its fixed route (not swept). */
         var routed = false
         // the draft route: how far the party walked from where it arrived (walk.yaml distance, + = right),
@@ -68,7 +70,7 @@ object PhantomCrystal {
         val draft = ArrayList<String>()
         /** Every world that had to be looked around (no fixed route, or the route lost its way): told to the user at the end. */
         val swept = ArrayList<String>()
-        fun newWorld() { skip.clear(); title = ""; routed = false; pos = 0.0; mark = 0.0; draft.clear() }
+        fun newWorld() { skip.clear(); title = nextTitle; nextTitle = ""; routed = false; pos = 0.0; mark = 0.0; draft.clear() }
     }
 
     /** The macro file the `worlds:` routes are read from. */
@@ -82,9 +84,11 @@ object PhantomCrystal {
      * else the one nearest the middle) and take the item / stamp, `portal [x y]` take the way on,
      * `stairs [x y]` take the stairs out of the dimension, `sensationalist` look for the
      * Sensationalist's "!" here (the run stops for the user when it shows), `moves_on` wait for
-     * the world to move on by itself.
+     * the world to move on by itself. [world] = the world's place in the run (1 = the first world):
+     * the route is picked by it only when the title wasn't read at all (World I always, being the
+     * first room).
      */
-    data class WorldRoute(val title: String, val steps: List<String>)
+    data class WorldRoute(val title: String, val steps: List<String>, val world: Int? = null)
 
     /** Every step word a route may use (also checked by the repository's tests). */
     val STEP_WORDS = setOf("l", "r", "u", "d", "wait", "chest", "cat", "portal", "stairs", "sensationalist", "moves_on")
@@ -95,7 +99,8 @@ object PhantomCrystal {
         (macroFile["worlds"] as? List<*>).orEmpty().mapNotNull { w ->
             val m = w as? Map<String, Any?> ?: return@mapNotNull null
             val t = m["title"]?.toString()?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            WorldRoute(t, (m["route"] as? List<*>).orEmpty().map { it.toString().trim() }.filter { it.isNotEmpty() })
+            WorldRoute(t, (m["route"] as? List<*>).orEmpty().map { it.toString().trim() }.filter { it.isNotEmpty() },
+                m["world"]?.toString()?.trim()?.toIntOrNull())
         }
 
     private fun loadRoutes(ctx: Context): List<WorldRoute> =
@@ -104,12 +109,18 @@ object PhantomCrystal {
     /** The world's own name in its title banner: the words after "Phantom Crystal Dimension". */
     internal fun worldName(title: String): String = Ocr.norm(title).replace(Regex("^.*?phantom crystal dimension"), "").trim()
 
-    /** The route for the world whose banner read [title]: its title words in the banner, else a close read. */
-    internal fun routeFor(routes: List<WorldRoute>, title: String): WorldRoute? {
+    /**
+     * The route for world number [world] whose banner read [title]: its title words in the banner,
+     * else a close read; when the title wasn't read (or for the first world, whose numeral OCR
+     * misreads), the route kept for that place in the run.
+     */
+    internal fun routeFor(routes: List<WorldRoute>, title: String, world: Int = 0): WorldRoute? {
         val t = worldName(title)
-        if (t.isEmpty()) return null
-        return routes.firstOrNull { val w = worldName(it.title); w.isNotEmpty() && Regex("(^| )${Regex.escape(w)}( |$)").containsMatchIn(t) }
-            ?: routes.map { it to Ocr.similarity(worldName(it.title), t) }.filter { it.second >= 0.8 }.maxByOrNull { it.second }?.first
+        val byTitle = if (t.isEmpty()) null else
+            routes.firstOrNull { val w = worldName(it.title); w.isNotEmpty() && Regex("(^| )${Regex.escape(w)}( |$)").containsMatchIn(t) }
+                ?: routes.map { it to Ocr.similarity(worldName(it.title), t) }.filter { it.second >= 0.8 }.maxByOrNull { it.second }?.first
+        if (byTitle != null) return byTitle
+        return if (world > 0 && (t.isEmpty() || world == 1)) routes.firstOrNull { it.world == world } else null
     }
 
     fun run(ctx: Context): String {
@@ -225,12 +236,12 @@ object PhantomCrystal {
             ctx.refresh()
             val title = ctx.readText(Region(0.1, 0.0, 0.8, 0.3)).filter { Ocr.norm(it.text) != "am" }.joinToString(" ") { it.text.trim() }
             if (Ocr.norm(title).length > Ocr.norm(r.title).length) r.title = title
-            if (!r.last && "last world" in Ocr.norm(title)) { r.last = true; MacroLog.i("the Last World") }
-            if (!r.cape && "cape" in Ocr.norm(title)) { r.cape = true; MacroLog.i("the World's Cape") }
+            if (!r.last && "last world" in Ocr.norm(r.title)) { r.last = true; MacroLog.i("the Last World") }
+            if (!r.cape && "cape" in Ocr.norm(r.title)) { r.cape = true; MacroLog.i("the World's Cape") }
             if (!r.last) ctx.wait(0.8)
         }
         MacroLog.i("World ${r.world}: title '${r.title}'")
-        val route = routeFor(r.routes, r.title)
+        val route = routeFor(r.routes, r.title, r.world)
         if (route == null) sweptNote(r, "no fixed route")
         else {
             r.routed = true
@@ -622,6 +633,7 @@ object PhantomCrystal {
     private fun afterLeaving(r: Run): Taken {
         val ctx = r.ctx
         MacroLog.i("World ${r.world}: not an item, stamp or menu: watching for a new world")
+        r.nextTitle = ""
         val end = System.currentTimeMillis() + 25_000
         var faded = false
         while (System.currentTimeMillis() < end) {
@@ -639,7 +651,12 @@ object PhantomCrystal {
                 return Taken.SOME
             }
             if (dark(ctx)) faded = true
-            else if (faded && ctx.find("field_menu_button") != null) {
+            else if (faded) {
+                // the new world's title banner shows (and hides the field's buttons) right after the fade
+                val title = lines.filter { it.center.y < 0.3 && it.center.x in 0.1..0.9 && Ocr.norm(it.text) != "am" }.joinToString(" ") { it.text.trim() }
+                if (Ocr.norm(title).length > Ocr.norm(r.nextTitle).length) r.nextTitle = title
+            }
+            if (faded && !dark(ctx) && ctx.find("field_menu_button") != null) {
                 MacroLog.i("a new world")
                 ctx.wait(1.0)
                 return Taken.LEFT
@@ -690,6 +707,12 @@ object PhantomCrystal {
         }
     }
 
+    /** An item or stamp banner at the top of the screen. */
+    private fun bannerOpen(ctx: Context): Boolean {
+        val top = ctx.readText(Region(0.15, 0.0, 0.7, 0.25)).joinToString(" ") { Ocr.norm(it.text) }
+        return "obtained" in top || "stamp" in top
+    }
+
     // the item and stamp popups are a banner at the top: a tap on the banner closes it (a tap low on
     // the screen can leave it open)
     private fun dismiss(ctx: Context) { MacroLog.i("closing the banner"); ctx.tap(Point(0.5, 0.11)); ctx.wait(1.2) }
@@ -710,9 +733,18 @@ object PhantomCrystal {
 
     /** A short look-around step: false when the party didn't move (a wall); only a move counts for the draft route. */
     private fun stride(r: Run, dir: Double, ms: Long): Boolean {
-        val before = view(r.ctx)
+        var before = view(r.ctx)
         walk(r.ctx, dir, ms)
-        val moved = moved(r.ctx, before)
+        var moved = moved(r.ctx, before)
+        // an item or stamp banner left open holds the party still: close it and step again (2026-11-25: most likely
+        // a stamp banner made three steps "walls" in a row, and the run stopped with "no way out")
+        if (!moved && bannerOpen(r.ctx)) {
+            MacroLog.i("World ${r.world}: a banner held the party: closing it")
+            dismiss(r.ctx)
+            before = view(r.ctx)
+            walk(r.ctx, dir, ms)
+            moved = moved(r.ctx, before)
+        }
         if (moved) r.pos += dir * r.walkTable.distance(ms.toDouble())
         return moved
     }

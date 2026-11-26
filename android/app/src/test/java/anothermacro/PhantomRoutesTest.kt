@@ -31,6 +31,20 @@ class PhantomRoutesTest {
         assertNull(PhantomCrystal.routeFor(routes, ""))
     }
 
+    private val placed = listOf(
+        PhantomCrystal.WorldRoute("World I", listOf("R 1450"), world = 1),
+        PhantomCrystal.WorldRoute("World II", listOf("chest 0.56 0.34"), world = 2),
+    )
+
+    @Test fun anUnreadTitlePicksTheRouteByPlace() {
+        assertEquals("World II", PhantomCrystal.routeFor(placed, "", 2)?.title)
+        assertNull(PhantomCrystal.routeFor(placed, "", 3))
+        // the first world's numeral is often misread
+        assertEquals("World I", PhantomCrystal.routeFor(placed, "HARD Phantom Crystal Dimension World!I", 1)?.title)
+        // a title that was read but matches no route never falls back to the place
+        assertNull(PhantomCrystal.routeFor(placed, "Phantom Crystal Dimension Somewhere Else", 2))
+    }
+
     @Test fun theMacroFileRoutesParse() {
         @Suppress("UNCHECKED_CAST")
         val file = Load(LoadSettings.builder().build()).loadFromString(File(repo, "macros/dungeon/phantom-crystal.yaml").readText()) as Map<String, Any?>

@@ -205,6 +205,9 @@ object HowItWorks {
     private fun phantom(env: MacroSteps.Env) = listOf(
         toDoor(env, "inside the Phantom Crystal Dimension"),
         Step("Tap the \"!\" over the Another Dungeon door, the glowing \"???\" tab, Phantom Crystal Dimension, Hard (uses the White Key), Move"),
+        Step("In every world: walk its fixed route (picked by the world's title, or by its place in the run when the title can't be read) " +
+            "to every chest and cat, then the portal; a world with no route, or whose route loses its way, is looked around " +
+            "instead, and the run's outcome tells you so"),
         Step("In every world: open every chest, tap the cats for their paw stamps, then take a portal (any \"!\" leading on)"),
         Step("World I has no chests: its king cat and notice board open the paw stamp menu, which is closed (claiming is left to you)"),
         Step("Bonus worlds move on by themselves once emptied"),

@@ -70,6 +70,7 @@ banner, each walked from where the party arrives (no area map there).
 | Key | Meaning |
 |---|---|
 | `title` | the world's own words in its title banner, after "Phantom Crystal Dimension" |
+| `world` | optional: the world's place in the run (1 = the first world); the route is picked by it only when the title wasn't read (and always for world 1, whose numeral OCR misreads) |
 | `route` | the steps from the arrival: `L 1200` / `R 1200` (hold from rest, ms), `U` / `D` (flick), `wait 1.5`, `chest x y` / `cat x y` (tap the "!" nearest that screen spot), `portal x y` (the way on), `stairs x y` (the stairs out of the dimension), `sensationalist` (look for their "!" here: the run stops for the user if it shows), `moves_on` (the world moves on by itself) |
 
 A world with no route, or whose route's "!" doesn't show after a small nudge either way, is

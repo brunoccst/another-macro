@@ -38,3 +38,9 @@ def test_app_knows_every_step_word():
     words = re.search(r"STEP_WORDS = setOf\(([^)]*)\)", kt).group(1)
     for w in ["l", "r", "u", "d", "wait", "chest", "cat", "portal", "stairs", "sensationalist", "moves_on"]:
         assert f'"{w}"' in words
+
+
+def test_world_places_are_whole_numbers_and_unique():
+    places = [e["world"] for e in worlds() if "world" in e]
+    assert all(isinstance(p, int) and p >= 1 for p in places)
+    assert len(set(places)) == len(places), "two routes for one place in the run"
