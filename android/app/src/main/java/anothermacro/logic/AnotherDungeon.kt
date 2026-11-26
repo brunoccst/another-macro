@@ -239,6 +239,8 @@ object AnotherDungeon {
         var planPos: Point? = null
         /** The map the exit led to, already read on the area map (null: read it again). */
         var nextMap: Int? = null
+        /** Walks to this map's exit so far: a second one starts from where the party is, not the path's last stop. */
+        var exitTries = 0
         /** The followed position is unsure (a chest was looked for around its spot): read it on the map before the next leg. */
         var unsure = false
         /** Sparkles read off the area map on a map whose sparkles move ([MapSpec.sparkleIcons]), in walking order; null: not read yet. */
@@ -433,7 +435,7 @@ object AnotherDungeon {
                 }
                 // the path is walked at once and the battles on the way are fought where they come (the
                 // walk reads its spot on the area map after each one); the enemies left, if any, after it
-                r.map = idx; r.chestsDone = 0; r.legsDone = 0; r.cleared = !spec.maps[idx].enemies
+                r.map = idx; r.chestsDone = 0; r.legsDone = 0; r.exitTries = 0; r.cleared = !spec.maps[idx].enemies
                 r.retryLater.clear(); r.retried.clear()
                 r.onBossMap = spec.maps[idx].boss
                 r.chestsTotal += spec.maps[idx].chests.size.takeIf { it > 0 } ?: spec.maps[idx].chestsCount
@@ -1777,7 +1779,8 @@ object AnotherDungeon {
         task(r, "Map ${idx + 1}: to the stairs down")
         val exit = ms.exit!!
         MacroLog.i("to the exit at (${"%.3f".format(exit.x)}, ${"%.3f".format(exit.y)})")
-        val leg = ms.path?.firstOrNull { it.target == "exit" } ?: plannedLeg(r, ms, exit, "exit")
+        // the path's exit leg starts at its last stop: only the first walk to the exit takes it
+        val leg = (if (r.exitTries++ == 0) ms.path?.firstOrNull { it.target == "exit" } else null) ?: plannedLeg(r, ms, exit, "exit")
         if (leg != null && r.pos != null) walkLeg(r, ms, leg, exit) else searchWalk(r, ms.layout!!, exit, "exit (no fixed path)")
         if (ms.exitWalk) {
             // off the screen's edge: hold on that way until the next map shows
@@ -1828,6 +1831,8 @@ object AnotherDungeon {
             fight(r)
         }
         MacroLog.i("the exit didn't take us anywhere yet")
+        // the search for the sign moved the party: read its spot on the map before the next walk
+        r.unsure = r.pos != null
     }
 
     /** A fish further than this from the screen's middle (where the party stands) is walked toward before the throw. */

@@ -24,8 +24,8 @@ Words used below:
 | [moonlight-forest](../macros/dungeon/moonlight-forest.yaml) | Yes: maps 1-3 `path`, boss map `steps` | None planned | Yes |
 | [sea-of-ice](../macros/dungeon/sea-of-ice.yaml) | Yes: maps 1-3 `path` (chests, sparkles, fish, jars), boss map `steps` | None planned. A fish not in view is walked to by the area map once | Yes ("<fish> (none in view)") |
 | [underworld](../macros/dungeon/underworld.yaml), area `den` | Nazrik + Demon's Den: `path`; boss map `steps` | Zero Point: **one area-map read per run** on arrival (sparkles move every run, Cat Dogu door shows only some runs), then planned steps (`Route.plan`) | Read itself: by design (logged). Off-path walks: yes |
-| underworld, area `cathedral` | Cathedral map: `path`; Nazrik step map `steps`; boss `steps` | **Every run**: Nazrik (2 maps) and Zero Point West walked to their exits by the area map (layouts, no `arrival`/`path`) | Yes, every run: "exit (no fixed path)" |
-| underworld, area `ark` | Ark map: `path`; boss `steps` | **Every run**: both Nazrik maps walked to their exits by the area map | Yes, every run |
+| underworld, area `cathedral` | Yes (since 2026-11-26): every map `path` or `steps` | None planned | Yes |
+| underworld, area `ark` | Yes (since 2026-11-26): every map `path` or `steps` | None planned | Yes |
 | underworld, area `tomb` | Yes: Nazrik maps by `steps`, Tomb `path`, boss `steps` | None planned | Yes |
 | [phantom-crystal](../macros/dungeon/phantom-crystal.yaml) | Per-world `worlds:` routes exist in code, **list is still empty** | **Every world swept** until the routes are mapped (another thread owns this) | Yes: "LOOKED AROUND (no fixed path) in: ..." (PR #157). Route-step nudges (4 short steps when a "!" is late) are logged only |
 | [cat-scratchbook](../macros/daily/cat-scratchbook.yaml) | 74/74 spots have a fixed trip (era, place); **18/74** have a fixed walk to the cat | Unrouted spots (56): measured once (CatSurvey), then steered by the area map's feather + hunt. Routed spots: hunt along the cat's drift range (the cat moves) | Measuring: yes. Steering: **new in this PR**: "LOOKED AROUND (no fixed path) for: <place> (no fixed route / left the fixed route / no cat along the fixed route)"; before, only the log and a counter |
@@ -61,12 +61,9 @@ Bigger gaps this PR does not start. Each needs the phone.
 
 1. **Phantom Crystal worlds**: map each world's route on the next White Keys (thread "Give
    Phantom Crystal worlds fixed routes" owns it).
-2. **Underworld cathedral and ark areas**: give Nazrik (both maps) and Zero Point West an
-   `arrival` and a generated `path` (`another-macro dungeon-routes --write`), like the den area.
-   Today every cathedral/ark run walks 2-3 maps by the area map. Progress 2026-11-24: Nazrik's
-   first map has its fixed path on both routes (the den run's arrival); the other maps need one
-   cathedral and one ark run (2 green keys each): each run now logs "ARRIVAL draft for map N"
-   for every map with a layout and no arrival, to copy into the data.
+2. **Underworld cathedral and ark areas**: DONE 2026-11-26. Nazrik (both maps) and Zero Point
+   West have arrivals and generated paths; the first runs on them walked every map without the
+   area map (cathedral 5/5, ark 5/5). Left: the Ark map's walk to its door missed the sign once.
 3. **Dogma Tower boss map**: replace the sweep with `steps` (e.g. `chest L` / `boss L`, like
    Moonlight Forest's boss map), measured on the phone.
 4. **Cat scratchbook**: 56 of 74 spots still have no fixed walk. Each run measures the new ones
