@@ -96,6 +96,16 @@ arrivals come from a dungeon run.
 - Boss area "Ark of the Underworld - Depths": its chest right of the arrival, the boss's
   question left. Its title holds the dungeon's name, so the map is matched by "Depths".
 
+## Fixed paths on the cathedral and ark routes (2026-11-25/26)
+
+- Arrivals measured on a cathedral run (2026-11-25): Nazrik's upper floor (0.465, 0.556), Zero
+  Point (West) (0.486, 0.553). Nazrik's first map arrives where the den run does.
+- First runs on the fixed paths (2026-11-26): ark 5/5 in 6m16s, cathedral 5/5 in 5m22s; all of
+  Nazrik and Zero Point (West) walked without the area map. The upper floor's ladder-down sign
+  showed only after a short step right of 0.386 (exit moved to 0.394). In the Ark, chest 4's "!"
+  showed a little left of the party at 0.578, and the walk to the door missed its sign once (the
+  area map then found it at the data's spot).
+
 ## Snow in Nazrik: the Cat Shrine (2026-11-24)
 
 The user (from a wiki screenshot, 2026-11-24): some runs it snows in Nazrik (about 5% of runs);
