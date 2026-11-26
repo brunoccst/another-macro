@@ -90,3 +90,18 @@ def test_check_catches_unknown_group(tmp_path):
     (tmp_path / "macros" / "raid" / "x.yaml").write_text("name: x\ngroup: raid\nhow: [a]\n")
     (tmp_path / "game.yaml").write_text((ROOT / "game.yaml").read_text(encoding="utf-8"))
     assert any("not one of game.yaml's groups" in p for p in macro_pack.check(tmp_path))
+
+
+def test_recovery_macro_is_an_installed_macro():
+    name = GAME["recovery_macro"]
+    assert (ROOT / "macros" / "basic" / f"{name}.yaml").is_file()
+
+
+def test_daily_ads_waits_for_its_watch_button_before_tapping():
+    text = (ROOT / "macros" / "daily" / "daily-ads.yaml").read_text(encoding="utf-8")
+    assert "found('ad_watch_button')" in text
+
+
+def test_back_to_field_taps_the_middle_once_before_pressing_back():
+    text = (ROOT / "macros" / "basic" / "back-to-field.yaml").read_text(encoding="utf-8")
+    assert text.index("centre_tapped") < text.index("- back: true")

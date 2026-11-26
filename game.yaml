@@ -14,6 +14,9 @@ package: games.wfs.anothereden
 activity: net.wrightflyer.toybox.AppActivity
 # when the game's day starts, in UTC: the Daily schedule runs a few minutes after it
 daily_reset: "15:00"
+# a routine runs this macro after one of its steps fails, so a screen the failed step left behind
+# doesn't make the next steps fail too
+recovery_macro: back-to-field
 # the GitHub repo that hosts this app's builds and packs
 repo: brunoccst/another-macro
 # the relay setup guide the app links to (the relay is macro-forge's)
