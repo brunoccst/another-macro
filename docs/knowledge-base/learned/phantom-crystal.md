@@ -78,3 +78,17 @@ bubbles are drawn at different sizes per world (scales 0.8-1.35 of the template)
   are always in the same spots (the user, 2026-11-24). So each world gets a fixed route, picked
   by its title banner (the macro's `worlds:` data); looking around is only the fallback for a
   world with no route yet.
+
+## Finishing the stuck run (2026-11-26)
+
+The run left in world 3 on 2026-11-25 was finished by starting the macro inside, several times:
+world 3 → a bonus world of many cats ("You got 20 stamps" on black on arrival; cats with "!"
+give items and a stamp; it moved on by itself) → the water palace (its 3 red-and-gold chests on
+the right were walked past: no "!" seen) → a world with no items → a tatami room with three
+Cat Daruma (a "!" on each: "The Cat Daruma's eyes gleam brightly.", then an item banner after a
+tap; the room moves on once all three are done) → the Last World (4 blue-grey chests: Cat
+Express Ticket ×5, Chant Script ×3, High Class Scroll ×25, one not taken; the Sensationalist at
+the far right; the stairs "!" at screen x 0.58). The run was restarted while the Last World's
+title banner still showed, the run read the title only after it was gone, so it didn't know it
+was the Last World, took the stairs out and skipped the Sensationalist.
+

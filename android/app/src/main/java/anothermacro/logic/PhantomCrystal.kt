@@ -44,6 +44,8 @@ object PhantomCrystal {
     private class Run(val ctx: Context) {
         val start = System.currentTimeMillis()
         var world = 1
+        /** The run entered the dimension itself, so [world] is the world's real place in it (started inside, it isn't known). */
+        var entered = false
         val items = LinkedHashMap<String, Int>()
         var chests = 0
         var stamps = 0
@@ -146,15 +148,22 @@ object PhantomCrystal {
         val ctx = r.ctx
         // a world's title or an item banner hides the field's buttons for a few seconds: look again before
         // taking this for the outside
+        // started inside: the world's title banner may still show (it hides the bar), and is only read now
+        fun readTitle() {
+            val t = ctx.readText(Region(0.1, 0.0, 0.8, 0.3)).filter { Ocr.norm(it.text) != "am" }.joinToString(" ") { it.text.trim() }
+            if ("phantom crystal" in Ocr.norm(t) && Ocr.norm(t).length > Ocr.norm(r.title).length) r.title = t
+        }
+        readTitle()
         var isInside = inside(ctx)
         for (i in 0 until 6) {
             if (isInside) break
+            readTitle()
             // an item or stamp banner left open (it hides the bar): close it
             val top = ctx.readText(Region(0.15, 0.0, 0.7, 0.25)).joinToString(" ") { Ocr.norm(it.text) }
             if ("obtained" in top || "stamp" in top) dismiss(ctx) else ctx.wait(1.0)
             isInside = inside(ctx)
         }
-        if (!isInside) enter(r)
+        if (!isInside) { enter(r); r.entered = true }
         while (true) {
             MacroLog.status("Phantom Crystal Dimension: world ${r.world}${if (r.cape) " (the Cape)" else ""}")
             when (clearWorld(r)) {
@@ -241,7 +250,7 @@ object PhantomCrystal {
             if (!r.last) ctx.wait(0.8)
         }
         MacroLog.i("World ${r.world}: title '${r.title}'")
-        val route = routeFor(r.routes, r.title, r.world)
+        val route = routeFor(r.routes, r.title, if (r.entered) r.world else 0)
         if (route == null) sweptNote(r, "no fixed route")
         else {
             r.routed = true
