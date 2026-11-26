@@ -63,6 +63,11 @@ behind the basic macro teleport that makes every cat trip.
     the survey read (another floor?).
   - Hot Springs (2026-11-17) and Snake Skull Mescita (2026-11-23): no feather on the area map
     (a quest marker may hide it), and the party marker on no street.
+- Hot Springs, found by hand 2026-11-26 after the macro missed it: the Map button opens the
+  World Map straight away (no area map seen). The trip lands near the street's right end, by an
+  exit sign below the party. The cat walks on the same street to the left, by the pool just right
+  of the bath house (about 4-5 s of walking left from the arrival); the hunt's short steps around
+  the arrival never reach it. A fixed route needs the street's length measured in holds.
   - Izana (2026-11-19): the party marker was read at the area map's top-left corner, so the
     arrival is wrong; the cat was read at (0.653, 0.449).
 
