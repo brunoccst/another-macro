@@ -44,6 +44,8 @@ object PhantomCrystal {
     private class Run(val ctx: Context) {
         val start = System.currentTimeMillis()
         var world = 1
+        /** The run entered the dimension itself, so [world] is the world's real place in it (started inside, it isn't known). */
+        var entered = false
         val items = LinkedHashMap<String, Int>()
         var chests = 0
         var stamps = 0
@@ -154,7 +156,7 @@ object PhantomCrystal {
             if ("obtained" in top || "stamp" in top) dismiss(ctx) else ctx.wait(1.0)
             isInside = inside(ctx)
         }
-        if (!isInside) enter(r)
+        if (!isInside) { enter(r); r.entered = true }
         while (true) {
             MacroLog.status("Phantom Crystal Dimension: world ${r.world}${if (r.cape) " (the Cape)" else ""}")
             when (clearWorld(r)) {
@@ -241,7 +243,7 @@ object PhantomCrystal {
             if (!r.last) ctx.wait(0.8)
         }
         MacroLog.i("World ${r.world}: title '${r.title}'")
-        val route = routeFor(r.routes, r.title, r.world)
+        val route = routeFor(r.routes, r.title, if (r.entered) r.world else 0)
         if (route == null) sweptNote(r, "no fixed route")
         else {
             r.routed = true
