@@ -31,6 +31,16 @@ class PhantomRoutesTest {
         assertNull(PhantomCrystal.routeFor(routes, ""))
     }
 
+    @Test fun onlyAStopOfItsOwnIsResumed() {
+        assertEquals(true, PhantomCrystal.resumable("no way out of world 3 found"))
+        assertEquals(true, PhantomCrystal.resumable("World's Cape: no Sensationalist here, but the stairs out weren't found: take them yourself"))
+        assertEquals(false, PhantomCrystal.resumable("stop requested"))
+        assertEquals(false, PhantomCrystal.resumable("safety stop: the shop or a purchase popup was on screen (no tap made there)"))
+        assertEquals(false, PhantomCrystal.resumable("Last World: chests taken; the Sensationalist is left for you (free Treatise/Codex/Opus of your choice, then the way out)"))
+        assertEquals(false, PhantomCrystal.resumable("World's Cape: the Sensationalist is here! Chests and cat taken; talk to him"))
+        assertEquals(false, PhantomCrystal.resumable("an NPC offers a free Treatise/Codex/Opus: choose it yourself"))
+    }
+
     private val placed = listOf(
         PhantomCrystal.WorldRoute("World I", listOf("R 1450"), world = 1),
         PhantomCrystal.WorldRoute("World II", listOf("chest 0.56 0.34"), world = 2),

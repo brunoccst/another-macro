@@ -72,6 +72,14 @@ object PhantomCrystal {
         val draft = ArrayList<String>()
         /** Every world that had to be looked around (no fixed route, or the route lost its way): told to the user at the end. */
         val swept = ArrayList<String>()
+        /** The party is inside the dimension (it entered, or the run started inside): only then a stop can be resumed. */
+        var within = false
+        /** Every time the run stopped for a reason of its own while inside and went on again: told to the user at the end. */
+        val resumed = ArrayList<String>()
+        /** The last resort was used: how it ended ("" = not used). */
+        var quit = ""
+        /** The test hook `test_stuck_world` already fired (it fires once per run). */
+        var testStuckDone = false
         fun newWorld() { skip.clear(); title = nextTitle; nextTitle = ""; routed = false; pos = 0.0; mark = 0.0; draft.clear() }
     }
 
@@ -125,23 +133,127 @@ object PhantomCrystal {
         return if (world > 0 && (t.isEmpty() || world == 1)) routes.firstOrNull { it.world == world } else null
     }
 
+    /** How many times a run that stopped inside the dimension starts again from where the party stands. */
+    internal const val MAX_RESUMES = 3
+    private const val RESUME_WINDOW_MS = 10 * 60_000L
+
+    /**
+     * Is a stop worth resuming from inside? Not the stops meant for the user (the Last World, the
+     * Sensationalist, a free-reward NPC), not a stop the user or the app asked for, and not a
+     * problem with the phone itself (taps off, no capture, black screen).
+     */
+    internal fun resumable(reason: String): Boolean {
+        val t = reason.lowercase()
+        return listOf("stop requested", "safety stop", "taps are off", "no screen capture", "the screen stayed black",
+            "last world:", "world's cape: the sensationalist", "an npc offers").none { t.startsWith(it) }
+    }
+
     fun run(ctx: Context): String {
         val r = Run(ctx)
-        val outcome = try { inner(r) } catch (s: StopScenario) { logDraft(r); s.message ?: "stopped" }
+        var outcome: String
+        var windowEnd = 0L
+        while (true) {
+            try {
+                outcome = inner(r)
+                break
+            } catch (s: StopScenario) {
+                logDraft(r)
+                val why = s.message ?: "stopped"
+                outcome = why
+                if (!r.within || !resumable(why)) break
+                if (r.resumed.isEmpty()) windowEnd = System.currentTimeMillis() + RESUME_WINDOW_MS
+                if (r.resumed.size >= MAX_RESUMES || System.currentTimeMillis() > windowEnd) {
+                    outcome = lastResort(r, why)
+                    break
+                }
+                r.resumed += "'$why' in world ${r.world}"
+                MacroLog.i("RESUMING (${r.resumed.size}/$MAX_RESUMES): stopped inside the dimension with '$why'; starting again from here")
+                MacroLog.status("Phantom Crystal Dimension: stopped inside ('${why.take(60)}'), resuming (${r.resumed.size}/$MAX_RESUMES)")
+                ctx.count("resumes")
+                runCatching { prepareResume(r) }.onFailure { MacroLog.e("could not get ready to resume", it) }
+            }
+        }
         val secs = (System.currentTimeMillis() - r.start) / 1000
         val items = r.items.entries.joinToString { "${it.key} ×${it.value}" }.ifEmpty { "none read" }
         val text = "$outcome — ${secs / 60}m ${secs % 60}s; worlds ${r.world}${if (r.cape) " (ended in the Cape)" else ""}; " +
             "chests ${r.chests}, stamps ${r.stamps}; items: $items" +
-            if (r.swept.isEmpty()) "" else "; LOOKED AROUND (no fixed path) in: ${r.swept.joinToString("; ")} (draft routes in the log)"
+            (if (r.swept.isEmpty()) "" else "; LOOKED AROUND (no fixed path) in: ${r.swept.joinToString("; ")} (draft routes in the log)") +
+            (if (r.resumed.isEmpty()) "" else "; RESUMED ${r.resumed.size}× after: ${r.resumed.joinToString("; ")}")
         runCatching {
             val o = org.json.JSONObject().put("when", java.text.SimpleDateFormat("yyyy-MM-dd HH:mm", java.util.Locale.US).format(java.util.Date(r.start)))
                 .put("dungeon", "Phantom Crystal Dimension").put("seconds", secs).put("outcome", outcome).put("worlds", r.world)
                 .put("cape", r.cape).put("chests", r.chests).put("stamps", r.stamps).put("items", org.json.JSONObject(r.items as Map<*, *>))
-                .put("looked_around", org.json.JSONArray(r.swept))
+                .put("looked_around", org.json.JSONArray(r.swept)).put("resumed", org.json.JSONArray(r.resumed))
+            if (r.quit.isNotEmpty()) o.put("quit", r.quit)
             java.io.File(ctx.debugDir.parentFile, "runs.log").appendText(o.toString() + "\n")
         }.onFailure { MacroLog.e("could not save the run report", it) }
         MacroLog.status(text)
         return text
+    }
+
+    /** Get the field ready for another go from where the party stands: banner closed, no remembered spots, the world read again. */
+    private fun prepareResume(r: Run) {
+        val ctx = r.ctx
+        ctx.refresh()
+        if (bannerOpen(ctx)) dismiss(ctx)
+        // a portal wrongly put on the skip list is a likely cause of "no way out"
+        r.skip.clear()
+        // where in the run the party is is no longer known: the title is read again, else the world is looked around
+        r.entered = false
+        r.title = ""
+        r.nextTitle = ""
+        r.routed = false
+        r.pos = 0.0; r.mark = 0.0; r.draft.clear()
+    }
+
+    /**
+     * Still stuck after the resumes: Menu → Quit, if the dimension's Menu has it (the rest of the
+     * dimension is lost, the routine goes on). Any other way the Menu words it is only logged, so
+     * the next stuck run can be taught it; the run then ends inside, said so in the outcome.
+     */
+    private fun lastResort(r: Run, why: String): String {
+        val ctx = r.ctx
+        MacroLog.i("LAST RESORT: still stuck inside after ${r.resumed.size} resumes ('$why'): Menu -> Quit")
+        val result = try { quitDimension(r) } catch (e: Exception) { "quit failed: ${e.message}" }
+        r.quit = result
+        return if (result.startsWith("quit")) "stuck in world ${r.world} ('$why'): left the dimension with Menu → Quit; the rest of it is lost"
+        else "$why; still inside the dimension, finish it by hand ($result)"
+    }
+
+    /** Open the Menu, log its options, and tap Quit (and its confirmation) when there is such an option. */
+    private fun quitDimension(r: Run): String {
+        val ctx = r.ctx
+        ctx.refresh()
+        if (bannerOpen(ctx)) dismiss(ctx)
+        val menu = ctx.find("field_menu_button") ?: return "no Menu button in view"
+        ctx.tapExact(menu.center); ctx.wait(2.0)
+        val lines = ctx.readText().filter { Ocr.norm(it.text) != "am" }
+        MacroLog.i("the dimension's Menu shows: ${lines.joinToString(" | ") { "${it.text} (${"%.2f".format(it.center.x)}, ${"%.2f".format(it.center.y)})" }.take(400)}")
+        val quit = lines.firstOrNull { val t = Ocr.norm(it.text); t == "quit" }
+        if (quit == null) {
+            // close the Menu again, so the party isn't left in it
+            ctx.tapExact(Point(0.95, 0.08)); ctx.wait(1.0)
+            return "the Menu has no Quit option; its words are in the log"
+        }
+        ctx.tapExact(quit.center); ctx.wait(2.0)
+        // a confirmation box: the answer that goes ahead (never a purchase: every tap goes through the guard)
+        val after = ctx.readText()
+        MacroLog.i("after Quit: ${after.joinToString(" | ") { it.text }.take(200)}")
+        after.firstOrNull { val t = Ocr.norm(it.text); t == "yes" || t == "ok" }?.let { ctx.tapExact(it.center); ctx.wait(2.0) }
+        // wait for the way out of the dimension: the field outside, or the Another Dungeon screen
+        val end = System.currentTimeMillis() + 40_000
+        while (System.currentTimeMillis() < end) {
+            val l = ctx.readText()
+            val all = l.joinToString(" ") { Ocr.norm(it.text) }
+            if ("congratulations" in all || "obtained dungeon items" in all) { finish(r); return "quit: left the dimension" }
+            if (l.any { Ocr.norm(it.text) == "another dungeon" }) { ctx.tapExact(AD_CLOSE); ctx.wait(2.0); return "quit: left the dimension" }
+            ctx.refresh()
+            if (!dark(ctx) && ctx.find("field_menu_button") != null && !inside(ctx)) return "quit: left the dimension"
+            // yes/ok again when a second box shows
+            l.firstOrNull { val t = Ocr.norm(it.text); t == "yes" || t == "ok" }?.let { ctx.tapExact(it.center) }
+            ctx.wait(1.0)
+        }
+        return if (inside(ctx)) "Quit was tapped but the party is still inside" else "quit: left the dimension"
     }
 
     private fun inner(r: Run): String {
@@ -163,7 +275,12 @@ object PhantomCrystal {
             if ("obtained" in top || "stamp" in top) dismiss(ctx) else ctx.wait(1.0)
             isInside = inside(ctx)
         }
-        if (!isInside) { enter(r); r.entered = true }
+        if (!isInside) {
+            // a resume never enters again (it would spend a White Key): the party is no longer inside
+            if (r.resumed.isNotEmpty()) { r.within = false; ctx.stop("not inside the dimension any more (after ${r.resumed.size} resume(s))") }
+            enter(r); r.entered = true
+        }
+        r.within = true
         while (true) {
             MacroLog.status("Phantom Crystal Dimension: world ${r.world}${if (r.cape) " (the Cape)" else ""}")
             when (clearWorld(r)) {
@@ -250,6 +367,13 @@ object PhantomCrystal {
             if (!r.last) ctx.wait(0.8)
         }
         MacroLog.i("World ${r.world}: title '${r.title}'")
+        // test hook (never in a macro's options): param test_stuck_world = N forces "no way out" once in world N
+        // (the N-th world of the run), to exercise the resume path live
+        if (!r.testStuckDone && ctx.params["test_stuck_world"]?.trim() == "${r.world}") {
+            r.testStuckDone = true
+            MacroLog.i("test: forcing 'no way out' in world ${r.world}")
+            ctx.stop("no way out of world ${r.world} found (test_stuck_world)")
+        }
         val route = routeFor(r.routes, r.title, if (r.entered) r.world else 0)
         if (route == null) sweptNote(r, "no fixed route")
         else {
