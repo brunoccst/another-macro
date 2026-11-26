@@ -73,6 +73,18 @@ behind the basic macro teleport that makes every cat trip.
 
 ## Measurements per spot
 
+### Valley of the Ancients
+
+- not a World Map travel point. The user (2026-11-26, checked by hand): travel to Pador (Antiquity),
+  arrive on the south street, walk right about 2 s to the ground down arrow and flick down. That
+  lands on a forest strip with no area map, which the World Map still counts as Pador. Walk right to
+  the end, then back left about 1 s to the down arrow and flick down: that arrives in the valley,
+  which has an area map. `cat_spots.yaml`: `place: Pador`,
+  `approach: [R 2000, D, R 10000, L 1000, D]` (the 10 s hold only has to reach the strip's end).
+- the cat ("shady under this big tree") is a few steps left of the valley arrival, in the top-right
+  part of the valley's area map. Arrival, cat and `walk_scale` are not measured yet: the next time
+  the clue comes up the app measures them (`mode: measured` then `cat-routes --import`).
+
 What was noted while each spot's data in `cat_spots.yaml` was measured (by hand or by the
 app's survey); the data itself stays in the YAML.
 
