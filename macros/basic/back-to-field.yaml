@@ -8,13 +8,14 @@ params:
   max_backs: {default: 12, help: "give up after this many Backs"}
 # what it does, in order, for the app's "How it works" ({option} = the option's value; run: opens up that macro)
 how:
+  - "On a screen it doesn't know, tap the middle of the screen once (clears a leftover chest animation)"
   - "Press Back every 1.5 s until the field shows (this closes menus and dialogs)"
   - "Give up after {max_backs} Backs, or when the game isn't in front"
 screens: [field]
 unknown_timeout_s: 60
 
 setup:
-  - set: {backs: 0}
+  - set: {backs: 0, centre_tapped: 0}
 
 handlers:
   field:
@@ -24,6 +25,13 @@ unknown:
   # the game is landscape-only: a portrait app in front means it isn't
   - if: not game_in_front()
     then: [{stop: the game is not in front}]
+  # a leftover animation (e.g. a chest opening) ignores Back: one tap on the middle clears it
+  - if: centre_tapped == 0
+    then:
+      - set: {centre_tapped: 1}
+      - status: "tapping the middle to clear a leftover animation"
+      - tap: [0.5, 0.65]
+      - wait: 1.5
   - set: {backs: backs + 1}
   - if: backs > max_backs
     then: [{stop: "could not reach the field after {max_backs} Backs"}]
