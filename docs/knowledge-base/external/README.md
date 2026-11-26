@@ -30,6 +30,7 @@ a note the project wrote never mix. The whole knowledge base: [README.md](../REA
 | [dungeons/dogma-tower.md](dungeons/dogma-tower.md) | wiki "Dogma Tower (Another Dungeon)", rev 319644 |
 | [dungeons/moonlight-forest.md](dungeons/moonlight-forest.md) | wiki "Moonlight Forest (Another Dungeon)", rev 319627 |
 | [dungeons/sea-of-ice.md](dungeons/sea-of-ice.md) | wiki "Sea of Ice (Another Dungeon)", rev 325485 |
+| [harpoon-fishing.md](harpoon-fishing.md) | wiki "Harpoon Fishing", rev 342035 |
 | [cat-scratchbook.md](cat-scratchbook.md): unlock, levels, rewards, every clue and its place | wiki "Cat Scratchbook", rev 343355 |
 
 ## Missing
