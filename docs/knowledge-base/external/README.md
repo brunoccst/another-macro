@@ -25,7 +25,9 @@ a note the project wrote never mix. The whole knowledge base: [README.md](../REA
 |---|---|
 | [keruri-highroad.md](keruri-highroad.md): era, continent, how it is reached (saved 2026-11-22) | wiki "Keruri Highroad", rev 310040 |
 | [another-dungeon.md](another-dungeon.md): keys, fight limit, rare maps, rewards, White Key, Cat Express Ticket, Otherlands | wiki "Another Dungeon", rev 342027 |
-| [another-dungeon-list.md](another-dungeon-list.md): all 80 dungeons (era, levels, elements, 3rd reward, tomes, wiki page) | wiki "Another Dungeon", rev 342027 |
+| [another-dungeon-list.md](another-dungeon-list.md): all 80 dungeons (era, levels, elements, 3rd reward, Cat Express Ticket, story character, tomes, wiki page) | wiki "Another Dungeon", rev 342027 |
+| [another-dungeon-rare-maps.md](another-dungeon-rare-maps.md): rare map 2 and 3 names for 50 dungeons, every Rare Horror | wiki "Another Dungeon", rev 342027 (saved 2026-11-27) |
+| [another-dungeon-rewards.md](another-dungeon-rewards.md): badge stats per reward line, story characters' Light/Shadow by dungeon, Otherlands gear | wiki "Another Dungeon", rev 342027 (saved 2026-11-27) |
 | [dungeons/burning-beast-kings-castle.md](dungeons/burning-beast-kings-castle.md) | wiki "Burning Beast King's Castle (Another Dungeon)", rev 319646 |
 | [dungeons/dogma-tower.md](dungeons/dogma-tower.md) | wiki "Dogma Tower (Another Dungeon)", rev 319644 |
 | [dungeons/moonlight-forest.md](dungeons/moonlight-forest.md) | wiki "Moonlight Forest (Another Dungeon)", rev 319627 |

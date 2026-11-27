@@ -48,7 +48,8 @@ Every dungeon's level, era and drops: [another-dungeon-list.md](another-dungeon-
   and on some a Rare Horror with its own material.
 - Chances: 79% both normal, 10% only map 2 rare, 10% only map 3 rare, 1% both.
 - Horrors only appear on maps 1 and 2, so Rare Horrors only on a rare map 2 (about 11%).
-- Rare map names per dungeon: the "Rare Areas" table on the page; the per-dungeon pages in
+- Rare map names per dungeon and the Rare Horrors:
+  [another-dungeon-rare-maps.md](another-dungeon-rare-maps.md); the per-dungeon pages in
   [dungeons/](dungeons/) list their own.
 
 ## Completion rewards
@@ -65,8 +66,9 @@ Every dungeon's level, era and drops: [another-dungeon-list.md](another-dungeon-
 
 - Present, Antiquity and Future Garulea, Underworld, Omegapolis, Entrana, Jasmond and Edax
   give up to 5 rewards: 24+ / 60+ / 120+ / 240+ / 360+.
-- Badges: each reward line has its own main stats per dungeon (the "Badge Rewards" table on
-  the page; the per-dungeon pages list theirs). The sub stat is any other stat or none.
+- Badges: each reward line has its own main stats per dungeon
+  ([another-dungeon-rewards.md](another-dungeon-rewards.md); the per-dungeon pages list
+  theirs). The sub stat is any other stat or none.
 
 ## Story characters' Light/Shadow
 
@@ -75,7 +77,8 @@ Every dungeon's level, era and drops: [another-dungeon-list.md](another-dungeon-
   key dungeons.
 - It happens on the "Congratulations" screen after the rewards, with its own animation
   (Toto Theater World: before leaving the dungeon). Each dungeon page names its character
-  ("Story Character Light/Shadow Points").
+  ("Story Character Light/Shadow Points"); all pairs:
+  [another-dungeon-rewards.md](another-dungeon-rewards.md#story-characters-lightshadow-by-dungeon).
 - Free characters below 255 can also gain it in Toto Theater World (about 24.8% per red key).
 
 ## Tsubura's Gems
@@ -89,10 +92,17 @@ Every dungeon's level, era and drops: [another-dungeon-list.md](another-dungeon-
   screen: normal clear rewards, chest loot and enemy materials, Light/Shadow points where the
   dungeon gives them, Horror drops once that Horror was beaten (Rare Horror drops too, when the
   roll gave its rare map), and the 10% White Key chance.
+- A skip counts toward the Nameless Girl's clear count (the Another Dungeon clears needed to
+  unlock her) and toward Astral Archive's Another Dungeon clear task and the Trials of
+  Cultivation. It does not count enemy kills for Astral Archive, Battle Awards or the monthly
+  Trials.
 - Not with a ticket: EXP and Git from battles, some drop-limited items (Black Pearls,
   Uninspiring Ax, Metallic Maiden's Bone), Phase Shifts and Phase Crystals, and routes that need
   items or conditions. Episode key item bonuses don't apply. Enemies that respawn without end
   give an amount in a fixed range.
+- Dungeons with a choice of route: after beating the bosses at the end of those routes and
+  clearing, those routes can be skipped. Otherlands: the items of every boss beaten in the
+  region come with the skip, whichever area was chosen.
 - Garulea/Underworld/Hollow currency is capped at 999 while skipping, until spent in the
   dungeon (it can overflow if skipping goes on at 999).
 - Otherlands: Hard and Very Hard both take 2 tickets, no completion rewards, only Areas 1-3.

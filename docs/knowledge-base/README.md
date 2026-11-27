@@ -30,6 +30,10 @@ page says what a source says; a learned page says what the project saw (and when
 - [another-dungeon.md](external/another-dungeon.md): how Another Dungeons work (keys, fight
   limit, rare maps, rewards, White Key, Cat Express Ticket, Otherlands)
 - [another-dungeon-list.md](external/another-dungeon-list.md): all 80 Another Dungeons
+- [another-dungeon-rare-maps.md](external/another-dungeon-rare-maps.md): rare map names and
+  Rare Horrors
+- [another-dungeon-rewards.md](external/another-dungeon-rewards.md): badge stats, story
+  characters' Light/Shadow, Otherlands gear
 - [dungeons/](external/dungeons/): one page per dungeon the wiki page was shared for
 - [cat-scratchbook.md](external/cat-scratchbook.md): unlock, levels, rewards, every clue
 
