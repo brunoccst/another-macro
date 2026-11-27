@@ -1193,10 +1193,18 @@ object AnotherDungeon {
         fight(r)
         var steps = 0
         var walked = false
+        var battles = 0
         var end = System.currentTimeMillis() + 2500
         while (System.currentTimeMillis() < end) {
             val p = fishShadow(ctx)
             if (p == null) {
+                // a battle that started as the party looked hides the fish: fight it, look again at the same spot
+                if (battles < 3 && Battle.inBattle(ctx) && fight(r)) {
+                    battles++
+                    MacroLog.i("a battle came while looking for the fish: fought, looking again at the same spot")
+                    end = System.currentTimeMillis() + 2500
+                    continue
+                }
                 // not in view: the walk can stop short of the spot (a false "stood still"): walk there by the
                 // area map once and look again
                 if (System.currentTimeMillis() + 200 >= end && !walked && ms.layout != null) {
@@ -1647,11 +1655,20 @@ object AnotherDungeon {
      * doesn't show (how close the template came).
      */
     private fun waitBubble(r: Run, seconds: Double): Boolean {
-        val end = System.currentTimeMillis() + (seconds * 1000).toLong()
+        val end0 = System.currentTimeMillis() + (seconds * 1000).toLong()
         var best = 0.0
         var frames = 0
+        var fights = 0
+        var end = end0
         while (System.currentTimeMillis() < end) {
             if (openBubble(r)) return true
+            // a battle that starts as the party stops hides the "!": fight it and look again at the same spot
+            if (fights < 3 && Battle.inBattle(r.ctx) && fight(r)) {
+                fights++
+                MacroLog.i("a battle came while watching for the \"!\": fought, looking again at the same spot")
+                end = System.currentTimeMillis() + (seconds * 1000).toLong()
+                continue
+            }
             frames++
             best = maxOf(best, r.ctx.vision.library.templates[BUBBLE]?.lastScore ?: 0.0)
             Thread.sleep(200)

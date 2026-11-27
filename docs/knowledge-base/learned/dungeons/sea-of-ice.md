@@ -89,3 +89,8 @@ Measurements and sightings behind thresholds in the code (`AnotherDungeon.kt`, `
   once met the boss's question first, and a "!" tapped then was a travel point outside
   (2026-11-16). After the boss, back outside, a "Travel to <place>? No / Yes" box came from a "!"
   next to the party (2026-11-16): the macro answers No.
+- **Spare-key runs 2026-11-27**: three "no fish in view" misses on maps 1 and 2, each because a
+  random battle started just as the macro looked, so the fish was hidden by the battle screen
+  (the macro now fights it and looks again at the same spot). Run 2 took four stairs about 0.005
+  off their data spots (map 1: 0.432 -> 0.428 and 0.383 -> 0.388; map 2: 0.411 -> 0.416; map 3:
+  0.415 -> 0.420; the data is corrected).
