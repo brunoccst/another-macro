@@ -142,3 +142,8 @@ Dogu. Taken by hand on the phone on 2026-11-24, in a Demon's Den run:
   doesn't keep the party in the middle near a street's end. A bag icon stayed on the area map
   after "no sparkle by" its spot (2026-11-18). OCR reads "Obtained" as "Obtalned" at times.
 - **Ladder-down sign** in Nazrik matches its template at 0.86 at scale 1.1, 0.44 at 1.0 (2026-11-18).
+- **Spare-key run 2026-11-27 (cathedral map 5)**: a long walk right ended with a battle starting
+  as the party stopped; the chest's "!" is hidden during a fight, so the chest looked missing
+  though it was there afterwards (the macro now fights and looks again). On the exit sign's walk
+  the party started walking about 1 s late; that second was taken off the walk but never made up,
+  so it stopped short (a late start is now walked in full). The chest and exit data are correct.

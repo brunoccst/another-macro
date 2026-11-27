@@ -373,6 +373,14 @@ object Route {
                     MacroLog.i("a battle came during the hold without being seen: the position is unknown")
                     disturbed = true; unseen = true
                 }
+                // the party started walking late: that time was taken off the walk, so walk it now (no stop short)
+                if (!came && lateStart > 0 && left >= t.minWalk) {
+                    MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: walking the ${lateStart}ms the late start took")
+                    ctx.drag(PRESS, Point(PRESS.x + if (right) 0.1 else -0.1, PRESS.y), t.holdMs(left).toLong())
+                    ctx.wait(0.4)
+                    if (fight()) { disturbed = true; unseen = true; return p }
+                    return walked(l, p, right, left)
+                }
                 return p
             }
             if (!battle && why == "view stood still" && loose) {
