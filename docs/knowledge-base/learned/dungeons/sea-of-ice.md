@@ -26,7 +26,7 @@ What the project found on the phone (data and macro: `macros/dungeon/sea-of-ice.
   - Map 3: the second street is two parts joined by a slope (right part 0.390, left 0.419),
     taken as one street. The right part of the third street is reached only from below (stairs
     at 0.580). The stairs up to chest 1's short street were taken at x 0.414 and 0.415 in two
-    runs (2026-11-18; 0.420 before). A fish icon at (0.483, 0.642) never had a fish in two runs.
+    runs (2026-11-18); the 0.420 set on 2026-11-27 was wrong and the data is back at 0.415 (taken at 0.414 again on 2026-11-27). A fish icon at (0.483, 0.642) never had a fish in two runs.
 - **The Abyss** (boss): no area map and no enemies. The chest's small "!" is ~3 s of walking left
   of the arrival, the boss's question ("A major trial awaits you beyond this point. Proceed?") a
   little further. Short steps with a look each took ~16 s to the chest (2026-11-15), so one 2 s
@@ -93,4 +93,14 @@ Measurements and sightings behind thresholds in the code (`AnotherDungeon.kt`, `
   random battle started just as the macro looked, so the fish was hidden by the battle screen
   (the macro now fights it and looks again at the same spot). Run 2 took four stairs about 0.005
   off their data spots (map 1: 0.432 -> 0.428 and 0.383 -> 0.388; map 2: 0.411 -> 0.416; map 3:
-  0.415 -> 0.420; the data is corrected).
+  map 3's 0.415 -> 0.420 was a mistake, see above).
+- **Overshoot on map 2, fish 2 (2026-11-27 test run)**: a battle cut a walk in a dark scene, no walking frame showed before
+  the battle's flash, so the walk counted as 0 ms and the whole distance was walked again: the party ended at x 0.558 against
+  the fish at 0.524 (0.034 past). The party stops about 2 s before the flash, and in the dark scene it started about 1.4 s
+  after the hold began, so the walk is now estimated as the time up to the flash less those two. The same 0 ms miscount
+  happened 3 more times (map 1 jar, map 2 fish 1 twice), harmless there as those walks ended at a wall. The area map read
+  after the battle once showed no party marker; it is now looked at a second time before falling back.
+- **Chest 2 on map 2 (0.428, 0.697)**: the last short walk (820 ms) moved the party only to 0.413; a read of the area map and
+  one more step found it. A chest at a street's end with no "!" now gets one short walk into the wall and another look
+  before the look-around. Map 2's stairs down on the first street were taken at 0.550 (data 0.556, now 0.550); the
+  other 0.556 stairs (third street) are not measured yet.
