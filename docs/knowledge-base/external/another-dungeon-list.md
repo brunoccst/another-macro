@@ -17,91 +17,101 @@ General rules (keys, fight limit, rare maps, rewards, Cat Express Tickets): see
   icons (fire, earth, wind, water, thunder, shade, crystal; slash, pierce, blunt; magic). The
   blunt icon is checked against Dogma Tower's page (Mammy and Ancient Sentry resist blunt);
   "pierce" (only Otherlands: Ratle Region. Area 3) is inferred, not checked.
+- **Cat Express Ticket**: which difficulties the page's eligible list allows (Hard, Very Hard
+  or both), "neither" for the page's list of ineligible dungeons, "not listed" for a dungeon on
+  neither list. Kairos: Level 4 destinations only. Otherlands Areas 1-3: 2 tickets and no
+  completion rewards; Area 4 is not eligible. The page also lists "Antiquity Zerberiya
+  Continent: Shade (Very Hard)" as eligible; it is not in this list. Rules:
+  [another-dungeon.md](another-dungeon.md#cat-express-ticket-skip).
+- **Story character who gains Light/Shadow**: the story characters the page names for that
+  dungeon, with the point they can gain (Light or Shadow, read from the icon beside the
+  character on the page). "-": none named. Chances: [another-dungeon.md](another-dungeon.md).
+  Same pairs by character: [another-dungeon-rewards.md](another-dungeon-rewards.md).
 - **Wiki page**: the dungeon's own page (maps, minimaps, chests, enemies). The wiki blocks
   automated fetches: the user saves the page and uploads it.
 
-| Dungeon | Era tab | Hard lv | Very Hard lv | 3rd reward icon | Hard: enemies | Very Hard: enemies | Wiki page |
-|---|---|---|---|---|---|---|---|
-| Moonlight Forest | Present | 21 | 58 | shadow | weak fire; resist wind | weak fire; resist earth, wind | Moonlight Forest (Another Dungeon) |
-| Industrial Ruins | Future | 24 | 60 | light | weak wind; resist earth | weak wind; resist earth, water | Industrial Ruins (Another Dungeon) |
-| Transitory Time Space | no era tab | 25 | 60 | light + shadow | - | - | Sealed Realm/Transitory Time Space (Another Dungeon) |
-| Nadara Volcano | Antiquity | 28 | 62 | light | weak water; absorb fire | weak water; resist wind; absorb fire | Nadara Volcano (Another Dungeon) |
-| Man-eating Marsh | Antiquity | 33 | 64 | shadow | weak earth; resist water | weak earth; resist fire, water | Man-eating Marsh (Another Dungeon) |
-| Miglance Labyrinth | Present | 33 | 40 | light + shadow | weak earth; resist fire | weak earth; resist fire | Miglance Labyrinth (Another Dungeon) |
-| Saki's Dream World | Future | 35 | 42 | light + shadow | weak fire; resist earth | weak fire; resist earth | Saki's Dream World (Another Dungeon) |
-| Tower of Time | Antiquity | 36 | - | shadow | - | - | Tower of Time (Another Dungeon) |
-| Dragon Palace | Antiquity | 40 | 50 | light + shadow | weak earth; resist water | weak earth; resist water | Dragon Palace (Another Dungeon) |
-| Miglance Castle | Present | 40 | 66 | light | - | - | Miglance Castle (Another Dungeon) |
-| Xeno-Domain | Future | 44 | 68 | light | weak fire; resist wind | weak fire; resist earth, wind | Xeno-Domain (Another Dungeon) |
-| Mementos | Present | 45 | 65 | light + shadow | - | - | Mementos (Another Dungeon) |
-| Corridor of Time Layers | Future | 48 | - | shadow | - | - | Corridor of Time Layers (Another Dungeon) |
-| Darkrealm - Wyrmking's Domain | Antiquity | 50 | 70 | light + shadow | resist shade | resist shade | Darkrealm - Wyrmking's Domain (Another Dungeon) |
-| Dream Flower | Antiquity | 50 | 70 | light + shadow | resist earth, water, wind | resist earth, water, wind | Dream Flower (Another Dungeon) |
-| Dreamslip Tower of Time | Present | 50 | 70 | light + shadow | - | - | Dreamslip Tower of Time (Another Dungeon) |
-| Edge of Contradiction | Present | 50 | 70 | light + shadow | - | - | Edge of Contradiction (Another Dungeon) |
-| Evil's Nest Arena | Future | 50 | 70 | light + shadow | - | weak blunt | Evil's Nest Arena (Another Dungeon) |
-| Forgotten Tale: Unborn Visions | Antiquity | 50 | 70 | light + shadow | - | - | Forgotten Tale: Unborn Visions (Another Dungeon) |
-| Path of Avarice | Antiquity | 50 | 70 | light + shadow | - | weak blunt, fire, thunder, water | Path of Avarice (Another Dungeon) |
-| Riftbreaker Ark | Future | 50 | 70 | light + shadow | - | - | Riftbreaker Ark (Another Dungeon) |
-| Wyrmrest Isle - Dragon's Depths | Antiquity | 50 | 70 | light + shadow | - | - | Wyrmrest Isle - Dragon's Depths (Another Dungeon) |
-| Wyrmrest Isle - Quadra Wastes | Antiquity | 50 | 70 | light + shadow | - | - | Wyrmrest Isle - Quadra Wastes (Another Dungeon) |
-| Otherlands: Baruoki Region. Area 1 | Present | 50-70 | - | light + shadow | weak fire, slash, wind; resist earth, water, wind | - | Otherlands: Baruoki Region/Area 1 |
-| Otherlands: Elzion Region. Area 1 | Future | 50-70 | - | light + shadow | weak blunt, wind; resist blunt, earth, slash | - | Otherlands: Elzion Region/Area 1 |
-| Otherlands: Ratle Region. Area 1 | Antiquity | 50-70 | - | light + shadow | weak earth, fire, slash, water; resist fire, water, wind | - | Otherlands: Ratle Region/Area 1 |
-| Mayu's Dream World | Future | 52 | 62 | light | weak wind | weak wind | Mayu's Dream World (Another Dungeon) |
-| The Riftbreaker | Future | 52 | 70 | light | weak earth; resist water | weak earth; resist fire, water | The Riftbreaker (Another Dungeon) |
-| Tower of Stars | Antiquity | 55 | - | shadow | weak wind; resist earth | - | Tower of Stars (Another Dungeon) |
-| Otherlands: Baruoki Region. Area 2 | Present | 55-75 | - | light + shadow | weak fire, slash; resist wind | - | Otherlands: Baruoki Region/Area 2 |
-| Otherlands: Elzion Region. Area 2 | Future | 55-75 | - | light + shadow | weak blunt, fire, wind; resist earth | - | Otherlands: Elzion Region/Area 2 |
-| Otherlands: Ratle Region. Area 2 | Antiquity | 55-75 | - | light + shadow | weak earth, fire, slash, water; resist fire, water, wind | - | Otherlands: Ratle Region/Area 2 |
-| Dogma Tower | Present | 60 | 65 | light + shadow | weak fire; resist blunt | weak fire; resist blunt | Dogma Tower (Another Dungeon) |
-| Otherlands: Baruoki Region. Area 3 | Present | 60-80 | - | light + shadow | weak fire, slash, wind; resist earth, water, wind; absorb wind | - | Otherlands: Baruoki Region/Area 3 |
-| Otherlands: Baruoki Region. Area 4 | Present | 60-80 | - | shadow | weak magic, wind | - | Otherlands: Baruoki Region/Area 4 |
-| Otherlands: Elzion Region. Area 3 | Future | 60-80 | - | light + shadow | weak blunt, fire, wind; resist earth | - | Otherlands: Elzion Region/Area 3 |
-| Otherlands: Elzion Region. Area 4 | Future | 60-80 | - | light | weak wind; resist earth, water | - | Otherlands: Elzion Region/Area 4 |
-| Otherlands: Ratle Region. Area 3 | Antiquity | 60-80 | - | light + shadow | weak water; resist earth, fire, pierce, wind; absorb fire | - | Otherlands: Ratle Region/Area 3 |
-| Otherlands: Ratle Region. Area 4 | Antiquity | 60-80 | - | light | weak water; resist wind; absorb fire | - | Otherlands: Ratle Region/Area 4 |
-| Beast King's Castle | Present | 64 | 72 | shadow | - | - | Beast King's Castle (Another Dungeon) |
-| Burning Beast King's Castle | Present | 65 | 70 | light + shadow | - | - | Burning Beast King's Castle (Another Dungeon) |
-| Former KMS HQ | Future | 65 | 70 | light + shadow | - | - | Former KMS HQ (Another Dungeon) |
-| Ruins of Rucyana | Present | 66 | - | light + shadow | - | - | Ruins of Rucyana (Another Dungeon) |
-| Snake Liver Damaku | Present | 66 | 72 | shadow | resist wind | resist wind | Snake Liver Damaku (Another Dungeon) |
-| Proto Eden | Future | 70 | 90 | light + shadow | - | - | Proto Eden (Another Dungeon) |
-| Toto Dreamland | Future | 70 | 76 | light | - | - | Toto Dreamland (Another Dungeon) |
-| Antiquity Garulea Continent | Antiquity | 80 | - | light + shadow | - | - | Antiquity Garulea Continent (Another Dungeon) |
-| Edax Unigan | no era tab | 80 | - | light + shadow | - | - | Edax Unigan (Another Dungeon) |
-| Entrana | no era tab | 80 | - | light + shadow | - | - | Entrana (Another Dungeon) |
-| Future Garulea Continent | Future | 80 | - | light + shadow | - | - | Future Garulea Continent (Another Dungeon) |
-| Jasmond | no era tab | 80 | - | light + shadow | - | - | Jasmond (Another Dungeon) |
-| Omegapolis | no era tab | 80 | - | light + shadow | - | - | Omegapolis (Another Dungeon) |
-| Present Garulea Continent | Present | 80 | - | light + shadow | - | - | Present Garulea Continent (Another Dungeon) |
-| Underworld | no era tab | 80 | - | light + shadow | - | - | Underworld (Another Dungeon) |
-| Mysterious Vortex - Warped Cochlea | no era tab | - |  | light + shadow | - | - | Mysterious Vortex - Warped Cochlea (Another Dungeon) |
-| Mysterious Vortex - Dust City | no era tab | - | 50-70 | light + shadow | - | - | Mysterious Vortex (Another Dungeon) Chp 4-6 |
-| Mysterious Vortex - Isle of Gospel | no era tab | - | 50-70 | light + shadow | - | - | Mysterious Vortex (Another Dungeon) Chp 4-6 |
-| Mysterious Vortex - Land of Ro | no era tab | - | 50-70 | light + shadow | - | weak fire | Mysterious Vortex (Another Dungeon) Chp 4-6/Land of Ro |
-| Mysterious Vortex - The Tower Argentauri | no era tab | - | 50-70 | light + shadow | - | - | Mysterious Vortex (Another Dungeon) Chp 1-3/The Tower Argentauri |
-| Mysterious Vortex - Thundering Fortress | no era tab | - | 50-70 | light + shadow | - | weak thunder | Mysterious Vortex (Another Dungeon) Chp 1-3/Thundering Fortress |
-| Mysterious Vortex - Tower of Selection | no era tab | - | 50-70 | light + shadow | - | weak earth, wind | Mysterious Vortex (Another Dungeon) Chp 1-3 |
-| Forest of Forgetfulness | Present | - | 65 | light | - | weak slash; absorb earth, fire, water, wind | Forest of Forgetfulness (Another Dungeon) |
-| Hanging Garden | Future | - | 67 | light | - | - | Hanging Garden (Another Dungeon) |
-| Astral Ruins | Present | - | 70 | light + shadow | - | weak fire | Astral Ruins (Another Dungeon) |
-| Burning Kurosagi Castle | Present | - | 70 | light + shadow | - | - | Burning Kurosagi Castle (Another Dungeon) |
-| Meigoku | Present | - | 70 | light + shadow | - | - | Meigoku (Another Dungeon) |
-| What the Planet Dreamt | Present | - | 70 | light + shadow | - | - | What the Planet Dreamt (Another Dungeon) |
-| Home's Lost Atelier | no era tab | - | 72 | light + shadow | - | weak blunt, earth, thunder; resist shade, water | Home's Lost Atelier (Another Dungeon) |
-| Ephemeral Time Space | no era tab | - | 75 | light + shadow | - | - | Sealed Realm/Ephemeral Time Space (Another Dungeon) |
-| Antiquity Zerberiya Continent: Crystal | Antiquity | - | 80 | light + shadow | - | weak crystal | Antiquity Zerberiya Continent: Crystal (Another Dungeon) |
-| Antiquity Zerberiya Continent: Thunder | Antiquity | - | 80 | light + shadow | - | weak shade; absorb thunder | Antiquity Zerberiya Continent: Thunder (Another Dungeon) |
-| City of Lost Paradise | Antiquity | - | 80 | light + shadow | - | weak crystal | City of Lost Paradise (Another Dungeon) |
-| Iscariot | Future | - | 80 | light + shadow | - | - | Iscariot (Another Dungeon) |
-| Sapient Complex: Midnight | Future | - | 80 | light + shadow | - | - | Sapient Complex: Midnight (Another Dungeon) |
-| Sea of Ice | Antiquity | - | 80 | light + shadow | - | weak crystal | Sea of Ice (Another Dungeon) |
-| Temporal Surveillance Ship Kairos - Blood Ritual Site | Present | - | 80 | light + shadow | - | - | Kairos (Another Dungeon)/Blood Ritual Site |
-| Temporal Surveillance Ship Kairos - Holy Meadow | Present | - | 80 | light + shadow | - | - | Kairos (Another Dungeon)/Holy Meadow |
-| Temporal Surveillance Ship Kairos - Institute of Despair | Present | - | 80 | light + shadow | - | - | Kairos (Another Dungeon)/Institute of Despair |
-| Temporal Surveillance Ship Kairos - Ruins of Glory | Present | - | 80 | light + shadow | - | - | Kairos (Another Dungeon)/Ruins of Glory |
-| Toto Theater World | Future | - | 80 | light + shadow | - | - | Toto Theater World (Another Dungeon) |
+| Dungeon | Era tab | Hard lv | Very Hard lv | 3rd reward icon | Hard: enemies | Very Hard: enemies | Cat Express Ticket | Story character who gains Light/Shadow | Wiki page |
+|---|---|---|---|---|---|---|---|---|---|
+| Moonlight Forest | Present | 21 | 58 | shadow | weak fire; resist wind | weak fire; resist earth, wind | Hard and Very Hard | - | Moonlight Forest (Another Dungeon) |
+| Industrial Ruins | Future | 24 | 60 | light | weak wind; resist earth | weak wind; resist earth, water | Hard and Very Hard | Amy (Light) | Industrial Ruins (Another Dungeon) |
+| Transitory Time Space | no era tab | 25 | 60 | light + shadow | - | - | neither | - | Sealed Realm/Transitory Time Space (Another Dungeon) |
+| Nadara Volcano | Antiquity | 28 | 62 | light | weak water; absorb fire | weak water; resist wind; absorb fire | Hard and Very Hard | - | Nadara Volcano (Another Dungeon) |
+| Man-eating Marsh | Antiquity | 33 | 64 | shadow | weak earth; resist water | weak earth; resist fire, water | Hard and Very Hard | Cyrus (Light) | Man-eating Marsh (Another Dungeon) |
+| Miglance Labyrinth | Present | 33 | 40 | light + shadow | weak earth; resist fire | weak earth; resist fire | Hard and Very Hard | Deirdre (Shadow) | Miglance Labyrinth (Another Dungeon) |
+| Saki's Dream World | Future | 35 | 42 | light + shadow | weak fire; resist earth | weak fire; resist earth | Hard and Very Hard | Jade (Shadow) | Saki's Dream World (Another Dungeon) |
+| Tower of Time | Antiquity | 36 | - | shadow | - | - | Hard | - | Tower of Time (Another Dungeon) |
+| Dragon Palace | Antiquity | 40 | 50 | light + shadow | weak earth; resist water | weak earth; resist water | Hard and Very Hard | Sheila (Light) | Dragon Palace (Another Dungeon) |
+| Miglance Castle | Present | 40 | 66 | light | - | - | Hard and Very Hard | Aldo (Light) | Miglance Castle (Another Dungeon) |
+| Xeno-Domain | Future | 44 | 68 | light | weak fire; resist wind | weak fire; resist earth, wind | Hard and Very Hard | Riica (Light) | Xeno-Domain (Another Dungeon) |
+| Mementos | Present | 45 | 65 | light + shadow | - | - | Hard and Very Hard | Joker (Shadow), Morgana (Shadow), Skull (Light), Violet (Light) | Mementos (Another Dungeon) |
+| Corridor of Time Layers | Future | 48 | - | shadow | - | - | Hard | - | Corridor of Time Layers (Another Dungeon) |
+| Darkrealm - Wyrmking's Domain | Antiquity | 50 | 70 | light + shadow | resist shade | resist shade | Hard and Very Hard | Wryz (Light) | Darkrealm - Wyrmking's Domain (Another Dungeon) |
+| Dream Flower | Antiquity | 50 | 70 | light + shadow | resist earth, water, wind | resist earth, water, wind | Hard and Very Hard | Alphen (Shadow), Colette (Light), Lloyd (Light), Shionne (Shadow) | Dream Flower (Another Dungeon) |
+| Dreamslip Tower of Time | Present | 50 | 70 | light + shadow | - | - | Hard and Very Hard | Glenn (Light), Harle (Shadow), Kid (Light), Serge (Light), Starky (Light) | Dreamslip Tower of Time (Another Dungeon) |
+| Edge of Contradiction | Present | 50 | 70 | light + shadow | - | - | Hard and Very Hard | Empel (Shadow), Klaudia (Light), Ryza (Light) | Edge of Contradiction (Another Dungeon) |
+| Evil's Nest Arena | Future | 50 | 70 | light + shadow | - | weak blunt | Hard and Very Hard | Kula (Light), Kyo (Light), Mai (Light), Terry (Light) | Evil's Nest Arena (Another Dungeon) |
+| Forgotten Tale: Unborn Visions | Antiquity | 50 | 70 | light + shadow | - | - | Hard and Very Hard | Cress (Light), Milla (Light), Velvet (Shadow), Yuri (Shadow) | Forgotten Tale: Unborn Visions (Another Dungeon) |
+| Path of Avarice | Antiquity | 50 | 70 | light + shadow | - | weak blunt, fire, thunder, water | Hard and Very Hard | Cyrus Albright (Shadow), Partitio (Light), Tithi (Light) | Path of Avarice (Another Dungeon) |
+| Riftbreaker Ark | Future | 50 | 70 | light + shadow | - | - | Hard and Very Hard | Garnet (Light), Steiner (Light), Vivi (Shadow), Zidane (Light) | Riftbreaker Ark (Another Dungeon) |
+| Wyrmrest Isle - Dragon's Depths | Antiquity | 50 | 70 | light + shadow | - | - | Hard and Very Hard | Wryz (Light) | Wyrmrest Isle - Dragon's Depths (Another Dungeon) |
+| Wyrmrest Isle - Quadra Wastes | Antiquity | 50 | 70 | light + shadow | - | - | Hard and Very Hard | Wryz (Light) | Wyrmrest Isle - Quadra Wastes (Another Dungeon) |
+| Otherlands: Baruoki Region. Area 1 | Present | 50-70 | - | light + shadow | weak fire, slash, wind; resist earth, water, wind | - | Hard (2 tickets) | - | Otherlands: Baruoki Region/Area 1 |
+| Otherlands: Elzion Region. Area 1 | Future | 50-70 | - | light + shadow | weak blunt, wind; resist blunt, earth, slash | - | Hard (2 tickets) | - | Otherlands: Elzion Region/Area 1 |
+| Otherlands: Ratle Region. Area 1 | Antiquity | 50-70 | - | light + shadow | weak earth, fire, slash, water; resist fire, water, wind | - | Hard (2 tickets) | - | Otherlands: Ratle Region/Area 1 |
+| Mayu's Dream World | Future | 52 | 62 | light | weak wind | weak wind | Hard and Very Hard | Saki (Light) | Mayu's Dream World (Another Dungeon) |
+| The Riftbreaker | Future | 52 | 70 | light | weak earth; resist water | weak earth; resist fire, water | Hard and Very Hard | Helena (Shadow) | The Riftbreaker (Another Dungeon) |
+| Tower of Stars | Antiquity | 55 | - | shadow | weak wind; resist earth | - | Hard | - | Tower of Stars (Another Dungeon) |
+| Otherlands: Baruoki Region. Area 2 | Present | 55-75 | - | light + shadow | weak fire, slash; resist wind | - | Hard (2 tickets) | - | Otherlands: Baruoki Region/Area 2 |
+| Otherlands: Elzion Region. Area 2 | Future | 55-75 | - | light + shadow | weak blunt, fire, wind; resist earth | - | Hard (2 tickets) | - | Otherlands: Elzion Region/Area 2 |
+| Otherlands: Ratle Region. Area 2 | Antiquity | 55-75 | - | light + shadow | weak earth, fire, slash, water; resist fire, water, wind | - | Hard (2 tickets) | - | Otherlands: Ratle Region/Area 2 |
+| Dogma Tower | Present | 60 | 65 | light + shadow | weak fire; resist blunt | weak fire; resist blunt | Hard and Very Hard | Nopaew (Light) | Dogma Tower (Another Dungeon) |
+| Otherlands: Baruoki Region. Area 3 | Present | 60-80 | - | light + shadow | weak fire, slash, wind; resist earth, water, wind; absorb wind | - | Hard (2 tickets) | - | Otherlands: Baruoki Region/Area 3 |
+| Otherlands: Baruoki Region. Area 4 | Present | 60-80 | - | shadow | weak magic, wind | - | neither | - | Otherlands: Baruoki Region/Area 4 |
+| Otherlands: Elzion Region. Area 3 | Future | 60-80 | - | light + shadow | weak blunt, fire, wind; resist earth | - | Hard (2 tickets) | - | Otherlands: Elzion Region/Area 3 |
+| Otherlands: Elzion Region. Area 4 | Future | 60-80 | - | light | weak wind; resist earth, water | - | neither | - | Otherlands: Elzion Region/Area 4 |
+| Otherlands: Ratle Region. Area 3 | Antiquity | 60-80 | - | light + shadow | weak water; resist earth, fire, pierce, wind; absorb fire | - | Hard (2 tickets) | - | Otherlands: Ratle Region/Area 3 |
+| Otherlands: Ratle Region. Area 4 | Antiquity | 60-80 | - | light | weak water; resist wind; absorb fire | - | neither | - | Otherlands: Ratle Region/Area 4 |
+| Beast King's Castle | Present | 64 | 72 | shadow | - | - | Hard and Very Hard | Feinne (Shadow) | Beast King's Castle (Another Dungeon) |
+| Burning Beast King's Castle | Present | 65 | 70 | light + shadow | - | - | Hard and Very Hard | Deirdre (Shadow) | Burning Beast King's Castle (Another Dungeon) |
+| Former KMS HQ | Future | 65 | 70 | light + shadow | - | - | Hard and Very Hard | Galliard (Shadow) | Former KMS HQ (Another Dungeon) |
+| Ruins of Rucyana | Present | 66 | - | light + shadow | - | - | neither | - | Ruins of Rucyana (Another Dungeon) |
+| Snake Liver Damaku | Present | 66 | 72 | shadow | resist wind | resist wind | Hard and Very Hard | Guildna (Shadow) | Snake Liver Damaku (Another Dungeon) |
+| Proto Eden | Future | 70 | 90 | light + shadow | - | - | Hard and Very Hard | Galliard (Shadow) | Proto Eden (Another Dungeon) |
+| Toto Dreamland | Future | 70 | 76 | light | - | - | Hard and Very Hard | - | Toto Dreamland (Another Dungeon) |
+| Antiquity Garulea Continent | Antiquity | 80 | - | light + shadow | - | - | Hard | Gariyu (Shadow) | Antiquity Garulea Continent (Another Dungeon) |
+| Edax Unigan | no era tab | 80 | - | light + shadow | - | - | Hard | Aldo (Light) | Edax Unigan (Another Dungeon) |
+| Entrana | no era tab | 80 | - | light + shadow | - | - | Hard | Kamlanage (Shadow) | Entrana (Another Dungeon) |
+| Future Garulea Continent | Future | 80 | - | light + shadow | - | - | Hard | Cerrine (Light) | Future Garulea Continent (Another Dungeon) |
+| Jasmond | no era tab | 80 | - | light + shadow | - | - | Hard | Feinne (Shadow) | Jasmond (Another Dungeon) |
+| Omegapolis | no era tab | 80 | - | light + shadow | - | - | Hard | Ashtear (Light) | Omegapolis (Another Dungeon) |
+| Present Garulea Continent | Present | 80 | - | light + shadow | - | - | Hard | Azami (Light) | Present Garulea Continent (Another Dungeon) |
+| Underworld | no era tab | 80 | - | light + shadow | - | - | Hard | Altena (Shadow) | Underworld (Another Dungeon) |
+| Mysterious Vortex - Warped Cochlea | no era tab | - |  | light + shadow | - | - | Very Hard | Nona (Shadow) | Mysterious Vortex - Warped Cochlea (Another Dungeon) |
+| Mysterious Vortex - Dust City | no era tab | - | 50-70 | light + shadow | - | - | Very Hard | Nona (Shadow) | Mysterious Vortex (Another Dungeon) Chp 4-6 |
+| Mysterious Vortex - Isle of Gospel | no era tab | - | 50-70 | light + shadow | - | - | Very Hard | Nona (Shadow) | Mysterious Vortex (Another Dungeon) Chp 4-6 |
+| Mysterious Vortex - Land of Ro | no era tab | - | 50-70 | light + shadow | - | weak fire | Very Hard | Nona (Shadow) | Mysterious Vortex (Another Dungeon) Chp 4-6/Land of Ro |
+| Mysterious Vortex - The Tower Argentauri | no era tab | - | 50-70 | light + shadow | - | - | Very Hard | Nona (Shadow) | Mysterious Vortex (Another Dungeon) Chp 1-3/The Tower Argentauri |
+| Mysterious Vortex - Thundering Fortress | no era tab | - | 50-70 | light + shadow | - | weak thunder | Very Hard | Nona (Shadow) | Mysterious Vortex (Another Dungeon) Chp 1-3/Thundering Fortress |
+| Mysterious Vortex - Tower of Selection | no era tab | - | 50-70 | light + shadow | - | weak earth, wind | Very Hard | Nona (Shadow) | Mysterious Vortex (Another Dungeon) Chp 1-3 |
+| Forest of Forgetfulness | Present | - | 65 | light | - | weak slash; absorb earth, fire, water, wind | Very Hard | - | Forest of Forgetfulness (Another Dungeon) |
+| Hanging Garden | Future | - | 67 | light | - | - | Very Hard | - | Hanging Garden (Another Dungeon) |
+| Astral Ruins | Present | - | 70 | light + shadow | - | weak fire | Very Hard | Guildna (Shadow) | Astral Ruins (Another Dungeon) |
+| Burning Kurosagi Castle | Present | - | 70 | light + shadow | - | - | Very Hard | Senya (Shadow) | Burning Kurosagi Castle (Another Dungeon) |
+| Meigoku | Present | - | 70 | light + shadow | - | - | Very Hard | Senya (Shadow) | Meigoku (Another Dungeon) |
+| What the Planet Dreamt | Present | - | 70 | light + shadow | - | - | Very Hard | Spirika (Light) | What the Planet Dreamt (Another Dungeon) |
+| Home's Lost Atelier | no era tab | - | 72 | light + shadow | - | weak blunt, earth, thunder; resist shade, water | neither | - | Home's Lost Atelier (Another Dungeon) |
+| Ephemeral Time Space | no era tab | - | 75 | light + shadow | - | - | neither | - | Sealed Realm/Ephemeral Time Space (Another Dungeon) |
+| Antiquity Zerberiya Continent: Crystal | Antiquity | - | 80 | light + shadow | - | weak crystal | Very Hard | Clarte (Shadow) | Antiquity Zerberiya Continent: Crystal (Another Dungeon) |
+| Antiquity Zerberiya Continent: Thunder | Antiquity | - | 80 | light + shadow | - | weak shade; absorb thunder | Very Hard | Clarte (Shadow) | Antiquity Zerberiya Continent: Thunder (Another Dungeon) |
+| City of Lost Paradise | Antiquity | - | 80 | light + shadow | - | weak crystal | Very Hard | Clarte (Shadow) | City of Lost Paradise (Another Dungeon) |
+| Iscariot | Future | - | 80 | light + shadow | - | - | Very Hard | Curio (Light), Mayu (Light) | Iscariot (Another Dungeon) |
+| Sapient Complex: Midnight | Future | - | 80 | light + shadow | - | - | Very Hard | Curio (Light) | Sapient Complex: Midnight (Another Dungeon) |
+| Sea of Ice | Antiquity | - | 80 | light + shadow | - | weak crystal | Very Hard | Sheila (Light) | Sea of Ice (Another Dungeon) |
+| Temporal Surveillance Ship Kairos - Blood Ritual Site | Present | - | 80 | light + shadow | - | - | Very Hard (Level 4 destinations only) | Ruvi (Shadow) | Kairos (Another Dungeon)/Blood Ritual Site |
+| Temporal Surveillance Ship Kairos - Holy Meadow | Present | - | 80 | light + shadow | - | - | Very Hard (Level 4 destinations only) | Ruvi (Shadow) | Kairos (Another Dungeon)/Holy Meadow |
+| Temporal Surveillance Ship Kairos - Institute of Despair | Present | - | 80 | light + shadow | - | - | Very Hard (Level 4 destinations only) | Ruvi (Shadow) | Kairos (Another Dungeon)/Institute of Despair |
+| Temporal Surveillance Ship Kairos - Ruins of Glory | Present | - | 80 | light + shadow | - | - | Very Hard (Level 4 destinations only) | Ruvi (Shadow) | Kairos (Another Dungeon)/Ruins of Glory |
+| Toto Theater World | Future | - | 80 | light + shadow | - | - | neither | - | Toto Theater World (Another Dungeon) |
 
 ## Tomes each dungeon drops
 
