@@ -213,6 +213,8 @@ object HowItWorks {
         Step("Bonus worlds move on by themselves once emptied"),
         Step("The last world: its chests, then stop before the character who offers a free Treatise/Codex/Opus, so you choose"),
         Step("The World's Cape: its chests and cat; if that character is there too, stop so you choose, otherwise take the stairs out"),
+        Step("If the run stops for any other reason while still inside (e.g. no way on found): close any banner and start again from where the party stands, up to 3 times in 10 minutes; each resume is told in the run's outcome (RESUMED)"),
+        Step("Still stuck after the resumes: open the Menu and tap Quit if it has it (the rest of the dimension is lost and the routine goes on); else end saying the party is still inside"),
     )
 
     // --- Cat Scratchbook ---------------------------------------------------------------------

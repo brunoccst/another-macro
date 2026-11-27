@@ -3,7 +3,9 @@
 # the final world ends it. Start it anywhere on the field (go_to_door: it travels to the Spacetime Rift
 # and walks to the shining Another Dungeon door), next to that door, or inside the dimension. In the Last World it stops after the chests, before the Sensationalist (you talk to them and pick
 # the free Treatise/Codex/Opus) and the way out. In the World's Cape it stops the same way only when the Sensationalist is
-# there (their "!" next to the cat's); otherwise it takes the stairs out.
+# there (their "!" next to the cat's); otherwise it takes the stairs out. A run that stops for any other
+# reason while inside starts again from where it stands (up to 3 times, told in the outcome); still stuck
+# after that, it leaves with Menu → Quit when the Menu has it.
 name: phantom-crystal
 group: dungeon
 icon: crystal

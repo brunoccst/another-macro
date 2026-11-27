@@ -92,3 +92,15 @@ the far right; the stairs "!" at screen x 0.58). The run was restarted while the
 title banner still showed, the run read the title only after it was gone, so it didn't know it
 was the Last World, took the stairs out and skipped the Sensationalist.
 
+
+## A run that stops inside (2026-11-26, user's decision)
+
+The game stays in the dimension across closing and reopening it, so a run that ends inside
+leaves every later routine step failing on that screen (2026-11-25). The macro now starts again
+from where the party stands, up to 3 times in 10 minutes, when it stops for a reason of its own
+(not the Last World / Sensationalist stops, not a stop the user asked for); each resume is in the
+outcome ("RESUMED") and `runs.log` (`resumed`). After the 3 resumes the user chose Menu → Quit as
+the last resort. What the dimension's Menu offers is not known yet: the first stuck run that
+reaches the last resort logs the Menu's words ("the dimension's Menu shows: ..."); add them here.
+Test hook (never in the macro's options): param `test_stuck_world` = N stops the run once with
+"no way out" in world N of the run, to exercise the resume path.
