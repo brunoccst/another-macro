@@ -935,6 +935,22 @@ object AnotherDungeon {
         val dir = if (party != null && chest.x < party.x) -1.0 else 1.0
         // the "!" pops up a while after the party stops: watch for it before looking around
         if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); return }
+        // a chest at a street's end: the walk can stop a little short of the wall. One short extra walk into
+        // the wall and another look is still the fixed path; only then the look-around below (reported)
+        val endSeg = ms.layout?.let { Route.segOf(it, chest) }
+        if (endSeg != null && r.pos != null && ms.layout != null) {
+            val toWall = when {
+                abs(chest.x - endSeg.x2) < 0.012 -> 1.0
+                abs(chest.x - endSeg.x1) < 0.012 -> -1.0
+                else -> 0.0
+            }
+            if (toWall != 0.0) {
+                val t = table(ctx, ms)
+                MacroLog.i("no \"!\" at the chest on the street's end: one short walk into the wall, then another look")
+                r.pos = Route.hold(ctx, ms.layout, t, r.pos!!, toWall > 0, t.holdMs(0.012).toLong()) { fight(r) }
+                if (waitBubble(r, 3.0)) { r.chestsDone++; ctx.count("chests"); r.unsure = true; return }
+            }
+        }
         // from here on the chest is looked for around its spot (a fallback): the run's report says so
         r.searched += "map ${r.map + 1}: looked for the chest at (${"%.3f".format(chest.x)}, ${"%.3f".format(chest.y)}) around its spot (no \"!\" there)"
         ctx.count("chest_lookarounds")
@@ -1506,8 +1522,10 @@ object AnotherDungeon {
          * follow from there. False if it isn't on the street the plan has it on.
          */
         fun resync(why: String, target: Double? = null): Boolean {
-            val seen = Route.seen(ctx, l, listOf(p, plan), why) { AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
+            fun read() = Route.seen(ctx, l, listOf(p, plan), why) { AreaNav.look(ctx) { emptyList() }.candidates.filter { Route.segOf(l, it) != null }
                 .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) } }
+            // no party marker on the first look (the map can still be opening after a battle): look once more
+            val seen = read() ?: run { MacroLog.i("$why: no party marker on the map: looking once more"); ctx.wait(0.5); read() }
             Route.disturbed = false; r.unsure = false
             if (seen == null) { MacroLog.i("$why: no party marker on the map; keeping (${"%.3f".format(p.x)}, ${"%.3f".format(p.y)})"); return true }
             val seg = Route.segOf(l, seen)!!

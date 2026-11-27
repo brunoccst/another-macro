@@ -101,7 +101,7 @@ object HowItWorks {
                 else Step("Don't stop for the enemies left: straight to the exit once the stops are done", note = opt(listOf("defeat_all")))
             } else null
             if (m.enemies && !m.boss && m.layout != null && m.steps == null)
-                sub += Step("Walk to the stops below at once, fighting the battles met on the way (after each one the party's spot is read again)")
+                sub += Step("Walk to the stops below at once, fighting the battles met on the way (after each one the party's spot is read again, and looked at once more when the first look shows no party marker)")
             when {
                 m.steps != null -> m.steps.forEach { sub += fixedStep(it, spec) }
                 m.layout == null -> sub += Step("Look around the map and tap each \"!\": its chest, then ${boss(spec)}")

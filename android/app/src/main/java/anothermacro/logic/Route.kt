@@ -185,6 +185,15 @@ object Route {
     private const val LATE_START_MS = 1000L
     /** ...by its time less this (when the first walking frame usually shows). */
     private const val NORMAL_START_MS = 700L
+    /**
+     * A battle's flash with no walking frame seen at all (a dark scene): the party stopped about this
+     * long (ms) before the flash, and it had started about [DARK_START_LAG_MS] after the hold began.
+     * Measures: docs/knowledge-base/learned/dungeons/sea-of-ice.md.
+     */
+    private const val FLASH_AFTER_STOP_MS = 2000L
+    private const val DARK_START_LAG_MS = 1400L
+    /** A hold's goal this close (map x) to a street's end is a wall stop, not a spot mid-street. */
+    private const val MID_STREET_MARGIN = 0.004
 
     /**
      * A dark scene where the camera waits before following: the view can stand still for the first
@@ -218,6 +227,10 @@ object Route {
         var left = t.distance(ms.toDouble())
         var holdMs = ms
         var cancels = 0
+        // where the whole hold would end, unclamped: mid-street (not into a wall) when it's inside the street
+        val goalRaw = from.x + (if (right) 1 else -1) * t.distance(ms.toDouble())
+        val goalSeg = segOf(l, from)
+        val goalMidStreet = goalSeg != null && goalRaw > goalSeg.x1 + MID_STREET_MARGIN && goalRaw < goalSeg.x2 - MID_STREET_MARGIN
         var press = PRESS
         var noEffect = 0
         repeat(10) {
@@ -312,8 +325,11 @@ object Route {
             // the party can start late; a walk shows by 0.5-0.9 s: count a later start as time not walked
             val lateStart = if (!cameraLags && frames > 5 && firstWalk > LATE_START_MS) firstWalk - NORMAL_START_MS else 0L
             if (lateStart > 0) MacroLog.i("hold ${if (right) "R" else "L"} $holdMs: the party started walking late (${firstWalk}ms)")
+            // a battle's flash with no walking frame seen (a dark scene): "0 ms walked" would walk it all again
+            val estimated = battle && lastField == 0L && why?.startsWith("flash") == true && res.stoppedAtMs != null
             val walkedMs = when {
                 !interrupted -> holdMs - lateStart
+                estimated -> (res.stoppedAtMs!! - FLASH_AFTER_STOP_MS - DARK_START_LAG_MS).coerceIn(0L, holdMs)
                 // the party stops when the battle starts: the last frame that still looked like the field
                 battle -> (lastField - lag - lateStart).coerceIn(0L, holdMs)
                 else -> res.heldMs.coerceAtMost(holdMs)
@@ -422,6 +438,20 @@ object Route {
                     p = walked(l, p, right, left)
                 }
                 return p
+            }
+            if (estimated) {
+                MacroLog.i("no walking frame before the flash at ${res.stoppedAtMs}ms: the walk is estimated at ${walkedMs}ms")
+                if (goalMidStreet) {
+                    // the goal is mid-street (a fish, a sparkle, a jar), not a wall that corrects an error: read the real spot once
+                    val seen = seen(ctx, l, listOf(p), "after an estimated walk") { AreaNav.look(ctx) { emptyList() }.candidates.filter { segOf(l, it) != null }
+                        .minByOrNull { abs(it.x - p.x) + 2 * abs(it.y - p.y) } }
+                    val s = seen?.let { segOf(l, it) }
+                    if (seen != null && s != null && s == goalSeg) {
+                        p = Point(seen.x.coerceIn(s.x1, s.x2), s.y)
+                        left = (goalRaw - p.x) * (if (right) 1 else -1)
+                        MacroLog.i("the map shows x ${"%.3f".format(p.x)}, ${"%.3f".format(left.coerceAtLeast(0.0))} left")
+                    }
+                }
             }
             if (left < t.minWalk) return p
             holdMs = t.holdMs(left).toLong()
