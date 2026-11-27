@@ -179,3 +179,26 @@ def test_valley_of_the_ancients_travels_to_pador_then_approaches():
     s = cr.load_spots()["Valley of the Ancients"]
     assert (s["era"], s["place"]) == ("Antiquity", "Pador")
     assert s["approach"] and s["area"] is None
+
+
+def test_hot_springs_is_an_approach_route_without_an_area_map():
+    s = cr.load_spots()["Hot Springs"]
+    assert s["area"] is None and s["approach"] and cr.approach_sweep(s)
+    left, right = s["sweep_ms"]
+    assert 0 < left <= 1500 and 0 < right <= 1500
+
+
+def test_sweep_ms_needs_an_approach_and_two_numbers():
+    base = {"approach": ["L 3800"], "area": None, "sweep_ms": [600, 600]}
+    assert cr.approach_sweep(base)
+    assert not cr.approach_sweep({**base, "sweep_ms": [600]})
+    assert not cr.approach_sweep({**base, "approach": []})
+    assert not cr.approach_sweep({**base, "sweep_ms": None})
+    assert not cr.approach_sweep({**base, "area": SPOT["area"]})
+
+
+def test_sweep_ms_is_only_used_with_an_approach():
+    for name, s in cr.load_spots().items():
+        if "sweep_ms" in s:
+            assert s.get("approach") and s["area"] is None, name
+            assert len(s["sweep_ms"]) == 2 and all(isinstance(v, int) and v > 0 for v in s["sweep_ms"]), name

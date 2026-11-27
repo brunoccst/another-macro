@@ -95,6 +95,13 @@ def follow(name: str, spot: dict, t: dr.WalkTable, steps: list[str]) -> tuple[fl
     return dr.run_steps(m, scaled(t, float(spot["area"].get("walk_scale") or 1.0)), m.arrival, steps)
 
 
+def approach_sweep(spot: dict) -> bool:
+    """A spot with no area map that is a fixed route all the same: an `approach` that ends by the cat
+    and `sweep_ms` [left, right], how far the cat wanders either side of that point, in ms of walking."""
+    sweep = spot.get("sweep_ms")
+    return bool(spot.get("approach")) and spot.get("area") is None and isinstance(sweep, list) and len(sweep) == 2
+
+
 def missing(spot: dict) -> list[str]:
     """What still has to be measured on the phone for a fully fixed trip."""
     a = spot.get("area") or {}
@@ -309,6 +316,10 @@ def main(write: bool = False, check: bool = False, todo: bool = False, import_fr
             ready += 1
             lo, hi = drift_range(name, spot)
             print(f"{name} ({spot.get('era')}): {', '.join(steps) or '(arrives at the cat)'}; cat drifts x {lo:.3f}-{hi:.3f}")
+        elif approach_sweep(spot):
+            ready += 1
+            left, right = spot["sweep_ms"]
+            print(f"{name} ({spot.get('era')}): approach {', '.join(spot['approach'])}; sweeps {left} ms left, {right} ms right")
         elif todo:
             print(f"{name} ({spot.get('era')}): to measure: {', '.join(missing(spot))}")
     print(f"{ready}/{len(spots)} spots have a fixed route")

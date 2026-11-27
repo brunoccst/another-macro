@@ -55,6 +55,9 @@ base: [learned/playing-on-the-phone.md](knowledge-base/learned/playing-on-the-ph
   `approach` (holds in ms and flicks, e.g. `[R 2000, D, R 10000, L 1000, D]`) for the maps in
   between that have no area map to walk by; both run before the spot's own `area`. Its `area`
   is then measured on the cat's map, from where the approach ends.
+  A spot with an `approach` that ends by the cat and no area map at all (Hot Springs) adds
+  `sweep_ms: [left, right]`: the app counts it as a fixed route, walks the approach, and sweeps only
+  that many ms of walking each side before looking around (logged and listed as LOOKED AROUND).
   A spot with no route yet is measured by the app itself the first time its cat shows up
   (`CatSurvey.kt`, before the hunt): streets and stairs read from the area map, the arrival,
   the feather, a 3000 ms hold for `walk_scale` and a few feather reads for the drift. It logs one
