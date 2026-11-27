@@ -12,6 +12,8 @@ import kotlin.math.abs
  *  1-2. the trip: the basic macro teleport (Teleport.kt) with the spot's era, continent, place
  *     and sub-location;
  *  2b. the spot's `approach` (maps with no area map between the travel point and the cat's map);
+ *     a spot with an `approach` and `sweep_ms` but no area map ends there: the hunt sweeps only
+ *     that short range (a fixed route);
  *  3. from the arrival spot, the fixed moves to where the cat starts (Route.hold / flicks, with the
  *     walk table scaled to this area map's zoom);
  *  4. the cat wanders along its street within `drift`: the hunt sweeps between those two ends.
@@ -30,10 +32,14 @@ object CatRoute {
         val approach: List<Route.Step>,
         val layout: AreaNav.Layout?, val arrival: Point?, val cat: Point?,
         val driftLeft: Double, val driftRight: Double, val walkScale: Double, val path: List<Route.Step>?,
+        /** [approach] ends by the cat and there is no area map: the cat wanders this many ms of walking left, right of there */
+        val sweepMs: Pair<Long, Long>? = null,
     ) {
         /** continent null = learned or searched by the teleport */
         val fixedTravel get() = era.isNotEmpty()
         val fixedWalk get() = layout != null && arrival != null && cat != null && path != null
+        /** no area map, but a measured approach and sweep: a fixed route all the same */
+        val approachRoute get() = layout == null && approach.isNotEmpty() && sweepMs != null
     }
 
     private var cache: Map<String, Spot>? = null
@@ -68,6 +74,7 @@ object CatRoute {
             driftLeft = drift[0], driftRight = drift[1],
             walkScale = (area?.get("walk_scale") as? Number)?.toDouble() ?: 1.0,
             path = (v["path"] as? List<*>)?.let { Route.parseLeg(listOf("cat") + it).steps },
+            sweepMs = nums(v["sweep_ms"])?.takeIf { it.size == 2 }?.let { it[0].toLong() to it[1].toLong() },
         )
     }
 
@@ -102,21 +109,44 @@ object CatRoute {
         for (st in s.approach) {
             when (st) {
                 is Route.Step.Flick -> { AreaNav.flick(ctx, st.up); settle(ctx) }
-                is Route.Step.Hold -> {
-                    for (attempt in 1..3) {
-                        ctx.drag(Point(0.5, 0.65), Point(0.5 + if (st.right) 0.1 else -0.1, 0.65), st.ms)
-                        ctx.wait(0.5)
-                        ctx.refresh()
-                        if (!Battle.inBattle(ctx)) break
-                        MacroLog.i("${s.location}: a battle came during $st (try $attempt): fighting, then again")
-                        fight()
-                        settle(ctx)
-                    }
-                }
+                is Route.Step.Hold -> holdMs(ctx, s, st.right, st.ms, fight)
             }
         }
         settle(ctx)
         return ctx.find("field_menu_button") != null
+    }
+
+    /** Hold the stick right/left for [ms]; a battle during the hold is fought and the hold made again (up to 3 tries). */
+    private fun holdMs(ctx: Context, s: Spot, right: Boolean, ms: Long, fight: () -> Boolean) {
+        for (attempt in 1..3) {
+            ctx.drag(Point(0.5, 0.65), Point(0.5 + if (right) 0.1 else -0.1, 0.65), ms)
+            ctx.wait(0.5)
+            ctx.refresh()
+            if (!Battle.inBattle(ctx)) break
+            MacroLog.i("${s.location}: a battle came during a ${if (right) "R" else "L"} $ms hold (try $attempt): fighting, then again")
+            fight()
+            settle(ctx)
+        }
+    }
+
+    /**
+     * The hunt's walks for an [Spot.approachRoute]: from where the approach ended, out to the left end
+     * of `sweep_ms`, then across to the right end and back, in short holds (the bubble is looked for
+     * between them).
+     */
+    fun msSweeper(ctx: Context, s: Spot, fight: () -> Boolean): (Int) -> Unit {
+        val (left, right) = s.sweepMs!!
+        var pos = 0L // ms of walking right of where the approach ended
+        var goal = -left
+        val step = maxOf((left + right) / 4, 200L)
+        return { _ ->
+            if (pos == goal) goal = if (goal == right) -left else right
+            val d = (goal - pos).coerceIn(-step, step)
+            if (d != 0L) {
+                holdMs(ctx, s, d > 0, kotlin.math.abs(d).coerceIn(200L, 6000L), fight)
+                pos += d
+            }
+        }
     }
 
     // --- 3. the area map ------------------------------------------------------------------

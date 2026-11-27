@@ -165,6 +165,15 @@ object CatDaily {
             MacroLog.i("${clue.location}: no cat on the fixed route${if (range == null) " (left the path)" else " after sweeping its range"}: steering by the map")
             ctx.count("fixed_route_fallbacks")
             looked += "${clue.location} (${if (range == null) "left the fixed route" else "no cat along the fixed route"})"
+        } else if (spot != null && spot.approachRoute) {
+            // no area map to walk by: the approach ended by the cat, which wanders only a short way either side
+            ctx.count("fixed_routes")
+            step("sweeping the short range where the cat wanders")
+            if (hunt(ctx, walks = 1, walk = {})) return null
+            if (hunt(ctx, walks = 16, walk = CatRoute.msSweeper(ctx, spot, fight))) return null
+            MacroLog.i("${clue.location}: no cat after sweeping its range (${spot.sweepMs}): looking around")
+            ctx.count("fixed_route_fallbacks")
+            looked += "${clue.location} (no cat along the fixed route)"
         } else {
             MacroLog.i("${clue.location}: no fixed route yet (`another-macro cat-routes --todo`)")
             looked += "${clue.location} (no fixed route)"

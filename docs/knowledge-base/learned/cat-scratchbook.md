@@ -61,7 +61,7 @@ behind the basic macro teleport that makes every cat trip.
   again, so each needs measuring by hand while its clue is up:
   - Cat Shrine (survey 2026-11-24): neither the party marker nor the feather was on a street
     the survey read (another floor?).
-  - Hot Springs (2026-11-17) and Snake Skull Mescita (2026-11-23): no feather on the area map
+  - Hot Springs (2026-11-17, now routed by hand: see its section below) and Snake Skull Mescita (2026-11-23): no feather on the area map
     (a quest marker may hide it), and the party marker on no street.
 - Hot Springs, found by hand 2026-11-26 after the macro missed it: the Map button opens the
   World Map straight away (no area map seen). The trip lands near the street's right end, by an
@@ -304,3 +304,32 @@ app's survey); the data itself stays in the YAML.
 ### Elzion (Gamma District)
 
 - `continent`: learned on the phone (known_places.yaml)
+- measured by the app's survey 2026-11-27 (read back with `cat-scratchbook` `mode: measured`,
+  checked by hand against the map: no street at a screen edge)
+- `arrival`: (0.443, 0.559); `cat`: x 0.515 on the street at 0.529, one level above the arrival
+  street (stairs at x 0.491); feather x reads 0.500-0.516
+- `walk_scale`: 0.96; `drift`: 0.015 either side (default)
+- the survey's streets joined across the party icon (0.354-0.545) on the arrival street
+
+### Angal Settlement
+
+- measured by the app's survey 2026-11-27 (read back with `cat-scratchbook` `mode: measured`,
+  checked by hand: no street at a screen edge)
+- `arrival`: (0.453, 0.555); `cat`: x 0.339 on the arrival street, left of the arrival, no
+  stairs needed; feather x reads 0.325-0.339
+- `walk_scale`: 0.97; `drift`: 0.015 either side (default)
+- the survey's streets joined across an icon on the arrival street (0.303-0.669)
+
+### Hot Springs
+
+- no area map (the Map button opens the World Map straight away), so no survey; timed by hand on
+  the phone 2026-11-27, 18:30-19:41 UTC
+- the trip lands on the street by the exit sign; walking left at about 0.31 screen widths a second
+  the pool comes in view after 2 s and the bath house after 3.5 s
+- the cat hops around 0.3 screens of the street, about 3.4-4.3 s of walking left of the arrival
+  (centre about 3.8 s), jumping to another spot every few seconds; one hold of L 3800 from the
+  arrival ended right beside it, its bubble showing
+- tapping the bubble while the cat sat beside the party caught it (reward: a free item stack);
+  taps on a bubble the cat had already hopped away from did nothing
+- data: `approach: [L 3800]`, `sweep_ms: [600, 600]` (not yet run by the app; the next clue tests it)
+

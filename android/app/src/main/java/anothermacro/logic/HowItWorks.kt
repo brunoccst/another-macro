@@ -222,7 +222,7 @@ object HowItWorks {
         Step("For each cat not found yet:", listOf(
             Step("Travel to the clue's place on the World Map (the spot's era, continent and place where cat_spots has it, else the clue's place)", env.steps(Teleport.MACRO).orEmpty(), macro = Teleport.MACRO, label = "macro ${Teleport.MACRO}"),
             Step("Where the way to the cat's map crosses maps with no area map (cat_spots `approach`), walk its fixed holds and flicks first"),
-            Step("Walk to the cat's spot (a fixed path where known, else toward the feather on the area map)"),
+            Step("Walk to the cat's spot (a fixed path where known, else toward the feather on the area map); a spot with no area map but an approach and `sweep_ms` only sweeps that short range after the approach, and if the cat isn't there looks around (listed as LOOKED AROUND)"),
             Step("Walk in short steps and tap the cat's feather bubble"),
             Step("Battles met on the way: the battle macro with this macro's Battle options " +
                 "(${skills(battle(env.options), "skill_")})", macro = "battle", label = "macro battle"),
