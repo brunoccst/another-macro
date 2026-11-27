@@ -7,12 +7,15 @@ description: "Turn the game off (back → 'Close the app?' → Yes)."
 how:
   - {run: back-to-field, text: "Back to the field (Back until it shows)"}
   - "On the field press Back: the game asks \"Close the app?\""
+  - "Fails (with a screenshot) if the question has not shown after {max_backs} Backs"
   - "Tap Yes and stop once the game is off"
+params:
+  max_backs: {default: 5, help: "fail if \"Close the app?\" has not shown after this many Backs on the field"}
 screens: [close_app, field]
 unknown_timeout_s: 60
 
 setup:
-  - set: {confirmed: false}
+  - set: {confirmed: false, backs: 0}
 
 handlers:
   close_app:
@@ -22,7 +25,11 @@ handlers:
     - set: {confirmed: true}
     - wait: 3
   field:
-    - status: "on the field: pressing back to close the game"
+    # something that takes the Back presses (a card over the game) must never loop for hours
+    - set: {backs: backs + 1}
+    - if: backs > max_backs
+      then: [{stop: "failed: 'Close the app?' did not show after {max_backs} Backs on the field"}]
+    - status: "on the field: pressing back to close the game ({backs}/{max_backs})"
     - back: true
     - wait: 1.5
 
