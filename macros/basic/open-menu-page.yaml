@@ -23,6 +23,7 @@ how:
     then: ["Tap Shop"]
   - if: page == 'inbox'
     then: ["Tap Inbox"]
+  - "Wait (up to 10 s) until the page's button can be seen before tapping it"
   - "Stop once the {page} page is open (another page open on the way is closed first; gives up after {max_page_taps} taps)"
 screens: [ad_chest, shop, inbox, menu_open, field]
 unknown_timeout_s: 60
@@ -30,7 +31,7 @@ unknown_timeout_s: 60
 setup:
   - if: page != 'ads' and page != 'shop' and page != 'inbox'
     then: [{stop: "unknown menu page '{page}' (ads, shop or inbox)"}]
-  - set: {taps: 0, game_starts: 0}
+  - set: {taps: 0, game_starts: 0, button_waits: 0}
 
 handlers:
   # the page itself: done. Another menu page on top (left open by hand): Back closes it.
@@ -57,16 +58,26 @@ handlers:
         - back: true
         - wait: 1.5
         - stop: "no commercials left today"
-    - set: {taps: taps + 1}
-    - if: taps > max_page_taps
-      then: [{stop: "the menu's {page} button didn't open the {page} page"}]
-    - status: "menu: opening the {page} page"
-    - if: page == 'ads'
-      then: [{tap: menu_ad_icon}, {wait: 2.5}]
-    - if: page == 'shop'
-      then: [{tap: menu_shop_button}, {wait: 3}]
-    - if: page == 'inbox'
-      then: [{tap: menu_inbox_button}, {wait: 2}]
+    # the menu fades in: its page buttons show a moment after its frame, so wait (a limited time) until
+    # this page's button can be seen before tapping
+    - if: (page == 'ads' and not found('menu_ad_icon')) or (page == 'shop' and not found('menu_shop_button')) or (page == 'inbox' and not found('menu_inbox_button'))
+      then:
+        - set: {button_waits: button_waits + 1}
+        - if: button_waits > 10
+          then: [{stop: "failed: the menu's {page} button did not show"}]
+        - status: "menu: waiting for the {page} button ({button_waits}/10)"
+        - wait: 1
+      else:
+        - set: {button_waits: 0, taps: taps + 1}
+        - if: taps > max_page_taps
+          then: [{stop: "the menu's {page} button didn't open the {page} page"}]
+        - status: "menu: opening the {page} page"
+        - if: page == 'ads'
+          then: [{tap: menu_ad_icon}, {wait: 2.5}]
+        - if: page == 'shop'
+          then: [{tap: menu_shop_button}, {wait: 3}]
+        - if: page == 'inbox'
+          then: [{tap: menu_inbox_button}, {wait: 2}]
 
   field:
     - run: open-menu
