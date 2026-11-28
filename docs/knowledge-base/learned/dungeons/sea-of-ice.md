@@ -104,3 +104,14 @@ Measurements and sightings behind thresholds in the code (`AnotherDungeon.kt`, `
   one more step found it. A chest at a street's end with no "!" now gets one short walk into the wall and another look
   before the look-around. Map 2's stairs down on the first street were taken at 0.550 (data 0.556, now 0.550); the
   other 0.556 stairs (third street) are not measured yet.
+
+## Key run 2026-11-28 (1 red key, party 10)
+
+- All chests and fish were collected; two stairs-data warnings and one stairs fallback came from
+  stairs spots about 0.006 off their data: map 2's first stairs were taken at 0.556 (data said
+  0.550), map 3's stairs at 0.442 (data said 0.436), and map 2's other stairs down the second
+  street at 0.443 (data said 0.445). The data now holds these spots and the paths were generated
+  again.
+- A stairs try where the party stopped more than ~0.004 off its aimed spot (a battle or a short
+  walk) used up one of the 5 offsets (0, -0.006, +0.006, -0.012, +0.012) without testing it. Such
+  a try now aims at the same spot again, with up to 7 tries in all.

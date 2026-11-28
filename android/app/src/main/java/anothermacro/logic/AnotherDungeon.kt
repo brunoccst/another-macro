@@ -95,6 +95,9 @@ object AnotherDungeon {
     private const val JAR_BUBBLE = "field_jar_bubble"
     /** How far the party walks each way while clearing a map's enemies (area-map units). */
     private const val GRIND_SPAN = 0.09
+    /** Stairs tries in all, and how far off its aimed spot a try's stop may be before the try counts as no offset used. */
+    private const val STAIRS_TRIES = 7
+    private const val STAIRS_OFF_TARGET = 0.004
 
     /**
      * Words that mean the game wants something bought (game.yaml's safety words): never tap on,
@@ -1588,14 +1591,19 @@ object AnotherDungeon {
                     } catch (e: Exception) { MacroLog.i("minimap: ${e.message}") }
                     val next = Route.climbed(l, plan, st.up) ?: run { r.pos = p; offPath("the path has no stairs ${if (st.up) "up" else "down"} here"); return }
                     var took = false
-                    // the stairs can be a little off in the data: from the 2nd try, flick a little either side
+                    // the stairs can be a little off in the data: from the 2nd try, flick a little either side.
+                    // A try where the party stopped off its target (more than STAIRS_OFF_TARGET away) used no offset:
+                    // it aims at the same spot again (up to STAIRS_TRIES tries in all)
                     val offsets = listOf(0.0, -0.006, 0.006, -0.012, 0.012)
-                    for (attempt in 1..offsets.size) {
+                    var offsetIdx = 0
+                    for (attempt in 1..STAIRS_TRIES) {
                         val stairsPart = ctx.timings.begin(if (attempt == 1) "stairs" else "stairs again")
                         try {
                             // stairs only take the party standing on them
-                            val at = plan.x + offsets[attempt - 1]
+                            val at = plan.x + offsets[offsetIdx]
+                            var offTarget = false
                             if (abs(p.x - at) >= t.minWalk) walkTo(at)
+                            offTarget = abs(p.x - at) > STAIRS_OFF_TARGET
                             // a battle on the walk to the stairs: read where it left the party and walk on to them
                             // before flicking (a flick from the wrong spot is a wasted try). A hold's last moment often
                             // starts one: stand still a moment, fight it first, then flick from the real spot
@@ -1605,7 +1613,10 @@ object AnotherDungeon {
                                 if (!Route.disturbed) break
                                 if (!resync("on the way to the stairs after a battle", at)) { r.pos = p; offPath("not on the street the path expects"); return }
                                 if (abs(p.x - at) >= t.minWalk) walkTo(at)
+                                offTarget = abs(p.x - at) > STAIRS_OFF_TARGET
                             }
+                            if (offTarget) MacroLog.i("stairs ${st} (try $attempt): the party stopped at x≈${"%.3f".format(p.x)}, off the aimed ${"%.3f".format(at)}: the offset ${offsets[offsetIdx]} counts as not used")
+                            else if (offsetIdx < offsets.size - 1) offsetIdx++
                             val flickAt = System.currentTimeMillis()
                             val before = ctx.refresh().gray.clone()
                             AreaNav.flickSettled(ctx, st.up)
@@ -1641,7 +1652,7 @@ object AnotherDungeon {
                             return
                         } finally { ctx.timings.end(stairsPart) }
                     }
-                    if (!took) { r.pos = p; offPath("the flick ${st} didn't take the stairs in ${offsets.size} tries"); return }
+                    if (!took) { r.pos = p; offPath("the flick ${st} didn't take the stairs in $STAIRS_TRIES tries"); return }
                     plan = next
                     // the party comes off the stairs where it went on (the data can be a little off)
                     p = Point(p.x, next.y)
