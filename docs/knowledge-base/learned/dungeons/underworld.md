@@ -147,3 +147,8 @@ Dogu. Taken by hand on the phone on 2026-11-24, in a Demon's Den run:
   though it was there afterwards (the macro now fights and looks again). On the exit sign's walk
   the party started walking about 1 s late; that second was taken off the walk but never made up,
   so it stopped short (a late start is now walked in full). The chest and exit data are correct.
+
+## Ark run 2026-11-28 (2 green keys, party 1)
+
+- Ark 5/5 in 4m43s. Chest 4's "!" showed with the party at about 0.569 (data said 0.573): the
+  chest data is now 0.569 and the path was generated again.
